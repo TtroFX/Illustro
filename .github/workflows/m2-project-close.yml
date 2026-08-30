@@ -1,0 +1,64 @@
+name: Close verified M2 project lifecycle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-project-close.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: Production build
+        run: npm run build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Close M2-028 through M2-037
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          s = p.read_text()
+          for n in range(28, 38):
+              prefix = f'M2-{n:03d} '
+              line = next((line for line in s.splitlines() if line.startswith(prefix)), None)
+              if line is None or not line.endswith(':未完了'):
+                  raise SystemExit(f'unexpected progress state for {prefix}')
+              s = s.replace(line, line[:-3] + '完了', 1)
+          p.write_text(s)
+          PY
+      - name: Commit verified closure
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-project-close.yml
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: close M2 local project lifecycle [skip ci]'
+          git push
