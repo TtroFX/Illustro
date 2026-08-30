@@ -1,0 +1,39 @@
+name: Apply Illustro J closure
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/apply-phase6-j-closure.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Append authoritative J closure once
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='# Phase 6 J — Default Brush Pack Closure — 2026-08-30'
+          if ! grep -Fqx "$marker" ILLUSTRO_DESIGN_MEMO.md; then
+            printf '\n\n' >> ILLUSTRO_DESIGN_MEMO.md
+            cat .phase6-j-closure.md >> ILLUSTRO_DESIGN_MEMO.md
+            printf '\n' >> ILLUSTRO_DESIGN_MEMO.md
+          fi
+      - name: Commit and push if changed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'docs: close J default brush pack design'
+          git push
