@@ -1,0 +1,116 @@
+from pathlib import Path
+
+path = Path('ILLUSTRO_DESIGN_MEMO.md')
+text = path.read_text(encoding='utf-8')
+marker = '## Editor UI refinement — Tool Rail / Color Parameters / Quick Hole — 2026-08-31 — AUTHORITATIVE'
+
+section = '''
+
+## Editor UI refinement — Tool Rail / Color Parameters / Quick Hole — 2026-08-31 — AUTHORITATIVE
+
+**Status: AUTHORITATIVE.** This section refines the closed Editor UI specification. Where it conflicts with earlier presentational details for persistent Tool Rail labels, Lasso placement, Color Block parameter exposure, or Quick Hole surface treatment, this section takes precedence. It does not change the underlying Command Registry, tool semantics, color model, input arbitration, or the already-authoritative Quick Hole command mapping.
+
+### Primary Tool Rail — icon-only persistent presentation
+
+The Primary Tool Rail uses an **icon-only persistent presentation** in the production editor.
+
+- Tool names are not permanently rendered beside Tool Rail icons.
+- The rail remains compact so horizontal space is preferentially allocated to the Canvas Workspace.
+- Every Tool Family remains identifiable through its canonical H iconography and G functional accent mapping.
+- Active state is communicated through the canonical combination of feature-colored glyph, restrained soft tint, and structural selection indicator; a large saturated row background is not used.
+- Removing permanent text labels must not convert the rail into a recall-only interface. Every icon exposes a localized tooltip for hover-capable input, a localized semantic accessible name, a visible identification label on keyboard focus where needed, and a touch/pen long-press identification surface where appropriate.
+- Subtool availability remains visually discoverable through the canonical subtool/flyout affordance rather than permanently displayed tool names.
+- Tool Rail resizing continues to obey the existing ergonomic width and hit-target rules; icon-only presentation does not permit undersized interactive targets.
+
+This rule **supersedes earlier default presentation details that permanently displayed Tool Rail text labels beside icons**. Existing Tool Rail label typography tokens remain usable for transient tooltip, flyout, focus-identification, onboarding, and accessibility-related surfaces rather than persistent rail chrome.
+
+### Lasso placement in the Primary Tool Rail
+
+Lasso is a directly reachable high-frequency tool entry and is positioned **between Eyedropper and Text** in the canonical default Tool Rail ordering.
+
+The relevant ordering is:
+
+`… → Gradient → Eyedropper → Lasso → Text → Shape / Path → …`
+
+- Lasso uses the canonical Selection-family semantics and Magenta-family visual identity.
+- Its glyph must make freeform/lasso selection recognizable without requiring the user to open a generic Selection menu first.
+- Additional selection methods may remain available through the Selection/Lasso subtool surface.
+- This placement supersedes earlier mockup arrangements that placed Lasso near the bottom of the rail or separated it from the drawing/editing tools with unrelated utility entries.
+
+### Color Block — switchable HSV / RGB numeric parameter editing
+
+The Color Inspector Block includes a compact numeric color-parameter area in addition to the graphical color selector.
+
+- The numeric parameter area supports at minimum **HSV (H, S, V)** and **RGB (R, G, B)**.
+- HSV and RGB are shown through a **mutually switchable compact mode**, rather than permanently stacking both complete parameter sets vertically.
+- The persistent selector may use a compact tab, segmented control, or equivalent low-height switch consistent with the canonical component system.
+- Switching HSV/RGB changes only the representation; it does not alter the current color.
+- Graphical picker changes update the visible numeric values immediately.
+- Numeric edits update the canonical active color and graphical picker immediately.
+- Values are validated and clamped to their defined ranges before canonical color-state commit.
+- Locale-facing decimal formatting follows the existing localization rules; underlying numeric state remains locale-neutral.
+- HEX access may coexist with this numeric area when useful, but it must not force both HSV and RGB to remain simultaneously expanded.
+- Parameter presentation remains compact enough that the Color Block does not become unnecessarily tall.
+
+The intended information hierarchy is: graphical color selector → compact representation switch → currently selected numeric parameter set → deeper palette/history/specialist color tools through existing progressive-disclosure surfaces.
+
+### Quick Hole — independent hex geometry
+
+The Quick Hole consists of **six spatially independent regular-hexagonal command surfaces** surrounding a clearly visible empty center.
+
+- Adjacent hexagons must not overlap, intersect, visually merge, or share a combined silhouette.
+- A visible gap is maintained between neighboring hexagons.
+- The center remains visually open and must not be filled by a central plate, donut background, merged flower surface, or other persistent backing element.
+- The six hexagons must read as six individual direct-manipulation targets rather than one decorative compound control.
+- Hit regions may be ergonomically enlarged internally where necessary, but overlapping hit targets must not create ambiguous command ownership.
+- The existing 30°-rotated regular-hexagon construction and canonical six-command mapping remain unchanged unless separately superseded.
+
+### Quick Hole — canonical translucency
+
+Each Quick Hole command surface is genuinely translucent so that the underlying artwork remains visibly readable through it.
+
+- The canonical default uses approximately **26% white surface fill**, consistent with the existing G translucency rule.
+- The result must not visually become an opaque white button merely because the artwork underneath is bright or complex.
+- The user-adjustable Quick Hole opacity/customization contract remains in force.
+- Icon contrast must remain sufficient across arbitrary artwork without increasing the entire hex surface to an opaque card.
+- When contrast support is necessary, use restrained local edge/highlight treatment or the canonical adaptive glyph contrast support rather than a large dark backing plate.
+
+### Quick Hole — highlight-defined relief, not drop-shadow elevation
+
+Quick Hole depth is expressed primarily through **light/highlight behavior**, not through conventional floating-card drop shadows. The intended physical impression is a thin translucent interactive material whose edges catch light, rather than an opaque card floating above the artwork.
+
+- Strong external drop shadows are not used around individual Quick Hole hexagons.
+- Black or dark blurred halos are prohibited as the primary separation mechanism.
+- Large soft elevation shadows around the six-hex cluster are prohibited.
+- The six controls must not be visually unified by one shared shadow or backing surface.
+- Permitted depth cues include a restrained highlight along the light-facing edge, subtle inner luminance variation, a very thin translucent boundary treatment, localized bright edge contrast, and minimal internal shading sufficient to communicate pressable surface geometry.
+- Relief remains subtle and exists only to improve target recognition and material legibility without distracting from the artwork.
+
+### Quick Hole interaction-state treatment
+
+Quick Hole interaction states preserve the same translucent material language.
+
+- **Idle:** approximately 26% white translucent surface with restrained edge highlight.
+- **Hover/focus:** local highlight/tint emphasis; no large opaque recoloring.
+- **Pressed:** immediate localized change in highlight/internal luminance sufficient to communicate depression.
+- **Active/toggled state where applicable:** canonical feature accent plus structural state cue; state must not rely on hue alone.
+- **Drawing contact:** Quick Hole hides immediately according to the existing canvas-anchor/input rule.
+
+Press feedback must not introduce delayed bounce, elastic overshoot, or shadow-heavy elevation animation. Motion follows the existing V immediate-feedback and Reduced Motion contracts.
+
+### Supersession note
+
+This revision explicitly supersedes:
+
+- persistent Tool Rail text labels as the default rail presentation;
+- earlier Lasso positions outside the Eyedropper–Text interval;
+- Color Block mockups that expose only a graphical picker without directly editable HSV/RGB numeric values;
+- Quick Hole mockups where neighboring hexagons overlap or visually merge;
+- Quick Hole mockups rendered as effectively opaque white buttons;
+- Quick Hole depth treatments based primarily on external dark drop shadows.
+
+All unchanged F/G/H/V Editor Shell, iconography, accessibility, responsive, input-role, Command Registry, Layer UI revision, and Quick Hole behavioral rules remain authoritative.
+'''
+
+if marker not in text:
+    path.write_text(text.rstrip() + section + '\n', encoding='utf-8')
