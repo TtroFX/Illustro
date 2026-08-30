@@ -16,6 +16,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - name: Capture checked out identity
+        run: echo "ILLUSTRO_BUILD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -39,16 +41,15 @@ jobs:
       - name: Production build
         env:
           ILLUSTRO_BUILD_MODE: production
-          ILLUSTRO_BUILD_SHA: ${{ github.sha }}
         run: npm run build
       - name: Integration tests
         run: npm run test:integration
       - name: Report verified identity
         run: |
-          echo "verified_sha=${GITHUB_SHA}"
-          cat dist/build-info.json
+          echo "verified_sha=${ILLUSTRO_BUILD_SHA}"
+          node -e "const fs=require('fs'); const b=JSON.parse(fs.readFileSync('dist/build-info.json','utf8')); if (b.buildSha !== process.env.ILLUSTRO_BUILD_SHA) process.exit(1); console.log(JSON.stringify(b));"
       - uses: actions/upload-artifact@v4
         with:
-          name: illustro-${{ github.sha }}
+          name: illustro-${{ github.run_id }}-${{ github.run_attempt }}
           path: dist/
           if-no-files-found: error

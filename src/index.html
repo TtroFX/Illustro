@@ -5,10 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="illustro-build-mode" content="__ILLUSTRO_BUILD_MODE__" />
     <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./app-shell.css" />
     <title>Illustro</title>
   </head>
   <body>
-    <main id="app" hidden></main>
+    <div id="app" class="illustro-shell" data-illustro-shell="foundation" role="application" aria-label="Illustro">
+      <header class="shell-topbar">
+        <div class="shell-brand" aria-label="Illustro">
+          <span class="shell-menu-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <strong>Illustro</strong>
+        </div>
+        <div class="shell-topbar-track" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="shell-topbar-actions" aria-hidden="true"><span></span><span></span><span></span></div>
+      </header>
+      <div class="shell-workspace">
+        <aside class="shell-tool-rail" aria-label="Primary tool rail">
+          <div class="shell-rail-slots" aria-hidden="true">
+            <span class="is-active"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </aside>
+        <main class="shell-document" aria-label="Document workspace">
+          <div class="shell-tabstrip" aria-hidden="true">
+            <span class="shell-home-dot"></span>
+            <span class="shell-document-tab">Illustration</span>
+          </div>
+          <div class="shell-canvas-stage">
+            <canvas id="render-surface" class="shell-canvas" width="1" height="1" aria-label="Illustration canvas"></canvas>
+          </div>
+        </main>
+        <aside class="shell-inspector" aria-label="Inspector">
+          <div class="shell-inspector-tabs" aria-hidden="true">
+            <span class="is-active"></span><span></span><span></span><span></span><span></span>
+          </div>
+          <div class="shell-inspector-card" aria-hidden="true">
+            <span class="shell-line shell-line-wide"></span>
+            <span class="shell-line"></span>
+            <span class="shell-line shell-line-short"></span>
+          </div>
+          <div class="shell-inspector-list" aria-hidden="true">
+            <span></span><span></span><span class="is-selected"></span><span></span><span></span>
+          </div>
+          <div class="shell-inspector-card shell-inspector-card-lower" aria-hidden="true">
+            <span class="shell-line shell-line-wide"></span>
+            <div class="shell-preset-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+        </aside>
+      </div>
+    </div>
     <script type="module" src="./app/main.js"></script>
   </body>
 </html>

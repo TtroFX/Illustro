@@ -10,6 +10,7 @@ import {
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installDiagnosticsHook } from './diagnostics.js';
+import { installFoundationShell } from './shell.js';
 import { startDedicatedWorkers } from './workers.js';
 
 const logger = createLogger('app.bootstrap');
@@ -19,6 +20,7 @@ markPerformance('illustro.bootstrap.start');
 const root = document.documentElement;
 const runtime = getRuntimeConfig();
 const capabilities = collectRuntimeCapabilities();
+const shell = installFoundationShell();
 root.dataset.illustroRuntime = 'bootstrapped';
 root.dataset.illustroBuildMode = runtime.buildMode;
 root.dataset.illustroBuildSha = buildIdentity.buildSha;
@@ -30,6 +32,7 @@ const workers = startDedicatedWorkers();
 globalThis.addEventListener(
   'pagehide',
   () => {
+    shell.dispose();
     workers.dispose();
     stopPerformanceInstrumentation();
   },

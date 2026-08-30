@@ -1,9 +1,11 @@
-const CACHE_NAME = 'illustro-foundation-v1';
+const CACHE_NAME = 'illustro-foundation-v2';
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './app-shell.css',
   './app/main.js',
+  './app/shell.js',
   './app/workers.js',
   './gpu/webgpu-bootstrap.js',
   './generated/bootstrap-shader.js',
