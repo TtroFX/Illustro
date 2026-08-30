@@ -9,7 +9,9 @@ type IllustroGpuAdapter = {
 };
 
 type IllustroGpu = {
-  requestAdapter(options?: { powerPreference?: 'low-power' | 'high-performance' }): Promise<IllustroGpuAdapter | null>;
+  requestAdapter(options?: {
+    powerPreference?: 'low-power' | 'high-performance';
+  }): Promise<IllustroGpuAdapter | null>;
 };
 
 type NavigatorWithGpu = Navigator & { gpu?: IllustroGpu };

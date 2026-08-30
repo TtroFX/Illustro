@@ -26,13 +26,13 @@ M0-016 performance instrumentation基盤:完了
 M0-017 fixture/golden-data配置構造:完了
 M0-018 benchmark harness基盤:完了
 M0-019 build identity/commit SHA埋め込み:完了
-M0-020 formatting構成:未完了
-M0-021 lint構成:未完了
-M0-022 typecheck構成:未完了
-M0-023 unit test runner構成:未完了
-M0-024 integration test runner構成:未完了
-M0-025 CI基盤:未完了
-M0-026 dependency lock構成:未完了
+M0-020 formatting構成:完了
+M0-021 lint構成:完了
+M0-022 typecheck構成:完了
+M0-023 unit test runner構成:完了
+M0-024 integration test runner構成:完了
+M0-025 CI基盤:完了
+M0-026 dependency lock構成:完了
 M0-027 Apache-2.0 LICENSE生成配置基盤:未完了
 M0-028 NOTICE生成基盤:未完了
 M0-029 third-party provenance manifest基盤:未完了

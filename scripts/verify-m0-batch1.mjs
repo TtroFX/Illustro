@@ -27,7 +27,9 @@ await access('dist/index.html');
 run('build:dev');
 await access('dist/app/main.js.map');
 
-console.log(JSON.stringify({
-  event: 'm0.batch1.verify.pass',
-  items: ['M0-001', 'M0-002', 'M0-003', 'M0-004', 'M0-005', 'M0-006'],
-}));
+console.log(
+  JSON.stringify({
+    event: 'm0.batch1.verify.pass',
+    items: ['M0-001', 'M0-002', 'M0-003', 'M0-004', 'M0-005', 'M0-006'],
+  }),
+);

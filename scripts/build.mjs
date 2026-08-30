@@ -36,11 +36,18 @@ if (compiler.status !== 0) process.exit(compiler.status ?? 1);
 await cp(new URL('../.build/app/', import.meta.url), distDir, { recursive: true });
 for (const entry of await readdir(publicDir, { withFileTypes: true })) {
   const suffix = entry.isDirectory() ? '/' : '';
-  await cp(new URL(`${entry.name}${suffix}`, publicDir), new URL(`${entry.name}${suffix}`, distDir), {
-    recursive: true,
-  });
+  await cp(
+    new URL(`${entry.name}${suffix}`, publicDir),
+    new URL(`${entry.name}${suffix}`, distDir),
+    {
+      recursive: true,
+    },
+  );
 }
-await cp(new URL('../.build/meta/build-info.json', import.meta.url), new URL('build-info.json', distDir));
+await cp(
+  new URL('../.build/meta/build-info.json', import.meta.url),
+  new URL('build-info.json', distDir),
+);
 
 const template = await readFile(new URL('../src/index.html', import.meta.url), 'utf8');
 const html = template.replaceAll('__ILLUSTRO_BUILD_MODE__', mode);

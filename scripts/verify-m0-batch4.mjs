@@ -2,7 +2,14 @@ import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 
 const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
-for (const script of ['format', 'format:check', 'lint', 'typecheck', 'test:unit', 'test:integration']) {
+for (const script of [
+  'format',
+  'format:check',
+  'lint',
+  'typecheck',
+  'test:unit',
+  'test:integration',
+]) {
   assert.equal(typeof packageJson.scripts?.[script], 'string', `missing npm script: ${script}`);
 }
 
@@ -21,4 +28,6 @@ await access(new URL('../tests/unit/logger.test.ts', import.meta.url));
 await access(new URL('../tests/integration/build-output.test.ts', import.meta.url));
 await access(new URL('../.github/workflows/ci.yml', import.meta.url));
 
-console.log(JSON.stringify({ event: 'verify.m0-batch4.pass', lockfileVersion: lock.lockfileVersion }));
+console.log(
+  JSON.stringify({ event: 'verify.m0-batch4.pass', lockfileVersion: lock.lockfileVersion }),
+);

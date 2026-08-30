@@ -10,7 +10,12 @@ const scope = globalThis as unknown as WorkerScope;
 
 scope.addEventListener('message', (event) => {
   const message = event.data;
-  if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'ping') {
+  if (
+    typeof message === 'object' &&
+    message !== null &&
+    'type' in message &&
+    message.type === 'ping'
+  ) {
     scope.postMessage({ type: 'pong', subsystem: 'render' });
   }
 });

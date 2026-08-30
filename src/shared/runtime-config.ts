@@ -8,7 +8,9 @@ export interface RuntimeConfig {
 }
 
 function readBuildMode(): RuntimeBuildMode {
-  const value = document.querySelector<HTMLMetaElement>('meta[name="illustro-build-mode"]')?.content;
+  const value = document.querySelector<HTMLMetaElement>(
+    'meta[name="illustro-build-mode"]',
+  )?.content;
   return value === 'development' ? 'development' : 'production';
 }
 

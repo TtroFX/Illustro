@@ -49,6 +49,12 @@ assert.match(instrumentation, /performance\.measure/);
 const fixture = JSON.parse(await text('test/fixtures/m0/runtime-capabilities.json'));
 assert.equal(fixture.schema, 'illustro.m0.runtime-capabilities.fixture.v1');
 const golden = JSON.parse(await text('test/golden/m0/diagnostics-shape.json'));
-assert.deepEqual(golden.requiredTopLevelKeys, ['build', 'runtime', 'capabilities', 'performance', 'logs']);
+assert.deepEqual(golden.requiredTopLevelKeys, [
+  'build',
+  'runtime',
+  'capabilities',
+  'performance',
+  'logs',
+]);
 
 console.log(JSON.stringify({ event: 'm0.batch3.verified', mode, buildSha: buildInfo.buildSha }));

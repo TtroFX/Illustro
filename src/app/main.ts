@@ -37,7 +37,8 @@ globalThis.addEventListener(
 );
 
 if ('serviceWorker' in navigator) {
-  const localDevelopmentHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const localDevelopmentHost =
+    location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   if (globalThis.isSecureContext || localDevelopmentHost) {
     void navigator.serviceWorker
       .register(runtime.serviceWorkerUrl, { scope: './', updateViaCache: 'none' })
