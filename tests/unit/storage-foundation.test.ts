@@ -127,5 +127,14 @@ describe('OPFS project persistence foundation', () => {
       snapshot: { id: layerId, revision: INITIAL_REVISION, name: 'Layer 1' },
     });
     expect(again.record).toEqual(persisted.record);
+
+    await expect(
+      persistEntityRevision(root, project, {
+        kind: 'layer',
+        entityId: layerId,
+        revision: INITIAL_REVISION,
+        snapshot: { id: layerId, revision: INITIAL_REVISION, name: 'Conflicting revision' },
+      }),
+    ).rejects.toThrow('entity revision is immutable');
   });
 });
