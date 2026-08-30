@@ -1,0 +1,112 @@
+name: Integrate and verify M2 project coordination
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-coordination-integrate.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-verify-close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Gate project-scoped storage writes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/workers/storage.worker.ts')
+          s = p.read_text()
+          anchor = "import '../storage/project-worker-extension.js';\n"
+          addition = "import { getProjectWriteCoordinator } from '../storage/project-coordination.js';\n"
+          if addition not in s:
+              if anchor not in s:
+                  raise SystemExit('project worker import anchor missing')
+              s = s.replace(anchor, anchor + addition, 1)
+          s = s.replace("readonly type: 'storage.project.open';", "readonly type: 'storage.project.ensure';", 1)
+          s = s.replace("value.type === 'storage.project.open'", "value.type === 'storage.project.ensure'", 1)
+          s = s.replace("if (request.type === 'storage.project.open') {", "if (request.type === 'storage.project.ensure') {", 1)
+          root_anchor = "const rootPromise: Promise<IllustroOpfsRootV1> = openIllustroOpfsRoot();\n"
+          coord_line = "const projectWriteCoordinator = getProjectWriteCoordinator();\n"
+          if coord_line not in s:
+              if root_anchor not in s:
+                  raise SystemExit('root promise anchor missing')
+              s = s.replace(root_anchor, coord_line + root_anchor, 1)
+          old = "    if (request.type === 'storage.project.ensure') {\n      const layout = await projectLayout(request.projectId);\n      scope.postMessage({\n        type: 'storage.response',\n        requestId: request.requestId,\n        ok: true,\n        result: { projectId: layout.projectId },\n      });\n      return;\n    }\n"
+          new = "    if (request.type === 'storage.project.ensure') {\n      const result = await projectWriteCoordinator.runExclusive(request.projectId, async () => {\n        const layout = await projectLayout(request.projectId);\n        return { projectId: layout.projectId };\n      });\n      scope.postMessage({\n        type: 'storage.response',\n        requestId: request.requestId,\n        ok: true,\n        result,\n      });\n      return;\n    }\n"
+          if old not in s:
+              raise SystemExit('project ensure handler target missing')
+          s = s.replace(old, new, 1)
+          for marker in [
+              "    if (request.type === 'storage.entity.persist') {\n",
+              "    if (request.type === 'storage.transaction.commit') {\n",
+              "    if (request.type === 'storage.persistence.markDirty') {\n",
+              "    if (request.type === 'storage.persistence.flush') {\n",
+          ]:
+              if marker not in s:
+                  raise SystemExit(f'write guard target missing: {marker.strip()}')
+              guarded = marker + "      projectWriteCoordinator.assertWriteOwnership(request.projectId);\n"
+              s = s.replace(marker, guarded, 1)
+          persist_marker = "    async persist(reason, payload) {\n"
+          if persist_marker not in s:
+              raise SystemExit('scheduler persist target missing')
+          s = s.replace(persist_marker, persist_marker + "      projectWriteCoordinator.assertWriteOwnership(payload.projectId);\n", 1)
+          old = "    const project = await projectLayout(request.projectId);\n    const supported = await probeSyncAccessHandle(project.directories.tmp);\n"
+          new = "    const supported = await projectWriteCoordinator.runExclusive(request.projectId, async () => {\n      const project = await projectLayout(request.projectId);\n      return probeSyncAccessHandle(project.directories.tmp);\n    });\n"
+          if old not in s:
+              raise SystemExit('sync probe target missing')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - run: npx biome format --write src/storage/project-coordination.ts src/storage/project-worker-extension.ts src/storage/history-worker-extension.ts src/workers/storage.worker.ts tests/unit/project-coordination.test.ts
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: Production build
+        run: npm run build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Close M2-038 through M2-040
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          s = p.read_text()
+          for n in range(38, 41):
+              prefix = f'M2-{n:03d} '
+              line = next((line for line in s.splitlines() if line.startswith(prefix)), None)
+              if line is None or not line.endswith(':未完了'):
+                  raise SystemExit(f'unexpected progress state for {prefix}')
+              s = s.replace(line, line[:-3] + '完了', 1)
+          p.write_text(s)
+          PY
+      - name: Commit integrated coordination and closure
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-coordination-integrate.yml
+          git add src/storage/project-coordination.ts src/storage/project-worker-extension.ts src/storage/history-worker-extension.ts src/workers/storage.worker.ts tests/unit/project-coordination.test.ts IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: close M2 cross-tab project coordination [skip ci]'
+          git push
