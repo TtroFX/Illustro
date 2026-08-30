@@ -28,8 +28,8 @@ const sourceContracts = new Map([
   ],
   ['src/domain/layers.ts', ['RasterLayerV1', 'FolderLayerV1']],
   ['src/domain/special-layers.ts', ['LineartGroupLayerV1', 'LineartBoundaryLayerV1']],
-  ['src/domain/brush-schema.ts', ['BRUSH_SCHEMA_ID']],
-  ['src/domain/resources.ts', ['ResourceProvenanceV1']],
+  ['src/domain/brush-schema.ts', ['BRUSH_V1_SCHEMA', 'ILLBRUSH_PACKAGE_VERSION']],
+  ['src/domain/resources.ts', ['ProvenanceV1', 'ResourceV1']],
   [
     'src/domain/command-registry.ts',
     ['CommandRegistryV1', 'CommandTransactionId', 'parseCommandId'],
