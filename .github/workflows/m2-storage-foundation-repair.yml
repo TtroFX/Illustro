@@ -63,6 +63,11 @@ jobs:
           if old not in s:
               raise SystemExit('GC mark target missing')
           s = s.replace(old, new, 1)
+          old = "      const hash = `${prefix}${suffix}`;\n      if (isSha256Hex(hash)) hashes.add(hash);\n"
+          new = "      const hash = isSha256Hex(suffix) ? suffix : `${prefix}${suffix}`;\n      if (isSha256Hex(hash) && hash.startsWith(prefix)) hashes.add(hash);\n"
+          if old not in s:
+              raise SystemExit('GC inventory target missing')
+          s = s.replace(old, new, 1)
           p.write_text(s)
           PY
       - name: Format repaired foundation
