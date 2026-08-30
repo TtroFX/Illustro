@@ -1,6 +1,10 @@
 import { parseProjectId, parseRevision } from '../domain/identity.js';
 import { createStructuredErrorRecord } from '../domain/reports.js';
-import { ENTITY_KINDS, persistEntityRevision, type EntityKind } from '../storage/entity-revision-store.js';
+import {
+  ENTITY_KINDS,
+  persistEntityRevision,
+  type EntityKind,
+} from '../storage/entity-revision-store.js';
 import { putImmutableObject } from '../storage/immutable-object-store.js';
 import {
   ensureProjectDirectoryLayout,
@@ -18,7 +22,11 @@ type WorkerScope = {
 
 type StorageRequest =
   | { readonly type: 'ping' }
-  | { readonly type: 'storage.project.open'; readonly requestId: string; readonly projectId: string }
+  | {
+      readonly type: 'storage.project.open';
+      readonly requestId: string;
+      readonly projectId: string;
+    }
   | {
       readonly type: 'storage.object.put';
       readonly requestId: string;
@@ -92,10 +100,7 @@ function parseRequest(value: unknown): StorageRequest | null {
       snapshot: value.snapshot,
     };
   }
-  if (
-    value.type === 'storage.sync.probe' &&
-    typeof value.projectId === 'string'
-  ) {
+  if (value.type === 'storage.sync.probe' && typeof value.projectId === 'string') {
     return { type: value.type, requestId: value.requestId, projectId: value.projectId };
   }
   return null;
@@ -148,15 +153,17 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     if (request.type === 'storage.object.put') {
       const root = await rootPromise;
       const result = await putImmutableObject(root.sha256Objects, request.bytes);
-      scope.postMessage({ type: 'storage.response', requestId: request.requestId, ok: true, result });
+      scope.postMessage({
+        type: 'storage.response',
+        requestId: request.requestId,
+        ok: true,
+        result,
+      });
       return;
     }
 
     if (request.type === 'storage.entity.persist') {
-      const [root, project] = await Promise.all([
-        rootPromise,
-        projectLayout(request.projectId),
-      ]);
+      const [root, project] = await Promise.all([rootPromise, projectLayout(request.projectId)]);
       const result = await persistEntityRevision(root, project, {
         kind: request.kind,
         entityId: request.entityId,
