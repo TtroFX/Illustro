@@ -20,7 +20,8 @@ describe('production build output', () => {
 
     expect(html).toContain('manifest.webmanifest');
     expect(manifest).toContain('Illustro');
-    expect(serviceWorker).toContain('illustro-shell');
+    expect(serviceWorker).toContain('APP_SHELL');
+    expect(serviceWorker).toContain('cache.addAll(APP_SHELL)');
     expect(main).toContain('illustroRuntime');
     expect(renderWorker).toContain('render-worker-ready');
     expect(storageWorker).toContain('storage-worker-ready');

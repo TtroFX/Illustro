@@ -6,13 +6,13 @@ for (const script of ['format', 'format:check', 'lint', 'typecheck', 'test:unit'
   assert.equal(typeof packageJson.scripts?.[script], 'string', `missing npm script: ${script}`);
 }
 
-assert.equal(packageJson.devDependencies?.['@biomejs/biome'], '2.2.4');
-assert.equal(packageJson.devDependencies?.vitest, '3.2.4');
+assert.equal(packageJson.devDependencies?.['@biomejs/biome'], '2.5.11');
+assert.equal(packageJson.devDependencies?.vitest, '4.1.10');
 
 const lock = JSON.parse(await readFile(new URL('../package-lock.json', import.meta.url), 'utf8'));
 assert.equal(lock.lockfileVersion, 3);
-assert.equal(lock.packages?.['']?.devDependencies?.['@biomejs/biome'], '2.2.4');
-assert.equal(lock.packages?.['']?.devDependencies?.vitest, '3.2.4');
+assert.equal(lock.packages?.['']?.devDependencies?.['@biomejs/biome'], '2.5.11');
+assert.equal(lock.packages?.['']?.devDependencies?.vitest, '4.1.10');
 
 await access(new URL('../biome.json', import.meta.url));
 await access(new URL('../vitest.config.ts', import.meta.url));

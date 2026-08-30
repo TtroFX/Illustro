@@ -19,7 +19,6 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-          cache: npm
       - name: Restore locked dependencies
         run: |
           if [ ! -f package-lock.json ]; then

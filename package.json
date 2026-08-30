@@ -26,8 +26,8 @@
     "verify:m0-batch4": "node scripts/verify-m0-batch4.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.4",
+    "@biomejs/biome": "2.5.11",
     "typescript": "5.9.2",
-    "vitest": "3.2.4"
+    "vitest": "4.1.10"
   }
 }
