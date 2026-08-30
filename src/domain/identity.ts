@@ -8,6 +8,7 @@ type SemanticId<Kind extends string> = string & {
 export type DocumentId = SemanticId<'DocumentId'>;
 export type ProjectId = SemanticId<'ProjectId'>;
 export type LayerId = SemanticId<'LayerId'>;
+export type MaskId = SemanticId<'MaskId'>;
 export type ResourceId = SemanticId<'ResourceId'>;
 export type ObjectId = SemanticId<'ObjectId'>;
 export type NodeId = SemanticId<'NodeId'>;
@@ -35,6 +36,7 @@ function createSemanticId<Kind extends string>(): SemanticId<Kind> {
 export const parseDocumentId = (value: unknown): DocumentId => parseSemanticId(value, 'DocumentId');
 export const parseProjectId = (value: unknown): ProjectId => parseSemanticId(value, 'ProjectId');
 export const parseLayerId = (value: unknown): LayerId => parseSemanticId(value, 'LayerId');
+export const parseMaskId = (value: unknown): MaskId => parseSemanticId(value, 'MaskId');
 export const parseResourceId = (value: unknown): ResourceId => parseSemanticId(value, 'ResourceId');
 export const parseObjectId = (value: unknown): ObjectId => parseSemanticId(value, 'ObjectId');
 export const parseNodeId = (value: unknown): NodeId => parseSemanticId(value, 'NodeId');
@@ -42,6 +44,7 @@ export const parseNodeId = (value: unknown): NodeId => parseSemanticId(value, 'N
 export const createDocumentId = (): DocumentId => createSemanticId();
 export const createProjectId = (): ProjectId => createSemanticId();
 export const createLayerId = (): LayerId => createSemanticId();
+export const createMaskId = (): MaskId => createSemanticId();
 export const createResourceId = (): ResourceId => createSemanticId();
 export const createObjectId = (): ObjectId => createSemanticId();
 export const createNodeId = (): NodeId => createSemanticId();

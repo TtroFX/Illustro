@@ -7,6 +7,7 @@ import {
   type ProjectId,
   type Revision,
 } from './identity.js';
+import type { LayerBaseV1 } from './layers.js';
 
 export const DOCUMENT_V1_SCHEMA = 'illustro.document/1' as const;
 export const MAX_CANVAS_DIMENSION = 32_768;
@@ -53,6 +54,7 @@ export interface FeatureFlagSet {
 
 export interface LayerTreeV1 {
   readonly rootLayerIds: readonly LayerId[];
+  readonly layers: Readonly<Record<string, LayerBaseV1>>;
 }
 
 export type ResourceTableV1 = Readonly<Record<string, unknown>>;
@@ -162,7 +164,10 @@ export function createDocumentV1(input: {
     modifiedAt: timestamp,
     canvas,
     color: createDocumentColorSpec(input.workingSpace, input.precision),
-    layerTree: Object.freeze({ rootLayerIds: Object.freeze([]) }),
+    layerTree: Object.freeze({
+      rootLayerIds: Object.freeze([]),
+      layers: Object.freeze({}),
+    }),
     resources: Object.freeze({}),
     guidesAndRulers: Object.freeze({}),
     documentSettings: Object.freeze({}),
