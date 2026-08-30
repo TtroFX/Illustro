@@ -763,7 +763,443 @@ Illustro should actively avoid re-inventing mature image-processing and computat
 
 # Data Model / File Format
 
-_Not yet defined._
+## Phase 3 Data / Format Closure — 2026-08-30
+
+**Status:** authoritative Phase-3 specification. This closes K/L/M/N/O/P/T: canonical document data model, layer model, brush/resource schema, Undo/Redo transaction model, native `.illustro` v1 archive, initial-release color pipeline, and import/export/interoperability contracts. Numeric tile/cache/performance budgets and OPFS runtime layout remain Phase 4 decisions; visual/icon/texture/motion choices F/G/H/I/V remain unfrozen.
+
+### P3-1. Canonical state boundaries — CLOSED
+
+Illustro separates four kinds of state and never conflates them:
+
+1. **Canonical document state** — everything required to reproduce the editable artwork deterministically.
+2. **Project metadata/state** — project name, timestamps, preview references, compatibility/provenance metadata and project-local settings that are not pixel content.
+3. **Workspace/session state** — active tool, panel positions, Quick Hole bindings, zoom/rotation, current selection presentation, focused field and other UI state. This is not document Undo state unless an operation explicitly changes artwork.
+4. **Derived/cache state** — GPU textures, thumbnails, mip/previews, extracted Lineart caches, effect caches and decoded resource caches. These may be discarded and rebuilt without changing the document.
+
+GPU resources are never canonical. A valid project must be reconstructible from canonical CPU/storage data after renderer loss.
+
+### P3-2. Identity, revisions and references — CLOSED
+
+- Every persistent semantic entity uses a locale-neutral **UUID string**. New runtime-created IDs use cryptographically random UUIDs (`crypto.randomUUID()` or an equivalent standards-compliant generator).
+- IDs are stable for the lifetime of the semantic entity. Copy/Duplicate creates new IDs unless the operation explicitly represents a reference to the same entity.
+- Mutable canonical entities also carry a monotonically increasing non-negative integer `revision` within JavaScript safe-integer range. Revisions are comparison/invalidation counters, not globally unique IDs.
+- References use IDs, never array indexes, localized names or UI positions.
+- Missing required references are validation errors; optional references may be null. Importers may construct temporary staging IDs but must resolve them before canonical commit.
+- Content-addressed binary resources additionally carry a lowercase SHA-256 hex `contentHash`; resource identity and content identity are distinct so metadata can change without changing bytes.
+
+### P3-3. Canonical Document root — CLOSED
+
+The conceptual `DocumentV1` root contains at least:
+
+```text
+DocumentV1
+  schema: "illustro.document/1"
+  documentId: UUID
+  projectId: UUID
+  revision: integer
+  createdAt / modifiedAt: RFC3339 UTC timestamps
+  canvas: CanvasSpec
+  color: DocumentColorSpec
+  layerTree: LayerTree
+  resources: ResourceTable
+  guidesAndRulers: GuideRulerState
+  documentSettings: DocumentSettings
+  featureFlags: required/optional feature IDs
+  extensions: namespaced extension records
+```
+
+`CanvasSpec` contains logical pixel width/height, resolution metadata (PPI; metadata only unless an explicit physical-size operation uses it), background/display checker policy, and document bounds. Canvas dimensions are positive bounded integers validated before allocation.
+
+The document does **not** serialize transient GPU handles, DOM state, browser object URLs, FileSystemHandle permission state, active pointer contacts or unresolved UI widgets.
+
+### P3-4. Layer tree and common layer contract — CLOSED
+
+The layer tree is an ordered rooted hierarchy. Every layer has a common base:
+
+```text
+LayerBaseV1
+  id: UUID
+  type: LayerTypeId
+  revision: integer
+  parentId: UUID | null
+  name: string
+  visible: boolean
+  opacity: 0..1
+  blendMode: BlendModeId
+  locks: { all, pixels, alpha, position }
+  clipping: ClippingSpec | null
+  roleFlags: { reference, draft }
+  masks: ordered MaskAttachment[]
+  transformStack: TransformNode[]
+  effectStack: EffectNode[]
+  boundsHint: optional derived/cached bounds
+  metadata: namespaced records
+```
+
+`boundsHint` is an optimization and may be recomputed. Layer ordering is represented explicitly by the parent's child-ID list, not inferred from IDs.
+
+### P3-5. Initial-release layer types — CLOSED
+
+The canonical `LayerTypeId` set is:
+
+- `raster` — sparse canonical pixel tiles.
+- `vector` — editable paths/shapes and vector style data; this does not introduce vector brush/eraser semantics.
+- `text` — editable point/box text runs, layout box, typography and transform; rasterization is explicit.
+- `fill` — parametric solid/pattern fill layer.
+- `gradient` — parametric linear/radial/conical/freeform gradient layer.
+- `adjustment` — ordered parameterized effect operation without intrinsic artwork pixels.
+- `folder` — ordered child container. Folder blend semantics include the adopted Pass Through mode.
+- `linkedObject` — embedded/snapshotted external-object representation with optional external-source linkage metadata.
+- `lineartBoundary` — non-rendering derived/manual topology payload and semantic overrides; valid only in the Lineart system.
+
+A **Lineart Group** is represented by a `folder` carrying `role = "lineart-group"`, configured source membership, and one canonical `lineartBoundary` child. It is not a separate incompatible tree implementation.
+
+### P3-6. Masks, clipping and transforms — CLOSED
+
+Masks are ordered attachments to eligible layers/folders rather than free-floating top-level artwork layers. Initial mask attachment kinds are:
+
+- `raster-mask` — sparse single-channel coverage tiles;
+- `vector-mask` — editable path coverage;
+- `effect-mask` — coverage associated with a non-destructive effect/adjustment when required.
+
+Each mask has its own UUID/revision, enabled state, invert state and transform where semantically valid.
+
+Clipping references a deterministic eligible preceding/base layer relationship in the same compositing group. The canonical model stores the resolved semantic relationship, not only a UI checkbox.
+
+`transformStack` is non-destructive and may contain affine, perspective, mesh and puppet/deformation nodes. Preview handles are transient; committed transform parameters are canonical. Explicit rasterize/apply bakes a transform and removes/replaces the corresponding node in one history transaction.
+
+### P3-7. Raster tile semantics — CLOSED
+
+Raster layers and raster masks are sparse maps keyed by integer tile coordinates. Exact tile dimensions are Phase 4 benchmark decisions, but semantics are fixed now:
+
+- absent artwork tile = fully transparent zero content;
+- absent full-white raster mask tile = full coverage and may be represented by a mask-level default value rather than materialized bytes;
+- tile coordinates are document-space integer indices and are independent of viewport zoom;
+- canonical tile sample format follows the document precision mode defined in P3-15;
+- canonical tile bytes are never GPU-compressed texture formats;
+- edits create new tile revisions; caches identify tile content by layer/mask ID + coordinate + revision/quality inputs;
+- edge/halo pixels used by filters are derived working data, not duplicated canonical artwork.
+
+### P3-8. Linked object contract — CLOSED
+
+A `linkedObject` always contains an **embedded canonical snapshot/subdocument sufficient for project round-trip correctness**. It may additionally remember an external source descriptor (original filename, format, source hash, optional permission-capable file handle reference in runtime storage), but loss of external permission/file must not destroy the project.
+
+External refresh is explicit and history-aware: detect source change → stage/validate → preview/report incompatibilities → Commit creates one document transaction. Illustro never silently replaces the embedded canonical snapshot merely because an external file changed.
+
+### P3-9. Resource Table and production-asset schema — CLOSED
+
+All reusable binary/user resources are referenced through `ResourceTableV1` entries:
+
+```text
+ResourceV1
+  resourceId: UUID
+  revision: integer
+  kind: brush-tip | grain | pattern | reference-image | palette | gradient | font-ref | imported-source | other
+  contentHash: SHA-256
+  mimeType: string
+  byteLength: integer
+  originalName: optional string
+  dimensions/channels: optional typed metadata
+  colorSpace: none | srgb | display-p3 | embedded-profile | data
+  channelSemantics: rgba | rgb | luminance | alpha | coverage | data
+  seamless: boolean | unknown
+  provenance: ProvenanceV1
+  extensions: namespaced records
+```
+
+Binary bytes are deduplicated by `contentHash`; separate Resource entries may point to the same bytes while carrying different semantic metadata.
+
+`ProvenanceV1` records at least source class (`builtin`, `user-created`, `user-imported`, `third-party`), source name/URL/publication when applicable, version/commit when applicable, license/SPDX identifier or `user-supplied/unknown`, attribution/NOTICE requirements, whether bytes/code were directly reused versus independently recreated, and modification notes. User-created/imported private artwork does not require the user to invent a public license.
+
+### P3-10. Brush/image asset representation — CLOSED
+
+The canonical resource model supports the later I/J production-asset phase without choosing the actual visual textures yet.
+
+**Brush tip source assets**:
+- raster source with explicit `coverage`/`alpha` semantics;
+- arbitrary rectangular dimensions are representable; production presets should normally use centered assets and practical power-of-two-friendly sizes, but the schema does not require square images;
+- PNG is the preferred authored interchange source for generated/built-in tips; imported formats are normalized to canonical decoded coverage data plus provenance;
+- 8-bit and 16-bit authored coverage sources are accepted; runtime/GPU representation may differ without changing brush semantics.
+
+**Grain/paper/pattern assets**:
+- luminance/coverage or RGB/RGBA data as required by the preset;
+- explicit seamless flag and repeat/transform metadata;
+- explicit color-space/data classification so numeric texture data is never accidentally color-managed as artwork.
+
+**Thumbnails** are derived presentation assets and never define brush behavior.
+
+Phase I will decide the concrete built-in texture images, resolutions and artistic appearance; those choices must fit this schema rather than changing the engine contract.
+
+### P3-11. Canonical Brush Schema v1 — CLOSED
+
+Illustro-native brushes use `schema = "illustro.brush/1"`. A preset contains stable identity/metadata plus the canonical engine parameters below.
+
+```text
+BrushPresetV1
+  id / revision / name / category / tags
+  behavior: paint | erase | smudge | blur
+  defaultSizePx
+  tip
+  stroke
+  ink
+  dynamics
+  jitter
+  spray
+  texture
+  colorMix
+  antiOverflow
+  stabilization
+  antiAlias
+  provenance/importCompatibility
+  extensions
+```
+
+#### Tip
+
+`tip` defines an ordered set of one or more tip-resource references, selection mode (`fixed`, `sequence`, `random-per-stamp`), base scale, aspect/roundness, rotation, center/origin and optional per-tip weight. Multiple source tip images are allowed as alternatives in one stamp generator; **two independently rendered brushes composited as Dual Brush remain excluded**.
+
+#### Stroke placement
+
+`stroke` defines spacing as a ratio of effective tip diameter, continuous/interpolated placement policy, direction-following rotation, start/end taper, minimum stamp distance and stroke-seed policy. Every committed stroke stores a deterministic random seed when any randomized behavior is active.
+
+#### Ink
+
+`ink` defines base opacity, flow/deposit, buildup/accumulation policy, selected paint blend behavior and main/sub-color contribution. Eraser uses the same stamp/dynamics path with erase semantics rather than a separate incompatible engine.
+
+#### Generic dynamics
+
+Every dynamically mappable scalar uses a common `DynamicMappingV1`:
+
+```text
+baseValue
+sources[] where source = pressure | tilt | altitude | azimuth | twist | velocity | direction | strokeProgress | random
+curve: normalized control points
+amount: signed scalar
+combine: multiply | add | replace
+clamp: min/max
+```
+
+Supported dynamic targets include at minimum size, opacity, flow, rotation, roundness/aspect, scatter, spacing, texture strength, color jitter and color-mix parameters where meaningful. Missing device inputs evaluate to the parameter's neutral/default value rather than making the brush unusable.
+
+#### Jitter and spray
+
+`jitter` defines normalized/randomized position, size, rotation, opacity and main/sub or hue/saturation/value variation. `spray` defines enabled state, particle count/rate, radial scatter distribution, particle scale/orientation and seed behavior.
+
+#### Texture/grain
+
+`texture` references a Resource, with scale, rotation, offset/phase, movement space (`canvas`, `stroke`, `stamp`), strength/depth and supported combination mode. No texture field may implicitly change document color space.
+
+#### Digital color mixing
+
+`colorMix` is deliberately digital rather than a physical pigment/fluid simulator. It contains enabled state, sample/pickup radius, pickup amount, carry/drag amount, source-vs-brush mix ratio and deposit amount. The sampled/mixed color is deterministic from canonical canvas samples and stroke history inputs.
+
+#### Stabilization/correction and anti-aliasing
+
+`stabilization` contains realtime stabilization amount, correction/smoothing mode and post-stroke correction parameters where supported. `antiAlias` is an explicit enum/quality policy understood by the renderer; imported values that cannot be represented exactly are reported by FC-2 compatibility logic.
+
+#### Import extensions
+
+Unsupported proprietary source fields are **not** copied into active canonical parameters. The preset may retain an opaque original-source blob/resource and a namespaced compatibility report for provenance/re-export diagnostics, but rendering uses only understood canonical fields.
+
+### P3-12. Native brush package — CLOSED
+
+Illustro brush sharing uses `.illbrush` v1, a ZIP/ZIP64 package containing UTF-8 `manifest.json`, `brush.json`, required content-addressed tip/grain/pattern resources, optional preview, and per-entry SHA-256 metadata. It uses the same `BrushPresetV1` and `ResourceV1` semantics as projects. A brush package cannot execute code.
+
+### P3-13. Undo / Redo transaction model — CLOSED
+
+Document history is a linear **committed transaction spine** with a current cursor.
+
+- One user intent normally produces one history transaction.
+- Pointer samples/stamps inside one brush stroke are not individual Undo entries; pointer-down through committed stroke end is one transaction.
+- Transform/effect/Color Match previews are ephemeral; Commit creates one transaction, Cancel creates none.
+- Continuous slider/scrub edits coalesce from interaction start to interaction end into one logical transaction unless the user explicitly creates separate commits.
+- An Auto Action may group multiple eligible commands into one composite transaction when atomicity is declared; otherwise it emits its declared deterministic transaction sequence.
+- Undo moves the cursor backward by restoring the exact previous canonical state for that transaction; Redo reapplies the exact committed after-state.
+- Performing a new document mutation while the cursor is not at the history tip invalidates the active Redo branch. Obsolete spill data may be garbage-collected later.
+- Workspace/UI changes do not enter document history.
+- Autosave/checkpoint does not clear Undo/Redo.
+
+### P3-14. Hybrid history payload strategy — CLOSED
+
+History does not depend on replaying high-level commands from scratch. Each transaction stores enough exact before/after information for deterministic restoration.
+
+Use a hybrid strategy by mutation class:
+
+- metadata/property/tree operations: compact typed before/after records or invertible structural deltas;
+- raster/mask painting: changed-tile patches using copy-on-write tile revisions and before/after tile references or lossless deltas;
+- large destructive raster operations: snapshot/revision references when cheaper/safer than enormous inverse command streams;
+- vector/text/parametric/effect edits: typed before/after object payloads with structural sharing;
+- Lineart topology/regeneration: exact graph revision/delta plus semantic override state required by FC-5;
+- document resize/crop/color-mode conversion: explicit transaction snapshots/references sufficient to restore exact pre/post canonical content.
+
+Recent history remains in a bounded hot in-memory tier; older eligible payloads spill to OPFS. **Numeric memory/spill thresholds are Phase 4 performance decisions**, but correctness may never depend on a history payload remaining resident in RAM.
+
+Normal local working projects preserve the bounded retained Undo spine across ordinary app restarts when the retention data is still available. Exported `.illustro` archives do **not** include the live Undo journal by default; history inclusion is an explicit export option if later exposed. Timelapse data is a separate representation and is not treated as Undo storage.
+
+### P3-15. Document color modes and precision — CLOSED
+
+Initial release document working spaces are:
+
+- `srgb` — sRGB primaries/white point/transfer semantics;
+- `display-p3` — Display-P3 primaries with D65 and the standard Display-P3/sRGB-style transfer function.
+
+Canonical raster precision modes are:
+
+- `rgba8-unorm` — 8 bits per component normalized RGBA;
+- `rgba16-float` — IEEE-754 binary16 RGBA canonical samples for higher precision/extended intermediate range.
+
+**Default new document:** `srgb + rgba8-unorm` for broad interoperability and tablet memory efficiency. Users may explicitly create/convert to Display-P3 and/or 16F. Precision or working-space conversion is a document transaction and never occurs silently.
+
+Canonical file/pixel semantics use **straight/unassociated alpha**. Renderer/compositor working buffers may use premultiplied alpha as an implementation detail, but conversion at canonical boundaries must be exact enough to avoid accumulating hidden alpha errors.
+
+### P3-16. Color-processing semantics — CLOSED
+
+- Every color-bearing value knows its source/working color space; legacy/imported untagged RGB is handled by the import policy rather than silently reinterpreted as wide-gamut.
+- ICC/profile-aware imports convert recognized source RGB into the document working space before canonical commit, preserving the original profile/source as provenance where useful.
+- Unsupported profiles trigger explicit convert/warn/reject UX under FC-4.
+- Resampling, blur, convolution, physically additive light operations and other operations whose correctness requires linear-light math operate on linearized working RGB.
+- Photoshop/W3C-style artistic layer blend functions are evaluated deterministically in the document's transfer-encoded working RGB domain unless that specific effect is explicitly defined as linear-light; alpha composition uses mathematically correct premultiplied working values.
+- Color-space conversion, profile conversion and gamut mapping are centralized services shared by import, document conversion, preview and export; tools do not implement private inconsistent conversions.
+- Display output requests the matching web canvas/output color space when supported. When the platform cannot present the document gamut directly, preview converts to a supported output space while preserving canonical document samples.
+- Alpha/mask/coverage/data channels are not color-managed.
+
+### P3-17. Native `.illustro` v1 container — CLOSED
+
+The external/native project file is a **standard ZIP64-capable archive** with extension `.illustro`. ZIP is a transport/container, not the live OPFS database layout.
+
+Required top-level entries:
+
+```text
+mimetype
+manifest.json
+document.json
+layers/<layerId>/...
+assets/<sha256>...
+```
+
+Optional/conditional namespaces include:
+
+```text
+objects/<objectId>/...
+preview/...
+timelapse/...
+provenance/...
+extensions/<namespace>/...
+```
+
+`mimetype` contains `application/x-illustro-project+zip` and should be stored uncompressed for fast identification.
+
+`manifest.json` includes at least archive schema/version, project/document IDs, creation/modification timestamps, required/optional feature flags, document entry path, and an entry index containing uncompressed size, stored size/codec where known and SHA-256 for canonical/required payloads.
+
+`document.json` contains the canonical root/tree/resource references but not large binary tile bytes.
+
+### P3-18. `.illustro` layer/resource encoding — CLOSED
+
+- Typed layer metadata/payloads use versioned UTF-8 JSON unless a defined binary payload is materially more appropriate.
+- Raster/mask tiles are stored losslessly. V1 canonical tile entries use raw little-endian sample bytes matching the declared canonical pixel format, compressed by the ZIP entry's lossless method when beneficial. This preserves `rgba16-float` exactly and avoids making PNG/JPEG semantics part of the project model.
+- Tile entry metadata records coordinate, dimensions for edge tiles, pixel format, byte order and expected byte length.
+- Binary reusable assets are stored content-addressed under `assets/` and verified against `ResourceV1.contentHash`.
+- A linked object's embedded canonical snapshot/subdocument is stored below its `objects/<objectId>/` namespace; an original imported source blob may additionally be retained as a Resource when policy/storage allows.
+- Preview thumbnails are explicitly non-canonical; corruption/loss of a preview must not invalidate otherwise intact artwork.
+
+The internal OPFS representation may use a different benchmark-selected tile codec/index because Phase 4 optimizes live working storage. Import/export converts between live storage and the stable archive contract.
+
+### P3-19. Versioning, corruption and forward compatibility — CLOSED
+
+- Archive version is semantic `major.minor`; v1 readers must reject unsupported future major versions for writable editing rather than guessing.
+- Unknown optional fields are ignored/preserved where practical through namespaced `extensions` records.
+- Unknown **required feature flags** prevent writable open and produce an explicit compatibility report; safe metadata/preview/recovery extraction may still be offered.
+- Every required canonical payload is checksum-verified before being trusted. A mismatch marks the archive damaged; Illustro attempts bounded recovery only from independently valid entries/checkpoints and reports what was recovered.
+- Import is staged. Canonical project state is created/changed only after required validation succeeds.
+- Schema migrations are explicit deterministic transforms from an older supported version to the current internal model; the original external file remains untouched unless the user explicitly overwrites/re-exports.
+
+### P3-20. Import contract — CLOSED
+
+All imports follow: **decode → validate → normalize/profile-convert → build staging model → compatibility report when needed → user acceptance when materially lossy → canonical commit**.
+
+Initial-release import classes:
+
+- `.illustro` — required full-fidelity native project import for supported schema/features.
+- PNG — flattened raster image with alpha/profile/metadata handling where present.
+- JPEG — flattened opaque raster image with profile/metadata handling where present.
+- SVG — supported paths/shapes/text/images normalized into vector/text/raster resources where representable; unsupported SVG features are explicitly rasterized, approximated or rejected with a report.
+- PSD — bounded-fidelity layered import defined below.
+- ibisPaint brush QR and CSP `.sut` — FC-2 version-scoped brush import into staging `BrushPresetV1` plus fidelity report.
+- `.illbrush` — native full-fidelity supported brush/resource import.
+- ordinary image files may also be imported as raster layers/reference images through the corresponding command context.
+
+No import parser may mutate the open document incrementally before validation reaches its canonical-commit boundary.
+
+### P3-21. PSD bounded-fidelity matrix — CLOSED
+
+PSD support is **feature-class based, test-corpus verified, and never advertised as universal Photoshop round-trip fidelity**.
+
+Required direct mappings when source data is valid and the corresponding Illustro feature exists:
+
+- canvas dimensions/resolution metadata;
+- raster layers and pixel alpha;
+- layer names, order, visibility and opacity;
+- folders/groups;
+- common blend modes present in Illustro's adopted blend registry;
+- raster masks and basic clipping relationships;
+- supported text that can be represented by Illustro text runs/layout when required fonts/metrics are available;
+- supported vector/path data when representable;
+- supported adjustment/effect semantics when an equivalent canonical effect exists.
+
+Potentially lossy classes must be identified individually in the compatibility report and either mapped approximately with user-visible status, rasterized/flattened at an explicit boundary, or left unsupported. This includes Photoshop-specific Smart Object behavior, layer styles/effects without an Illustro equivalent, unsupported adjustment semantics, advanced text/layout features, unsupported color modes, proprietary metadata and other Photoshop-only constructs.
+
+Illustro-only structures with no PSD equivalent — Lineart Boundary semantic graphs, live Undo journal, Quick Hole/workspace state, Illustro brush-engine metadata, Auto Actions and similar app-specific data — are not silently encoded as if Photoshop could round-trip them. PSD export must warn when such editable semantics would be lost.
+
+The release gate uses a maintained PSD fixture corpus covering every **claimed** mapping class; a newly observed PSD variant is not considered supported until added to that matrix/tests.
+
+### P3-22. Export contract — CLOSED
+
+All exports follow: **preflight → explicit loss/profile/flattening decisions → full-quality canonical render/serialization → temporary output → finalize → success/failure result**. Export failure never marks the project as backed up.
+
+Initial-release exports:
+
+- `.illustro` — canonical full-fidelity supported project archive.
+- PNG — flattened full-quality image; alpha optional/preserved when requested; 8/16-bit integer output variants may be offered where the encoder supports them, with explicit conversion from 16F/extended values.
+- JPEG — flattened opaque image with explicit background handling and quality setting; alpha is never silently discarded without flatten/background semantics.
+- SVG — preserves supported vector/path/text/gradient content where possible; raster layers or unsupported effects may be embedded/rasterized with preflight disclosure.
+- PSD — layered bounded-fidelity export according to P3-21, with mandatory preflight when adopted Illustro semantics cannot be represented.
+- `.illbrush` — native brush package.
+- Timelapse media — separate task using canonical timelapse history; it is not a project backup.
+
+Export color options always state output color space/profile and required conversion. Unsupported/unsafe combinations are blocked or require an explicit supported conversion; no export changes canonical document color merely to satisfy a file format.
+
+### P3-23. Image/metadata and fidelity reporting — CLOSED
+
+Compatibility/preflight reports use structured machine-readable issue records plus localized presentation. Each issue contains at least:
+
+- stable issue code;
+- severity (`info`, `warning`, `lossy`, `unsupported`, `error`);
+- source object/path when identifiable;
+- source semantic/format feature;
+- chosen mapping (`exact`, `converted`, `approximated`, `rasterized`, `flattened`, `ignored`, `rejected`);
+- resulting Illustro object when applicable;
+- localized explanation/remediation key.
+
+Reports are preserved with project/import provenance when useful so the user can later inspect how imported material was normalized.
+
+### P3-24. Phase 3 completion result — CLOSED
+
+The following previously open implementation decisions are closed:
+
+1. canonical document identity/state model;
+2. initial-release layer/mask/linked-object representation;
+3. Resource/asset/provenance schema sufficient for later generated textures and brush assets;
+4. versioned Canonical Brush Schema and `.illbrush` package;
+5. Undo/Redo transaction and hybrid delta/snapshot strategy;
+6. initial document RGB/precision modes and deterministic color-processing boundaries;
+7. `.illustro` v1 ZIP64 archive structure, checksums and migration rules;
+8. import/export staging/preflight rules, native/image/SVG/PSD/brush interoperability boundaries and structured fidelity reporting.
+
+Phase 3 intentionally leaves **tile dimensions/cache budgets/performance numbers and live OPFS layout** to Phase 4, because those require benchmark/runtime policy rather than changing canonical semantics. It also leaves F/G/H/I/V appearance/assets/motion to the later joint-design phases. This is not the final global Design Freeze.
+
+### Phase 3 change-log entry
+
+- 2026-08-30: Closed Phase 3 internal data/interchange design: defined UUID/revision-based canonical document and layer models, sparse raster semantics, resource/provenance and canonical brush schemas, hybrid exact Undo/Redo transactions, sRGB/Display-P3 with RGBA8/16F document modes, ZIP64-based `.illustro` v1 and `.illbrush`, and staged/preflighted PNG/JPEG/SVG/PSD/brush import-export contracts with explicit fidelity reporting.
 
 # Rendering / Brush / Performance
 
@@ -803,7 +1239,7 @@ _Not yet defined._
 
 - Renderer and document APIs must represent color space explicitly rather than assuming sRGB everywhere.
 - Support **sRGB and Display-P3** output/workflows where platform/display capability permits.
-- Architecture must support both **RGBA8-class** and **RGBA16F-class** render/intermediate targets. The default document precision and exact storage encoding remain to be selected from memory/performance/quality tests.
+- Architecture supports the canonical **`rgba8-unorm`** and **`rgba16-float`** document modes defined by P3-15. The initial default is `srgb + rgba8-unorm`; runtime cache/intermediate precision may still adapt by capability without changing canonical document semantics.
 - Color conversion and blend semantics must be explicit and testable; wide-gamut support must not silently reinterpret legacy sRGB assets.
 
 ### Multi-resolution non-destructive preview policy
@@ -858,7 +1294,7 @@ Adaptation must preserve document correctness and final visual semantics; perfor
 ## Compatibility principles — 2026-08-30
 
 - Core project editing uses the internal OPFS working model; external files enter and leave through explicit import/export flows.
-- The exact public `.illustro` container/manifest/tile/history format is not yet defined, but it must be independent of live GPU resources and suitable for backup/exchange/migration.
+- The public `.illustro` v1 container/manifest/tile contract is defined by P3-17 through P3-19. Live OPFS storage remains an internal runtime representation and may differ while preserving the same canonical semantics.
 - OS/PWA file association may be added as progressive enhancement on platforms that support it; the application must not require file association for normal import/export.
 - External linked-object acceleration may be used when a platform provides a persistent file handle, but `.illustro` correctness/round-trip preservation must rely on embedded/internal project state rather than assuming permanent external-file permission.
 - **WebCodecs** is the preferred browser-native acceleration path when implementing timelapse/video encoding or decoding that benefits from it, with capability detection rather than unconditional dependency.
@@ -878,15 +1314,8 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 
 # Open questions
 
-- Document data model
-- Brush-asset schema details and versioned preset representation beneath the adopted canonical brush capabilities
-- Layer model implementation details beyond the adopted Lineart Group semantics
-- Undo/Redo command model, snapshot/delta strategy, and spill thresholds
 - Tile dimensions, seam/border policy, cache budgets, and numeric performance targets
-- Default color precision/document color modes and exact wide-gamut conversion policy
-- `.illustro` file format details
-- Exact final import/export compatibility contracts and fidelity matrices, including adopted PSD and deferred CMYK boundaries
-- Exact third-party-code/provenance record format and project-level software license
+- Project-level software license and final third-party NOTICE packaging policy
 - Release criteria
 
 # Change log
