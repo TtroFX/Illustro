@@ -1,3 +1,5 @@
+export {};
+
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
   addEventListener(type: 'message', listener: (event: WorkerMessageEvent<unknown>) => void): void;
