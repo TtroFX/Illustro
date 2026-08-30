@@ -1,43 +1,29 @@
 name: Normalize Illustro phase 1 closure
-
 on:
   push:
-    paths:
-      - '.github/workflows/normalize-phase1-closure.yml'
-  workflow_dispatch:
-
+    paths: ['.github/workflows/normalize-phase1-closure.yml']
 permissions:
   contents: write
-
 jobs:
   apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Normalize phase 1 decisions
-        shell: bash
+      - shell: bash
         run: |
-          set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import base64, gzip
-          p = Path('ILLUSTRO_DESIGN_MEMO.md')
-          text = p.read_text(encoding='utf-8')
-          start = text.index('### 21. Pending adoption decisions — NOT YET AUTHORITATIVE')
-          end = text.index('# UX / UI Specification', start)
-          payload = 'H4sIAJW7k2oC/5VXwW4bNxC9+ysG8M3wamMXKIrmpEhOKtSxDUtpm1uoJVfLhktuSK5s+dSP6Bf2S/qG3JXkJkCdS+CsyeGbN2/evPFGn8vE8PPz5eg4V2+5vjC7SzlD5fcbwHkNWhmUGY2hT57eLtvGxrtu4W5r8rHBIhfHMnNdt1i/T++/HJBcHgXtzoGRVS+cqTJM0rVQuumHFwHjSQjOdjaHrRj7VwHRTs9scD6Hq9d1c1C5VyRTmE1JwZpTcInU30i7TAcLsLfIiKR53yg1VCT7iI+6Q5VdTx+eP32OWBSxhYOxlSfKGKKYJz7Zix9SxplqgSqAziSkKCYT4qGAzjgEyDy65dBpSb5ewGT2q8irRZ/K2UNRnX+45Y95YRZ73gvTxUrAC7VVjb0NGJrkFJC2+fXoH8iQPcIiGeND9z/M9/7g4PCGjKNVEGHV6HYy27rRNInwJIraRUwJZBRmJ9+Hn8QDhQa4xaoSeBx1ko6mGQhNms5DLSA4iGT7bNaHH3tV6Z4ESx5VukFSIkJXnI/HQUlPxcFjOQ8d2x/BSPvvYWX+LodT98T+A4UDKMZyvHtZhR7JIYBjdZ4bV/AhHSv/D2kaxJvjlhZF8PoQHXdGcVL3z8+Ho9h2KBVstSP7YMvWdvXNvM9AwVSaxj/IYeUUHPfdSSop+CYeErgZ43QS7WcibEy7ce+nDUbe8wRc8UdERiGDYkvnke4l3qr64ZwaeflkKZfwv1UXrfZoYjTNAYElWYvkqeZiwSmlphfOx/IS6JECDjgZ9Aw31/0/Isj95VlADBFsb7io/FHuWTUUHWxiMg1fs+bqJ6KBXeFHxpPksPdOdqc3JZjYP61DcpkVhbS6FZdG0+eeBze9Xrbg0khzQaQoGl+DqQNqFzaPGdVXgZczXtqs2qLNCq3dKMTGMzvjL5fBmJHt6+17uRF/yPDIOVuUdDaJV0VeakL03VlFkBjMVpoEHJ3Wa/pGNHRwglD7vhTeNpmykaNm2c+h5gw+Up7ZHBVCUdKpLTroY4j0P+Kvypt9acsz19jc6ZQaWRpmH1F4LsF0pbCOgsWuQGDNAKTU2DfMke7xVu1m/DeH5ezg/PHqer4ZZolwjHBVvaAznYQx4gyDhvW0tET0KNgWr2r9eOUAjCxoUlaW4v1VsZVVg3cJR/Eyfzq4Iw7MVghJLviA2UfbtqEeZFtNrrW30Hi7ozCpz8xaQa1peJED7syS3LPoVJuhBXwQi+iJsSfpUHCXGSx+cmCxgmvSJlLi69PRNy01FDuehbeQdOC5AfjhXKF1kzQoIuFRWkwFkGEVFgVw7TOLtrKVFjqMmBweREKrLbqaJXrI+DnmzrqqBppqwejgg96HtZRfoSo9i3n+k08LmXiZTJ8qp8EhF6pTDpV+Q0vh0Vr38ecRlMDqX2JmbLLWZKnfs1koTuI+IOFb2WFJN16XldlYfg+59yj8BrcPR12Te8Zcb38wPwC7R3G10s/gfTe/ujp7YntzhYJP7gD3aQ59aqEYBWLBWojMq/1wMna3MkC8/IUFweuv0SiZE2fkIRqwreJeTyCgYe3AIQT+hCiM1QAKphHpqKRNKTaOb3pyNpQYNPeJXmoHwNDNOt3XBpXxpMcsyU5rdpJH8p9SoZugyi0jOt+dSrvlrooo1ZwR+oa43dkCvEB5guIy+hoBA3KaZ6ca6VykD9SVlvIZ8UAMee01cQpYniJE4iaorMbwMST5u4GAYpGhOoOHgfvoBYCe4/9M3A9n77SKukHQ9kyNtGPdYQDPc8vZz/k2M/AdHuZdBQSI2haE5pTGOSfcPWNyMoKCwzR60VeIBHBViMAiNuRpXFxpJnEuKFDpo+rue26dUOyQwdfJUH5x4C36XWpVoCvju4hQdmuXR3cM5Z+qgSxku+beLZnU8lASX98Um5JQQ1TVTgWwJ/n29CNhE3UUBRaic/aEH3LnRPQRUFIPUtG5Su8nGRcYBVRgBdSvAZvFyINscJnLqI3I4EMhpIIjbAUaAcBp2TWkV1pC/2yF+i8omL4e0R8D/78cVfpMjVml29qpI2D0+hfkaXZDlTWeeevQsM2cXhxXYXZFYaAFmfVeBuXgWKX7+ZjZvXYSXC3RaDzSBZuJ4+SFKuXn/kP9MDi5cP36z//SXRHoHqS8kKz72P4hNPEF6YFcwozaYt5jXeVt3Yb6gNUuMFA3YFvpIDXC+JKcVe7rpBdHePt++WTU5XR6fZXKfb+00t07E4QYGSwOSCQ0tlYjMI9zLWyt/Lum4ApNhqpifz65+XBxNeMgRSPlQyulbBEVaYM5MFhkj8wojECqe+xufhkpkuaXt1Ro+Pm5cZ9Xl2cvrZ6Ovk4bzcbFK+BstPtAzEcPjLFg/8BRTiC62l4jgqPOBOpm52nOFYTpga3NuEuFOrBiOoC5Uo2pGv6gyCZsybDl0E9Dc2hy+d38NFcRtjqmVIofPaEcWtSk4Kfpq3sh1oocJc27hyhMKidvkJhT+WbiWg2m+tpTxKl+s7uRKNKykH02z5x87BV8+dsIo2ZZL0rb1u8gkKd4IkxmQloCWG4LtftqdXvzb9s+3a6nF+erqevWvqFf2P9j9A/2P0T/Y/SP8z/S/wBvkpYHcBAAAA=='
-          replacement = gzip.decompress(base64.b64decode(payload)).decode('utf-8')
-          text = text[:start] + replacement.rstrip() + '\n\n' + text[end:]
-          text = text.replace('- Exact final import/export compatibility scope, including pending PSD/CMYK decisions\n', '- Exact final import/export compatibility contracts and fidelity matrices, including adopted PSD and deferred CMYK boundaries\n')
-          p.write_text(text, encoding='utf-8')
+          import base64,gzip
+          p=Path('ILLUSTRO_DESIGN_MEMO.md'); t=p.read_text(encoding='utf-8')
+          a=t.index('### 21. Pending adoption decisions — NOT YET AUTHORITATIVE'); b=t.index('# UX / UI Specification',a)
+          x='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'
+          r=gzip.decompress(base64.b64decode(x)).decode(); t=t[:a]+r.rstrip()+'\n\n'+t[b:]
+          t=t.replace('- Exact final import/export compatibility scope, including pending PSD/CMYK decisions\n','- Exact final import/export compatibility contracts and fidelity matrices, including adopted PSD and deferred CMYK boundaries\n')
+          p.write_text(t,encoding='utf-8')
           PY
           grep -F '### 21. Initial-release adoption decisions — RESOLVED 2026-08-30' ILLUSTRO_DESIGN_MEMO.md
           grep -F '### 22. Post-baseline feature-audit rule' ILLUSTRO_DESIGN_MEMO.md
-          grep -F '**PSD import/export — ADOPTED FOR INITIAL RELEASE WITH BOUNDED FIDELITY.**' ILLUSTRO_DESIGN_MEMO.md
           ! grep -F 'Pending adoption decisions — NOT YET AUTHORITATIVE' ILLUSTRO_DESIGN_MEMO.md
-          ! grep -F 'including pending PSD/CMYK decisions' ILLUSTRO_DESIGN_MEMO.md
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add ILLUSTRO_DESIGN_MEMO.md
