@@ -58,8 +58,8 @@ Illustroの設計・仕様に関する正本は、この1つの `.md` に統合�
 7. The latest approved UI mockup is adopted as the **provisional visual completion target**. It is authoritative for visual direction and layout atmosphere, but not for the exact feature/button inventory; unnecessary or incorrect controls shown in the mockup may be removed during specification.
 8. Product, UX, UI, technical architecture, data model, file format, performance, testing, roadmap, and release design are **not to be split into separate canonical specification files**. They are all maintained in this one Markdown document.
 9. The latest approved generated UI image itself is preserved as a canonical visual-reference asset. UI implementation must inspect the actual image, not rely on prose alone.
-10. Illustro is a **single-illustration-focused painting application**. Its functional baseline is all ibisPaint functionality that is relevant to producing a single illustration, rather than comic/page-production or content-distribution workflows.
-11. Functional scope is not considered complete at a minimal/basic editor milestone. After reaching the ibisPaint single-illustration baseline, Illustro will additionally adopt useful painting/productivity capabilities from CLIP STUDIO PAINT and other paid or free creative applications when they materially improve a single-illustration workflow.
+10. Illustro is a **single-illustration-focused painting application**. Its functional baseline is all ibisPaint functionality that is relevant to producing a single illustration, subject to explicit exclusions recorded in this memo, rather than comic/page-production or content-distribution workflows.
+11. Functional scope is not considered complete at a minimal/basic editor milestone. After reaching the adopted ibisPaint single-illustration baseline, Illustro will additionally adopt useful painting/productivity capabilities from CLIP STUDIO PAINT and other paid or free creative applications when they materially improve a single-illustration workflow and remain technically proportionate.
 12. Comic-specific panel/page-production features and built-in material/content-library functionality are outside the required completion scope unless a later explicit decision re-adopts an individual capability because it is useful for single-illustration work.
 13. **Feature implementation is complete only when the adopted single-illustration feature inventory has been systematically audited, implemented, and verified, with any intentionally excluded reference-app features recorded explicitly rather than silently omitted.**
 14. Illustro's primary application architecture is **Web/PWA-first over HTTPS**, with the exact minimum browser/device support matrix to be fixed separately.
@@ -81,6 +81,10 @@ Illustroの設計・仕様に関する正本は、この1つの `.md` に統合�
 30. Illustro adopts a **customization-first workspace principle**. Workflow-affecting UI presentation should be user-adjustable wherever doing so does not compromise correctness or basic usability. This includes panel/rail dimensions, dock order, detached PiP placement, show/hide state, workspace layout, Quick Hole command mapping and ordering, Quick Hole size/radius and button sizing, and the opacity/translucency of overlay-style controls. Defaults must remain coherent and usable, every customizable surface must have a safe reset/default path, and ergonomic minimum/maximum constraints may prevent unusable configurations without otherwise restricting meaningful customization.
 31. Illustro adopts a **Lineart Group / Lineart Boundary Layer system**. A Lineart Group is a special folder-like container created from one or more existing visible lineart source layers and contains a generated non-rendering Lineart Boundary Layer. The boundary layer stores idealized line-boundary topology derived from the source rather than visible artwork pixels. Selecting it enters a dedicated edit mode for fixing unwanted automatic connections, adding missing connections, removing/splitting boundaries, and explicitly forbidding a rejected auto-connection from reappearing after regeneration. Automatic topology and manual overrides are stored separately. Multiple Lineart Boundary Layers can be selected as a union reference for Fill, Auto Select, Enclose Fill and compatible anti-overflow workflows. Group-level transforms and deformation, including Liquify-compatible displacement, keep visible lineart and boundary topology synchronized, while direct source edits trigger dirty-region boundary regeneration with manual overrides preserved.
 32. Lineart Boundary topology uses explicit **graph semantics**. A boundary endpoint is a graph node of degree 1, an ordinary interior line node is degree 2, and a junction/branch node is degree 3 or greater. Connecting two endpoints creates a boundary edge and atomically removes both nodes from the endpoint set when their resulting degree is no longer 1; stale endpoint metadata must never remain after a successful connection. Splitting/disconnecting a boundary creates/reclassifies endpoint nodes from the resulting graph. Connect/disconnect operations, endpoint classification changes, manual/automatic connection metadata and no-connect constraints are part of the normal Undo/Redo command state so Undo restores the exact pre-operation endpoint topology and Redo restores the exact post-operation topology.
+33. To keep the production target proportionate and technically realistic, the following previously considered high-cost capabilities are **explicitly removed from the required scope**: realistic general-purpose physical paint mixing, Dual Brush, vector-brush/vector-eraser behavior, Photoshop `.abr` import, and Fisheye Perspective Ruler. Ordinary raster brush mixing/smudge behavior, ordinary vector paths/shapes, and normal 1/2/3-point perspective rulers remain adopted.
+34. **Non-destructive Filter Stack and Adjustment Layers remain adopted**, but their editing preview is explicitly allowed to use reduced resolution/quality. Interactive parameter changes may render at reduced resolution; when interaction settles, visible tiles converge to full quality; export/final render always uses the canonical full-quality pipeline.
+35. Illustro adopts a **license-aware algorithm/reference-implementation policy**: public algorithms, papers, standards and open-source implementations should be actively researched and reused where useful, but direct source-code reuse is allowed only when the license is compatible and obligations are recorded. Prefer public-domain/CC0 and permissive MIT/BSD/Apache-2.0 implementations for directly incorporated code. Strong-copyleft, source-available, or proprietary code may be studied as a reference, but must not be copied into the core unless the project's licensing decision explicitly accepts the resulting obligations.
+36. The implementation target must distinguish **logical capability from unlimited resource claims**. User-defined canvas dimensions are supported within validated document, storage, codec, CPU/GPU and platform limits; no specification may require literally unbounded dimensions or guaranteed identical performance across devices.
 
 ## Working rules for this memo
 
@@ -106,13 +110,13 @@ Illustro is designed first and foremost for creating a **single finished illustr
 
 The baseline functional target is:
 
-> **All ibisPaint capabilities that materially participate in a single-illustration workflow.**
+> **All ibisPaint capabilities that materially participate in a single-illustration workflow, except capabilities explicitly excluded in this memo for technical, product-scope or cost/benefit reasons.**
 
 This baseline is intentionally workflow-scoped rather than brand-clone-scoped. The purpose is to achieve comparable practical capability for drawing, painting, editing, layer work, color work, selection/transform, correction, finishing, file handling, and other operations used to complete one illustration.
 
 ### Additional feature target
 
-After the ibisPaint single-illustration baseline is covered, evaluate and adopt useful features from **CLIP STUDIO PAINT and other paid or free painting/creative applications**. A feature is a candidate when it materially improves one or more of the following:
+After the adopted ibisPaint single-illustration baseline is covered, evaluate and adopt useful features from **CLIP STUDIO PAINT and other paid or free painting/creative applications**. A feature is a candidate when it materially improves one or more of the following and remains proportionate to implementation complexity:
 
 - drawing or painting quality
 - speed of common illustration operations
@@ -135,6 +139,7 @@ The following are not required for the functional-completion gate unless later e
 - comic/manga panel splitting and panel-management workflows
 - multi-page comic/book production workflows
 - built-in material/content catalog or distribution ecosystem
+- features explicitly excluded by the canonical inventory after technical/cost review
 - other features whose primary purpose is not the creation of a single illustration
 
 A reference application may still contain an individual capability inside one of these broader areas that is useful for single-illustration work; such a capability may be adopted separately by explicit decision.
@@ -145,7 +150,7 @@ Before declaring implementation complete, maintain a structured feature inventor
 
 - **ADOPTED — IMPLEMENTED / VERIFIED**
 - **ADOPTED — NOT YET IMPLEMENTED**
-- **EXCLUDED — OUTSIDE SINGLE-ILLUSTRATION SCOPE**
+- **EXCLUDED — OUTSIDE SINGLE-ILLUSTRATION SCOPE OR DISPROPORTIONATE TECHNICAL COST**
 - **SUPERSEDED — REPLACED BY A BETTER ILLUSTRO WORKFLOW**
 
 No reference feature may disappear from the audit simply because Illustro uses a different UI or terminology.
@@ -157,18 +162,18 @@ The functional implementation phase is complete only when:
 1. the current ibisPaint single-illustration-relevant feature set has been audited against the Illustro inventory;
 2. every adopted baseline capability is implemented and verified;
 3. selected high-value capabilities from CLIP STUDIO PAINT and other relevant paid/free applications are implemented and verified;
-4. exclusions are explicit and consistent with the single-illustration product focus;
+4. exclusions are explicit and consistent with product focus and technical feasibility;
 5. no known required feature remains merely planned, stubbed, UI-only, or disconnected from the production path.
 
 This gate defines **feature completeness**. Performance, reliability, visual fidelity, compatibility, testing, and release-readiness retain their own gates and are not automatically satisfied merely because feature coverage is complete.
 
 ## Canonical feature inventory — 2026-08-30
 
-This is the current authoritative functional inventory for the single-illustration product scope. Items listed as adopted define the implementation target; implementation status is tracked separately from scope status. The inventory is a capability specification, not a requirement to copy another application's UI or proprietary assets.
+This is the current authoritative functional inventory for the single-illustration product scope. Items listed as adopted define the implementation target; implementation status is tracked separately from scope status. The inventory is a capability specification, not a requirement to copy another application's UI or proprietary assets. Requirements are written as realizable product capabilities, not as unlimited guarantees beyond browser/device/resource constraints.
 
 ### 1. Document, canvas, navigation, and basic editing — ADOPTED
 
-- Create documents with arbitrary pixel dimensions, presets, DPI/resolution metadata, transparent or colored background, and explicit color-space/precision metadata.
+- Create documents with user-defined pixel dimensions **within validated platform/document/storage/codec resource limits**, presets, DPI/resolution metadata, transparent or colored background, and explicit color-space/precision metadata.
 - Canvas/image resize and resampling; crop/trim; canvas expansion; horizontal/vertical flip; destructive document-level rotate/transform where applicable.
 - Pan, zoom, viewport rotation, reset view, fit-to-screen, full-screen/workspace presentation, mirror/flip preview, pixel/non-interpolated inspection, grid display and configurable grid spacing/position/color.
 - Undo/Redo across production editing commands, including parameterized operations; numeric entry for transforms and tool parameters.
@@ -183,42 +188,40 @@ This is the current authoritative functional inventory for the single-illustrati
 
 ### 3. Canonical Brush Engine — ADOPTED
 
-Illustro's brush engine is **not merely an ibisPaint-compatible engine**. It is a canonical superset intended to represent the single-illustration-relevant brush capabilities of both **ibisPaint and CLIP STUDIO PAINT**, so imported brushes can be mapped as faithfully as practical.
+Illustro's brush engine is a canonical model covering the **adopted practical raster-brush capabilities** needed for the single-illustration workflow and for useful ibisPaint/CSP interoperability. It is intentionally not required to reproduce every proprietary or high-cost brush subsystem of those applications.
 
 Core capabilities include:
 
-- Brush, eraser, smudge/finger, blur and compatible paint/removal modes.
+- Raster brush, eraser, smudge/finger, blur and compatible paint/removal modes.
 - Brush preset create, duplicate, rename, delete, search, categorize, lock, reset, import/export and custom-tip/pattern creation.
 - Brush size, opacity, flow/density and per-brush limits.
-- Brush-tip shape/image controls, multiple tips where required, hardness, density, spacing/gap, angle, direction/follow-rotation behavior and stroke repetition.
+- Brush-tip shape/image controls, multiple tip assets where representable without Dual-Brush semantics, hardness, density, spacing/gap, angle, direction/follow-rotation behavior and stroke repetition.
 - Stroke start/end behavior, taper/entry/exit size and opacity, forced taper, stabilizer/correction and post-stroke correction where appropriate.
 - Paper/texture selection and strength, scale, rotation and blend behavior.
 - Random/jitter controls for size, opacity, rotation, position/scatter, density and color.
 - Spray/particle behavior including particle size, density, spread and orientation.
 - Generalized dynamics mapping from pen pressure, tilt/orientation, velocity and randomness to supported brush parameters, with response curves and minimum/maximum response.
 - Anti-aliasing/high-quality edge controls and suitable small-/large-brush spacing behavior.
-- Ink/color mixing capabilities sufficient for normal digital painting, including opacity/density mixing, color extension/drag and realistic general-purpose paint mixing where useful.
-- Dual Brush: combine a primary and secondary brush structure with configurable composition modes and compatible color mixing.
+- Practical digital color behavior including opacity/density mixing, smudge/color extension/drag and ordinary raster paint blending; **realistic general-purpose physical paint simulation is not required**.
 - Main/sub color and color-jitter behavior where supported by the canonical model.
 - Reference-layer-aware anti-overflow/inside-line painting behavior.
-- Vector-compatible brush/eraser behavior, including vector eraser modes.
 
-**Watercolor scope:** ordinary useful watercolor brushes, mixing, texture and edge expression are supported, but highly specialized/overly complex watercolor-specific physical simulation is not a required completion target.
+**Watercolor scope:** useful watercolor-like raster brushes, texture, ordinary blending and edge expression are supported; highly specialized physical watercolor simulation and realistic general-purpose pigment/fluid simulation are excluded.
 
 ### 4. Brush compatibility — ADOPTED
 
 - Import ibisPaint custom brushes, including parsing the ibisPaint brush-QR carrier when required for interoperability. This QR requirement applies to brush compatibility only.
-- Import CLIP STUDIO PAINT brush assets (`.sut`) as far as the format can be mapped into the canonical brush model.
+- Import CLIP STUDIO PAINT brush assets (`.sut`) **only to the extent their parameters map to adopted Illustro brush capabilities**. Unsupported or intentionally excluded source parameters must be reported rather than silently pretending to preserve them.
 - Illustro-native brush import/export with a documented, versioned schema suitable for local sharing.
-- Photoshop `.abr` is an additional compatibility target when technically practical; unsupported source parameters must be surfaced rather than silently discarded.
 - Imported brushes are normalized into the Illustro Canonical Brush Model; the renderer does not depend on executing another application's format directly.
+- Photoshop `.abr` import is **not** a required compatibility target.
 
 ### 5. Stylus, pointer and stroke input — ADOPTED
 
 - Pressure, tilt/orientation and supported pen-axis input; per-brush pressure curves and global/default response controls.
 - Stabilization/smoothing, real-time and post-stroke correction where appropriate, taper/start/end control.
 - Hover presentation where supported, including brush-outline/crosshair options.
-- Palm rejection and touch-position/input correction policies appropriate to pen/touch drawing.
+- Application-side palm/touch rejection and touch-position/input correction policies using information exposed by the browser/platform; Illustro does not claim control over OS/driver-level palm-rejection behavior that is not exposed to the web application.
 - Configurable stylus-button/shortcut actions when exposed by the platform.
 - Rich Pointer Events ingestion, including coalesced/raw/predicted samples as progressive enhancements without making them correctness requirements.
 
@@ -230,18 +233,18 @@ Core capabilities include:
 - Eyedropper/quick eyedropper; merged-canvas, active-layer and reference-image sampling modes.
 - Standard gradients, editable gradient stops, gradient pen/tool behavior, Gradient Layers, Freeform Gradient and Gradient Map.
 - Color Mixing Palette plus Intermediate/Approximate Color-style helpers for practical palette exploration.
-- Explicit color-profile management for adopted RGB workflows, including sRGB and Display-P3; ICC/profile-aware conversion/preview architecture.
+- Explicit color-profile management for adopted RGB workflows, including sRGB and Display-P3; ICC/profile-aware conversion/preview architecture where supported by Illustro's own color pipeline.
 
 ### 7. Layer model and non-destructive editing — ADOPTED
 
-- Raster layers, vector layers, adjustment layers, selection/mask structures, layer folders, fill layers and gradient layers.
+- Raster layers, path/shape-oriented vector layers, adjustment layers, selection/mask structures, layer folders, fill layers and gradient layers.
 - Layer create, duplicate, delete, rename, reorder, visibility, opacity, lock, alpha lock, clipping, clear, merge-down/merge-visible-copy, rasterize, invert, flip and folder-level operations.
 - Multi-layer selection and grouped movement/transform/organization.
 - Layer Masks with paint/edit, invert, link/unlink, independent move/transform, feather/blur as applicable, and conversion to/from selections.
 - Reference Layer designation usable by fill, selection and anti-overflow brush workflows.
 - **Lineart Group** as a special folder-like layer container that owns one or more visible source lineart layers plus a non-rendering **Lineart Boundary Layer** used for idealized fill/selection boundaries.
 - Draft/sketch layer attribute with the ability to exclude/hide draft content from final-output workflows.
-- Linked/File Object-style layers that preserve a source object/image relationship instead of forcing immediate destructive rasterization where technically appropriate.
+- Linked/File Object-style layers use an **embedded or internally snapshotted source as the canonical project-preserved representation**. On platforms where persistent external file handles are available, Illustro may additionally retain/relink an external source, but project correctness must not depend on permanent permission to an arbitrary OS file.
 - Layer Comps for saving and switching named visibility/state alternatives within one illustration document.
 - Layer search/filtering and bulk cleanup such as empty/hidden layer cleanup.
 - Folder **Pass Through** compositing semantics where needed for expected adjustment/blend behavior and PSD-style compatibility.
@@ -251,14 +254,14 @@ Core capabilities include:
 
 Support the common ibisPaint/Photoshop-class set required by the audited workflow, including at minimum Normal; Darken; Multiply; Color Burn; Linear Burn; Darker Color; Lighten; Screen; Color Dodge; Linear Dodge/Add; Lighter Color; Overlay; Soft Light; Hard Light; Vivid Light; Linear Light; Pin Light; Hard Mix; Difference; Exclusion; Subtract; Divide; Hue; Saturation; Color; and Luminosity, with explicit color-space/blend semantics.
 
-### 9. Vector drawing and vector correction — ADOPTED
+### 9. Vector drawing and vector correction — ADOPTED, REDUCED SCOPE
 
-- Vector layers and editable vector brush strokes.
-- Post-draw stroke color, width and brush reassignment where representable.
-- Shape/lasso selection of vector strokes; node/vertex and Bézier-handle editing; corner/smooth control; simplification/reduction.
-- Vector eraser modes including whole-line and erase-to-intersection behavior.
-- CSP-class Correct Line capabilities useful for illustration: vector magnet, pinch, simplify, connect, line-width adjustment, redraw vector line and redraw width.
-- SVG-compatible vector interchange/export where practical, including copy/export of vector content to SVG.
+- Vector layers for editable paths, shapes and simple stroked geometry.
+- Post-creation stroke color and width editing for supported vector path/shape objects.
+- Shape/lasso selection of vector objects/paths; node/vertex and Bézier-handle editing; corner/smooth control; simplification/reduction.
+- Useful geometric correction operations such as magnet/snap, pinch/reshape, simplify, connect, line-width adjustment and redraw/edit of vector paths where representable.
+- SVG-compatible vector interchange/export where practical, including copy/export of supported vector content to SVG.
+- **Vector brush rendering/reassignment and vector eraser modes such as whole-line or erase-to-intersection are not required.**
 
 ### 10. Selection and masking workflow — ADOPTED
 
@@ -387,10 +390,11 @@ The native `.illustro` project representation must preserve enough data to round
 ### 13. Shape and ruler systems — ADOPTED
 
 - Line, rectangle, rounded rectangle, circle/ellipse, regular polygon, polyline and Bézier curve drawing.
-- Fill/stroke on/off, brush-based stroke where useful, anti-aliased fills and post-creation shape adjustment.
+- Fill/stroke on/off, simple vector/path stroke styling where useful, anti-aliased fills and post-creation shape adjustment.
 - Straight, circular, elliptical, radial/concentration, symmetry, kaleidoscope, array and perspective-related rulers useful to single illustrations.
-- CSP-class 1/2/3-point Perspective Ruler and Fisheye Perspective Ruler; ruler move/angle/center/phase adjustment and snap enable/disable.
+- 1/2/3-point Perspective Ruler; ruler move/angle/center/phase adjustment and snap enable/disable.
 - Smart Shape-style post-stroke recognition/correction for common geometric forms.
+- **Fisheye Perspective Ruler is excluded from the required scope.**
 
 ### 14. Filters, tonal correction and effects — ADOPTED
 
@@ -400,16 +404,24 @@ Static-image ibisPaint-relevant filter/effect capability is part of the baseline
 - Blur/sharpen: Gaussian, motion, zoom/radial/rotation/lens-style blur as applicable, mosaic/pixelation and Unsharp Mask.
 - Style/edge/light: stroke/outline, inner/outer glow, bevel/emboss/relief, drop shadow, satin-like effects, bloom and related static finishing effects.
 - Noise/glitch/aberration/retro-style static image effects relevant to illustration finishing.
-- Distortion: bloat, fisheye, spherical/lens, wave/ripple, twirl and polar-coordinate-style transforms.
+- Distortion: bloat, fisheye image distortion, spherical/lens, wave/ripple, twirl and polar-coordinate-style transforms.
 - Applicable generated graphic effects such as line/radial/parallel wave or cloud-style generation where useful for a single illustration.
 
 Adjustment Layers/non-destructive effect application must reuse the same underlying effect implementations instead of maintaining inconsistent duplicate algorithms.
 
-### 15. Non-destructive filter/effect stack — ADOPTED
+### 15. Non-destructive filter/effect stack — ADOPTED WITH MULTI-RESOLUTION PREVIEW
 
-- A layer-local non-destructive Filter Stack / Filter Mask capability in addition to global/stack-position Adjustment Layers.
+- A layer-local non-destructive Filter Stack / Filter Mask capability is retained in addition to global/stack-position Adjustment Layers.
 - Effects can be enabled/disabled, reordered, reconfigured and masked without destructive baking until explicitly rasterized/applied.
 - The effect architecture should support the same processing kernel being invoked destructively or non-destructively where semantics allow it.
+- Non-destructive rendering uses a **tile-based dependency graph**. Cache identity must account for effect/node identity, tile coordinates, source/content revision, parameter revision, resolution/quality level and other inputs that affect output.
+- Interactive manipulation may use reduced-quality preview. A typical target is approximately **1/2 linear resolution**, with **1/4 linear resolution or another adaptive level permitted for especially expensive operations/devices**.
+- When interaction stops, prioritize full-resolution recomputation of **currently visible dirty tiles** and replace the reduced-quality preview progressively. Off-screen tiles may be deferred until needed or background budget is available.
+- Export/final render/rasterization uses the full canonical quality and must not inherit preview approximation.
+- Cheap pixel-local effects may remain full-resolution during interaction when they meet latency budget; quality reduction is an available performance tool, not a mandatory degradation for every effect.
+- Neighborhood filters such as blur/sharpen must use explicit tile halo/border handling. Wide-radius filters may use multi-scale/downsampled intermediate algorithms where mathematically/visually appropriate.
+- Filters requiring global statistics may use approximate/downsampled statistics during interactive preview, followed by full-resolution recomputation after settling or for final output.
+- Preview quality differences may affect only transient presentation; they must not modify canonical layer/effect parameters or silently change final artwork semantics.
 
 ### 16. Liquify, correction and special paint tools — ADOPTED
 
@@ -434,16 +446,16 @@ Adjustment Layers/non-destructive effect application must reuse the same underly
 
 ### 18. Reliability, history and native project preservation — ADOPTED
 
-- Autosave and continuous crash-recovery data sufficient to restore a recent coherent document state after abnormal termination.
-- Native `.illustro` format must preserve all adopted editable structures needed for round-trip editing, including raster/vector content, folders, masks, adjustment/effect structures, transforms, layer metadata, color/document metadata, Lineart Groups/Boundary Layers and references that are part of the project model.
+- Autosave and continuous crash-recovery data sufficient to restore a **recent coherent document state** after abnormal termination; the specification does not claim that an OS/browser termination can always preserve the final in-flight sample that had not yet reached a committed recovery boundary.
+- Native `.illustro` format must preserve all adopted editable structures needed for round-trip editing, including raster/path-vector content, folders, masks, adjustment/effect structures, transforms, layer metadata, color/document metadata, Lineart Groups/Boundary Layers and references that are part of the project model.
 - OPFS working state is not a substitute for user-controlled project export/backup.
 
 ### 19. Import/export and interoperability — ADOPTED BASELINE
 
 - PNG/JPEG/transparent PNG image interchange.
 - Native `.illustro` project import/export.
-- Brush interoperability described above for ibisPaint and CSP, plus Illustro-native brushes.
-- SVG-compatible vector interchange where applicable.
+- Brush interoperability described above for ibisPaint and CSP, plus Illustro-native brushes, limited to parameters representable by the adopted Canonical Brush Model.
+- SVG-compatible vector interchange where applicable to supported path/shape content.
 - File/profile metadata must be explicit enough to avoid silently misinterpreting wide-gamut RGB assets.
 
 ### 20. Explicitly excluded capabilities
@@ -461,7 +473,12 @@ The following are **not** part of the required functional-completion target unle
 - Screentone-focused functionality.
 - Wacom Yuify integration.
 - QR-code-based **color-palette** sharing.
-- Highly specialized/overly complex watercolor-specific physical simulation beyond the practical general brush/mixing capabilities specified above.
+- Highly specialized/overly complex watercolor-specific physical simulation.
+- **Realistic general-purpose physical paint/pigment/fluid mixing simulation.** Ordinary digital opacity/density blending and smudge/color-drag behavior remain supported.
+- **Dual Brush** as a two-brush compositing/dynamics subsystem.
+- **Vector brush and vector eraser behavior**, including whole-line/erase-to-intersection vector eraser semantics. Path/shape vector editing remains supported.
+- **Photoshop `.abr` brush import.**
+- **Fisheye Perspective Ruler.** Normal 1/2/3-point perspective rulers remain supported.
 - Animation/multi-frame production is outside the current single-illustration completion target.
 
 ### 21. Pending adoption decisions — NOT YET AUTHORITATIVE
@@ -482,7 +499,7 @@ The following remain candidates rather than adopted requirements until explicitl
 
 ### 22. Feature-audit continuation rule
 
-This inventory captures the decisions made so far from ibisPaint, CLIP STUDIO PAINT and the cross-application mandatory-feature audit. It is **not permission to stop auditing other major painting applications**. When Procreate, Krita, Photoshop, Infinite Painter or other relevant applications expose a materially useful single-illustration capability that is not already represented here, it must be evaluated and either adopted, explicitly excluded, or recorded as pending. Duplicate brand-specific implementations should be normalized into a single stronger Illustro capability rather than copied redundantly.
+This inventory captures the decisions made so far from ibisPaint, CLIP STUDIO PAINT and the cross-application mandatory-feature audit. It is **not permission to stop auditing other major painting applications**. When Procreate, Krita, Photoshop, Infinite Painter or other relevant applications expose a materially useful single-illustration capability that is not already represented here, it must be evaluated and either adopted, explicitly excluded, or recorded as pending. Duplicate brand-specific implementations should be normalized into a single stronger Illustro capability rather than copied redundantly. A feature may be excluded after technical/cost review even if a reference application provides it; such an exclusion must remain explicit.
 
 # UX / UI Specification
 
@@ -716,6 +733,20 @@ The Quick Hole Controller is not a replacement for normal tools, shortcuts or Qu
 - Keep CPU-heavy algorithms behind interfaces that permit TypeScript/JavaScript and WebAssembly implementations.
 - **WebAssembly SIMD and threads** are optimization backends for measured hotspots such as flood fill, contour/selection processing, resampling, compression, or geometry work; they are not mandatory implementation languages for the whole application.
 
+### Algorithm and reference-implementation reuse policy
+
+Illustro should actively avoid re-inventing mature image-processing and computational-geometry algorithms when reliable public work already exists.
+
+- Search established papers, specifications, standards, public-domain implementations and open-source projects before inventing a new algorithm for mature problems such as filtering, resampling, flood fill, contour extraction, morphology, path geometry, image transforms, graph algorithms, caching and compression.
+- **Algorithms/concepts may be independently reimplemented** for Illustro when appropriate. Reimplementation should target Illustro's own data model, WebGPU/WGSL, TypeScript or WASM architecture rather than mechanically preserving another project's code structure.
+- Direct code incorporation requires an explicit license check before merge. Prefer **public-domain/CC0, MIT, BSD-family and Apache-2.0** code for reusable core implementation when technically suitable.
+- Preserve all required attribution, copyright notices, license texts and NOTICE obligations for incorporated third-party code/assets.
+- Strong-copyleft code such as GPL/AGPL, source-available code, or proprietary source must **not be copied into the core by default**. It may be studied as a reference for behavior/algorithm understanding, but direct reuse requires an explicit project-level licensing decision and compliance review first.
+- Do not assume that "source visible on the Internet" means "free to copy". Copyright/license terms remain authoritative for source-code expression even when the underlying algorithm or mathematical idea is independently implementable.
+- For format interoperability, prefer public specifications/documented behavior and clean independent parsers/converters. Unsupported or uncertain proprietary-format semantics must be surfaced explicitly rather than guessed into silent data loss.
+- Maintain implementation provenance for materially reused third-party code/algorithms: source/project, source URL or publication identifier, version/commit where relevant, license, what was reused versus independently reimplemented, modifications, and required notices. This record may live in auxiliary third-party-notice/provenance files, while this memo remains the canonical policy.
+- Third-party/reference implementations are inputs to engineering judgment, not automatic truth. Compare behavior, test against Illustro requirements, and replace unsuitable implementations rather than inheriting accidental limitations.
+
 ### Lifecycle and observability
 
 - Treat page visibility/lifecycle changes as persistence and resource-management signals: flush/queue critical state, reduce unnecessary GPU work while hidden, and restore state safely when returning.
@@ -749,6 +780,7 @@ _Not yet defined._
 - Large documents are represented as a **sparse tile map**. Do not allocate the full document as one giant texture/bitmap solely because its logical dimensions are large.
 - Only active/visible/recently needed tiles and bounded working sets should occupy expensive CPU/GPU caches.
 - Tile dimensions, border/seam strategy, dirty-region representation, eviction policy, and exact memory budgets are to be selected by benchmark and visual correctness testing rather than fixed prematurely.
+- Logical document dimensions are validated against implementation/platform limits; sparse tiling enables very large canvases but does not create literally unbounded resources.
 
 ### Pen/input pipeline
 
@@ -766,6 +798,16 @@ _Not yet defined._
 - Architecture must support both **RGBA8-class** and **RGBA16F-class** render/intermediate targets. The default document precision and exact storage encoding remain to be selected from memory/performance/quality tests.
 - Color conversion and blend semantics must be explicit and testable; wide-gamut support must not silently reinterpret legacy sRGB assets.
 
+### Multi-resolution non-destructive preview policy
+
+- Canonical document/effect state is resolution-independent; reduced-quality preview is a transient renderer optimization only.
+- Interactive adjustment/filter manipulation may reduce preview resolution/quality to maintain responsiveness.
+- After interaction settles, visible dirty tiles are prioritized for full-resolution recomputation and progressively replace the temporary preview.
+- Final export, explicit rasterization/apply, and other final-quality operations always execute the canonical full-quality path.
+- Preview resolution is adaptive rather than fixed: approximately 1/2 linear resolution is a normal target for expensive effects, with lower levels permitted when device/effect cost requires them.
+- Effect caches and invalidation operate per tile/node/revision/quality level so changing one parameter does not force unrelated document regions to be recomputed.
+- Pixel-local effects should stay full-resolution when inexpensive. Neighborhood effects use tile halos; wide-radius effects may use validated multi-scale algorithms; global-statistical effects may use approximate preview statistics and later converge to full-quality results.
+
 ### Adaptive performance policy
 
 Illustro should maintain an internal performance/capability profile based on available GPU limits/features, renderer timings, storage I/O behavior, and suitable coarse platform signals. The profile may adapt:
@@ -779,7 +821,7 @@ Illustro should maintain an internal performance/capability profile based on ava
 - optional precision/acceleration paths
 - background work scheduling
 
-Adaptation must preserve document correctness and visual semantics; performance tiers may reduce cache or preview cost, not silently change final artwork output.
+Adaptation must preserve document correctness and final visual semantics; performance tiers may reduce cache or transient preview cost, not silently change final artwork output.
 
 # Persistence / Undo / Recovery
 
@@ -810,6 +852,7 @@ Adaptation must preserve document correctness and visual semantics; performance 
 - Core project editing uses the internal OPFS working model; external files enter and leave through explicit import/export flows.
 - The exact public `.illustro` container/manifest/tile/history format is not yet defined, but it must be independent of live GPU resources and suitable for backup/exchange/migration.
 - OS/PWA file association may be added as progressive enhancement on platforms that support it; the application must not require file association for normal import/export.
+- External linked-object acceleration may be used when a platform provides a persistent file handle, but `.illustro` correctness/round-trip preservation must rely on embedded/internal project state rather than assuming permanent external-file permission.
 - **WebCodecs** is the preferred browser-native acceleration path when implementing timelapse/video encoding or decoding that benefits from it, with capability detection rather than unconditional dependency.
 - **CompressionStream** may be used for compatible metadata, logs, journals, or auxiliary streams. Image-tile compression/storage codecs are to be chosen separately from benchmarks and quality/storage requirements rather than assuming gzip/deflate is optimal for pixel tiles.
 
@@ -842,6 +885,7 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - Default color precision/document color modes and exact wide-gamut conversion policy
 - `.illustro` file format details
 - Exact final import/export compatibility scope, including pending PSD/CMYK decisions
+- Exact third-party-code/provenance record format and project-level software license
 - Release criteria
 
 # Change log
@@ -857,3 +901,6 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - 2026-08-30: Refined Quick Hole behavior so UI interactions do not move its canvas-derived anchor, non-UI workspace taps can dismiss it until the next canvas interaction, the ring/buttons use configurable translucency, and the wider UI follows a customization-first workspace principle.
 - 2026-08-30: Adopted the Lineart Group / Lineart Boundary Layer system: visible source lineart is wrapped in a special folder-like group with non-rendering idealized boundary topology, editable automatic/manual gap connections, persistent no-connect overrides, multi-boundary union references for region tools, anti-alias-aware under-line fill behavior, and transform/Liquify synchronization.
 - 2026-08-30: Defined Lineart Boundary graph invariants: endpoints are degree-1 graph nodes, connecting endpoints atomically removes stale endpoint status when degree changes, splitting/disconnecting regenerates endpoint classification, and Undo/Redo restores topology, endpoint state, connection provenance and no-connect decisions exactly.
+- 2026-08-30: Reworked the feature inventory for technical realizability: bounded user-defined canvas dimensions; embedded-safe linked-object semantics; application-level palm rejection; removed realistic general-purpose paint mixing, Dual Brush, vector brush/vector eraser, Photoshop `.abr`, and Fisheye Perspective Ruler; retained path/shape vectors and ordinary digital mixing.
+- 2026-08-30: Retained Non-destructive Filter Stack/Adjustment Layers with a tile dependency graph and adaptive multi-resolution interactive preview that converges to full quality after interaction and always renders full quality for final output.
+- 2026-08-30: Added the license-aware public-algorithm/open-source reuse policy, including preference for permissive/public-domain code, provenance/notice tracking, independent reimplementation where appropriate, and prohibition on casually copying incompatible/proprietary source into the core.
