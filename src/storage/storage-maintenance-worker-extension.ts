@@ -142,7 +142,8 @@ function postFailure(request: StorageMaintenanceRequestV1, error: unknown): void
     ok: false,
     error: createStructuredErrorRecord({
       code: 'storage.maintenance.failed',
-      severity: error instanceof DOMException && error.name === 'QuotaExceededError' ? 'error' : 'warning',
+      severity:
+        error instanceof DOMException && error.name === 'QuotaExceededError' ? 'error' : 'warning',
       operation: request.type,
       messageKey: 'error.storage.maintenance.failed',
       recoverability: 'retryable',

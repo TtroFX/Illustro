@@ -118,7 +118,8 @@ export function estimateDurableJsonBytes(value: unknown, overheadBytes = 64 * 10
   }
   const encoded = new TextEncoder().encode(serializeJson(value)).byteLength;
   const estimate = encoded + overheadBytes;
-  if (!Number.isSafeInteger(estimate)) throw new RangeError('durable-write estimate exceeds safe range');
+  if (!Number.isSafeInteger(estimate))
+    throw new RangeError('durable-write estimate exceeds safe range');
   return estimate;
 }
 
@@ -135,8 +136,8 @@ export class StorageQuotaMonitorV1 {
     const persisted =
       typeof this.#storage.persisted === 'function' ? await this.#storage.persisted() : null;
     return calculateStorageQuotaSnapshotV1({
-      usage: estimate.usage,
-      quota: estimate.quota,
+      ...(estimate.usage === undefined ? {} : { usage: estimate.usage }),
+      ...(estimate.quota === undefined ? {} : { quota: estimate.quota }),
       persisted,
     });
   }
@@ -208,20 +209,20 @@ export class StorageQuotaMonitorV1 {
         persistedAfter: null,
       });
     }
-    const canRead = typeof this.#storage.persisted === 'function';
-    const canRequest = typeof this.#storage.persist === 'function';
-    const before = canRead ? await this.#storage.persisted!() : null;
-    if (before === true || !canRequest) {
+    const readPersisted = this.#storage.persisted?.bind(this.#storage);
+    const requestPersist = this.#storage.persist?.bind(this.#storage);
+    const before = readPersisted === undefined ? null : await readPersisted();
+    if (before === true || requestPersist === undefined) {
       return Object.freeze({
         schema: 'illustro.persistent-storage-request/1',
-        supported: canRead || canRequest,
+        supported: readPersisted !== undefined || requestPersist !== undefined,
         persistedBefore: before,
         requested: false,
         persistedAfter: before,
       });
     }
-    const requestedResult = await this.#storage.persist!();
-    const after = canRead ? await this.#storage.persisted!() : requestedResult;
+    const requestedResult = await requestPersist();
+    const after = readPersisted === undefined ? requestedResult : await readPersisted();
     return Object.freeze({
       schema: 'illustro.persistent-storage-request/1',
       supported: true,

@@ -44,6 +44,13 @@ async function readExistingObject(
   }
 }
 
+export async function hasImmutableObject(
+  root: DirectoryHandleLike,
+  hash: string,
+): Promise<boolean> {
+  return (await readExistingObject(root, hash)) !== null;
+}
+
 export async function putImmutableObject(
   root: DirectoryHandleLike,
   data: Uint8Array | ArrayBuffer,

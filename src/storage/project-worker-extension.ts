@@ -1,9 +1,4 @@
-import {
-  createProjectId,
-  parseProjectId,
-  parseResourceId,
-  type ProjectId,
-} from '../domain/identity.js';
+import { createProjectId, parseProjectId, parseResourceId } from '../domain/identity.js';
 import { createStructuredErrorRecord } from '../domain/reports.js';
 import { getProjectWriteCoordinator, type ProjectAccessStateV1 } from './project-coordination.js';
 import { LocalProjectLibraryV1 } from './project-library.js';

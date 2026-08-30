@@ -2,7 +2,7 @@ import type { JsonValue } from '../domain/serialization.js';
 import { isSha256Hex } from '../domain/resources.js';
 import type { HistoryTransactionV1 } from '../history/history.js';
 import { ProjectHistoryStoreV1 } from './history-store.js';
-import { readImmutableObject } from './immutable-object-store.js';
+import { hasImmutableObject, readImmutableObject } from './immutable-object-store.js';
 import { scanJournalFrames } from './journal.js';
 import type {
   DirectoryHandleLike,
@@ -53,16 +53,18 @@ function uniqueHashes(values: Iterable<string>): readonly string[] {
 }
 
 function collectHashesFromUnknown(value: unknown, output: Set<string>): void {
-  if (typeof value === 'string') {
-    if (isSha256Hex(value)) output.add(value);
-    return;
-  }
   if (Array.isArray(value)) {
     for (const item of value) collectHashesFromUnknown(item, output);
     return;
   }
   if (typeof value !== 'object' || value === null) return;
-  for (const item of Object.values(value as Readonly<Record<string, unknown>>)) {
+  const record = value as Readonly<Record<string, unknown>>;
+  if (record.algorithm === 'sha256' && isSha256Hex(record.hash)) output.add(record.hash);
+  for (const [key, item] of Object.entries(record)) {
+    if (typeof item === 'string' && key.toLowerCase().endsWith('objecthash') && isSha256Hex(item)) {
+      output.add(item);
+      continue;
+    }
     collectHashesFromUnknown(item, output);
   }
 }
@@ -84,7 +86,9 @@ async function readFileTextIfPresent(
   }
 }
 
-async function collectCheckpointRoots(project: ProjectDirectoryLayoutV1): Promise<readonly string[]> {
+async function collectCheckpointRoots(
+  project: ProjectDirectoryLayoutV1,
+): Promise<readonly string[]> {
   const hashes = new Set<string>();
   const directory = project.directories.checkpoints as EnumerableDirectoryHandleLike;
   if (typeof directory.entries !== 'function') return Object.freeze([]);
@@ -192,6 +196,10 @@ async function markReachable(
     const hash = queue.shift();
     if (hash === undefined || reachable.has(hash) || missing.has(hash)) continue;
     try {
+      if (!(await hasImmutableObject(root.sha256Objects, hash))) {
+        missing.add(hash);
+        continue;
+      }
       const bytes = await readImmutableObject(root.sha256Objects, hash);
       reachable.add(hash);
       for (const dependency of outgoingHashes(bytes)) {
@@ -228,8 +236,8 @@ async function enumerateImmutableObjects(
     const enumerablePrefix = prefixDirectory as EnumerableDirectoryHandleLike;
     if (typeof enumerablePrefix.entries !== 'function') return null;
     for await (const [suffix] of enumerablePrefix.entries.call(enumerablePrefix)) {
-      const hash = `${prefix}${suffix}`;
-      if (isSha256Hex(hash)) hashes.add(hash);
+      const hash = isSha256Hex(suffix) ? suffix : `${prefix}${suffix}`;
+      if (isSha256Hex(hash) && hash.startsWith(prefix)) hashes.add(hash);
     }
   }
   return uniqueHashes(hashes);
@@ -243,7 +251,9 @@ export async function planGarbageCollectionV1(
   const inventory = await enumerateImmutableObjects(root.sha256Objects);
   const reachable = new Set(marked.reachable);
   const candidates =
-    inventory === null ? [] : inventory.filter((hash) => !reachable.has(hash) && !marked.missing.includes(hash));
+    inventory === null
+      ? []
+      : inventory.filter((hash) => !reachable.has(hash) && !marked.missing.includes(hash));
   return Object.freeze({
     schema: 'illustro.gc-plan/1',
     destructive: false,
