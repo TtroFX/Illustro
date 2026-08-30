@@ -129,12 +129,14 @@ function freezeArray<T>(values: readonly T[]): readonly T[] {
   return Object.freeze([...values]);
 }
 
-export function createReferenceLayerMetadata(input: {
-  useForSampling?: boolean;
-  useForFill?: boolean;
-  useForAutoSelect?: boolean;
-  useForAntiOverflow?: boolean;
-} = {}): ReferenceLayerMetadataV1 {
+export function createReferenceLayerMetadata(
+  input: {
+    useForSampling?: boolean;
+    useForFill?: boolean;
+    useForAutoSelect?: boolean;
+    useForAntiOverflow?: boolean;
+  } = {},
+): ReferenceLayerMetadataV1 {
   return Object.freeze({
     schema: REFERENCE_LAYER_METADATA_SCHEMA,
     useForSampling: input.useForSampling ?? true,
@@ -144,9 +146,9 @@ export function createReferenceLayerMetadata(input: {
   });
 }
 
-export function createDraftLayerMetadata(input: {
-  excludeFromFinalOutput?: boolean;
-} = {}): DraftLayerMetadataV1 {
+export function createDraftLayerMetadata(
+  input: { excludeFromFinalOutput?: boolean } = {},
+): DraftLayerMetadataV1 {
   return Object.freeze({
     schema: DRAFT_LAYER_METADATA_SCHEMA,
     excludeFromFinalOutput: input.excludeFromFinalOutput ?? true,
@@ -163,7 +165,10 @@ export function createLinkedObjectLayer(
     if (!isSha256Hex(input.externalSource.sourceHash)) {
       throw new TypeError('linked object sourceHash must be lowercase SHA-256 hex');
     }
-    if (input.externalSource.originalName.length === 0 || input.externalSource.format.length === 0) {
+    if (
+      input.externalSource.originalName.length === 0 ||
+      input.externalSource.format.length === 0
+    ) {
       throw new TypeError('linked object external source name and format must not be empty');
     }
   }

@@ -1,9 +1,4 @@
-import {
-  INITIAL_REVISION,
-  createResourceId,
-  type ResourceId,
-  type Revision,
-} from './identity.js';
+import { INITIAL_REVISION, createResourceId, type ResourceId, type Revision } from './identity.js';
 
 export type ResourceKindV1 =
   | 'brush-tip'
@@ -16,12 +11,7 @@ export type ResourceKindV1 =
   | 'imported-source'
   | 'other';
 
-export type ResourceColorSpaceV1 =
-  | 'none'
-  | 'srgb'
-  | 'display-p3'
-  | 'embedded-profile'
-  | 'data';
+export type ResourceColorSpaceV1 = 'none' | 'srgb' | 'display-p3' | 'embedded-profile' | 'data';
 
 export type ResourceChannelSemanticsV1 =
   | 'rgba'
@@ -31,16 +21,9 @@ export type ResourceChannelSemanticsV1 =
   | 'coverage'
   | 'data';
 
-export type ProvenanceSourceClassV1 =
-  | 'builtin'
-  | 'user-created'
-  | 'user-imported'
-  | 'third-party';
+export type ProvenanceSourceClassV1 = 'builtin' | 'user-created' | 'user-imported' | 'third-party';
 
-export type ProvenanceReuseModeV1 =
-  | 'direct-reuse'
-  | 'independent-recreation'
-  | 'user-supplied';
+export type ProvenanceReuseModeV1 = 'direct-reuse' | 'independent-recreation' | 'user-supplied';
 
 export interface ProvenanceV1 {
   readonly sourceClass: ProvenanceSourceClassV1;

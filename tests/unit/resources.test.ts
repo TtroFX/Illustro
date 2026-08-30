@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createProvenanceV1,
-  createResourceV1,
-  isSha256Hex,
-} from '../../src/domain/resources.js';
+import { createProvenanceV1, createResourceV1, isSha256Hex } from '../../src/domain/resources.js';
 import { isUuid } from '../../src/domain/identity.js';
 import {
   BRUSH_SCHEMA_VERSION,
