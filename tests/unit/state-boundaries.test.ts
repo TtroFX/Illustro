@@ -58,14 +58,16 @@ describe('canonical state boundaries', () => {
 
     cache.clear();
 
-    expect([
-      cache.gpuResources,
-      cache.thumbnails,
-      cache.mipAndPreviews,
-      cache.extractedLineart,
-      cache.effectResults,
-      cache.decodedResources,
-    ].every((entry) => entry.size === 0)).toBe(true);
+    expect(
+      [
+        cache.gpuResources,
+        cache.thumbnails,
+        cache.mipAndPreviews,
+        cache.extractedLineart,
+        cache.effectResults,
+        cache.decodedResources,
+      ].every((entry) => entry.size === 0),
+    ).toBe(true);
     expect(JSON.stringify(document)).toBe(before);
   });
 });
