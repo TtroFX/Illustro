@@ -41,8 +41,8 @@ export interface PersistedTileV1 {
 }
 
 export const DEFAULT_TILE_CODEC_POLICY: TileCodecPolicyV1 = Object.freeze({
-  minSavingsBytes: 64,
-  minSavingsRatio: 0.03,
+  minSavingsBytes: 0,
+  minSavingsRatio: 0.125,
 });
 
 const TILE_MAGIC = new Uint8Array([0x49, 0x4c, 0x54, 0x31]);

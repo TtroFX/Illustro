@@ -10,6 +10,7 @@ import {
 } from '../../src/storage/opfs-layout.js';
 import {
   decodeTile,
+  DEFAULT_TILE_CODEC_POLICY,
   encodeMaskTile,
   encodeRasterTileAuto,
   encodeRasterTileLz4,
@@ -115,6 +116,13 @@ describe('LZ4 block codec', () => {
 });
 
 describe('raster and mask tile persistence codecs', () => {
+  it('pins the canonical live-storage LZ4 threshold at 87.5% of raw size', () => {
+    expect(DEFAULT_TILE_CODEC_POLICY).toEqual({
+      minSavingsBytes: 0,
+      minSavingsRatio: 0.125,
+    });
+  });
+
   it('encodes raw RGBA8 tiles with stable metadata and exact round-trip', () => {
     const source = pseudoRandomBytes(16 * 16 * 4);
     const encoded = encodeRasterTileRaw({
