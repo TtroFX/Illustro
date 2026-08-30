@@ -33,12 +33,12 @@ M0-023 unit test runner構成:完了
 M0-024 integration test runner構成:完了
 M0-025 CI基盤:完了
 M0-026 dependency lock構成:完了
-M0-027 Apache-2.0 LICENSE生成配置基盤:未完了
-M0-028 NOTICE生成基盤:未完了
-M0-029 third-party provenance manifest基盤:未完了
-M0-030 third-party license bundle生成基盤:未完了
-M0-031 CycloneDX SBOM生成基盤:未完了
-M0-032 offline Open Source Licensesデータ生成基盤:未完了
+M0-027 Apache-2.0 LICENSE生成配置基盤:完了
+M0-028 NOTICE生成基盤:完了
+M0-029 third-party provenance manifest基盤:完了
+M0-030 third-party license bundle生成基盤:完了
+M0-031 CycloneDX SBOM生成基盤:完了
+M0-032 offline Open Source Licensesデータ生成基盤:完了
 M0-033 minimal application shell:未完了
 M0-034 clean checkoutからreproducible build可能化:未完了
 M0-検査 M0内部検査:未完了
