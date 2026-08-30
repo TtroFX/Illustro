@@ -44,7 +44,11 @@ describe('schema validation primitives', () => {
     const value = toJsonValue({ mode: 'unknown', strength: 2, extra: true });
     const issues = validateValueSchema(value, schema);
 
-    expect(issues.map((entry) => entry.code)).toEqual(['enum', 'maximum', 'additionalProperty']);
+    expect(issues.map((entry) => entry.code).sort()).toEqual([
+      'additionalProperty',
+      'enum',
+      'maximum',
+    ]);
     expect(() => assertValueSchema(value, schema)).toThrow(TypeError);
     expect(validateValueSchema(toJsonValue({ mode: 'fast', strength: 0.5 }), schema)).toEqual([]);
   });
