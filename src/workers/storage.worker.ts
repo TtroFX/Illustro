@@ -24,6 +24,11 @@ import {
 } from '../storage/persistence-scheduler.js';
 import { probeSyncAccessHandle } from '../storage/sync-access.js';
 import {
+  persistMaskTile,
+  persistRasterTile,
+  type TilePixelFormatV1,
+} from '../storage/tile-codec.js';
+import {
   commitProjectTransaction,
   type ProjectTransactionCommitResultV1,
 } from '../storage/transaction.js';
@@ -53,6 +58,15 @@ type StorageRequest =
   | {
       readonly type: 'storage.object.put';
       readonly requestId: string;
+      readonly bytes: ArrayBuffer;
+    }
+  | {
+      readonly type: 'storage.tile.put';
+      readonly requestId: string;
+      readonly kind: 'raster' | 'mask';
+      readonly width: number;
+      readonly height: number;
+      readonly pixelFormat: TilePixelFormatV1;
       readonly bytes: ArrayBuffer;
     }
   | {
@@ -128,6 +142,25 @@ function isFlushReason(value: unknown): value is PersistenceFlushReasonV1 {
   return value === 'recovery' || value === 'autosave';
 }
 
+function isTilePixelFormat(value: unknown): value is TilePixelFormatV1 {
+  return (
+    value === 'r8-unorm' ||
+    value === 'r16-float' ||
+    value === 'rgba8-unorm' ||
+    value === 'rgba16-float'
+  );
+}
+
+function isRasterPixelFormat(
+  value: TilePixelFormatV1,
+): value is 'rgba8-unorm' | 'rgba16-float' {
+  return value === 'rgba8-unorm' || value === 'rgba16-float';
+}
+
+function isMaskPixelFormat(value: TilePixelFormatV1): value is 'r8-unorm' | 'r16-float' {
+  return value === 'r8-unorm' || value === 'r16-float';
+}
+
 function parseRequest(value: unknown): StorageRequest | null {
   if (!isRecord(value) || typeof value.type !== 'string') return null;
   if (value.type === 'ping') return { type: 'ping' };
@@ -138,6 +171,24 @@ function parseRequest(value: unknown): StorageRequest | null {
   }
   if (value.type === 'storage.object.put' && value.bytes instanceof ArrayBuffer) {
     return { type: value.type, requestId: value.requestId, bytes: value.bytes };
+  }
+  if (
+    value.type === 'storage.tile.put' &&
+    (value.kind === 'raster' || value.kind === 'mask') &&
+    typeof value.width === 'number' &&
+    typeof value.height === 'number' &&
+    isTilePixelFormat(value.pixelFormat) &&
+    value.bytes instanceof ArrayBuffer
+  ) {
+    return {
+      type: value.type,
+      requestId: value.requestId,
+      kind: value.kind,
+      width: value.width,
+      height: value.height,
+      pixelFormat: value.pixelFormat,
+      bytes: value.bytes,
+    };
   }
   if (
     value.type === 'storage.entity.persist' &&
@@ -321,6 +372,39 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     if (request.type === 'storage.object.put') {
       const root = await rootPromise;
       const result = await putImmutableObject(root.sha256Objects, request.bytes);
+      scope.postMessage({
+        type: 'storage.response',
+        requestId: request.requestId,
+        ok: true,
+        result,
+      });
+      return;
+    }
+
+    if (request.type === 'storage.tile.put') {
+      const root = await rootPromise;
+      const result =
+        request.kind === 'raster'
+          ? isRasterPixelFormat(request.pixelFormat)
+            ? await persistRasterTile(root, {
+                width: request.width,
+                height: request.height,
+                pixelFormat: request.pixelFormat,
+                bytes: request.bytes,
+              })
+            : (() => {
+                throw new TypeError('raster tile requires RGBA pixel format');
+              })()
+          : isMaskPixelFormat(request.pixelFormat)
+            ? await persistMaskTile(root, {
+                width: request.width,
+                height: request.height,
+                pixelFormat: request.pixelFormat,
+                bytes: request.bytes,
+              })
+            : (() => {
+                throw new TypeError('mask tile requires single-channel pixel format');
+              })();
       scope.postMessage({
         type: 'storage.response',
         requestId: request.requestId,
