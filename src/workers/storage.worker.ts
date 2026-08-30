@@ -1,4 +1,5 @@
 import '../storage/history-worker-extension.js';
+import '../storage/project-worker-extension.js';
 import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
 import {
   parseProjectId,
