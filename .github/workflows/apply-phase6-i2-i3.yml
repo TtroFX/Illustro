@@ -1,0 +1,35 @@
+name: Apply Illustro I-2 I-3 update
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - '.phase6-i2-i3.md'
+      - '.github/workflows/apply-phase6-i2-i3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append I-2 I-3 update once
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Fq '# Phase 6 I/J Asset Production — I-2 / I-3 Update — 2026-08-30' ILLUSTRO_DESIGN_MEMO.md; then
+            echo 'I-2/I-3 update already present; no-op.'
+            exit 0
+          fi
+          printf '\n\n' >> ILLUSTRO_DESIGN_MEMO.md
+          cat .phase6-i2-i3.md >> ILLUSTRO_DESIGN_MEMO.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'docs: close I-2 and record I-3 production assets'
+          git push
