@@ -8,6 +8,7 @@ import {
   type Revision,
 } from './identity.js';
 import type { LayerBaseV1 } from './layers.js';
+import type { ResourceV1 } from './resources.js';
 
 export const DOCUMENT_V1_SCHEMA = 'illustro.document/1' as const;
 export const MAX_CANVAS_DIMENSION = 32_768;
@@ -57,7 +58,7 @@ export interface LayerTreeV1 {
   readonly layers: Readonly<Record<string, LayerBaseV1>>;
 }
 
-export type ResourceTableV1 = Readonly<Record<string, unknown>>;
+export type ResourceTableV1 = Readonly<Record<string, ResourceV1>>;
 export type GuideRulerStateV1 = Readonly<Record<string, unknown>>;
 export type DocumentSettingsV1 = Readonly<Record<string, unknown>>;
 export type DocumentExtensionTableV1 = Readonly<Record<string, unknown>>;
