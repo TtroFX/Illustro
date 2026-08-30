@@ -85,10 +85,18 @@ export function createCompatibilityReport(input: {
   if (input.sourceFormat.length === 0) throw new TypeError('source format must not be empty');
   const issues = Object.freeze([...(input.issues ?? [])]);
   const writable = !issues.some(
-    (entry) => entry.severity === 'unsupported' || entry.severity === 'error' || entry.mapping === 'rejected',
+    (entry) =>
+      entry.severity === 'unsupported' ||
+      entry.severity === 'error' ||
+      entry.mapping === 'rejected',
   );
   const requiresUserAcceptance = issues.some(
-    (entry) => entry.severity === 'lossy' || entry.mapping === 'approximated' || entry.mapping === 'rasterized' || entry.mapping === 'flattened' || entry.mapping === 'ignored',
+    (entry) =>
+      entry.severity === 'lossy' ||
+      entry.mapping === 'approximated' ||
+      entry.mapping === 'rasterized' ||
+      entry.mapping === 'flattened' ||
+      entry.mapping === 'ignored',
   );
   return Object.freeze({
     schema: 'illustro.compatibility-report/1',
@@ -108,7 +116,15 @@ export function createFidelityReport(input: {
   if (input.format.length === 0) throw new TypeError('fidelity format must not be empty');
   const issues = Object.freeze([...(input.issues ?? [])]);
   const hasLoss = issues.some(
-    (entry) => entry.severity === 'lossy' || entry.severity === 'unsupported' || entry.severity === 'error' || entry.mapping === 'approximated' || entry.mapping === 'rasterized' || entry.mapping === 'flattened' || entry.mapping === 'ignored' || entry.mapping === 'rejected',
+    (entry) =>
+      entry.severity === 'lossy' ||
+      entry.severity === 'unsupported' ||
+      entry.severity === 'error' ||
+      entry.mapping === 'approximated' ||
+      entry.mapping === 'rasterized' ||
+      entry.mapping === 'flattened' ||
+      entry.mapping === 'ignored' ||
+      entry.mapping === 'rejected',
   );
   return Object.freeze({
     schema: 'illustro.fidelity-report/1',

@@ -21,6 +21,9 @@ export function parseInternalId(value: unknown, label = 'internal ID'): Internal
   return value;
 }
 
-export function assertLocaleNeutralInternalIds(values: readonly unknown[], label = 'internal ID'): void {
+export function assertLocaleNeutralInternalIds(
+  values: readonly unknown[],
+  label = 'internal ID',
+): void {
   for (const value of values) parseInternalId(value, label);
 }

@@ -1,7 +1,4 @@
-import {
-  parseCommandId,
-  type CommandBindingV1,
-} from './command-registry.js';
+import { parseCommandId, type CommandBindingV1 } from './command-registry.js';
 import { parseInternalId, type InternalId } from './internal-id.js';
 import { toJsonValue } from './serialization.js';
 
@@ -66,9 +63,7 @@ function assertFiniteRange(value: number, minimum: number, maximum: number, labe
 function normalizeBinding(binding: CommandBindingV1): CommandBindingV1 {
   const commandId = parseCommandId(binding.commandId);
   return Object.freeze(
-    binding.args === undefined
-      ? { commandId }
-      : { commandId, args: toJsonValue(binding.args) },
+    binding.args === undefined ? { commandId } : { commandId, args: toJsonValue(binding.args) },
   );
 }
 
@@ -92,9 +87,18 @@ export function createDefaultQuickHoleBindings(): readonly CommandBindingV1[] {
     Object.freeze({ commandId: parseCommandId('history.undo') }),
     Object.freeze({ commandId: parseCommandId('history.redo') }),
     Object.freeze({ commandId: parseCommandId('tool.toggleBrushEraser') }),
-    Object.freeze({ commandId: parseCommandId('tool.activate'), args: toJsonValue({ toolId: 'eyedropper' }) }),
-    Object.freeze({ commandId: parseCommandId('tool.activate'), args: toJsonValue({ toolId: 'selection.lasso' }) }),
-    Object.freeze({ commandId: parseCommandId('tool.activate'), args: toJsonValue({ toolId: 'fill' }) }),
+    Object.freeze({
+      commandId: parseCommandId('tool.activate'),
+      args: toJsonValue({ toolId: 'eyedropper' }),
+    }),
+    Object.freeze({
+      commandId: parseCommandId('tool.activate'),
+      args: toJsonValue({ toolId: 'selection.lasso' }),
+    }),
+    Object.freeze({
+      commandId: parseCommandId('tool.activate'),
+      args: toJsonValue({ toolId: 'fill' }),
+    }),
   ]);
 }
 
@@ -165,7 +169,8 @@ export function createDefaultWorkspaceStateV1(): WorkspaceStateV1 {
 }
 
 export function normalizeUserSettingsV1(input: UserSettingsV1): UserSettingsV1 {
-  if (input.schema !== USER_SETTINGS_SCHEMA) throw new TypeError('unsupported user settings schema');
+  if (input.schema !== USER_SETTINGS_SCHEMA)
+    throw new TypeError('unsupported user settings schema');
   assertFiniteRange(input.workspaceDefaults.controllerScale, 0.25, 4, 'default controller scale');
   assertFiniteRange(input.workspaceDefaults.overlayOpacity, 0.1, 1, 'default overlay opacity');
   return Object.freeze({

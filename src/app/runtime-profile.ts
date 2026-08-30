@@ -84,7 +84,11 @@ export function createRuntimeCapabilityProfile(
     ['coreWebGpuDeviceReady', required.coreWebGpuDeviceReady, 'capability.coreWebGpuDevice'],
     ['opfs', required.opfs, 'capability.opfs'],
     ['dedicatedWorker', required.dedicatedWorker, 'capability.dedicatedWorker'],
-    ['transferableArrayBuffer', required.transferableArrayBuffer, 'capability.transferableArrayBuffer'],
+    [
+      'transferableArrayBuffer',
+      required.transferableArrayBuffer,
+      'capability.transferableArrayBuffer',
+    ],
     ['fullEditorViewport', required.fullEditorViewport, 'capability.fullEditorViewport'],
     ['storageWriteViable', required.storageWriteViable, 'capability.storageWriteViable'],
   ];

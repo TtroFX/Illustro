@@ -95,10 +95,12 @@ describe('structured compatibility, fidelity, and error reports', () => {
       writable: true,
       requiresUserAcceptance: true,
     });
+    expect(createCompatibilityReport({ sourceFormat: 'psd', issues: [unsupported] }).writable).toBe(
+      false,
+    );
     expect(
-      createCompatibilityReport({ sourceFormat: 'psd', issues: [unsupported] }).writable,
-    ).toBe(false);
-    expect(createFidelityReport({ direction: 'import', format: 'psd', issues: [lossy] })).toMatchObject({
+      createFidelityReport({ direction: 'import', format: 'psd', issues: [lossy] }),
+    ).toMatchObject({
       exact: false,
       hasLoss: true,
     });
