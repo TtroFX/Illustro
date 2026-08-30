@@ -31,7 +31,8 @@
     "verify:reproducible": "node scripts/verify-reproducible-build.mjs",
     "verify:m0": "npm run verify:m0-batch1 && npm run build && npm run verify:m0-batch2 && npm run verify:m0-batch3 && npm run verify:m0-batch4 && npm run verify:m0-batch5 && npm run verify:m0-batch6 && npm run benchmark:m0",
     "verify:m0.5": "node scripts/verify-m0-5-deployment.mjs",
-    "verify:m1": "node scripts/verify-m1-contracts.mjs"
+    "verify:m1": "node scripts/verify-m1-contracts.mjs",
+    "verify:m2": "node scripts/verify-m2-persistence.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",
