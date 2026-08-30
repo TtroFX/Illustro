@@ -90,16 +90,16 @@ M1-026 Reference Layer metadata schema:完了
 M1-027 Draft/Sketch Layer metadata schema:完了
 M1-028 Brush schema/version identifiers:完了
 M1-029 Resource provenance schema:完了
-M1-030 canonical Command Registry:未完了
-M1-031 command ID contract:未完了
-M1-032 command parameter schema:未完了
-M1-033 command context/availability model:未完了
-M1-034 command transaction identity:未完了
-M1-035 command enable/disable semantics:未完了
-M1-036 serialization primitives:未完了
-M1-037 deserialization primitives:未完了
-M1-038 schema validation:未完了
-M1-039 version handling:未完了
+M1-030 canonical Command Registry:完了
+M1-031 command ID contract:完了
+M1-032 command parameter schema:完了
+M1-033 command context/availability model:完了
+M1-034 command transaction identity:完了
+M1-035 command enable/disable semantics:完了
+M1-036 serialization primitives:完了
+M1-037 deserialization primitives:完了
+M1-038 schema validation:完了
+M1-039 version handling:完了
 M1-040 migration framework:未完了
 M1-041 structured compatibility report:未完了
 M1-042 structured fidelity report:未完了
