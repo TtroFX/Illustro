@@ -131,13 +131,13 @@ M2-017 raw raster tile codec:完了
 M2-018 LZ4-block raster tile codec:完了
 M2-019 raw/LZ4 automatic selection policy:完了
 M2-020 mask single-channel persistence:完了
-M2-021 history transaction model:未完了
-M2-022 hybrid delta/snapshot history strategy:未完了
-M2-023 Undo:未完了
-M2-024 Redo:未完了
-M2-025 history pruning:未完了
-M2-026 history spill-to-storage:未完了
-M2-027 history state restoration across reload:未完了
+M2-021 history transaction model:完了
+M2-022 hybrid delta/snapshot history strategy:完了
+M2-023 Undo:完了
+M2-024 Redo:完了
+M2-025 history pruning:完了
+M2-026 history spill-to-storage:完了
+M2-027 history state restoration across reload:完了
 M2-028 project create:未完了
 M2-029 project open:未完了
 M2-030 project close:未完了
