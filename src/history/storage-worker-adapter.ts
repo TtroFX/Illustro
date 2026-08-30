@@ -28,7 +28,8 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function responseError(value: unknown): Error {
   if (isRecord(value) && typeof value.code === 'string') {
     const details = isRecord(value.details) ? value.details : null;
-    const message = details !== null && typeof details.message === 'string' ? details.message : value.code;
+    const message =
+      details !== null && typeof details.message === 'string' ? details.message : value.code;
     return new Error(message);
   }
   return new Error('storage history request failed');
