@@ -1,5 +1,5 @@
 import { buildIdentity } from '../generated/build-info.js';
-import { initializeWebGpuBuildPath } from '../gpu/webgpu-bootstrap.js';
+import { inspectWebGpuBuildPath } from '../gpu/webgpu-bootstrap.js';
 import { createLogger } from '../shared/logger.js';
 import {
   incrementPerformanceCounter,
@@ -89,14 +89,19 @@ function publishCapabilityProfile(coreWebGpuDeviceReady: CapabilityProbeStateV1)
 
 publishCapabilityProfile('pending');
 
-void initializeWebGpuBuildPath()
-  .then((status) => {
-    root.dataset.illustroWebgpu = status;
-    publishCapabilityProfile(status === 'ready');
-    logger.info('webgpu.bootstrap-complete', { status });
+void inspectWebGpuBuildPath()
+  .then((result) => {
+    root.dataset.illustroWebgpu = result.status;
+    root.dataset.illustroWebgpuCoreProfile = result.profile?.supported === true ? 'supported' : 'unsupported';
+    root.dataset.illustroWebgpuShaderF16 = result.shaderF16 ? 'available' : 'unavailable';
+    root.dataset.illustroWebgpuLimitFailures =
+      result.profile?.failures.map((entry) => entry.limit).join(',') ?? '';
+    publishCapabilityProfile(result.status === 'ready');
+    logger.info('webgpu.bootstrap-complete', { result });
   })
   .catch((error: unknown) => {
     root.dataset.illustroWebgpu = 'error';
+    root.dataset.illustroWebgpuCoreProfile = 'error';
     publishCapabilityProfile(false);
     incrementPerformanceCounter('webgpu.bootstrap.failure');
     logger.error('webgpu.bootstrap-failed', error);

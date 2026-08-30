@@ -1,34 +1,55 @@
 import { bootstrapShaderSource } from '../generated/bootstrap-shader.js';
+import {
+  acquireCoreWebGpuV1,
+  type WebGpuAcquireStatusV1,
+  type WebGpuCoreProfileV1,
+} from './webgpu-capability.js';
 
-type IllustroGpuDevice = {
-  createShaderModule(descriptor: { code: string; label?: string }): unknown;
-};
+export type WebGpuBootstrapStatus = WebGpuAcquireStatusV1 | 'shader-bootstrap-failed';
 
-type IllustroGpuAdapter = {
-  requestDevice(): Promise<IllustroGpuDevice>;
-};
+export interface WebGpuBootstrapResultV1 {
+  readonly schema: 'illustro.webgpu-bootstrap/1';
+  readonly status: WebGpuBootstrapStatus;
+  readonly profile: WebGpuCoreProfileV1 | null;
+  readonly shaderF16: boolean;
+  readonly errorMessage: string | null;
+}
 
-type IllustroGpu = {
-  requestAdapter(options?: {
-    powerPreference?: 'low-power' | 'high-performance';
-  }): Promise<IllustroGpuAdapter | null>;
-};
+export async function inspectWebGpuBuildPath(): Promise<WebGpuBootstrapResultV1> {
+  const acquired = await acquireCoreWebGpuV1();
+  if (acquired.status !== 'ready' || acquired.device === null) {
+    return Object.freeze({
+      schema: 'illustro.webgpu-bootstrap/1',
+      status: acquired.status,
+      profile: acquired.profile,
+      shaderF16: acquired.profile?.shaderF16 ?? false,
+      errorMessage: acquired.errorMessage,
+    });
+  }
 
-type NavigatorWithGpu = Navigator & { gpu?: IllustroGpu };
-
-export type WebGpuBootstrapStatus = 'ready' | 'unsupported';
+  try {
+    acquired.device.createShaderModule({
+      label: 'illustro-m3-core-bootstrap',
+      code: bootstrapShaderSource,
+    });
+    return Object.freeze({
+      schema: 'illustro.webgpu-bootstrap/1',
+      status: 'ready',
+      profile: acquired.profile,
+      shaderF16: acquired.profile?.shaderF16 ?? false,
+      errorMessage: null,
+    });
+  } catch (error) {
+    return Object.freeze({
+      schema: 'illustro.webgpu-bootstrap/1',
+      status: 'shader-bootstrap-failed',
+      profile: acquired.profile,
+      shaderF16: acquired.profile?.shaderF16 ?? false,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
 
 export async function initializeWebGpuBuildPath(): Promise<WebGpuBootstrapStatus> {
-  const gpu = (navigator as NavigatorWithGpu).gpu;
-  if (!gpu) return 'unsupported';
-
-  const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
-  if (!adapter) return 'unsupported';
-
-  const device = await adapter.requestDevice();
-  device.createShaderModule({
-    label: 'illustro-m0-bootstrap',
-    code: bootstrapShaderSource,
-  });
-  return 'ready';
+  return (await inspectWebGpuBuildPath()).status;
 }
