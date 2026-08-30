@@ -22,7 +22,7 @@ jobs:
           cache: npm
       - run: npm install --global npm@11.19.1
       - run: npm ci --ignore-scripts
-      - name: Repair strict optional quota plumbing
+      - name: Repair quota and GC safety plumbing
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -41,12 +41,32 @@ jobs:
           s = s.replace("        supported: canRead || canRequest,", "        supported: readPersisted !== undefined || requestPersist !== undefined,")
           s = s.replace("    const requestedResult = await this.#storage.persist!();\n    const after = canRead ? await this.#storage.persisted!() : requestedResult;", "    const requestedResult = await requestPersist();\n    const after = readPersisted === undefined ? requestedResult : await readPersisted();")
           p.write_text(s)
+
           p = Path('src/storage/project-worker-extension.ts')
-          s = p.read_text().replace("  type ProjectId,\n", "")
+          p.write_text(p.read_text().replace("  type ProjectId,\n", ""))
+
+          p = Path('src/storage/immutable-object-store.ts')
+          s = p.read_text()
+          marker = "export async function putImmutableObject(\n"
+          helper = "export async function hasImmutableObject(\n  root: DirectoryHandleLike,\n  hash: string,\n): Promise<boolean> {\n  return (await readExistingObject(root, hash)) !== null;\n}\n\n"
+          if helper not in s:
+              if marker not in s:
+                  raise SystemExit('immutable object helper insertion target missing')
+              s = s.replace(marker, helper + marker, 1)
+          p.write_text(s)
+
+          p = Path('src/storage/garbage-collection.ts')
+          s = p.read_text()
+          s = s.replace("import { readImmutableObject } from './immutable-object-store.js';", "import { hasImmutableObject, readImmutableObject } from './immutable-object-store.js';")
+          old = "    try {\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"
+          new = "    try {\n      if (!(await hasImmutableObject(root.sha256Objects, hash))) {\n        missing.add(hash);\n        continue;\n      }\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"
+          if old not in s:
+              raise SystemExit('GC mark target missing')
+          s = s.replace(old, new, 1)
           p.write_text(s)
           PY
       - name: Format repaired foundation
-        run: npx biome format --write src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts
+        run: npx biome format --write src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts src/storage/immutable-object-store.ts
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
@@ -57,6 +77,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm .github/workflows/m2-storage-foundation-repair.yml
           if [ -f .github/workflows/m2-storage-foundation-format.yml ]; then git rm .github/workflows/m2-storage-foundation-format.yml; fi
-          git add src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts
+          git add src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts src/storage/immutable-object-store.ts
           git commit -m 'fix: verify M2 storage quota and GC foundation [skip ci]'
           git push
