@@ -40,9 +40,7 @@ describe('canonical layer schemas', () => {
     const layer = createRasterLayer({ name: 'Paint', tiles: [tile] });
 
     expect(layer.tiles).toEqual([tile]);
-    expect(() => createRasterTileReference({ x: -1, y: 0, payloadRef: 'bad' })).toThrow(
-      RangeError,
-    );
+    expect(() => createRasterTileReference({ x: -1, y: 0, payloadRef: 'bad' })).toThrow(RangeError);
   });
 
   it('stores folder ordering explicitly by child layer IDs', () => {

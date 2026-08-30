@@ -398,13 +398,15 @@ export function createVectorObject(input: {
   });
 }
 
-export function createRasterMask(input: {
-  id?: MaskId;
-  defaultCoverage?: 0 | 1;
-  tiles?: readonly RasterTileReferenceV1[];
-  enabled?: boolean;
-  inverted?: boolean;
-} = {}): RasterMaskAttachmentV1 {
+export function createRasterMask(
+  input: {
+    id?: MaskId;
+    defaultCoverage?: 0 | 1;
+    tiles?: readonly RasterTileReferenceV1[];
+    enabled?: boolean;
+    inverted?: boolean;
+  } = {},
+): RasterMaskAttachmentV1 {
   return Object.freeze({
     ...createMaskBase('raster-mask', input),
     defaultCoverage: input.defaultCoverage ?? 1,
@@ -412,12 +414,14 @@ export function createRasterMask(input: {
   });
 }
 
-export function createVectorMask(input: {
-  id?: MaskId;
-  paths?: readonly VectorObjectV1[];
-  enabled?: boolean;
-  inverted?: boolean;
-} = {}): VectorMaskAttachmentV1 {
+export function createVectorMask(
+  input: {
+    id?: MaskId;
+    paths?: readonly VectorObjectV1[];
+    enabled?: boolean;
+    inverted?: boolean;
+  } = {},
+): VectorMaskAttachmentV1 {
   return Object.freeze({
     ...createMaskBase('vector-mask', input),
     paths: freezeArray(input.paths ?? []),
@@ -455,7 +459,8 @@ export function createFolderLayer(
   return Object.freeze({
     ...base,
     role,
-    blendMode: role === 'lineart-group' && base.blendMode === 'normal' ? 'pass-through' : base.blendMode,
+    blendMode:
+      role === 'lineart-group' && base.blendMode === 'normal' ? 'pass-through' : base.blendMode,
     childLayerIds: freezeArray(input.childLayerIds ?? []),
   });
 }
@@ -463,7 +468,10 @@ export function createFolderLayer(
 export function createVectorLayer(
   input: LayerCommonInput & { readonly objects?: readonly VectorObjectV1[] },
 ): VectorLayerV1 {
-  return Object.freeze({ ...createBase('vector', input), objects: freezeArray(input.objects ?? []) });
+  return Object.freeze({
+    ...createBase('vector', input),
+    objects: freezeArray(input.objects ?? []),
+  });
 }
 
 export function createAdjustmentLayer(
