@@ -11,13 +11,16 @@ export interface ImmutableObjectWriteResultV1 extends ImmutableObjectRefV1 {
   readonly created: boolean;
 }
 
-async function sha256Hex(data: Uint8Array): Promise<string> {
+async function sha256Hex(data: Uint8Array<ArrayBuffer>): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', data);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function normalizeBytes(data: Uint8Array | ArrayBuffer): Uint8Array {
-  return data instanceof Uint8Array ? data : new Uint8Array(data);
+function normalizeBytes(data: Uint8Array | ArrayBuffer): Uint8Array<ArrayBuffer> {
+  if (data instanceof ArrayBuffer) return new Uint8Array(data.slice(0));
+  const copy = new Uint8Array(data.byteLength);
+  copy.set(data);
+  return copy;
 }
 
 export function immutableObjectPath(hash: string): readonly [string, string] {
@@ -28,7 +31,7 @@ export function immutableObjectPath(hash: string): readonly [string, string] {
 async function readExistingObject(
   root: DirectoryHandleLike,
   hash: string,
-): Promise<Uint8Array | null> {
+): Promise<Uint8Array<ArrayBuffer> | null> {
   const [shard, filename] = immutableObjectPath(hash);
   try {
     const shardDirectory = await root.getDirectoryHandle(shard);
@@ -78,7 +81,7 @@ export async function putImmutableObject(
 export async function readImmutableObject(
   root: DirectoryHandleLike,
   hash: string,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const bytes = await readExistingObject(root, hash);
   if (bytes === null) throw new Error(`immutable object not found: ${hash}`);
   const actualHash = await sha256Hex(bytes);
