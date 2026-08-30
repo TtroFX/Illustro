@@ -1,4 +1,14 @@
+import {
+  createProjectId,
+  parseProjectId,
+  parseResourceId,
+  type ProjectId,
+} from '../domain/identity.js';
 import { createStructuredErrorRecord } from '../domain/reports.js';
+import {
+  getProjectWriteCoordinator,
+  type ProjectAccessStateV1,
+} from './project-coordination.js';
 import { LocalProjectLibraryV1 } from './project-library.js';
 import { openIllustroOpfsRoot } from './opfs-layout.js';
 
@@ -63,6 +73,10 @@ type ProjectStorageRequestV1 =
 
 const scope = globalThis as unknown as WorkerScope;
 const libraryPromise = openIllustroOpfsRoot().then((root) => new LocalProjectLibraryV1(root));
+const coordinator = getProjectWriteCoordinator();
+coordinator.subscribe((event) => {
+  scope.postMessage({ type: 'storage.project.event', event });
+});
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -79,8 +93,9 @@ function parseRequest(value: unknown): ProjectStorageRequestV1 | null {
     return null;
   }
   if (value.type === 'storage.library.list') {
-    if (value.includeTrashed !== undefined && typeof value.includeTrashed !== 'boolean')
+    if (value.includeTrashed !== undefined && typeof value.includeTrashed !== 'boolean') {
       return null;
+    }
     return {
       type: value.type,
       requestId: value.requestId,
@@ -90,8 +105,9 @@ function parseRequest(value: unknown): ProjectStorageRequestV1 | null {
   if (value.type === 'storage.project.create') {
     if (typeof value.name !== 'string') return null;
     if (value.projectId !== undefined && typeof value.projectId !== 'string') return null;
-    if (value.documentRevision !== undefined && typeof value.documentRevision !== 'number')
+    if (value.documentRevision !== undefined && typeof value.documentRevision !== 'number') {
       return null;
+    }
     if (
       value.previewResourceId !== undefined &&
       value.previewResourceId !== null &&
@@ -178,6 +194,15 @@ function parseRequest(value: unknown): ProjectStorageRequestV1 | null {
   return null;
 }
 
+function requireWrite(access: ProjectAccessStateV1): void {
+  if (access.mode === 'read-write') return;
+  throw new Error(
+    access.reason === 'locks-unavailable'
+      ? 'Web Locks unavailable; project can only open read-only'
+      : 'project is locked by another writer',
+  );
+}
+
 function postFailure(request: ProjectStorageRequestV1, error: unknown): void {
   scope.postMessage({
     type: 'storage.response',
@@ -194,6 +219,74 @@ function postFailure(request: ProjectStorageRequestV1, error: unknown): void {
   });
 }
 
+async function createProject(
+  request: Extract<ProjectStorageRequestV1, { readonly type: 'storage.project.create' }>,
+): Promise<unknown> {
+  const library = await libraryPromise;
+  const projectId = request.projectId === undefined ? createProjectId() : parseProjectId(request.projectId);
+  const access = await coordinator.acquire(projectId);
+  requireWrite(access);
+  try {
+    const created = await library.create({
+      name: request.name,
+      initialSnapshot: request.initialSnapshot,
+      projectId,
+      ...(request.documentRevision === undefined
+        ? {}
+        : { documentRevision: request.documentRevision }),
+      ...(request.previewResourceId === undefined
+        ? {}
+        : {
+            previewResourceId:
+              request.previewResourceId === null ? null : parseResourceId(request.previewResourceId),
+          }),
+      ...(request.now === undefined ? {} : { now: new Date(request.now) }),
+    });
+    coordinator.announce('project.created', projectId, { name: created.metadata.name });
+    coordinator.announce('project.opened', projectId, { mode: access.mode, reason: access.reason });
+    return Object.freeze({ ...created, access });
+  } catch (error) {
+    await coordinator.release(projectId);
+    throw error;
+  }
+}
+
+async function openProject(projectIdValue: string): Promise<unknown> {
+  const library = await libraryPromise;
+  const projectId = parseProjectId(projectIdValue);
+  const access = await coordinator.acquire(projectId);
+  try {
+    const opened = await library.open(projectId);
+    coordinator.announce(
+      access.mode === 'read-write' ? 'project.opened' : 'project.read-only',
+      projectId,
+      { mode: access.mode, reason: access.reason },
+    );
+    return Object.freeze({ ...opened, access });
+  } catch (error) {
+    if (access.mode === 'read-write') await coordinator.release(projectId);
+    throw error;
+  }
+}
+
+async function duplicateProject(
+  request: Extract<ProjectStorageRequestV1, { readonly type: 'storage.project.duplicate' }>,
+): Promise<unknown> {
+  const library = await libraryPromise;
+  const sourceProjectId = parseProjectId(request.projectId);
+  const duplicate = await library.duplicate(sourceProjectId, {
+    ...(request.name === undefined ? {} : { name: request.name }),
+    ...(request.now === undefined ? {} : { now: new Date(request.now) }),
+  });
+  const access = await coordinator.acquire(duplicate.metadata.projectId);
+  coordinator.announce('project.duplicated', duplicate.metadata.projectId, {
+    sourceProjectId,
+    mode: access.mode,
+    reason: access.reason,
+  });
+  return Object.freeze({ ...duplicate, access });
+}
+
 async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
   try {
     const library = await libraryPromise;
@@ -201,42 +294,52 @@ async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
     if (request.type === 'storage.library.list') {
       result = await library.list({ includeTrashed: request.includeTrashed === true });
     } else if (request.type === 'storage.project.create') {
-      result = await library.create({
-        name: request.name,
-        initialSnapshot: request.initialSnapshot,
-        ...(request.projectId === undefined ? {} : { projectId: request.projectId as never }),
-        ...(request.documentRevision === undefined
-          ? {}
-          : { documentRevision: request.documentRevision }),
-        ...(request.previewResourceId === undefined
-          ? {}
-          : { previewResourceId: request.previewResourceId as never }),
-        ...(request.now === undefined ? {} : { now: new Date(request.now) }),
-      });
+      result = await createProject(request);
     } else if (request.type === 'storage.project.open') {
-      result = await library.open(request.projectId);
+      result = await openProject(request.projectId);
     } else if (request.type === 'storage.project.close') {
-      result = await library.close(request.projectId);
+      const projectId = parseProjectId(request.projectId);
+      result = await library.close(projectId);
+      await coordinator.closeProject(projectId);
     } else if (request.type === 'storage.project.rename') {
-      result = await library.rename(
-        request.projectId,
-        request.name,
-        request.now === undefined ? new Date() : new Date(request.now),
+      const projectId = parseProjectId(request.projectId);
+      result = await coordinator.runExclusive(projectId, () =>
+        library.rename(
+          projectId,
+          request.name,
+          request.now === undefined ? new Date() : new Date(request.now),
+        ),
       );
+      coordinator.announce('project.renamed', projectId, { name: (result as { name: string }).name });
     } else if (request.type === 'storage.project.duplicate') {
-      result = await library.duplicate(request.projectId, {
-        ...(request.name === undefined ? {} : { name: request.name }),
-        ...(request.now === undefined ? {} : { now: new Date(request.now) }),
-      });
+      result = await duplicateProject(request);
     } else if (request.type === 'storage.project.preview') {
-      result = await library.updatePreview(request.projectId, request.previewResourceId);
-    } else if (request.type === 'storage.project.trash') {
-      result = await library.trash(
-        request.projectId,
-        request.now === undefined ? new Date() : new Date(request.now),
+      const projectId = parseProjectId(request.projectId);
+      result = await coordinator.runExclusive(projectId, () =>
+        library.updatePreview(
+          projectId,
+          request.previewResourceId === null ? null : parseResourceId(request.previewResourceId),
+        ),
       );
+      coordinator.announce('project.preview-updated', projectId, {
+        previewResourceId: request.previewResourceId,
+      });
+    } else if (request.type === 'storage.project.trash') {
+      const projectId = parseProjectId(request.projectId);
+      result = await coordinator.runExclusive(projectId, () =>
+        library.trash(
+          projectId,
+          request.now === undefined ? new Date() : new Date(request.now),
+        ),
+      );
+      await coordinator.release(projectId);
+      coordinator.announce('project.trashed', projectId, {
+        deletedAt: (result as { deletedAt: string | null }).deletedAt,
+      });
     } else {
-      result = await library.restore(request.projectId);
+      const projectId = parseProjectId(request.projectId);
+      result = await coordinator.runExclusive(projectId, () => library.restore(projectId));
+      coordinator.announce('project.restored', projectId, null);
     }
     scope.postMessage({ type: 'storage.response', requestId: request.requestId, ok: true, result });
   } catch (error) {

@@ -11,6 +11,7 @@ import {
   openIllustroOpfsRoot,
   type ProjectDirectoryLayoutV1,
 } from './opfs-layout.js';
+import { getProjectWriteCoordinator } from './project-coordination.js';
 
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
@@ -46,6 +47,7 @@ type HistoryStorageRequestV1 =
 const scope = globalThis as unknown as WorkerScope;
 const rootPromise = openIllustroOpfsRoot();
 const projects = new Map<string, Promise<ProjectDirectoryLayoutV1>>();
+const coordinator = getProjectWriteCoordinator();
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -118,15 +120,23 @@ function postFailure(request: HistoryStorageRequestV1, error: unknown): void {
 
 async function handleRequest(request: HistoryStorageRequestV1): Promise<void> {
   try {
-    const project = await projectLayout(request.projectId);
+    const projectId = parseProjectId(request.projectId);
+    const project = await projectLayout(projectId);
     const store = new ProjectHistoryStoreV1(project);
     let result: unknown;
     if (request.type === 'storage.history.spill') {
+      coordinator.assertWriteOwnership(projectId);
       result = await store.spillTransactions(
         request.transactions.map((transaction) => parseHistoryTransactionV1(transaction)),
       );
+      coordinator.announce('project.changed', projectId, { subsystem: 'history', action: 'spill' });
     } else if (request.type === 'storage.history.save') {
+      coordinator.assertWriteOwnership(projectId);
       result = { checksum: await store.saveState(parseHistorySpineStateV1(request.state)) };
+      coordinator.announce('project.save-status', projectId, {
+        subsystem: 'history',
+        status: 'saved',
+      });
     } else if (request.type === 'storage.history.load') {
       result = await store.loadState();
     } else {
