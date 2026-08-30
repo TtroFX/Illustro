@@ -69,6 +69,14 @@ function parseObjectRef(value: unknown): ImmutableObjectRefV1 {
   });
 }
 
+function canonicalObjectRef(value: ImmutableObjectRefV1): ImmutableObjectRefV1 {
+  return Object.freeze({
+    algorithm: 'sha256',
+    hash: value.hash,
+    byteLength: value.byteLength,
+  });
+}
+
 function parseHead(value: unknown): RecoveryHeadV1 {
   if (!isRecord(value) || value.schema !== 'illustro.recovery-head/1') {
     throw new TypeError('invalid recovery head schema');
@@ -161,7 +169,10 @@ export async function publishRecoveryHead(
     schema: 'illustro.recovery-head/1',
     slot,
     generation,
-    ...input,
+    transactionId: input.transactionId,
+    checkpointObject: canonicalObjectRef(input.checkpointObject),
+    journalSequence: input.journalSequence,
+    journalByteOffset: input.journalByteOffset,
   });
   const envelope = await envelopeFor(head);
   const file = await openSyncAccessFile(project.directories.heads, HEAD_FILENAMES[slot]);
