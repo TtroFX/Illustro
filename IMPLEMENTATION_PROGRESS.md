@@ -155,7 +155,7 @@ M2-041 storage quota accounting:完了
 M2-042 storage safety reserve policy:完了
 M2-043 persistent-storage request plumbing:完了
 M2-044 garbage collection foundation:完了
-M2-検査 M2内部検査:未完了
+M2-検査 M2内部検査:完了
 
 ## M3 — WebGPU / Sparse Tile / Input Foundation
 M3-001 secure-context startup gate:未完了
