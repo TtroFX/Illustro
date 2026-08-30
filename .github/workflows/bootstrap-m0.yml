@@ -27,7 +27,7 @@ jobs:
       - name: Verify exact build identity
         run: |
           ILLUSTRO_BUILD_SHA="$GITHUB_SHA" npm run build
-          node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync('dist/build-info.json','utf8'));if(v.sha!==process.env.GITHUB_SHA)process.exit(1)"
+          node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync('dist/build-info.json','utf8'));if(v.buildSha!==process.env.GITHUB_SHA)process.exit(1)"
       - name: Complete M0 progress after PASS
         run: |
           python3 - <<'PY'
