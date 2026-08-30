@@ -10,15 +10,24 @@
     "prepare:wgsl": "node scripts/generate-wgsl.mjs",
     "prepare:build-info": "node scripts/generate-build-info.mjs",
     "prepare:generated": "npm run prepare:wgsl && npm run prepare:build-info",
+    "format": "biome format --write src tests scripts bench package.json tsconfig.json biome.json vitest.config.ts",
+    "format:check": "biome format src tests scripts bench package.json tsconfig.json biome.json vitest.config.ts",
+    "lint": "biome lint src tests scripts bench vitest.config.ts",
     "typecheck": "npm run prepare:generated && tsc -p tsconfig.json --noEmit",
+    "test:unit": "npm run prepare:generated && vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test": "npm run test:unit && npm run build && npm run test:integration",
     "build": "node scripts/build.mjs production",
     "build:dev": "node scripts/build.mjs development",
     "benchmark:m0": "node bench/foundation.bench.mjs",
     "verify:m0-batch1": "node scripts/verify-m0-batch1.mjs",
     "verify:m0-batch2": "node scripts/verify-m0-batch2.mjs",
-    "verify:m0-batch3": "node scripts/verify-m0-batch3.mjs"
+    "verify:m0-batch3": "node scripts/verify-m0-batch3.mjs",
+    "verify:m0-batch4": "node scripts/verify-m0-batch4.mjs"
   },
   "devDependencies": {
-    "typescript": "5.9.2"
+    "@biomejs/biome": "2.2.4",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4"
   }
 }

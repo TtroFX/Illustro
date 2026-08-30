@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Restore locked dependencies
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts
+          fi
+          npm ci --ignore-scripts
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+          ILLUSTRO_BUILD_SHA: ${{ github.sha }}
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Report verified identity
+        run: |
+          echo "verified_sha=${GITHUB_SHA}"
+          cat dist/build-info.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: illustro-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
