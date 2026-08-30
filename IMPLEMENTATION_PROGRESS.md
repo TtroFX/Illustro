@@ -158,12 +158,12 @@ M2-044 garbage collection foundation:完了
 M2-検査 M2内部検査:完了
 
 ## M3 — WebGPU / Sparse Tile / Input Foundation
-M3-001 secure-context startup gate:未完了
-M3-002 navigator.gpu capability gate:未完了
-M3-003 GPU adapter selection:未完了
-M3-004 GPU device creation:未完了
-M3-005 required capability profile gate:未完了
-M3-006 optional shader-f16 capability handling:未完了
+M3-001 secure-context startup gate:完了
+M3-002 navigator.gpu capability gate:完了
+M3-003 GPU adapter selection:完了
+M3-004 GPU device creation:完了
+M3-005 required capability profile gate:完了
+M3-006 optional shader-f16 capability handling:完了
 M3-007 Render Worker ownership path:未完了
 M3-008 OffscreenCanvas transfer path:未完了
 M3-009 main-context WebGPU fallback:未完了
