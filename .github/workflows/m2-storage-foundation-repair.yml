@@ -26,92 +26,42 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-          p = Path('src/storage/storage-quota.ts')
-          s = p.read_text()
-          old = "    return calculateStorageQuotaSnapshotV1({\n      usage: estimate.usage,\n      quota: estimate.quota,\n      persisted,\n    });\n"
-          new = "    return calculateStorageQuotaSnapshotV1({\n      ...(estimate.usage === undefined ? {} : { usage: estimate.usage }),\n      ...(estimate.quota === undefined ? {} : { quota: estimate.quota }),\n      persisted,\n    });\n"
-          if old not in s:
-              raise SystemExit('quota snapshot target missing')
-          s = s.replace(old, new, 1)
-          old = "    const canRead = typeof this.#storage.persisted === 'function';\n    const canRequest = typeof this.#storage.persist === 'function';\n    const before = canRead ? await this.#storage.persisted!() : null;\n    if (before === true || !canRequest) {\n"
-          new = "    const readPersisted = this.#storage.persisted?.bind(this.#storage);\n    const requestPersist = this.#storage.persist?.bind(this.#storage);\n    const before = readPersisted === undefined ? null : await readPersisted();\n    if (before === true || requestPersist === undefined) {\n"
-          if old not in s:
-              raise SystemExit('persistence capability target missing')
-          s = s.replace(old, new, 1)
-          s = s.replace("        supported: canRead || canRequest,", "        supported: readPersisted !== undefined || requestPersist !== undefined,")
-          s = s.replace("    const requestedResult = await this.#storage.persist!();\n    const after = canRead ? await this.#storage.persisted!() : requestedResult;", "    const requestedResult = await requestPersist();\n    const after = readPersisted === undefined ? requestedResult : await readPersisted();")
+          p=Path('src/storage/storage-quota.ts'); s=p.read_text()
+          old="    return calculateStorageQuotaSnapshotV1({\n      usage: estimate.usage,\n      quota: estimate.quota,\n      persisted,\n    });\n"
+          new="    return calculateStorageQuotaSnapshotV1({\n      ...(estimate.usage === undefined ? {} : { usage: estimate.usage }),\n      ...(estimate.quota === undefined ? {} : { quota: estimate.quota }),\n      persisted,\n    });\n"
+          if old not in s: raise SystemExit('quota target missing')
+          s=s.replace(old,new,1)
+          old="    const canRead = typeof this.#storage.persisted === 'function';\n    const canRequest = typeof this.#storage.persist === 'function';\n    const before = canRead ? await this.#storage.persisted!() : null;\n    if (before === true || !canRequest) {\n"
+          new="    const readPersisted = this.#storage.persisted?.bind(this.#storage);\n    const requestPersist = this.#storage.persist?.bind(this.#storage);\n    const before = readPersisted === undefined ? null : await readPersisted();\n    if (before === true || requestPersist === undefined) {\n"
+          if old not in s: raise SystemExit('persist target missing')
+          s=s.replace(old,new,1).replace("        supported: canRead || canRequest,","        supported: readPersisted !== undefined || requestPersist !== undefined,")
+          s=s.replace("    const requestedResult = await this.#storage.persist!();\n    const after = canRead ? await this.#storage.persisted!() : requestedResult;","    const requestedResult = await requestPersist();\n    const after = readPersisted === undefined ? requestedResult : await readPersisted();")
           p.write_text(s)
-
-          p = Path('src/storage/project-worker-extension.ts')
-          p.write_text(p.read_text().replace("  type ProjectId,\n", ""))
-
-          p = Path('src/storage/immutable-object-store.ts')
-          s = p.read_text()
-          marker = "export async function putImmutableObject(\n"
-          helper = "export async function hasImmutableObject(\n  root: DirectoryHandleLike,\n  hash: string,\n): Promise<boolean> {\n  return (await readExistingObject(root, hash)) !== null;\n}\n\n"
+          p=Path('src/storage/project-worker-extension.ts'); p.write_text(p.read_text().replace("  type ProjectId,\n",""))
+          p=Path('src/storage/immutable-object-store.ts'); s=p.read_text(); marker="export async function putImmutableObject(\n"; helper="export async function hasImmutableObject(\n  root: DirectoryHandleLike,\n  hash: string,\n): Promise<boolean> {\n  return (await readExistingObject(root, hash)) !== null;\n}\n\n"
           if helper not in s:
-              if marker not in s:
-                  raise SystemExit('immutable object helper insertion target missing')
-              s = s.replace(marker, helper + marker, 1)
+              if marker not in s: raise SystemExit('object helper target missing')
+              s=s.replace(marker,helper+marker,1)
           p.write_text(s)
-
-          p = Path('src/storage/garbage-collection.ts')
-          s = p.read_text()
-          s = s.replace("import { readImmutableObject } from './immutable-object-store.js';", "import { hasImmutableObject, readImmutableObject } from './immutable-object-store.js';")
-          old = """function collectHashesFromUnknown(value: unknown, output: Set<string>): void {
-  if (typeof value === 'string') {
-    if (isSha256Hex(value)) output.add(value);
-    return;
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) collectHashesFromUnknown(item, output);
-    return;
-  }
-  if (typeof value !== 'object' || value === null) return;
-  for (const item of Object.values(value as Readonly<Record<string, unknown>>)) {
-    collectHashesFromUnknown(item, output);
-  }
-}
-"""
-          new = """function collectHashesFromUnknown(value: unknown, output: Set<string>): void {
-  if (Array.isArray(value)) {
-    for (const item of value) collectHashesFromUnknown(item, output);
-    return;
-  }
-  if (typeof value !== 'object' || value === null) return;
-  const record = value as Readonly<Record<string, unknown>>;
-  if (record.algorithm === 'sha256' && isSha256Hex(record.hash)) output.add(record.hash);
-  for (const [key, item] of Object.entries(record)) {
-    if (typeof item === 'string' && key.toLowerCase().endsWith('objecthash') && isSha256Hex(item)) {
-      output.add(item);
-      continue;
-    }
-    collectHashesFromUnknown(item, output);
-  }
-}
-"""
-          if old not in s:
-              raise SystemExit('GC reference extractor target missing')
-          s = s.replace(old, new, 1)
-          old = "    try {\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"
-          new = "    try {\n      if (!(await hasImmutableObject(root.sha256Objects, hash))) {\n        missing.add(hash);\n        continue;\n      }\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"
-          if old not in s:
-              raise SystemExit('GC mark target missing')
-          s = s.replace(old, new, 1)
-          old = "      const hash = `${prefix}${suffix}`;\n      if (isSha256Hex(hash)) hashes.add(hash);\n"
-          new = "      const hash = isSha256Hex(suffix) ? suffix : `${prefix}${suffix}`;\n      if (isSha256Hex(hash) && hash.startsWith(prefix)) hashes.add(hash);\n"
-          if old not in s:
-              raise SystemExit('GC inventory target missing')
-          s = s.replace(old, new, 1)
-          p.write_text(s)
+          p=Path('src/storage/garbage-collection.ts'); s=p.read_text()
+          s=s.replace("import { readImmutableObject } from './immutable-object-store.js';","import { hasImmutableObject, readImmutableObject } from './immutable-object-store.js';")
+          old="function collectHashesFromUnknown(value: unknown, output: Set<string>): void {\n  if (typeof value === 'string') {\n    if (isSha256Hex(value)) output.add(value);\n    return;\n  }\n  if (Array.isArray(value)) {\n    for (const item of value) collectHashesFromUnknown(item, output);\n    return;\n  }\n  if (typeof value !== 'object' || value === null) return;\n  for (const item of Object.values(value as Readonly<Record<string, unknown>>)) {\n    collectHashesFromUnknown(item, output);\n  }\n}\n"
+          new="function collectHashesFromUnknown(value: unknown, output: Set<string>): void {\n  if (Array.isArray(value)) {\n    for (const item of value) collectHashesFromUnknown(item, output);\n    return;\n  }\n  if (typeof value !== 'object' || value === null) return;\n  const record = value as Readonly<Record<string, unknown>>;\n  if (record.algorithm === 'sha256' && isSha256Hex(record.hash)) output.add(record.hash);\n  for (const [key, item] of Object.entries(record)) {\n    if (typeof item === 'string' && key.toLowerCase().endsWith('objecthash') && isSha256Hex(item)) {\n      output.add(item);\n      continue;\n    }\n    collectHashesFromUnknown(item, output);\n  }\n}\n"
+          if old not in s: raise SystemExit('reference extractor target missing')
+          s=s.replace(old,new,1)
+          old="    try {\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"; new="    try {\n      if (!(await hasImmutableObject(root.sha256Objects, hash))) {\n        missing.add(hash);\n        continue;\n      }\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"
+          if old not in s: raise SystemExit('mark target missing')
+          s=s.replace(old,new,1)
+          old="      const hash = `${prefix}${suffix}`;\n      if (isSha256Hex(hash)) hashes.add(hash);\n"; new="      const hash = isSha256Hex(suffix) ? suffix : `${prefix}${suffix}`;\n      if (isSha256Hex(hash) && hash.startsWith(prefix)) hashes.add(hash);\n"
+          if old not in s: raise SystemExit('inventory target missing')
+          p.write_text(s.replace(old,new,1))
           PY
-      - name: Format repaired foundation
-        run: npx biome format --write src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts src/storage/immutable-object-store.ts
+      - run: npx biome format --write src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts src/storage/immutable-object-store.ts
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test:unit
-      - name: Commit repaired foundation and remove one-shot workflows
+      - name: Commit repaired foundation
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
