@@ -1,3 +1,4 @@
+import { isCommandTransactionId } from '../domain/command-registry.js';
 import { parseProjectId, parseRevision } from '../domain/identity.js';
 import { createStructuredErrorRecord } from '../domain/reports.js';
 import {
@@ -13,6 +14,7 @@ import {
   type ProjectDirectoryLayoutV1,
 } from '../storage/opfs-layout.js';
 import { probeSyncAccessHandle } from '../storage/sync-access.js';
+import { commitProjectTransaction } from '../storage/transaction.js';
 
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
@@ -45,6 +47,16 @@ type StorageRequest =
       readonly type: 'storage.sync.probe';
       readonly requestId: string;
       readonly projectId: string;
+    }
+  | {
+      readonly type: 'storage.transaction.commit';
+      readonly requestId: string;
+      readonly projectId: string;
+      readonly transactionId: string;
+      readonly sequence: number;
+      readonly documentRevision: number;
+      readonly snapshot: unknown;
+      readonly createdAt?: string;
     };
 
 const scope = globalThis as unknown as WorkerScope;
@@ -102,6 +114,25 @@ function parseRequest(value: unknown): StorageRequest | null {
   }
   if (value.type === 'storage.sync.probe' && typeof value.projectId === 'string') {
     return { type: value.type, requestId: value.requestId, projectId: value.projectId };
+  }
+  if (
+    value.type === 'storage.transaction.commit' &&
+    typeof value.projectId === 'string' &&
+    typeof value.transactionId === 'string' &&
+    typeof value.sequence === 'number' &&
+    typeof value.documentRevision === 'number' &&
+    (value.createdAt === undefined || typeof value.createdAt === 'string')
+  ) {
+    return {
+      type: value.type,
+      requestId: value.requestId,
+      projectId: value.projectId,
+      transactionId: value.transactionId,
+      sequence: value.sequence,
+      documentRevision: value.documentRevision,
+      snapshot: value.snapshot,
+      ...(value.createdAt === undefined ? {} : { createdAt: value.createdAt }),
+    };
   }
   return null;
 }
@@ -175,6 +206,27 @@ async function handleRequest(request: StorageRequest): Promise<void> {
         requestId: request.requestId,
         ok: true,
         result: result.record,
+      });
+      return;
+    }
+
+    if (request.type === 'storage.transaction.commit') {
+      if (!isCommandTransactionId(request.transactionId)) {
+        throw new TypeError('transactionId must be a UUID');
+      }
+      const [root, project] = await Promise.all([rootPromise, projectLayout(request.projectId)]);
+      const result = await commitProjectTransaction(root, project, {
+        transactionId: request.transactionId,
+        sequence: request.sequence,
+        documentRevision: parseRevision(request.documentRevision),
+        snapshot: request.snapshot,
+        ...(request.createdAt === undefined ? {} : { createdAt: request.createdAt }),
+      });
+      scope.postMessage({
+        type: 'storage.response',
+        requestId: request.requestId,
+        ok: true,
+        result,
       });
       return;
     }
