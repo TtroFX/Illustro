@@ -26,28 +26,16 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
           p = Path('src/storage/storage-quota.ts')
           s = p.read_text()
-          old = """    return calculateStorageQuotaSnapshotV1({
-      usage: estimate.usage,
-      quota: estimate.quota,
-      persisted,
-    });
-"""
-          new = """    return calculateStorageQuotaSnapshotV1({
-      ...(estimate.usage === undefined ? {} : { usage: estimate.usage }),
-      ...(estimate.quota === undefined ? {} : { quota: estimate.quota }),
-      persisted,
-    });
-"""
+          old = "    return calculateStorageQuotaSnapshotV1({\n      usage: estimate.usage,\n      quota: estimate.quota,\n      persisted,\n    });\n"
+          new = "    return calculateStorageQuotaSnapshotV1({\n      ...(estimate.usage === undefined ? {} : { usage: estimate.usage }),\n      ...(estimate.quota === undefined ? {} : { quota: estimate.quota }),\n      persisted,\n    });\n"
           if old not in s:
               raise SystemExit('quota snapshot target missing')
           s = s.replace(old, new, 1)
           s = s.replace("await this.#storage.persisted!()", "await this.#storage.persisted?.()")
           s = s.replace("await this.#storage.persist!()", "await this.#storage.persist?.()")
           p.write_text(s)
-
           p = Path('src/storage/project-worker-extension.ts')
           s = p.read_text().replace("  type ProjectId,\n", "")
           p.write_text(s)
