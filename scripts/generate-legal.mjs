@@ -26,6 +26,12 @@ function packageNameFromPath(packagePath) {
   return packagePath.slice(index + marker.length);
 }
 
+function assertKnownLicense(name, expression) {
+  if (typeof expression !== 'string' || expression.trim() === '') {
+    throw new Error(`unknown license for ${name}`);
+  }
+}
+
 function licenseAtoms(expression) {
   if (typeof expression !== 'string' || expression.trim() === '') return [];
   if (/\bWITH\b/.test(expression)) return [];
@@ -36,10 +42,10 @@ function licenseAtoms(expression) {
     .filter(Boolean);
 }
 
-function assertAllowedLicense(name, expression) {
+function assertDistributionAllowed(name, expression) {
   const atoms = licenseAtoms(expression);
   if (atoms.length === 0 || atoms.some((atom) => !allowed.has(atom))) {
-    throw new Error(`unapproved or unknown license for ${name}: ${expression ?? 'missing'}`);
+    throw new Error(`unapproved distributed license for ${name}: ${expression ?? 'missing'}`);
   }
 }
 
@@ -61,12 +67,16 @@ const rawRecords = [...lockPackages.entries()]
     const name = packageNameFromPath(packagePath);
     const id = `${name}@${value.version}`;
     const review = reviewedById.get(id) ?? null;
-    const licenseExpression = review?.licenseExpression ?? value.license ?? null;
-    assertAllowedLicense(id, licenseExpression);
-    if (review && value.license && review.licenseExpression !== value.license) {
-      assertAllowedLicense(id, value.license);
+    const lockLicenseExpression = value.license ?? null;
+    const licenseExpression = review?.licenseExpression ?? lockLicenseExpression;
+    assertKnownLicense(id, licenseExpression);
+    if (review && lockLicenseExpression && review.licenseExpression !== lockLicenseExpression) {
+      assertKnownLicense(id, lockLicenseExpression);
     }
-    const dependencyNames = Object.keys({ ...(value.dependencies ?? {}), ...(value.optionalDependencies ?? {}) });
+    const dependencyNames = Object.keys({
+      ...(value.dependencies ?? {}),
+      ...(value.optionalDependencies ?? {}),
+    });
     return {
       packagePath,
       name,
@@ -74,6 +84,7 @@ const rawRecords = [...lockPackages.entries()]
       id,
       review,
       licenseExpression,
+      lockLicenseExpression,
       resolved: value.resolved ?? null,
       integrity: value.integrity ?? null,
       dependencyPaths: dependencyNames
@@ -83,7 +94,10 @@ const rawRecords = [...lockPackages.entries()]
   });
 
 const recordsByPath = new Map(rawRecords.map((record) => [record.packagePath, record]));
-const runtimeRoots = Object.keys({ ...(packageJson.dependencies ?? {}), ...(packageJson.optionalDependencies ?? {}) })
+const runtimeRoots = Object.keys({
+  ...(packageJson.dependencies ?? {}),
+  ...(packageJson.optionalDependencies ?? {}),
+})
   .map((name) => resolveDependencyPath('', name))
   .filter(Boolean);
 const developmentRoots = Object.keys(packageJson.devDependencies ?? {})
@@ -139,20 +153,41 @@ async function readPackageLegalFile(packagePath, matcher) {
 
 const provenancePackages = [];
 const runtimeLegal = [];
-for (const record of rawRecords.sort((a, b) => a.id.localeCompare(b.id) || a.packagePath.localeCompare(b.packagePath))) {
+for (const record of rawRecords.sort(
+  (a, b) => a.id.localeCompare(b.id) || a.packagePath.localeCompare(b.packagePath),
+)) {
   const usage = usageFor(record);
-  if (usage === 'runtime-distributed' && policy.runtimeRequiresExplicitReview && record.review?.reviewStatus !== 'reviewed') {
-    throw new Error(`runtime component lacks explicit review: ${record.id}`);
+  if (usage === 'runtime-distributed') {
+    assertDistributionAllowed(record.id, record.licenseExpression);
+    if (
+      record.lockLicenseExpression &&
+      record.lockLicenseExpression !== record.licenseExpression
+    ) {
+      assertDistributionAllowed(record.id, record.lockLicenseExpression);
+    }
+    if (policy.runtimeRequiresExplicitReview && record.review?.reviewStatus !== 'reviewed') {
+      throw new Error(`runtime component lacks explicit review: ${record.id}`);
+    }
   }
-  const sourceUrl = record.review?.sourceUrl ?? record.resolved ?? `https://www.npmjs.com/package/${encodeURIComponent(record.name)}/v/${record.version}`;
+  const sourceUrl =
+    record.review?.sourceUrl ??
+    record.resolved ??
+    `https://www.npmjs.com/package/${encodeURIComponent(record.name)}/v/${record.version}`;
   let licenseFile = null;
   let noticeFile = null;
   if (usage === 'runtime-distributed') {
-    licenseFile = await readPackageLegalFile(record.packagePath, /^(LICENSE|LICENCE|COPYING)([._-].*)?$/i);
-    if (!licenseFile) throw new Error(`runtime component lacks redistributable license text: ${record.id}`);
+    licenseFile = await readPackageLegalFile(
+      record.packagePath,
+      /^(LICENSE|LICENCE|COPYING)([._-].*)?$/i,
+    );
+    if (!licenseFile) {
+      throw new Error(`runtime component lacks redistributable license text: ${record.id}`);
+    }
     if (record.review?.requiresNotice) {
       noticeFile = await readPackageLegalFile(record.packagePath, /^NOTICE([._-].*)?$/i);
-      if (!noticeFile) throw new Error(`runtime component requires NOTICE but none was found: ${record.id}`);
+      if (!noticeFile) {
+        throw new Error(`runtime component requires NOTICE but none was found: ${record.id}`);
+      }
     }
     runtimeLegal.push({ record, sourceUrl, licenseFile, noticeFile });
   }
@@ -205,7 +240,10 @@ const thirdPartyLines = [
 ];
 const offlineEntries = [];
 for (const item of runtimeLegal) {
-  const safeName = item.record.name.replace(/^@/, '').replaceAll('/', '__').replaceAll(/[^a-zA-Z0-9_.-]/g, '_');
+  const safeName = item.record.name
+    .replace(/^@/, '')
+    .replaceAll('/', '__')
+    .replaceAll(/[^a-zA-Z0-9_.-]/g, '_');
   const licensePath = `${safeName}-${item.record.version}.txt`;
   await writeFile(new URL(licensePath, licenseDir), item.licenseFile.text, 'utf8');
   thirdPartyLines.push(`## ${item.record.name} ${item.record.version}`);
@@ -234,10 +272,16 @@ for (const item of runtimeLegal) {
 }
 if (runtimeLegal.length === 0) {
   thirdPartyLines.push('No third-party runtime components are distributed by the current application shell.');
-  thirdPartyLines.push('Build/test tooling is recorded in `third_party/provenance.json` and `bom.cdx.json`.');
+  thirdPartyLines.push(
+    'Build/test tooling is recorded in `third_party/provenance.json` and `bom.cdx.json`.',
+  );
   thirdPartyLines.push('');
 }
-await writeFile(new URL('THIRD_PARTY_NOTICES.md', root), `${thirdPartyLines.join('\n').trim()}\n`, 'utf8');
+await writeFile(
+  new URL('THIRD_PARTY_NOTICES.md', root),
+  `${thirdPartyLines.join('\n').trim()}\n`,
+  'utf8',
+);
 
 const notice = [
   'Illustro',
@@ -247,7 +291,9 @@ const notice = [
   'Third-party NOTICE attributions required by distributed components follow when applicable.',
   '',
   ...runtimeNoticeLines,
-].join('\n').trimEnd();
+]
+  .join('\n')
+  .trimEnd();
 await writeFile(new URL('NOTICE', root), `${notice}\n`, 'utf8');
 await writeFile(new URL('LICENSE', root), apacheLicense, 'utf8');
 
@@ -265,13 +311,20 @@ for (const record of rawRecords) {
     purl: toPurl(record.name, record.version),
     properties: [
       { name: 'illustro:usage', value: usage },
-      { name: 'illustro:review-status', value: record.review?.reviewStatus ?? 'policy-pass' },
+      {
+        name: 'illustro:review-status',
+        value: record.review?.reviewStatus ?? 'policy-pass',
+      },
     ],
   };
   componentByIdentity.set(key, current);
 }
-const componentRefs = new Map([...componentByIdentity.entries()].map(([key, component]) => [key, component['bom-ref']]));
-const pathToRef = new Map(rawRecords.map((record) => [record.packagePath, componentRefs.get(record.id)]));
+const componentRefs = new Map(
+  [...componentByIdentity.entries()].map(([key, component]) => [key, component['bom-ref']]),
+);
+const pathToRef = new Map(
+  rawRecords.map((record) => [record.packagePath, componentRefs.get(record.id)]),
+);
 const dependencyMap = new Map();
 for (const record of rawRecords) {
   const ref = pathToRef.get(record.packagePath);
@@ -284,7 +337,13 @@ for (const record of rawRecords) {
   dependencyMap.set(ref, existing);
 }
 const appRef = toPurl(packageJson.name, packageJson.version);
-const directRefs = [...new Set([...runtimeRoots, ...developmentRoots].map((path) => pathToRef.get(path)).filter(Boolean))].sort();
+const directRefs = [
+  ...new Set(
+    [...runtimeRoots, ...developmentRoots]
+      .map((path) => pathToRef.get(path))
+      .filter(Boolean),
+  ),
+].sort();
 const bom = {
   bomFormat: 'CycloneDX',
   specVersion: '1.7',
@@ -299,7 +358,9 @@ const bom = {
     },
     properties: [{ name: 'illustro:policy', value: policy.policyId }],
   },
-  components: [...componentByIdentity.values()].sort((a, b) => a['bom-ref'].localeCompare(b['bom-ref'])),
+  components: [...componentByIdentity.values()].sort((a, b) =>
+    a['bom-ref'].localeCompare(b['bom-ref']),
+  ),
   dependencies: [
     { ref: appRef, dependsOn: directRefs },
     ...[...dependencyMap.entries()]
@@ -313,7 +374,9 @@ const offline = {
   schemaVersion: 1,
   generatedFrom: 'third_party/provenance.json',
   policyId: policy.policyId,
-  components: offlineEntries.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version)),
+  components: offlineEntries.sort(
+    (a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version),
+  ),
 };
 await writeJson('public/legal/open-source-licenses.json', offline);
 
