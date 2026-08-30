@@ -1,0 +1,9 @@
+{
+  "id": "./",
+  "name": "Illustro",
+  "short_name": "Illustro",
+  "description": "Single-illustration painting application",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone"
+}

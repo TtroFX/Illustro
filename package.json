@@ -11,7 +11,8 @@
     "typecheck": "npm run prepare:wgsl && tsc -p tsconfig.json --noEmit",
     "build": "node scripts/build.mjs production",
     "build:dev": "node scripts/build.mjs development",
-    "verify:m0-batch1": "node scripts/verify-m0-batch1.mjs"
+    "verify:m0-batch1": "node scripts/verify-m0-batch1.mjs",
+    "verify:m0-batch2": "node scripts/verify-m0-batch2.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.2"

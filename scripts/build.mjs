@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 
 const mode = process.argv[2] ?? 'production';
@@ -6,9 +6,13 @@ if (mode !== 'production' && mode !== 'development') {
   throw new Error(`unknown build mode: ${mode}`);
 }
 
-await rm(new URL('../.build/', import.meta.url), { recursive: true, force: true });
-await rm(new URL('../dist/', import.meta.url), { recursive: true, force: true });
-await mkdir(new URL('../dist/', import.meta.url), { recursive: true });
+const buildDir = new URL('../.build/', import.meta.url);
+const distDir = new URL('../dist/', import.meta.url);
+const publicDir = new URL('../public/', import.meta.url);
+
+await rm(buildDir, { recursive: true, force: true });
+await rm(distDir, { recursive: true, force: true });
+await mkdir(distDir, { recursive: true });
 
 const generator = spawnSync(process.execPath, ['scripts/generate-wgsl.mjs'], { stdio: 'inherit' });
 if (generator.status !== 0) process.exit(generator.status ?? 1);
@@ -23,8 +27,16 @@ const tscArgs = [
 const compiler = spawnSync(process.execPath, tscArgs, { stdio: 'inherit' });
 if (compiler.status !== 0) process.exit(compiler.status ?? 1);
 
-await cp(new URL('../.build/app/', import.meta.url), new URL('../dist/', import.meta.url), { recursive: true });
-const html = await readFile(new URL('../src/index.html', import.meta.url), 'utf8');
-await writeFile(new URL('../dist/index.html', import.meta.url), html, 'utf8');
+await cp(new URL('../.build/app/', import.meta.url), distDir, { recursive: true });
+for (const entry of await readdir(publicDir, { withFileTypes: true })) {
+  const suffix = entry.isDirectory() ? '/' : '';
+  await cp(new URL(`${entry.name}${suffix}`, publicDir), new URL(`${entry.name}${suffix}`, distDir), {
+    recursive: true,
+  });
+}
+
+const template = await readFile(new URL('../src/index.html', import.meta.url), 'utf8');
+const html = template.replaceAll('__ILLUSTRO_BUILD_MODE__', mode);
+await writeFile(new URL('index.html', distDir), html, 'utf8');
 
 console.log(JSON.stringify({ event: 'build.complete', mode }));
