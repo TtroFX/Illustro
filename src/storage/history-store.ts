@@ -88,7 +88,9 @@ async function createSegmentEnvelope(
 ): Promise<HistorySegmentEnvelopeV1> {
   const segment: HistorySegmentV1 = Object.freeze({
     schema: 'illustro.history-segment/1',
-    transactions: Object.freeze(transactions.map((transaction) => parseHistoryTransactionV1(transaction))),
+    transactions: Object.freeze(
+      transactions.map((transaction) => parseHistoryTransactionV1(transaction)),
+    ),
   });
   const checksum = await sha256HexText(serializeJson(segment));
   return Object.freeze({
@@ -202,7 +204,8 @@ export class ProjectHistoryStoreV1 implements HistorySpillAdapterV1 {
       normalized.segmentHash,
     );
     const transaction = envelope.segment.transactions[normalized.index];
-    if (transaction === undefined) throw new RangeError('history spill index exceeds segment length');
+    if (transaction === undefined)
+      throw new RangeError('history spill index exceeds segment length');
     if (transaction.transactionId !== normalized.transactionId) {
       throw new Error('history spill transaction ID mismatch');
     }

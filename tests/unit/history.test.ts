@@ -151,7 +151,8 @@ function transaction(
 }
 
 function payloadValue(transactionValue: HistoryTransactionV1, direction: 'undo' | 'redo'): number {
-  const value = direction === 'undo' ? transactionValue.payload.before : transactionValue.payload.after;
+  const value =
+    direction === 'undo' ? transactionValue.payload.before : transactionValue.payload.after;
   if (value === null || Array.isArray(value) || typeof value !== 'object') {
     throw new TypeError('test payload must be an object');
   }

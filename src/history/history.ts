@@ -287,10 +287,7 @@ export class HistorySpineV1 {
     this.#cursor = this.#entries.length;
   }
 
-  async undo(
-    restorer: HistoryRestorerV1,
-    spillAdapter?: HistorySpillAdapterV1,
-  ): Promise<boolean> {
+  async undo(restorer: HistoryRestorerV1, spillAdapter?: HistorySpillAdapterV1): Promise<boolean> {
     if (!this.canUndo) return false;
     const index = this.#cursor - 1;
     const transaction = await this.#resolveEntry(index, spillAdapter);
@@ -299,10 +296,7 @@ export class HistorySpineV1 {
     return true;
   }
 
-  async redo(
-    restorer: HistoryRestorerV1,
-    spillAdapter?: HistorySpillAdapterV1,
-  ): Promise<boolean> {
+  async redo(restorer: HistoryRestorerV1, spillAdapter?: HistorySpillAdapterV1): Promise<boolean> {
     if (!this.canRedo) return false;
     const index = this.#cursor;
     const transaction = await this.#resolveEntry(index, spillAdapter);
@@ -320,7 +314,9 @@ export class HistorySpineV1 {
     this.#cursor -= removable;
     return Object.freeze(
       removed.map((entry) =>
-        entry.storage === 'resident' ? entry.transaction.transactionId : entry.reference.transactionId,
+        entry.storage === 'resident'
+          ? entry.transaction.transactionId
+          : entry.reference.transactionId,
       ),
     );
   }
@@ -348,7 +344,9 @@ export class HistorySpineV1 {
     if (references.length !== indexes.length) {
       throw new Error('history spill adapter returned a mismatched reference count');
     }
-    const normalizedReferences = references.map((reference) => parseHistorySpillReferenceV1(reference));
+    const normalizedReferences = references.map((reference) =>
+      parseHistorySpillReferenceV1(reference),
+    );
     for (let offset = 0; offset < indexes.length; offset += 1) {
       const index = indexes[offset];
       const reference = normalizedReferences[offset];
