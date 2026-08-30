@@ -45,11 +45,11 @@ M0-検査 M0内部検査:完了
 
 ## M0.5 — Public Preview / Deployment Foundation
 M0.5-001 HTTPS deployment基盤:完了
-M0.5-002 Production deployment target作成:未完了
+M0.5-002 Production deployment target作成:完了
 M0.5-003 Preview deployment target作成:完了
-M0.5-004 main branchからProduction自動更新:未完了
+M0.5-004 main branchからProduction自動更新:完了
 M0.5-005 branch/commit Preview deployment:完了
-M0.5-006 Preview URL固定導線:未完了
+M0.5-006 Preview URL固定導線:完了
 M0.5-007 COOP header構成:完了
 M0.5-008 COEP header構成:完了
 M0.5-009 cross-origin isolation対応asset配信:完了
@@ -58,7 +58,7 @@ M0.5-011 公開版build SHA表示:完了
 M0.5-012 公開版diagnostics入口:完了
 M0.5-013 secure-context runtime確認導線:完了
 M0.5-014 PreviewからPWA manifest取得可能化:完了
-M0.5-検査 M0.5公開基盤内部検査:未完了
+M0.5-検査 M0.5公開基盤内部検査:完了
 
 ## M1 — Canonical Contracts / Data / Command Registry
 M1-001 Document ID:未完了
