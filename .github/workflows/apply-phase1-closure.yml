@@ -16,249 +16,38 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply phase 1 closure
-        shell: python
-        run: |
-          from pathlib import Path
-          p = Path('ILLUSTRO_DESIGN_MEMO.md')
-          text = p.read_text(encoding='utf-8')
-          marker = '# Phase 1 Product / Platform Closure — 2026-08-30'
-          if marker in text:
-              raise SystemExit(0)
-
-          for line in [
-              '- Product definition and target user beyond the confirmed single-illustration focus\n',
-              '- Exact minimum supported device/browser matrix and compatibility tiers\n',
-              '- Remaining external-application feature audit after the current ibisPaint/CSP/mandatory-capability inventory\n',
-              '- Responsive behavior for narrower tablets/phones\n',
-          ]:
-              text = text.replace(line, '')
-
-          closure = r'''
-# Phase 1 Product / Platform Closure — 2026-08-30
-
-**Status:** authoritative Phase-1 specification. This is **not** the final global Design Freeze. F/G/H/I/V visual/asset decisions and later technical phases may still expose integration adjustments; any such change requires an explicit supersession rather than silently reopening Phase-1 decisions.
-
-This section supersedes the earlier `### 21. Pending adoption decisions — NOT YET AUTHORITATIVE` list. Those items are no longer pending; their dispositions below are authoritative.
-
-## P1-1. Product definition and target users — CLOSED
-
-Illustro is a **serious single-illustration raster-first painting and image-editing application** with deep non-destructive, vector-path/shape, color, lineart and productivity support.
-
-### Primary users
-
-- Digital illustrators who primarily create one finished illustration per document and want a pen/touch-first workflow without giving up desktop-class depth.
-- Serious hobbyists through professional/advanced users. First-run defaults must remain learnable for less experienced artists, but capability must not be reduced merely to remain beginner-simple.
-- Artists working mainly on pen-enabled tablets are the **primary interaction target**.
-
-### Secondary users
-
-- Desktop/laptop artists using mouse + keyboard, pen tablet, or pen display.
-- Users without a stylus must still be able to perform ordinary editing, selection, transform, layer, color, file and navigation operations.
-
-### Explicit non-target categories for the initial release
-
-- Comic/book/multi-page production as the primary workflow.
-- Animation/multi-frame artwork production.
-- 3D creation/posing/reference subsystems.
-- Public content/material marketplace or social-distribution platform.
-- Server/account-dependent collaborative editing or cloud-first document correctness.
-- Phone-first production UI.
-
-## P1-2. Previously pending feature decisions — CLOSED
-
-- **Text Tool — ADOPTED FOR INITIAL RELEASE.** Editable text layers for point/box text, common typographic controls, transform and non-destructive re-editing. Comic/page-specific balloon or story-layout systems remain excluded.
-- **CMYK / print ICC workflow — POST-BASELINE CANDIDATE.** Initial release remains RGB-first with profile-aware conversion. Dedicated CMYK document/output workflow is not an initial release gate.
-- **Dedicated grayscale 8-bit / monochrome 1-bit modes — EXCLUDED FROM INITIAL RELEASE.** Grayscale conversion remains available through ordinary correction/filter/export workflows; manga/screentone-driven 1-bit production is outside current focus.
-- **Cloud Sync — POST-BASELINE CANDIDATE.** Initial release is local-first/offline-capable and does not require accounts or servers for document correctness.
-- **Local Gallery / Project Library / Recently Deleted — ADOPTED FOR INITIAL RELEASE.** Provide recent projects, search/sort/organization, create/open/import, recovery visibility and reversible trash/recovery. This is local project management, not a public material catalog.
-- **Timelapse / drawing-history playback and export — ADOPTED FOR INITIAL RELEASE.** This is process-history capture/playback for one illustration, not animation production.
-- **PSD import/export — ADOPTED FOR INITIAL RELEASE WITH BOUNDED FIDELITY.** Compatibility is test-corpus based and must emit explicit fidelity/unsupported-feature reporting rather than silently dropping unsupported Photoshop semantics.
-- **Shading Assist — POST-BASELINE CANDIDATE.** A later deterministic/local lighting-assist feature may be adopted, but initial completion does not depend on it.
-- **Color Match — ADOPTED FOR INITIAL RELEASE.** Deterministic/local reference-based color matching or grading; no cloud generative-AI dependency.
-- **Companion-device mode — EXCLUDED FROM INITIAL RELEASE.** Networking/state-sync complexity is disproportionate to the core single-device painting path.
-- **Photoshop `.grd` gradient import — EXCLUDED FROM INITIAL RELEASE.** Illustro-native versioned gradient interchange is authoritative.
-
-## P1-3. Completed external-application audit — CLOSED
-
-The 2026-08-30 Procreate/Krita/Photoshop/Infinite Painter audit is closed for the frozen initial baseline.
-
-### Newly adopted capabilities
-
-1. **Seeded Auto-Colorize / Flatting Assist** — color-indication strokes/seeds over lineart drive recomputable region coloring, integrating with Lineart Boundary infrastructure where useful.
-2. **Gamut Mask / Palette Constraint** — user-definable gamut masks constrain compatible color selectors and can be stored as Illustro resources.
-3. **Split by Color** — convert color regions into separate paint layers and/or reusable selection-mask regions with configurable tolerance/fuzziness.
-4. **Pattern Fill** — local/user-imported seamless tiles can fill selections/regions/layers with scale, rotation, offset, color and opacity controls; no online catalog is implied.
-5. **Magnetic / Edge-aware Selection** — edge-following magnetic selection joins lasso/automatic/color-range/brush selection.
-6. **Content-Aware Fill / Smart Patch** — deterministic/local context-aware repair/fill for selected raster regions, distinct from cloud/generative image synthesis.
-7. **Hatching Guide** — controlled repeated hatch strokes with configurable direction/spacing using the current brush.
-8. **Conical/Sweep Gradient** — explicitly supported alongside linear/radial and the already-adopted advanced gradient workflows.
-
-### Already covered; no duplicate subsystem required
-
-- Procreate QuickShape → existing Smart Shape/post-stroke recognition.
-- Procreate Drawing Assist/perspective/symmetry → existing ruler/guide/assisted-drawing systems.
-- Procreate Reference Layer → existing Reference Layer + Fill/Selection/anti-overflow workflows.
-- Krita Transform Mask → existing non-destructive transform representation.
-- Krita Enclose and Fill → already adopted.
-- Photoshop Smart Object/Smart Filter class → linked/embedded object-style layers, non-destructive transform and filter stacks.
-- Infinite Painter reference images/lazy stabilization/geometric guides → already covered by existing reference/stabilizer/ruler systems.
-
-### Explicit audit exclusions / post-baseline items
-
-- Krita-style Wrap-Around/seamless-canvas authoring mode is not an initial-release requirement.
-- Dedicated HDR-display/mastering workflow is not an initial-release completion gate; RGBA16F-class internal capability remains available architecturally.
-- Cloud generative-image creation/editing is not part of the initial release baseline. Local deterministic Color Match, Smart Patch, selection/fill analysis and possible future Shading Assist are not classified as generative-image features.
-
-New reference-app releases after the 2026-08-30 frozen audit date follow FC-1 and do not retroactively reopen this baseline.
-
-## P1-4. Supported platform / browser matrix — CLOSED
-
-Full-editor support requires **all** of: a Tier-A OS/browser combination, secure HTTPS context, a qualifying WebGPU core adapter/device, required storage/worker capabilities, and a full-editor viewport tier. Runtime capability detection is authoritative over browser branding.
-
-### Tier A — supported and release-QA required
-
-| Platform | Minimum OS | Minimum browser | Status |
-| --- | --- | --- | --- |
-| iPad | **iPadOS 26.6** | **Safari 26.6** / installed Safari Web App | Full editor when runtime gates pass |
-| Android tablet | **Android 12** | **Chrome 152** | Full editor when runtime gates pass |
-| Windows desktop/laptop | **Windows 11 25H2** | **Chrome 152** or **Edge 152** | Full editor when runtime gates pass |
-| macOS desktop/laptop | **macOS Sonoma 14.8.8** or later | **Safari 26.6** or **Chrome 152** | Full editor when runtime gates pass |
-
-Later stable releases in these OS/browser families remain in scope unless a documented regression requires temporary blocking.
-
-### Tier B — best-effort, not an initial release gate
-
-- ChromeOS/Chromium systems with a qualifying WebGPU adapter.
-- Firefox desktop/Android when its WebGPU/storage implementation passes runtime detection.
-- Chromium-derived browsers other than tested Chrome/Edge.
-
-### Unsupported for the initial full editor
-
-- Browsers without a qualifying WebGPU implementation.
-- iPhone/Android-phone narrow layouts below the full-editor viewport gate.
-- OS/browser combinations below Tier-A minimums.
-- Embedded/in-app WebViews unless explicitly promoted later.
-
-### Runtime gates
-
-Before entering full editing, verify at minimum:
-
-- secure context;
-- `navigator.gpu` plus successful request of a **core** WebGPU adapter/device satisfying the later numeric minimum capability profile;
-- OPFS through `navigator.storage.getDirectory()`;
-- required Worker/Transferable functionality;
-- cross-origin isolation when enabling SharedArrayBuffer paths;
-- full-editor viewport eligibility;
-- sufficient storage for safe project creation/opening as determined by the storage subsystem.
-
-WebGPU compatibility-mode adapters are not part of the initial Tier-A contract. Missing optional features such as `shader-f16` do not by themselves fail support.
-
-### Version snapshot rationale
-
-At this closure date Chrome 152 is stable on desktop and Android, Edge 152 is stable, Safari 26.6 is the stable Safari line, Safari 26 added WebGPU, and OPFS is broadly available. Because WebGPU remains uneven across the total browser ecosystem, feature detection remains mandatory.
-
-## P1-5. Responsive product behavior — CLOSED
-
-Exact appearance/layout belongs to F/G/V. This section fixes only functional responsive behavior.
-
-### Wide full editor — viewport width >= 1100 CSS px
-
-- Full production editor.
-- Left tool rail, canvas and right inspector may coexist simultaneously.
-- Detached PiPs and desktop-style command surfaces are allowed.
-
-### Compact full editor — viewport width 600–1099 CSS px
-
-- Full production capability remains available.
-- UI may collapse, overlay, temporarily hide or single-stack inspectors/tool groups to protect canvas space.
-- No adopted editing capability may disappear solely because of this tier; access may move behind contextual/progressive disclosure.
-
-### Narrow shell — viewport width < 600 CSS px
-
-- Not a full-production-editor target for the initial release.
-- Provide project listing/open metadata, diagnostics, recovery/export/backup where safe, settings/help and a clear requirement for a larger viewport for full editing.
-- Do not create a separate phone-first editor solely for nominal feature parity.
-
-### Resize/orientation invariants
-
-- Crossing tiers preserves document state, active tool, selection and workspace state.
-- Tablet portrait is supported when width remains >=600 CSS px.
-- Orientation/window changes must not destroy detached-panel state; invalid saved positions are clamped/reflowed into the visible work area.
-
-## P1-6. Accessibility / inclusive-input contract — CLOSED
-
-Illustro targets **WCAG 2.2 AA for application UI** where applicable to a highly interactive graphics editor, with stronger pen/touch ergonomics where practical.
-
-- Ordinary text: target at least **4.5:1** contrast; essential UI component/focus boundaries: at least **3:1** against adjacent colors.
-- State is never conveyed by hue alone; selection/error/warning/success require redundant shape/label/icon/border/pattern indication.
-- Visible keyboard focus is mandatory.
-- Ordinary commands/controls are keyboard-operable unless the action intrinsically requires freehand pointer geometry.
-- Toolbars, menus, dialogs, fields, sliders, tabs, layer trees and command surfaces require accessible names/roles/states.
-- Canvas exposes meaningful editor/document context and associated focusable commands, but Illustro does not claim semantic description of arbitrary artwork pixels.
-- Respect `prefers-reduced-motion`; non-essential motion is suppressible/reduced without removing functional feedback.
-- UI scaling and resizable workspace surfaces are required; exact visual scale options are finalized with G.
-- Left-handed workspace rearrangement is supported through the customizable workspace.
-- Pressure/tilt/hover/stylus buttons improve drawing but are not mandatory for basic editing; mouse/touch alternatives remain available.
-- Touch-first primary controls should target about **44×44 CSS px or larger hit regions** when practical. Dense pointer surfaces may look smaller only when hit areas/spacing/alternate access remain reliable and WCAG target-size rules are satisfied.
-- Shortcut customization detects/reports conflicts and always offers reset-to-default.
-- Data-safety errors use persistent actionable text, not color-only/transient toast feedback.
-
-## P1-7. Localization / terminology contract — CLOSED
-
-Initial UI languages:
-
-- **Japanese (`ja-JP`)**
-- **English (`en`)**
-
-Rules:
-
-- Detect preferred locale on first run; provide explicit language override.
-- Unsupported locales fall back to English.
-- User-facing strings, accessibility labels, menus, dialogs, error/recovery copy, built-in preset names/descriptions and shortcut labels use localization keys rather than hard-coded concatenated prose.
-- Stable internal IDs, schema keys, command IDs, file-format fields and resource IDs are locale-neutral.
-- User-created names remain exactly as entered.
-- Use `Intl`/BCP-47-aware formatting for dates/times/locale-facing numbers; persisted numeric/schema values remain locale-independent.
-- Canonical units use explicit semantics; decimal display follows locale while serialized data does not.
-- Do not embed translatable text into icons, generated textures or other raster assets; text-bearing help/onboarding art uses localized variants or live text overlays.
-- Maintain a Japanese/English terminology glossary for tools, layer types, Lineart concepts, blend modes and compatibility warnings.
-
-## P1-8. Phase 1 completion result
-
-Closed in this phase:
-
-1. product definition and target audience;
-2. all formerly pending feature-adoption decisions;
-3. remaining frozen external-app feature audit for the initial baseline;
-4. minimum Tier-A OS/browser matrix and runtime gate policy;
-5. phone/narrow-layout responsive product policy;
-6. accessibility/inclusive-input contract;
-7. Japanese/English localization contract.
-
-This does **not** finalize F/G/H/I/V and does **not** declare Illustro globally `IMPLEMENTATION READY`. Global Design Freeze remains reserved for the final integration phase after the jointly decided visual/icon/texture/motion work and remaining technical phases.
-
-## Phase 1 change-log entry
-
-- 2026-08-30: Closed Phase 1 product/platform planning: fixed target users and supported runtime matrix, resolved all previously pending feature candidates, completed the frozen external-app audit with additional single-illustration capabilities, defined wide/compact/narrow responsive behavior, adopted WCAG-2.2-AA-oriented accessibility requirements, and fixed Japanese/English localization architecture without declaring the final global Design Freeze.
-'''
-          p.write_text(text.rstrip() + '\n\n' + closure.strip() + '\n', encoding='utf-8')
-      - name: Verify
+      - name: Apply and verify phase 1 closure
         shell: bash
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import base64, gzip
+          p = Path('ILLUSTRO_DESIGN_MEMO.md')
+          text = p.read_text(encoding='utf-8')
+          marker = '# Phase 1 Product / Platform Closure — 2026-08-30'
+          if marker not in text:
+              for line in [
+                  '- Product definition and target user beyond the confirmed single-illustration focus\n',
+                  '- Exact minimum supported device/browser matrix and compatibility tiers\n',
+                  '- Remaining external-application feature audit after the current ibisPaint/CSP/mandatory-capability inventory\n',
+                  '- Responsive behavior for narrower tablets/phones\n',
+              ]:
+                  text = text.replace(line, '')
+              payload = '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'
+              closure = gzip.decompress(base64.b64decode(payload)).decode('utf-8')
+              p.write_text(text.rstrip() + '\n\n' + closure.strip() + '\n', encoding='utf-8')
+          PY
           grep -F '# Phase 1 Product / Platform Closure — 2026-08-30' ILLUSTRO_DESIGN_MEMO.md
-          for i in P1-1 P1-2 P1-3 P1-4 P1-5 P1-6 P1-7 P1-8; do grep -F "## ${i}." ILLUSTRO_DESIGN_MEMO.md; done
+          for i in P1-1 P1-2 P1-3 P1-4 P1-5 P1-6 P1-7; do grep -F "## ${i}." ILLUSTRO_DESIGN_MEMO.md; done
           ! grep -F -- '- Product definition and target user beyond the confirmed single-illustration focus' ILLUSTRO_DESIGN_MEMO.md
           ! grep -F -- '- Exact minimum supported device/browser matrix and compatibility tiers' ILLUSTRO_DESIGN_MEMO.md
           ! grep -F -- '- Remaining external-application feature audit after the current ibisPaint/CSP/mandatory-capability inventory' ILLUSTRO_DESIGN_MEMO.md
           ! grep -F -- '- Responsive behavior for narrower tablets/phones' ILLUSTRO_DESIGN_MEMO.md
-      - name: Commit
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- ILLUSTRO_DESIGN_MEMO.md; then exit 0; fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ILLUSTRO_DESIGN_MEMO.md
-          git commit -m 'docs: close phase 1 product and platform design'
-          git push origin HEAD:main
+          if ! git diff --quiet -- ILLUSTRO_DESIGN_MEMO.md; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add ILLUSTRO_DESIGN_MEMO.md
+            git commit -m 'docs: close phase 1 product and platform design'
+            git push origin HEAD:main
+          fi
