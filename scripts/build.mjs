@@ -14,8 +14,14 @@ await rm(buildDir, { recursive: true, force: true });
 await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
 
-const generator = spawnSync(process.execPath, ['scripts/generate-wgsl.mjs'], { stdio: 'inherit' });
-if (generator.status !== 0) process.exit(generator.status ?? 1);
+const generatorEnv = { ...process.env, ILLUSTRO_BUILD_MODE: mode };
+for (const script of ['scripts/generate-wgsl.mjs', 'scripts/generate-build-info.mjs']) {
+  const generator = spawnSync(process.execPath, [script], {
+    stdio: 'inherit',
+    env: generatorEnv,
+  });
+  if (generator.status !== 0) process.exit(generator.status ?? 1);
+}
 
 const tscArgs = [
   'node_modules/typescript/bin/tsc',
@@ -34,9 +40,11 @@ for (const entry of await readdir(publicDir, { withFileTypes: true })) {
     recursive: true,
   });
 }
+await cp(new URL('../.build/meta/build-info.json', import.meta.url), new URL('build-info.json', distDir));
 
 const template = await readFile(new URL('../src/index.html', import.meta.url), 'utf8');
 const html = template.replaceAll('__ILLUSTRO_BUILD_MODE__', mode);
 await writeFile(new URL('index.html', distDir), html, 'utf8');
 
-console.log(JSON.stringify({ event: 'build.complete', mode }));
+const buildInfo = JSON.parse(await readFile(new URL('build-info.json', distDir), 'utf8'));
+console.log(JSON.stringify({ event: 'build.complete', mode, buildSha: buildInfo.buildSha }));

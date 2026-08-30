@@ -1,0 +1,8 @@
+{
+  "schema": "illustro.m0.runtime-capabilities.fixture.v1",
+  "secureContext": true,
+  "crossOriginIsolated": true,
+  "webGpu": true,
+  "opfs": true,
+  "sharedArrayBuffer": true
+}

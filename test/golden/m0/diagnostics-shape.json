@@ -1,0 +1,4 @@
+{
+  "schema": "illustro.m0.diagnostics-shape.v1",
+  "requiredTopLevelKeys": ["build", "runtime", "capabilities", "performance", "logs"]
+}

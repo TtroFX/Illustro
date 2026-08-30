@@ -1,0 +1,82 @@
+name: Verify M0 observability foundation batch 3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'scripts/build.mjs'
+      - 'scripts/generate-build-info.mjs'
+      - 'scripts/verify-m0-batch3.mjs'
+      - 'src/app/capabilities.ts'
+      - 'src/app/diagnostics.ts'
+      - 'src/app/main.ts'
+      - 'src/shared/logger.ts'
+      - 'src/shared/performance.ts'
+      - 'test/fixtures/**'
+      - 'test/golden/**'
+      - 'bench/**'
+      - '.github/workflows/m0-batch3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  ILLUSTRO_BUILD_SHA: ${{ github.sha }}
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install batch dependencies
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Typecheck observability foundation
+        run: npm run typecheck
+      - name: Verify production output
+        run: |
+          npm run build
+          npm run verify:m0-batch3 -- production
+      - name: Verify development output
+        run: |
+          npm run build:dev
+          npm run verify:m0-batch3 -- development
+      - name: Run benchmark harness
+        run: npm run benchmark:m0
+      - name: Close verified progress items
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          ids = ['M0-013', 'M0-014', 'M0-015', 'M0-016', 'M0-017', 'M0-018', 'M0-019']
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          for item in ids:
+              prefix = f'{item} '
+              matches = [line for line in text.splitlines() if line.startswith(prefix)]
+              if len(matches) != 1:
+                  raise SystemExit(f'expected exactly one progress line for {item}')
+              line = matches[0]
+              if line.endswith(':未完了'):
+                  text = text.replace(line, line[:-3] + '完了', 1)
+              elif not line.endswith(':完了'):
+                  raise SystemExit(f'unexpected progress state for {item}: {line}')
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit verified progress
+        run: |
+          git diff --check
+          if git diff --quiet -- IMPLEMENTATION_PROGRESS.md; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: close M0 observability foundation batch 3 [skip ci]'
+          git push origin HEAD:main

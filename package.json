@@ -8,11 +8,15 @@
   },
   "scripts": {
     "prepare:wgsl": "node scripts/generate-wgsl.mjs",
-    "typecheck": "npm run prepare:wgsl && tsc -p tsconfig.json --noEmit",
+    "prepare:build-info": "node scripts/generate-build-info.mjs",
+    "prepare:generated": "npm run prepare:wgsl && npm run prepare:build-info",
+    "typecheck": "npm run prepare:generated && tsc -p tsconfig.json --noEmit",
     "build": "node scripts/build.mjs production",
     "build:dev": "node scripts/build.mjs development",
+    "benchmark:m0": "node bench/foundation.bench.mjs",
     "verify:m0-batch1": "node scripts/verify-m0-batch1.mjs",
-    "verify:m0-batch2": "node scripts/verify-m0-batch2.mjs"
+    "verify:m0-batch2": "node scripts/verify-m0-batch2.mjs",
+    "verify:m0-batch3": "node scripts/verify-m0-batch3.mjs"
   },
   "devDependencies": {
     "typescript": "5.9.2"
