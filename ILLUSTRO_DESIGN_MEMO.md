@@ -79,6 +79,7 @@ Illustroの設計・仕様に関する正本は、この1つの `.md` に統合�
 28. The right inspector uses a **dockable block model**. Any normal right-inspector block can be reordered, torn away into a floating PiP panel, remain visible while the main inspector is collapsed, and be re-docked by bringing it near the inspector with a Scratch-like magnetic insertion interaction. Closing a detached block with its upper-right `×` returns it to the inspector rather than destroying its state.
 29. Illustro adopts a **Quick Hole Controller**: an idle, donut-shaped six-slot radial command controller anchored only by eligible **canvas interaction**. Interacting with the right inspector, tool rail, top bar, detached PiP panels, or other application UI does not move its anchor; after UI interaction it remains at the previous canvas-derived position until the canvas is operated again. It is hidden while active drawing/contact is occurring. Tapping an eligible non-UI workspace area outside the canvas dismisses it, and it stays dismissed until a later eligible canvas interaction causes it to appear again. Its default mapping is Undo at left, Redo at right, Brush/Eraser Toggle and Eyedropper in the two upper slots, and Lasso and Fill in the two lower slots. All six slot positions and assigned commands are user-configurable through the shared command system.
 30. Illustro adopts a **customization-first workspace principle**. Workflow-affecting UI presentation should be user-adjustable wherever doing so does not compromise correctness or basic usability. This includes panel/rail dimensions, dock order, detached PiP placement, show/hide state, workspace layout, Quick Hole command mapping and ordering, Quick Hole size/radius and button sizing, and the opacity/translucency of overlay-style controls. Defaults must remain coherent and usable, every customizable surface must have a safe reset/default path, and ergonomic minimum/maximum constraints may prevent unusable configurations without otherwise restricting meaningful customization.
+31. Illustro adopts a **Lineart Group / Lineart Boundary Layer system**. A Lineart Group is a special folder-like container created from one or more existing visible lineart source layers and contains a generated non-rendering Lineart Boundary Layer. The boundary layer stores idealized line-boundary topology derived from the source rather than visible artwork pixels. Selecting it enters a dedicated edit mode for fixing unwanted automatic connections, adding missing connections, removing/splitting boundaries, and explicitly forbidding a rejected auto-connection from reappearing after regeneration. Automatic topology and manual overrides are stored separately. Multiple Lineart Boundary Layers can be selected as a union reference for Fill, Auto Select, Enclose Fill and compatible anti-overflow workflows. Group-level transforms and deformation, including Liquify-compatible displacement, keep visible lineart and boundary topology synchronized, while direct source edits trigger dirty-region boundary regeneration with manual overrides preserved.
 
 ## Working rules for this memo
 
@@ -237,6 +238,7 @@ Core capabilities include:
 - Multi-layer selection and grouped movement/transform/organization.
 - Layer Masks with paint/edit, invert, link/unlink, independent move/transform, feather/blur as applicable, and conversion to/from selections.
 - Reference Layer designation usable by fill, selection and anti-overflow brush workflows.
+- **Lineart Group** as a special folder-like layer container that owns one or more visible source lineart layers plus a non-rendering **Lineart Boundary Layer** used for idealized fill/selection boundaries.
 - Draft/sketch layer attribute with the ability to exclude/hide draft content from final-output workflows.
 - Linked/File Object-style layers that preserve a source object/image relationship instead of forcing immediate destructive rasterization where technically appropriate.
 - Layer Comps for saving and switching named visibility/state alternatives within one illustration document.
@@ -265,14 +267,98 @@ Support the common ibisPaint/Photoshop-class set required by the audited workflo
 - Quick Mask workflow and selection↔mask conversion.
 - Alpha/transparency-to-selection from a layer.
 - Selection-scoped transform, filter, fill, cut/copy/paste and layer operations.
+- Auto Select and compatible selection operations may use one or more enabled Lineart Boundary Layers as a combined idealized boundary source.
 
 ### 11. Fill and enclosed-area tools — ADOPTED
 
 - Flood fill with tolerance/strength, gap recognition/closing, under-line expansion, boundary expansion/contraction and continuous/swipe filling.
-- Configurable reference source: active layer, designated Reference Layer(s), or merged canvas.
+- Configurable reference source: active layer, designated Reference Layer(s), merged canvas, or selected Lineart Boundary Layer(s).
+- When multiple Lineart Boundary Layers are enabled, their topology is unioned into one virtual boundary set for the operation without destructively merging the source layers/groups.
+- Fill using Lineart Boundary topology is intentionally independent of visible stroke anti-aliasing and line thickness. The fill pipeline should use source-line coverage to extend color safely beneath the visible lineart edge while using the idealized topology to prevent crossing into neighboring regions, avoiding the common light/transparent halo along anti-aliased lineart.
 - Enclose-and-Fill and Enclose-and-Erase workflows.
 - Transparent/erase fill where applicable.
 - Automatic-selection boundary logic should share the same high-quality region/contour foundations where possible.
+
+### 11A. Lineart Groups and Lineart Boundary Layers — ADOPTED
+
+The Lineart system separates **visible artistic linework** from the **idealized topology used to define closed paint regions**. The artist is therefore not required to compromise line quality merely to make a flood-fill algorithm recognize a boundary.
+
+#### Structure and creation
+
+- A **Lineart Group** behaves like a special folder in the layer hierarchy.
+- Creating a Lineart Group from existing selected layer(s) wraps/preserves those layers as the visible lineart source rather than rasterizing or replacing them.
+- A typical structure is:
+
+  - `Lineart Group`
+    - visible raster/vector/source lineart layer(s)
+    - `Lineart Boundary Layer`
+
+- The Lineart Boundary Layer is a dedicated derived-data child. It does not participate in normal artwork compositing and is never exported as visible artwork.
+- A group normally has one canonical boundary child representing the union/analysis of its configured source content; multiple independent Lineart Groups may exist in one document.
+
+#### Boundary generation model
+
+- Boundary generation analyzes the visible source lineart into an idealized thin barrier representation, conceptually near a one-pixel/centerline topology at document resolution rather than copying the antialiased stroke silhouette as-is.
+- The derived representation preserves endpoints, intersections, branches and closed-region connectivity needed for region operations.
+- Small endpoint gaps can be bridged automatically. Candidate bridging should consider at least endpoint distance, endpoint direction/tangent and nearby boundary context rather than connecting every nearby point blindly.
+- Auto-generated gap bridges are tagged distinctly from extracted source boundaries and from explicit user edits.
+- Gap-closing can expose user settings such as enabled/disabled state, maximum connection distance and connection aggressiveness/sensitivity.
+
+#### Manual boundary editing and correction
+
+- Selecting the **Lineart Boundary Layer** enters a dedicated boundary-edit mode rather than an ordinary paint-layer mode.
+- In this mode the user can at minimum:
+  - add a missing boundary segment;
+  - connect two intended endpoints;
+  - erase/remove a boundary segment;
+  - split/disconnect an unwanted connection;
+  - reject an automatically generated bridge;
+  - explicitly mark a rejected endpoint pair/bridge as **do not reconnect automatically**;
+  - regenerate/reanalyze automatic topology without discarding valid manual corrections.
+- Automatic extraction, automatic gap bridges, manual additions, manual removals/splits and explicit no-connect constraints are stored as separate semantic data. This prevents a regeneration pass from silently restoring a connection that the user deliberately removed.
+- Undo/Redo applies to these boundary-edit operations through the normal command/history system.
+
+#### Preview and editing overlay
+
+- In normal artwork view the boundary child is invisible.
+- When the boundary layer is selected, being edited, or explicitly previewed as an active Fill/selection reference, its topology is shown as a temporary **topmost overlay** above artwork.
+- The default overlay is a clear semi-transparent blue or similar high-contrast editing color; it is presentation-only and is not part of the artwork.
+- Overlay visibility can be toggled. Overlay color, opacity and practical preview width are user-configurable under Illustro's customization-first principle.
+- When multiple Lineart Boundary Layers are active as references, the UI can show their combined boundary preview; implementations may optionally distinguish constituent groups by preview color while retaining a combined-operation view.
+
+#### Multiple boundary references
+
+- Fill/Auto Select/Enclose Fill and other compatible region tools expose a selector for which Lineart Boundary Layers are active.
+- One or many boundary layers may be enabled simultaneously.
+- Multiple enabled boundaries are combined as a **virtual union boundary topology** for the operation. The underlying groups/layers remain independent and are not destructively merged.
+- This allows, for example, character, clothing, accessory and background lineart groups to be enabled in any combination depending on the region being painted.
+
+#### Synchronization with source lineart
+
+- The boundary child maintains source references and a source-generation revision/state.
+- Direct edits to source lineart invalidate only affected/dirty regions where practical; boundary regeneration should be incremental rather than requiring a full-document analysis for every stroke.
+- Manual additions/removals/no-connect constraints are preserved and reapplied/validated across source-driven regeneration instead of being overwritten wholesale.
+- Group-level Move, Scale, Rotate, Mesh/Perspective-compatible transform and other applicable deformation operations act on the visible source and its boundary data as one logical unit.
+- For Liquify/local-warp style operations applied to the Lineart Group, the same displacement field must be applied to both visible source lineart and the boundary representation so they remain registered. A later local regeneration may refine the topology where the source itself changed materially.
+
+#### Region-operation behavior
+
+- Region tools using a Lineart Boundary Layer make inside/outside decisions from the idealized topology instead of directly treating semi-transparent anti-aliased source pixels as the barrier.
+- Fill coverage may extend underneath the visible source-line coverage while the boundary topology blocks passage to neighboring regions. This is intended to eliminate visible unpainted fringes beneath anti-aliased lineart without relying on an excessively large global expansion value.
+- The same boundary source is available to Auto Select, Enclose Fill/Erase and compatible anti-overflow/inside-line brush behavior so these tools do not each implement a separate inconsistent lineart interpretation.
+
+#### Native persistence
+
+The native `.illustro` project representation must preserve enough data to round-trip the Lineart system, including:
+
+- Lineart Group/source membership and source references;
+- derived/extracted boundary topology or its reproducible cached representation;
+- automatic gap bridges and their generation settings;
+- manual boundary additions;
+- manual removals/splits;
+- explicit no-connect constraints/rejected auto bridges;
+- generation/source revision metadata;
+- preview/customization state where that state belongs to the project/workspace model.
 
 ### 12. Transform, alignment and snapping — ADOPTED
 
@@ -283,6 +369,7 @@ Support the common ibisPaint/Photoshop-class set required by the audited workflo
 - **Non-destructive Transform** representation equivalent in capability to transform-mask/smart-object-style editing where useful, so repeated transform does not force repeated raster degradation.
 - Align and Distribute for layers/objects.
 - Smart Guides/Snapping/Magnetics to canvas center/axes, grid/guides and other eligible objects/layers with configurable snapping behavior.
+- Lineart Group transforms/deformations must keep visible source lineart and its Lineart Boundary Layer registered as specified in the Lineart system above.
 
 ### 13. Shape and ruler systems — ADOPTED
 
@@ -314,6 +401,7 @@ Adjustment Layers/non-destructive effect application must reuse the same underly
 ### 16. Liquify, correction and special paint tools — ADOPTED
 
 - Liquify/local warp, lasso paint, lasso erase, clone/copy pen, smudge and blur tools.
+- Liquify/local-warp applied to a Lineart Group must share the same displacement field between its visible lineart source and Lineart Boundary Layer so boundary registration is maintained.
 - Practical special drawing/correction tools from the audited ibis/CSP single-illustration workflow where they do not introduce comic/page or 3D dependencies.
 
 ### 17. Productivity and interface customization — ADOPTED
@@ -334,7 +422,7 @@ Adjustment Layers/non-destructive effect application must reuse the same underly
 ### 18. Reliability, history and native project preservation — ADOPTED
 
 - Autosave and continuous crash-recovery data sufficient to restore a recent coherent document state after abnormal termination.
-- Native `.illustro` format must preserve all adopted editable structures needed for round-trip editing, including raster/vector content, folders, masks, adjustment/effect structures, transforms, layer metadata, color/document metadata and references that are part of the project model.
+- Native `.illustro` format must preserve all adopted editable structures needed for round-trip editing, including raster/vector content, folders, masks, adjustment/effect structures, transforms, layer metadata, color/document metadata, Lineart Groups/Boundary Layers and references that are part of the project model.
 - OPFS working state is not a substitute for user-controlled project export/backup.
 
 ### 19. Import/export and interoperability — ADOPTED BASELINE
@@ -735,7 +823,7 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - Responsive behavior for narrower tablets/phones
 - Document data model
 - Brush-asset schema details and versioned preset representation beneath the adopted canonical brush capabilities
-- Layer model implementation details
+- Layer model implementation details beyond the adopted Lineart Group semantics
 - Undo/Redo command model, snapshot/delta strategy, and spill thresholds
 - Tile dimensions, seam/border policy, cache budgets, and numeric performance targets
 - Default color precision/document color modes and exact wide-gamut conversion policy
@@ -754,3 +842,4 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - 2026-08-30: Added the canonical feature inventory covering the adopted ibisPaint single-illustration baseline, selected CSP productivity/non-destructive/vector capabilities, mandatory cross-application painting features, the ibis+CSP Canonical Brush Engine, interoperability targets, explicit exclusions, and unresolved adoption candidates.
 - 2026-08-30: Adopted the resizable/reorderable right-inspector architecture with tear-off PiP blocks, Scratch-like magnetic re-docking, persistent detached panels across inspector collapse, and the six-slot fully remappable Quick Hole Controller for tablet-first shortcut access.
 - 2026-08-30: Refined Quick Hole behavior so UI interactions do not move its canvas-derived anchor, non-UI workspace taps can dismiss it until the next canvas interaction, the ring/buttons use configurable translucency, and the wider UI follows a customization-first workspace principle.
+- 2026-08-30: Adopted the Lineart Group / Lineart Boundary Layer system: visible source lineart is wrapped in a special folder-like group with non-rendering idealized boundary topology, editable automatic/manual gap connections, persistent no-connect overrides, multi-boundary union references for region tools, anti-alias-aware under-line fill behavior, and transform/Liquify synchronization.
