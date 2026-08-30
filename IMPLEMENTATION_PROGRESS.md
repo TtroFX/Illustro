@@ -148,9 +148,9 @@ M2-034 project preview metadata:完了
 M2-035 local project delete:完了
 M2-036 Recently Deleted/trash:完了
 M2-037 deleted-project restore:完了
-M2-038 Web Locks writer ownership:未完了
-M2-039 BroadcastChannel project-state propagation:未完了
-M2-040 second-tab state propagation:未完了
+M2-038 Web Locks writer ownership:完了
+M2-039 BroadcastChannel project-state propagation:完了
+M2-040 second-tab state propagation:完了
 M2-041 storage quota accounting:未完了
 M2-042 storage safety reserve policy:未完了
 M2-043 persistent-storage request plumbing:未完了

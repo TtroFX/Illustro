@@ -5,10 +5,7 @@ import {
   type ProjectId,
 } from '../domain/identity.js';
 import { createStructuredErrorRecord } from '../domain/reports.js';
-import {
-  getProjectWriteCoordinator,
-  type ProjectAccessStateV1,
-} from './project-coordination.js';
+import { getProjectWriteCoordinator, type ProjectAccessStateV1 } from './project-coordination.js';
 import { LocalProjectLibraryV1 } from './project-library.js';
 import { openIllustroOpfsRoot } from './opfs-layout.js';
 
@@ -223,7 +220,8 @@ async function createProject(
   request: Extract<ProjectStorageRequestV1, { readonly type: 'storage.project.create' }>,
 ): Promise<unknown> {
   const library = await libraryPromise;
-  const projectId = request.projectId === undefined ? createProjectId() : parseProjectId(request.projectId);
+  const projectId =
+    request.projectId === undefined ? createProjectId() : parseProjectId(request.projectId);
   const access = await coordinator.acquire(projectId);
   requireWrite(access);
   try {
@@ -238,7 +236,9 @@ async function createProject(
         ? {}
         : {
             previewResourceId:
-              request.previewResourceId === null ? null : parseResourceId(request.previewResourceId),
+              request.previewResourceId === null
+                ? null
+                : parseResourceId(request.previewResourceId),
           }),
       ...(request.now === undefined ? {} : { now: new Date(request.now) }),
     });
@@ -310,7 +310,9 @@ async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
           request.now === undefined ? new Date() : new Date(request.now),
         ),
       );
-      coordinator.announce('project.renamed', projectId, { name: (result as { name: string }).name });
+      coordinator.announce('project.renamed', projectId, {
+        name: (result as { name: string }).name,
+      });
     } else if (request.type === 'storage.project.duplicate') {
       result = await duplicateProject(request);
     } else if (request.type === 'storage.project.preview') {
@@ -327,10 +329,7 @@ async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
     } else if (request.type === 'storage.project.trash') {
       const projectId = parseProjectId(request.projectId);
       result = await coordinator.runExclusive(projectId, () =>
-        library.trash(
-          projectId,
-          request.now === undefined ? new Date() : new Date(request.now),
-        ),
+        library.trash(projectId, request.now === undefined ? new Date() : new Date(request.now)),
       );
       await coordinator.release(projectId);
       coordinator.announce('project.trashed', projectId, {

@@ -157,7 +157,9 @@ describe('project cross-context coordination', () => {
     const second = coordinator(locks, hub, crypto.randomUUID());
 
     await first.openProject(projectId);
-    await expect(second.runExclusive(projectId, () => 1)).rejects.toThrow('locked by another writer');
+    await expect(second.runExclusive(projectId, () => 1)).rejects.toThrow(
+      'locked by another writer',
+    );
     expect(await first.runExclusive(projectId, () => 42)).toBe(42);
     expect(first.hasWriteOwnership(projectId)).toBe(true);
 

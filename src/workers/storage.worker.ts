@@ -1,5 +1,6 @@
 import '../storage/history-worker-extension.js';
 import '../storage/project-worker-extension.js';
+import { getProjectWriteCoordinator } from '../storage/project-coordination.js';
 import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
 import {
   parseProjectId,
@@ -53,7 +54,7 @@ interface ScheduledCommitV1 {
 type StorageRequest =
   | { readonly type: 'ping' }
   | {
-      readonly type: 'storage.project.open';
+      readonly type: 'storage.project.ensure';
       readonly requestId: string;
       readonly projectId: string;
     }
@@ -119,6 +120,7 @@ const persistenceSchedulers = new Map<
   ProjectPersistenceSchedulerV1<ScheduledCommitV1, ProjectTransactionCommitResultV1>
 >();
 
+const projectWriteCoordinator = getProjectWriteCoordinator();
 const rootPromise: Promise<IllustroOpfsRootV1> = openIllustroOpfsRoot();
 void rootPromise.then(
   () => scope.postMessage({ type: 'worker.storage.ready', opfs: true }),
@@ -166,7 +168,7 @@ function parseRequest(value: unknown): StorageRequest | null {
   if (value.type === 'ping') return { type: 'ping' };
   if (typeof value.requestId !== 'string') return null;
 
-  if (value.type === 'storage.project.open' && typeof value.projectId === 'string') {
+  if (value.type === 'storage.project.ensure' && typeof value.projectId === 'string') {
     return { type: value.type, requestId: value.requestId, projectId: value.projectId };
   }
   if (value.type === 'storage.object.put' && value.bytes instanceof ArrayBuffer) {
@@ -282,6 +284,7 @@ function persistenceScheduler(
     ProjectTransactionCommitResultV1
   >({
     async persist(reason, payload) {
+      projectWriteCoordinator.assertWriteOwnership(payload.projectId);
       const [root, project] = await Promise.all([rootPromise, projectLayout(payload.projectId)]);
       const result = await commitProjectTransaction(root, project, {
         transactionId: payload.transactionId,
@@ -358,13 +361,16 @@ async function handleRequest(request: StorageRequest): Promise<void> {
   }
 
   try {
-    if (request.type === 'storage.project.open') {
-      const layout = await projectLayout(request.projectId);
+    if (request.type === 'storage.project.ensure') {
+      const result = await projectWriteCoordinator.runExclusive(request.projectId, async () => {
+        const layout = await projectLayout(request.projectId);
+        return { projectId: layout.projectId };
+      });
       scope.postMessage({
         type: 'storage.response',
         requestId: request.requestId,
         ok: true,
-        result: { projectId: layout.projectId },
+        result,
       });
       return;
     }
@@ -415,6 +421,7 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     }
 
     if (request.type === 'storage.entity.persist') {
+      projectWriteCoordinator.assertWriteOwnership(request.projectId);
       const [root, project] = await Promise.all([rootPromise, projectLayout(request.projectId)]);
       const result = await persistEntityRevision(root, project, {
         kind: request.kind,
@@ -432,6 +439,7 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     }
 
     if (request.type === 'storage.transaction.commit') {
+      projectWriteCoordinator.assertWriteOwnership(request.projectId);
       const payload = scheduledCommit(request);
       const [root, project] = await Promise.all([rootPromise, projectLayout(payload.projectId)]);
       const result = await commitProjectTransaction(root, project, payload);
@@ -445,6 +453,7 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     }
 
     if (request.type === 'storage.persistence.markDirty') {
+      projectWriteCoordinator.assertWriteOwnership(request.projectId);
       const payload = scheduledCommit(request);
       const scheduler = persistenceScheduler(payload.projectId);
       const generation = scheduler.markDirty(payload);
@@ -458,6 +467,7 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     }
 
     if (request.type === 'storage.persistence.flush') {
+      projectWriteCoordinator.assertWriteOwnership(request.projectId);
       const scheduler = persistenceScheduler(request.projectId);
       await scheduler.flushNow(request.reason);
       scope.postMessage({
@@ -469,8 +479,10 @@ async function handleRequest(request: StorageRequest): Promise<void> {
       return;
     }
 
-    const project = await projectLayout(request.projectId);
-    const supported = await probeSyncAccessHandle(project.directories.tmp);
+    const supported = await projectWriteCoordinator.runExclusive(request.projectId, async () => {
+      const project = await projectLayout(request.projectId);
+      return probeSyncAccessHandle(project.directories.tmp);
+    });
     scope.postMessage({
       type: 'storage.response',
       requestId: request.requestId,
