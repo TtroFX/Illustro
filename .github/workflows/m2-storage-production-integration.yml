@@ -1,0 +1,178 @@
+name: Integrate and close M2 storage safety
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-storage-production-integration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-verify-close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Connect hard-reserve preflight to production writes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path('src/workers/storage.worker.ts'); s=p.read_text()
+          s=s.replace("import '../storage/project-worker-extension.js';\n","import '../storage/project-worker-extension.js';\nimport '../storage/storage-maintenance-worker-extension.js';\n",1)
+          anchor="import { getProjectWriteCoordinator } from '../storage/project-coordination.js';\n"
+          growth="import {\n  getDurableStorageGrowthGuard,\n  STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,\n} from '../storage/storage-growth-guard.js';\n"
+          if anchor not in s: raise SystemExit('storage worker import target missing')
+          s=s.replace(anchor,growth+anchor,1)
+          anchor="const projectWriteCoordinator = getProjectWriteCoordinator();\n"
+          if anchor not in s: raise SystemExit('storage worker coordinator target missing')
+          s=s.replace(anchor,anchor+"const storageGrowthGuard = getDurableStorageGrowthGuard();\n",1)
+          old="      projectWriteCoordinator.assertWriteOwnership(payload.projectId);\n      const [root, project] = await Promise.all([rootPromise, projectLayout(payload.projectId)]);\n"
+          new="      projectWriteCoordinator.assertWriteOwnership(payload.projectId);\n      await storageGrowthGuard.assertJsonGrowth(\n        payload.snapshot,\n        STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,\n      );\n      const [root, project] = await Promise.all([rootPromise, projectLayout(payload.projectId)]);\n"
+          if old not in s: raise SystemExit('scheduler persist target missing')
+          s=s.replace(old,new,1)
+          old="    if (request.type === 'storage.object.put') {\n      const root = await rootPromise;\n"
+          new="    if (request.type === 'storage.object.put') {\n      await storageGrowthGuard.assertRawGrowth(request.bytes.byteLength);\n      const root = await rootPromise;\n"
+          if old not in s: raise SystemExit('object put target missing')
+          s=s.replace(old,new,1)
+          old="    if (request.type === 'storage.tile.put') {\n      const root = await rootPromise;\n"
+          new="    if (request.type === 'storage.tile.put') {\n      await storageGrowthGuard.assertRawGrowth(request.bytes.byteLength);\n      const root = await rootPromise;\n"
+          if old not in s: raise SystemExit('tile put target missing')
+          s=s.replace(old,new,1)
+          old="    if (request.type === 'storage.entity.persist') {\n      projectWriteCoordinator.assertWriteOwnership(request.projectId);\n"
+          new="    if (request.type === 'storage.entity.persist') {\n      projectWriteCoordinator.assertWriteOwnership(request.projectId);\n      await storageGrowthGuard.assertJsonGrowth(request.snapshot);\n"
+          if old not in s: raise SystemExit('entity target missing')
+          s=s.replace(old,new,1)
+          old="    if (request.type === 'storage.transaction.commit') {\n      projectWriteCoordinator.assertWriteOwnership(request.projectId);\n      const payload = scheduledCommit(request);\n"
+          new="    if (request.type === 'storage.transaction.commit') {\n      projectWriteCoordinator.assertWriteOwnership(request.projectId);\n      await storageGrowthGuard.assertJsonGrowth(\n        request.snapshot,\n        STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,\n      );\n      const payload = scheduledCommit(request);\n"
+          if old not in s: raise SystemExit('transaction target missing')
+          s=s.replace(old,new,1)
+          old="    if (request.type === 'storage.persistence.markDirty') {\n      projectWriteCoordinator.assertWriteOwnership(request.projectId);\n      const payload = scheduledCommit(request);\n"
+          new="    if (request.type === 'storage.persistence.markDirty') {\n      projectWriteCoordinator.assertWriteOwnership(request.projectId);\n      await storageGrowthGuard.assertJsonGrowth(\n        request.snapshot,\n        STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,\n      );\n      const payload = scheduledCommit(request);\n"
+          if old not in s: raise SystemExit('markDirty target missing')
+          s=s.replace(old,new,1)
+          old="function postFailure(requestId: string, operation: string, error: unknown): void {\n  scope.postMessage({\n"
+          new="function postFailure(requestId: string, operation: string, error: unknown): void {\n  const quotaError = error instanceof DOMException && error.name === 'QuotaExceededError';\n  scope.postMessage({\n"
+          if old not in s: raise SystemExit('storage error target missing')
+          s=s.replace(old,new,1)
+          s=s.replace("      code: 'storage.request.failed',\n      severity: 'error',\n      operation,\n      messageKey: 'error.storage.request.failed',\n      recoverability: 'retryable',","      code: quotaError ? 'storage.quota.unsafeGrowth' : 'storage.request.failed',\n      severity: 'error',\n      operation,\n      messageKey: quotaError ? 'error.storage.quota.unsafeGrowth' : 'error.storage.request.failed',\n      recoverability: quotaError ? 'recoverable' : 'retryable',",1)
+          p.write_text(s)
+
+          p=Path('src/storage/project-worker-extension.ts'); s=p.read_text()
+          anchor="import { createStructuredErrorRecord } from '../domain/reports.js';\n"
+          growth="import {\n  getDurableStorageGrowthGuard,\n  STORAGE_METADATA_WRITE_OVERHEAD_BYTES,\n  STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,\n} from './storage-growth-guard.js';\n"
+          if anchor not in s: raise SystemExit('project import target missing')
+          s=s.replace(anchor,anchor+growth,1)
+          anchor="const coordinator = getProjectWriteCoordinator();\n"
+          s=s.replace(anchor,anchor+"const storageGrowthGuard = getDurableStorageGrowthGuard();\n",1)
+          old="function postFailure(request: ProjectStorageRequestV1, error: unknown): void {\n  scope.postMessage({\n"
+          new="function postFailure(request: ProjectStorageRequestV1, error: unknown): void {\n  const quotaError = error instanceof DOMException && error.name === 'QuotaExceededError';\n  scope.postMessage({\n"
+          if old not in s: raise SystemExit('project error target missing')
+          s=s.replace(old,new,1)
+          s=s.replace("      code: 'storage.project.failed',\n      severity: 'error',\n      operation: request.type,\n      messageKey: 'error.storage.project.failed',\n      recoverability: 'retryable',","      code: quotaError ? 'storage.quota.unsafeGrowth' : 'storage.project.failed',\n      severity: 'error',\n      operation: request.type,\n      messageKey: quotaError ? 'error.storage.quota.unsafeGrowth' : 'error.storage.project.failed',\n      recoverability: quotaError ? 'recoverable' : 'retryable',",1)
+          old="  requireWrite(access);\n  try {\n    const created = await library.create({\n"
+          new="  requireWrite(access);\n  try {\n    await storageGrowthGuard.assertJsonGrowth(\n      { name: request.name, initialSnapshot: request.initialSnapshot },\n      STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,\n    );\n    const created = await library.create({\n"
+          if old not in s: raise SystemExit('project create target missing')
+          s=s.replace(old,new,1)
+          old="  const sourceProjectId = parseProjectId(request.projectId);\n  const duplicate = await library.duplicate(sourceProjectId, {\n"
+          new="  const sourceProjectId = parseProjectId(request.projectId);\n  const source = await library.open(sourceProjectId);\n  await storageGrowthGuard.assertJsonGrowth(\n    source.snapshot,\n    STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,\n  );\n  const duplicate = await library.duplicate(sourceProjectId, {\n"
+          if old not in s: raise SystemExit('duplicate target missing')
+          s=s.replace(old,new,1)
+          old="    } else if (request.type === 'storage.project.rename') {\n      const projectId = parseProjectId(request.projectId);\n      result = await coordinator.runExclusive(projectId, () =>\n"
+          new="    } else if (request.type === 'storage.project.rename') {\n      const projectId = parseProjectId(request.projectId);\n      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);\n      result = await coordinator.runExclusive(projectId, () =>\n"
+          if old not in s: raise SystemExit('rename target missing')
+          s=s.replace(old,new,1)
+          old="    } else if (request.type === 'storage.project.preview') {\n      const projectId = parseProjectId(request.projectId);\n      result = await coordinator.runExclusive(projectId, () =>\n"
+          new="    } else if (request.type === 'storage.project.preview') {\n      const projectId = parseProjectId(request.projectId);\n      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);\n      result = await coordinator.runExclusive(projectId, () =>\n"
+          if old not in s: raise SystemExit('preview target missing')
+          s=s.replace(old,new,1)
+          old="    } else if (request.type === 'storage.project.trash') {\n      const projectId = parseProjectId(request.projectId);\n      result = await coordinator.runExclusive(projectId, () =>\n"
+          new="    } else if (request.type === 'storage.project.trash') {\n      const projectId = parseProjectId(request.projectId);\n      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);\n      result = await coordinator.runExclusive(projectId, () =>\n"
+          if old not in s: raise SystemExit('trash target missing')
+          s=s.replace(old,new,1)
+          old="    } else {\n      const projectId = parseProjectId(request.projectId);\n      result = await coordinator.runExclusive(projectId, () => library.restore(projectId));\n"
+          new="    } else {\n      const projectId = parseProjectId(request.projectId);\n      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);\n      result = await coordinator.runExclusive(projectId, () => library.restore(projectId));\n"
+          if old not in s: raise SystemExit('restore target missing')
+          p.write_text(s.replace(old,new,1))
+
+          p=Path('src/storage/history-worker-extension.ts'); s=p.read_text()
+          anchor="import { getProjectWriteCoordinator } from './project-coordination.js';\n"
+          growth="import { getDurableStorageGrowthGuard } from './storage-growth-guard.js';\n"
+          if anchor not in s: raise SystemExit('history import target missing')
+          s=s.replace(anchor,anchor+growth,1)
+          anchor="const coordinator = getProjectWriteCoordinator();\n"
+          s=s.replace(anchor,anchor+"const storageGrowthGuard = getDurableStorageGrowthGuard();\n",1)
+          old="function postFailure(request: HistoryStorageRequestV1, error: unknown): void {\n  scope.postMessage({\n"
+          new="function postFailure(request: HistoryStorageRequestV1, error: unknown): void {\n  const quotaError = error instanceof DOMException && error.name === 'QuotaExceededError';\n  scope.postMessage({\n"
+          if old not in s: raise SystemExit('history error target missing')
+          s=s.replace(old,new,1)
+          s=s.replace("      code: 'storage.history.failed',\n      severity: 'error',\n      operation: request.type,\n      messageKey: 'error.storage.history.failed',\n      recoverability: 'retryable',","      code: quotaError ? 'storage.quota.unsafeGrowth' : 'storage.history.failed',\n      severity: 'error',\n      operation: request.type,\n      messageKey: quotaError ? 'error.storage.quota.unsafeGrowth' : 'error.storage.history.failed',\n      recoverability: quotaError ? 'recoverable' : 'retryable',",1)
+          old="    if (request.type === 'storage.history.spill') {\n      coordinator.assertWriteOwnership(projectId);\n      result = await store.spillTransactions(\n        request.transactions.map((transaction) => parseHistoryTransactionV1(transaction)),\n      );\n"
+          new="    if (request.type === 'storage.history.spill') {\n      coordinator.assertWriteOwnership(projectId);\n      const transactions = request.transactions.map((transaction) =>\n        parseHistoryTransactionV1(transaction),\n      );\n      await storageGrowthGuard.assertJsonGrowth(transactions);\n      result = await store.spillTransactions(transactions);\n"
+          if old not in s: raise SystemExit('history spill target missing')
+          s=s.replace(old,new,1)
+          old="    } else if (request.type === 'storage.history.save') {\n      coordinator.assertWriteOwnership(projectId);\n      result = { checksum: await store.saveState(parseHistorySpineStateV1(request.state)) };\n"
+          new="    } else if (request.type === 'storage.history.save') {\n      coordinator.assertWriteOwnership(projectId);\n      const state = parseHistorySpineStateV1(request.state);\n      await storageGrowthGuard.assertJsonGrowth(state);\n      result = { checksum: await store.saveState(state) };\n"
+          if old not in s: raise SystemExit('history save target missing')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Format connected storage safety paths
+        run: npx biome format --write src/storage/storage-growth-guard.ts src/storage/project-worker-extension.ts src/storage/history-worker-extension.ts src/workers/storage.worker.ts tests/unit/storage-growth-guard.test.ts
+      - name: Verify production safety wiring
+        run: |
+          grep -q "storage-maintenance-worker-extension.js" src/workers/storage.worker.ts
+          grep -q "storageGrowthGuard.assertRawGrowth" src/workers/storage.worker.ts
+          grep -q "STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES" src/workers/storage.worker.ts
+          grep -q "storageGrowthGuard.assertJsonGrowth" src/storage/project-worker-extension.ts
+          grep -q "storageGrowthGuard.assertJsonGrowth" src/storage/history-worker-extension.ts
+          grep -q "storage.quota.unsafeGrowth" src/workers/storage.worker.ts
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: Production build
+        run: npm run build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Close M2 storage safety items
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('IMPLEMENTATION_PROGRESS.md'); s=p.read_text()
+          for item in ('M2-041','M2-042','M2-043','M2-044'):
+              old=f'{item} '
+              pos=s.find(old)
+              if pos < 0: raise SystemExit(f'{item} missing')
+              line_end=s.find('\n',pos)
+              line=s[pos:line_end if line_end >= 0 else len(s)]
+              if ':未完了' not in line: raise SystemExit(f'{item} not incomplete: {line}')
+              s=s[:pos]+line.replace(':未完了',':完了',1)+s[(line_end if line_end >= 0 else len(s)):]
+          p.write_text(s)
+          PY
+      - name: Commit verified production connection
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-storage-production-integration.yml
+          git add src/storage/storage-growth-guard.ts src/storage/project-worker-extension.ts src/storage/history-worker-extension.ts src/workers/storage.worker.ts tests/unit/storage-growth-guard.test.ts IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: close M2 storage quota and GC safety [skip ci]'
+          git push
