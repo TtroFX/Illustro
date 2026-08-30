@@ -33,8 +33,13 @@ jobs:
           if old not in s:
               raise SystemExit('quota snapshot target missing')
           s = s.replace(old, new, 1)
-          s = s.replace("await this.#storage.persisted!()", "await this.#storage.persisted?.()")
-          s = s.replace("await this.#storage.persist!()", "await this.#storage.persist?.()")
+          old = "    const canRead = typeof this.#storage.persisted === 'function';\n    const canRequest = typeof this.#storage.persist === 'function';\n    const before = canRead ? await this.#storage.persisted!() : null;\n    if (before === true || !canRequest) {\n"
+          new = "    const readPersisted = this.#storage.persisted?.bind(this.#storage);\n    const requestPersist = this.#storage.persist?.bind(this.#storage);\n    const before = readPersisted === undefined ? null : await readPersisted();\n    if (before === true || requestPersist === undefined) {\n"
+          if old not in s:
+              raise SystemExit('persistence capability target missing')
+          s = s.replace(old, new, 1)
+          s = s.replace("        supported: canRead || canRequest,", "        supported: readPersisted !== undefined || requestPersist !== undefined,")
+          s = s.replace("    const requestedResult = await this.#storage.persist!();\n    const after = canRead ? await this.#storage.persisted!() : requestedResult;", "    const requestedResult = await requestPersist();\n    const after = readPersisted === undefined ? requestedResult : await readPersisted();")
           p.write_text(s)
           p = Path('src/storage/project-worker-extension.ts')
           s = p.read_text().replace("  type ProjectId,\n", "")
