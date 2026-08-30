@@ -1,7 +1,4 @@
-import {
-  isCommandTransactionId,
-  type CommandTransactionId,
-} from '../domain/command-registry.js';
+import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
 import {
   parseProjectId,
   parseRevision,
@@ -164,7 +161,8 @@ function parseRequest(value: unknown): StorageRequest | null {
     return { type: value.type, requestId: value.requestId, projectId: value.projectId };
   }
   if (
-    (value.type === 'storage.transaction.commit' || value.type === 'storage.persistence.markDirty') &&
+    (value.type === 'storage.transaction.commit' ||
+      value.type === 'storage.persistence.markDirty') &&
     typeof value.projectId === 'string' &&
     typeof value.transactionId === 'string' &&
     typeof value.sequence === 'number' &&

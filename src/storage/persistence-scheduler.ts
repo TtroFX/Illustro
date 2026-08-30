@@ -137,20 +137,26 @@ export class ProjectPersistenceSchedulerV1<Payload, Result> {
     const quietDeadline = now + this.#policy.recoveryQuietMs;
     const hardDeadline = firstDirtyAt + this.#policy.recoveryMaxMs;
     const deadline = Math.min(quietDeadline, hardDeadline);
-    this.#recoveryTimer = this.#clock.setTimeout(() => {
-      this.#recoveryTimer = null;
-      void this.#run('recovery');
-    }, Math.max(0, deadline - now));
+    this.#recoveryTimer = this.#clock.setTimeout(
+      () => {
+        this.#recoveryTimer = null;
+        void this.#run('recovery');
+      },
+      Math.max(0, deadline - now),
+    );
   }
 
   #scheduleAutosave(now: number): void {
     if (this.#autosaveTimer !== null) return;
     const firstDirtyAt = this.#firstDirtyAt ?? now;
     const deadline = firstDirtyAt + this.#policy.autosaveIntervalMs;
-    this.#autosaveTimer = this.#clock.setTimeout(() => {
-      this.#autosaveTimer = null;
-      void this.#run('autosave');
-    }, Math.max(0, deadline - now));
+    this.#autosaveTimer = this.#clock.setTimeout(
+      () => {
+        this.#autosaveTimer = null;
+        void this.#run('autosave');
+      },
+      Math.max(0, deadline - now),
+    );
   }
 
   #clearTimer(reason: PersistenceFlushReasonV1): void {
