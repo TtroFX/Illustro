@@ -1,0 +1,52 @@
+name: Close M3 core WebGPU gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m3-core-webgpu-close.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Verify frozen capability gate wiring
+        run: |
+          grep -q "maxTextureDimension2D: 8_192" src/gpu/webgpu-capability.ts
+          grep -q "maxBufferSize: 268_435_456" src/gpu/webgpu-capability.ts
+          grep -q "maxStorageBufferBindingSize: 134_217_728" src/gpu/webgpu-capability.ts
+          grep -q "maxUniformBufferBindingSize: 65_536" src/gpu/webgpu-capability.ts
+          grep -q "maxBindGroups: 4" src/gpu/webgpu-capability.ts
+          grep -q "maxComputeInvocationsPerWorkgroup: 256" src/gpu/webgpu-capability.ts
+          grep -q "shader-f16" src/gpu/webgpu-capability.ts
+          grep -q "inspectWebGpuBuildPath" src/app/main.ts
+      - name: Close M3-001 through M3-006
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('IMPLEMENTATION_PROGRESS.md'); s=p.read_text()
+          for index in range(1,7):
+              item=f'M3-{index:03d}'
+              start=s.find(item+' ')
+              if start < 0: raise SystemExit(f'{item} missing')
+              end=s.find('\n',start)
+              if end < 0: end=len(s)
+              line=s[start:end]
+              if ':未完了' not in line: raise SystemExit(f'{item} not incomplete: {line}')
+              s=s[:start]+line.replace(':未完了',':完了',1)+s[end:]
+          p.write_text(s)
+          PY
+      - name: Commit verified closure
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m3-core-webgpu-close.yml
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: close M3 core WebGPU capability gate [skip ci]'
+          git push
