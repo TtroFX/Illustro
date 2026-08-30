@@ -57,7 +57,11 @@ for (const path of [
   'dist/manifest.webmanifest',
 ]) {
   const contents = await readText(path);
-  assert.doesNotMatch(contents, /(?:src|href)=["']https?:\/\//i, `${path} contains an external critical asset`);
+  assert.doesNotMatch(
+    contents,
+    /(?:src|href)=["']https?:\/\//i,
+    `${path} contains an external critical asset`,
+  );
 }
 
 const build = await readJson('dist/build-info.json');

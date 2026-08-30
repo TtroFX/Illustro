@@ -31,7 +31,9 @@ root.dataset.illustroBuildMode = runtime.buildMode;
 root.dataset.illustroBuildSha = buildIdentity.buildSha;
 root.dataset.illustroCapabilityProfile = capabilities.webGpu ? 'webgpu-present' : 'webgpu-missing';
 root.dataset.illustroSecureContext = globalThis.isSecureContext ? 'secure' : 'insecure';
-root.dataset.illustroCrossOriginIsolated = globalThis.crossOriginIsolated ? 'isolated' : 'not-isolated';
+root.dataset.illustroCrossOriginIsolated = globalThis.crossOriginIsolated
+  ? 'isolated'
+  : 'not-isolated';
 installDiagnosticsHook();
 logger.info('runtime.bootstrap', { build: buildIdentity, runtime, capabilities });
 
