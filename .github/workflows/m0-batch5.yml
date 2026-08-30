@@ -1,0 +1,94 @@
+name: Verify M0 licensing and provenance foundation batch 5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'legal/**'
+      - 'third_party/**'
+      - 'LICENSE'
+      - 'NOTICE'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'bom.cdx.json'
+      - 'public/legal/**'
+      - 'public/service-worker.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/build.mjs'
+      - 'scripts/generate-legal.mjs'
+      - 'scripts/verify-m0-batch5.mjs'
+      - 'tests/integration/legal-output.test.ts'
+      - '.github/workflows/m0-batch5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply canonical formatting
+        run: npm run format
+      - name: Generate legal and provenance artifacts
+        run: npm run prepare:legal
+      - name: Verify formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+          ILLUSTRO_BUILD_SHA: ${{ github.sha }}
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Verify licensing batch contract
+        run: npm run verify:m0-batch5
+      - name: Close verified progress items
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          ids = ['M0-027', 'M0-028', 'M0-029', 'M0-030', 'M0-031', 'M0-032']
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          for item in ids:
+              prefix = f'{item} '
+              matches = [line for line in text.splitlines() if line.startswith(prefix)]
+              if len(matches) != 1:
+                  raise SystemExit(f'expected exactly one progress line for {item}')
+              line = matches[0]
+              if line.endswith(':未完了'):
+                  text = text.replace(line, line[:-3] + '完了', 1)
+              elif not line.endswith(':完了'):
+                  raise SystemExit(f'unexpected progress state for {item}: {line}')
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit verified generated artifacts and progress
+        run: |
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'chore: close M0 licensing foundation batch 5 [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main

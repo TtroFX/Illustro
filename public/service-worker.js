@@ -10,6 +10,11 @@ const APP_SHELL = [
   './shared/runtime-config.js',
   './workers/render.worker.js',
   './workers/storage.worker.js',
+  './legal/open-source-licenses.json',
+  './legal/LICENSE',
+  './legal/NOTICE',
+  './legal/THIRD_PARTY_NOTICES.md',
+  './legal/bom.cdx.json',
 ];
 
 self.addEventListener('install', (event) => {

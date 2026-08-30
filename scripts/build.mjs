@@ -15,7 +15,11 @@ await rm(distDir, { recursive: true, force: true });
 await mkdir(distDir, { recursive: true });
 
 const generatorEnv = { ...process.env, ILLUSTRO_BUILD_MODE: mode };
-for (const script of ['scripts/generate-wgsl.mjs', 'scripts/generate-build-info.mjs']) {
+for (const script of [
+  'scripts/generate-wgsl.mjs',
+  'scripts/generate-build-info.mjs',
+  'scripts/generate-legal.mjs',
+]) {
   const generator = spawnSync(process.execPath, [script], {
     stdio: 'inherit',
     env: generatorEnv,
@@ -39,14 +43,23 @@ for (const entry of await readdir(publicDir, { withFileTypes: true })) {
   await cp(
     new URL(`${entry.name}${suffix}`, publicDir),
     new URL(`${entry.name}${suffix}`, distDir),
-    {
-      recursive: true,
-    },
+    { recursive: true },
   );
 }
 await cp(
   new URL('../.build/meta/build-info.json', import.meta.url),
   new URL('build-info.json', distDir),
+);
+
+const legalDistDir = new URL('legal/', distDir);
+await mkdir(legalDistDir, { recursive: true });
+for (const file of ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'bom.cdx.json']) {
+  await cp(new URL(`../${file}`, import.meta.url), new URL(file, legalDistDir));
+}
+await cp(
+  new URL('../third_party/licenses/', import.meta.url),
+  new URL('third_party/licenses/', legalDistDir),
+  { recursive: true },
 );
 
 const template = await readFile(new URL('../src/index.html', import.meta.url), 'utf8');
