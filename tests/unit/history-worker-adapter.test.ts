@@ -43,7 +43,9 @@ class FakeStorageWorker {
     } else {
       return;
     }
-    const event = { data: { type: 'storage.response', requestId, ok: true, result } } as MessageEvent;
+    const event = {
+      data: { type: 'storage.response', requestId, ok: true, result },
+    } as MessageEvent;
     for (const listener of this.#listeners) listener(event);
   }
 
@@ -84,9 +86,9 @@ describe('history storage worker client', () => {
     spine.commit(transaction);
     expect(await client.saveState(spine.exportState())).toBe('b'.repeat(64));
     expect((await client.loadState()).status).toBe('missing');
-    expect(worker.posted.every((message) => (message as { projectId?: string }).projectId === projectId)).toBe(
-      true,
-    );
+    expect(
+      worker.posted.every((message) => (message as { projectId?: string }).projectId === projectId),
+    ).toBe(true);
 
     client.dispose();
     await expect(client.loadState()).rejects.toThrow('disposed');
