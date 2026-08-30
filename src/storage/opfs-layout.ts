@@ -1,4 +1,5 @@
 import { isUuid, type ProjectId } from '../domain/identity.js';
+import type { SyncAccessHandleLike } from './sync-access.js';
 
 export const ILLUSTRO_OPFS_ROOT_NAME = 'illustro' as const;
 export const PROJECTS_DIRECTORY_NAME = 'projects' as const;
@@ -26,6 +27,7 @@ export interface DirectoryHandleLike {
 export interface FileHandleLike {
   getFile(): Promise<Blob>;
   createWritable(options?: { keepExistingData?: boolean }): Promise<WritableFileStreamLike>;
+  createSyncAccessHandle?(): Promise<SyncAccessHandleLike>;
 }
 
 export interface WritableFileStreamLike {
