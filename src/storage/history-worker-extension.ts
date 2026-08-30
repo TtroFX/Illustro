@@ -12,6 +12,7 @@ import {
   type ProjectDirectoryLayoutV1,
 } from './opfs-layout.js';
 import { getProjectWriteCoordinator } from './project-coordination.js';
+import { getDurableStorageGrowthGuard } from './storage-growth-guard.js';
 
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
@@ -48,6 +49,7 @@ const scope = globalThis as unknown as WorkerScope;
 const rootPromise = openIllustroOpfsRoot();
 const projects = new Map<string, Promise<ProjectDirectoryLayoutV1>>();
 const coordinator = getProjectWriteCoordinator();
+const storageGrowthGuard = getDurableStorageGrowthGuard();
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -103,16 +105,17 @@ async function projectLayout(projectIdValue: string): Promise<ProjectDirectoryLa
 }
 
 function postFailure(request: HistoryStorageRequestV1, error: unknown): void {
+  const quotaError = error instanceof DOMException && error.name === 'QuotaExceededError';
   scope.postMessage({
     type: 'storage.response',
     requestId: request.requestId,
     ok: false,
     error: createStructuredErrorRecord({
-      code: 'storage.history.failed',
+      code: quotaError ? 'storage.quota.unsafeGrowth' : 'storage.history.failed',
       severity: 'error',
       operation: request.type,
-      messageKey: 'error.storage.history.failed',
-      recoverability: 'retryable',
+      messageKey: quotaError ? 'error.storage.quota.unsafeGrowth' : 'error.storage.history.failed',
+      recoverability: quotaError ? 'recoverable' : 'retryable',
       details: { message: error instanceof Error ? error.message : String(error) },
     }),
   });
@@ -126,13 +129,17 @@ async function handleRequest(request: HistoryStorageRequestV1): Promise<void> {
     let result: unknown;
     if (request.type === 'storage.history.spill') {
       coordinator.assertWriteOwnership(projectId);
-      result = await store.spillTransactions(
-        request.transactions.map((transaction) => parseHistoryTransactionV1(transaction)),
+      const transactions = request.transactions.map((transaction) =>
+        parseHistoryTransactionV1(transaction),
       );
+      await storageGrowthGuard.assertJsonGrowth(transactions);
+      result = await store.spillTransactions(transactions);
       coordinator.announce('project.changed', projectId, { subsystem: 'history', action: 'spill' });
     } else if (request.type === 'storage.history.save') {
       coordinator.assertWriteOwnership(projectId);
-      result = { checksum: await store.saveState(parseHistorySpineStateV1(request.state)) };
+      const state = parseHistorySpineStateV1(request.state);
+      await storageGrowthGuard.assertJsonGrowth(state);
+      result = { checksum: await store.saveState(state) };
       coordinator.announce('project.save-status', projectId, {
         subsystem: 'history',
         status: 'saved',

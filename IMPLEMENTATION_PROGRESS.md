@@ -151,10 +151,10 @@ M2-037 deleted-project restore:完了
 M2-038 Web Locks writer ownership:完了
 M2-039 BroadcastChannel project-state propagation:完了
 M2-040 second-tab state propagation:完了
-M2-041 storage quota accounting:未完了
-M2-042 storage safety reserve policy:未完了
-M2-043 persistent-storage request plumbing:未完了
-M2-044 garbage collection foundation:未完了
+M2-041 storage quota accounting:完了
+M2-042 storage safety reserve policy:完了
+M2-043 persistent-storage request plumbing:完了
+M2-044 garbage collection foundation:完了
 M2-検査 M2内部検査:未完了
 
 ## M3 — WebGPU / Sparse Tile / Input Foundation

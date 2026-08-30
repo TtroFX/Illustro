@@ -1,5 +1,10 @@
 import { createProjectId, parseProjectId, parseResourceId } from '../domain/identity.js';
 import { createStructuredErrorRecord } from '../domain/reports.js';
+import {
+  getDurableStorageGrowthGuard,
+  STORAGE_METADATA_WRITE_OVERHEAD_BYTES,
+  STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
+} from './storage-growth-guard.js';
 import { getProjectWriteCoordinator, type ProjectAccessStateV1 } from './project-coordination.js';
 import { LocalProjectLibraryV1 } from './project-library.js';
 import { openIllustroOpfsRoot } from './opfs-layout.js';
@@ -66,6 +71,7 @@ type ProjectStorageRequestV1 =
 const scope = globalThis as unknown as WorkerScope;
 const libraryPromise = openIllustroOpfsRoot().then((root) => new LocalProjectLibraryV1(root));
 const coordinator = getProjectWriteCoordinator();
+const storageGrowthGuard = getDurableStorageGrowthGuard();
 coordinator.subscribe((event) => {
   scope.postMessage({ type: 'storage.project.event', event });
 });
@@ -196,16 +202,17 @@ function requireWrite(access: ProjectAccessStateV1): void {
 }
 
 function postFailure(request: ProjectStorageRequestV1, error: unknown): void {
+  const quotaError = error instanceof DOMException && error.name === 'QuotaExceededError';
   scope.postMessage({
     type: 'storage.response',
     requestId: request.requestId,
     ok: false,
     error: createStructuredErrorRecord({
-      code: 'storage.project.failed',
+      code: quotaError ? 'storage.quota.unsafeGrowth' : 'storage.project.failed',
       severity: 'error',
       operation: request.type,
-      messageKey: 'error.storage.project.failed',
-      recoverability: 'retryable',
+      messageKey: quotaError ? 'error.storage.quota.unsafeGrowth' : 'error.storage.project.failed',
+      recoverability: quotaError ? 'recoverable' : 'retryable',
       details: { message: error instanceof Error ? error.message : String(error) },
     }),
   });
@@ -220,6 +227,10 @@ async function createProject(
   const access = await coordinator.acquire(projectId);
   requireWrite(access);
   try {
+    await storageGrowthGuard.assertJsonGrowth(
+      { name: request.name, initialSnapshot: request.initialSnapshot },
+      STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
+    );
     const created = await library.create({
       name: request.name,
       initialSnapshot: request.initialSnapshot,
@@ -269,6 +280,11 @@ async function duplicateProject(
 ): Promise<unknown> {
   const library = await libraryPromise;
   const sourceProjectId = parseProjectId(request.projectId);
+  const source = await library.open(sourceProjectId);
+  await storageGrowthGuard.assertJsonGrowth(
+    source.snapshot,
+    STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
+  );
   const duplicate = await library.duplicate(sourceProjectId, {
     ...(request.name === undefined ? {} : { name: request.name }),
     ...(request.now === undefined ? {} : { now: new Date(request.now) }),
@@ -298,6 +314,7 @@ async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
       await coordinator.closeProject(projectId);
     } else if (request.type === 'storage.project.rename') {
       const projectId = parseProjectId(request.projectId);
+      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);
       result = await coordinator.runExclusive(projectId, () =>
         library.rename(
           projectId,
@@ -312,6 +329,7 @@ async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
       result = await duplicateProject(request);
     } else if (request.type === 'storage.project.preview') {
       const projectId = parseProjectId(request.projectId);
+      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);
       result = await coordinator.runExclusive(projectId, () =>
         library.updatePreview(
           projectId,
@@ -323,6 +341,7 @@ async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
       });
     } else if (request.type === 'storage.project.trash') {
       const projectId = parseProjectId(request.projectId);
+      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);
       result = await coordinator.runExclusive(projectId, () =>
         library.trash(projectId, request.now === undefined ? new Date() : new Date(request.now)),
       );
@@ -332,6 +351,7 @@ async function handleRequest(request: ProjectStorageRequestV1): Promise<void> {
       });
     } else {
       const projectId = parseProjectId(request.projectId);
+      await storageGrowthGuard.assertJsonGrowth(request, STORAGE_METADATA_WRITE_OVERHEAD_BYTES);
       result = await coordinator.runExclusive(projectId, () => library.restore(projectId));
       coordinator.announce('project.restored', projectId, null);
     }

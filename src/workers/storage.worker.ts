@@ -1,5 +1,10 @@
 import '../storage/history-worker-extension.js';
 import '../storage/project-worker-extension.js';
+import '../storage/storage-maintenance-worker-extension.js';
+import {
+  getDurableStorageGrowthGuard,
+  STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
+} from '../storage/storage-growth-guard.js';
 import { getProjectWriteCoordinator } from '../storage/project-coordination.js';
 import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
 import {
@@ -121,6 +126,7 @@ const persistenceSchedulers = new Map<
 >();
 
 const projectWriteCoordinator = getProjectWriteCoordinator();
+const storageGrowthGuard = getDurableStorageGrowthGuard();
 const rootPromise: Promise<IllustroOpfsRootV1> = openIllustroOpfsRoot();
 void rootPromise.then(
   () => scope.postMessage({ type: 'worker.storage.ready', opfs: true }),
@@ -285,6 +291,10 @@ function persistenceScheduler(
   >({
     async persist(reason, payload) {
       projectWriteCoordinator.assertWriteOwnership(payload.projectId);
+      await storageGrowthGuard.assertJsonGrowth(
+        payload.snapshot,
+        STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
+      );
       const [root, project] = await Promise.all([rootPromise, projectLayout(payload.projectId)]);
       const result = await commitProjectTransaction(root, project, {
         transactionId: payload.transactionId,
@@ -339,16 +349,17 @@ function scheduledCommit(request: {
 }
 
 function postFailure(requestId: string, operation: string, error: unknown): void {
+  const quotaError = error instanceof DOMException && error.name === 'QuotaExceededError';
   scope.postMessage({
     type: 'storage.response',
     requestId,
     ok: false,
     error: createStructuredErrorRecord({
-      code: 'storage.request.failed',
+      code: quotaError ? 'storage.quota.unsafeGrowth' : 'storage.request.failed',
       severity: 'error',
       operation,
-      messageKey: 'error.storage.request.failed',
-      recoverability: 'retryable',
+      messageKey: quotaError ? 'error.storage.quota.unsafeGrowth' : 'error.storage.request.failed',
+      recoverability: quotaError ? 'recoverable' : 'retryable',
       details: { message: error instanceof Error ? error.message : String(error) },
     }),
   });
@@ -376,6 +387,7 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     }
 
     if (request.type === 'storage.object.put') {
+      await storageGrowthGuard.assertRawGrowth(request.bytes.byteLength);
       const root = await rootPromise;
       const result = await putImmutableObject(root.sha256Objects, request.bytes);
       scope.postMessage({
@@ -388,6 +400,7 @@ async function handleRequest(request: StorageRequest): Promise<void> {
     }
 
     if (request.type === 'storage.tile.put') {
+      await storageGrowthGuard.assertRawGrowth(request.bytes.byteLength);
       const root = await rootPromise;
       const result =
         request.kind === 'raster'
@@ -422,6 +435,7 @@ async function handleRequest(request: StorageRequest): Promise<void> {
 
     if (request.type === 'storage.entity.persist') {
       projectWriteCoordinator.assertWriteOwnership(request.projectId);
+      await storageGrowthGuard.assertJsonGrowth(request.snapshot);
       const [root, project] = await Promise.all([rootPromise, projectLayout(request.projectId)]);
       const result = await persistEntityRevision(root, project, {
         kind: request.kind,
@@ -440,6 +454,10 @@ async function handleRequest(request: StorageRequest): Promise<void> {
 
     if (request.type === 'storage.transaction.commit') {
       projectWriteCoordinator.assertWriteOwnership(request.projectId);
+      await storageGrowthGuard.assertJsonGrowth(
+        request.snapshot,
+        STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
+      );
       const payload = scheduledCommit(request);
       const [root, project] = await Promise.all([rootPromise, projectLayout(payload.projectId)]);
       const result = await commitProjectTransaction(root, project, payload);
@@ -454,6 +472,10 @@ async function handleRequest(request: StorageRequest): Promise<void> {
 
     if (request.type === 'storage.persistence.markDirty') {
       projectWriteCoordinator.assertWriteOwnership(request.projectId);
+      await storageGrowthGuard.assertJsonGrowth(
+        request.snapshot,
+        STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
+      );
       const payload = scheduledCommit(request);
       const scheduler = persistenceScheduler(payload.projectId);
       const generation = scheduler.markDirty(payload);
