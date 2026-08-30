@@ -1,0 +1,21 @@
+{
+  "schema": "illustro.m0.5.preview-runtime-verification.v1",
+  "verifiedBuildSha": "fa2c007a1b3b61f6c2a0136baa281e727d455963",
+  "verifiedBuildMode": "production",
+  "source": "explicit user runtime verification",
+  "previewUrl": "https://illustro-6fbdef9vq-ibukioike2009-7645s-projects.vercel.app",
+  "result": "PASS",
+  "runtime": {
+    "protocol": "https:",
+    "secureContext": true,
+    "crossOriginIsolated": true,
+    "sharedArrayBuffer": true,
+    "serviceWorkerSupported": true,
+    "serviceWorkerControlled": true,
+    "manifest": {
+      "id": "./",
+      "startUrl": "./",
+      "display": "standalone"
+    }
+  }
+}
