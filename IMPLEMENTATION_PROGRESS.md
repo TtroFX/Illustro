@@ -138,16 +138,16 @@ M2-024 Redo:完了
 M2-025 history pruning:完了
 M2-026 history spill-to-storage:完了
 M2-027 history state restoration across reload:完了
-M2-028 project create:未完了
-M2-029 project open:未完了
-M2-030 project close:未完了
-M2-031 project rename:未完了
-M2-032 project duplicate:未完了
-M2-033 project timestamps:未完了
-M2-034 project preview metadata:未完了
-M2-035 local project delete:未完了
-M2-036 Recently Deleted/trash:未完了
-M2-037 deleted-project restore:未完了
+M2-028 project create:完了
+M2-029 project open:完了
+M2-030 project close:完了
+M2-031 project rename:完了
+M2-032 project duplicate:完了
+M2-033 project timestamps:完了
+M2-034 project preview metadata:完了
+M2-035 local project delete:完了
+M2-036 Recently Deleted/trash:完了
+M2-037 deleted-project restore:完了
 M2-038 Web Locks writer ownership:未完了
 M2-039 BroadcastChannel project-state propagation:未完了
 M2-040 second-tab state propagation:未完了
