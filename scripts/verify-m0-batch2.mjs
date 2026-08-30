@@ -17,7 +17,7 @@ for (const path of required) await access(path);
 
 const main = await readFile('dist/app/main.js', 'utf8');
 assert.match(main, /startDedicatedWorkers/);
-assert.match(main, /serviceWorker\.register/);
+assert.match(main, /serviceWorker\s*\.\s*register/);
 
 const workers = await readFile('dist/app/workers.js', 'utf8');
 assert.match(workers, /render\.worker\.js/);
