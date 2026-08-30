@@ -3663,3 +3663,27 @@ V is complete at design-specification level. Implementation/release verification
 ### V change-log entry
 
 - 2026-08-30: Closed V. Fixed motion principles, shared duration/easing tokens, input-latency priority, Tool/Inspector/PiP/Quick-Hole/selection/layer/task/error/responsive transitions, no-overshoot magnetic docking, refresh-rate behavior, Reduced Motion and the release verification gate. I/J brush/texture production assets remain open before final integration/Design Freeze.
+
+
+# Phase 6 I/J Asset Production — I-2 / I-3 Update — 2026-08-30
+
+**I-2 — Texture / Brush Asset Direction: CLOSED.** The user approved the representative sample board as the direction for all seven families: Ink/Pen, Pencil/Dry, Paint/Bristle, Marker/Soft, Scatter/Stamp, Grain/Paper, and Pattern/Texture. Production does not copy the sample board cell-for-cell; it retains all approved families while curating them into the fixed I-1 inventory so near-duplicate assets do not become redundant presets/resources.
+
+**I-3 — Production Asset Generation: COMPLETE; pending I-4 QA.** The fixed I-1 inventory has been materialized as 100 independent original built-in production resources with no external source asset reused:
+
+- 56 `brush-tip` resources: 8 shape, 8 ink, 10 pencil/dry, 12 paint/bristle, 6 marker/soft, 12 scatter/stamp.
+- 32 `grain` resources: 6 fine, 6 dry/rough, 5 fiber/graphite, 3 canvas/fabric, 12 paper.
+- 12 seamless `pattern` resources: 4 geometric, 4 organic, 4 texture.
+- Paper remains `ResourceV1.kind = grain` with subtype `paper`; Scatter/Stamp remains `ResourceV1.kind = brush-tip` with subtype `scatter`.
+- Brush thumbnails are not behavior resources and remain deferred to J-3.
+
+Production package:
+
+- Filename: `ILLUSTRO_I3_PRODUCTION_ASSETS_2026-08-30.zip`
+- Size: **39,321,494 bytes**
+- SHA-256: `9506804676bcd49d63997a311663597270f6ead0426cd026b459262b6f442a5d`
+- Manifest SHA-256: `fa45ebac36f96bb01126c6cd2a792d98314f592332ec7167a01d9a3522f762c5`
+- Google Drive ID: `1oLminq97D62Wldm0U5nynMONCLQjUbRK`
+- Manifest status: `PRODUCTION_GENERATED_PENDING_I4_QA`
+
+I-4 must verify seamlessness, alpha/coverage correctness, accidental similarity/duplication, practical visual quality, dimensions/channels, package integrity, and performance/memory suitability before I is closed. No I-3 asset is release-canonical merely because it was generated; I-4 is the acceptance gate.
