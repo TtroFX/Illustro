@@ -48,7 +48,11 @@ runBuild(buildSha);
 const firstDigest = await hashDirectory(dist);
 runBuild(buildSha);
 const secondDigest = await hashDirectory(dist);
-assert.equal(secondDigest, firstDigest, 'production dist must be reproducible for a fixed commit SHA');
+assert.equal(
+  secondDigest,
+  firstDigest,
+  'production dist must be reproducible for a fixed commit SHA',
+);
 
 const buildInfo = JSON.parse(await readFile(new URL('dist/build-info.json', root), 'utf8'));
 assert.equal(buildInfo.buildSha, buildSha);
