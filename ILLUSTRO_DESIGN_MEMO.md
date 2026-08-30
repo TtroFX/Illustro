@@ -156,6 +156,224 @@ The functional implementation phase is complete only when:
 
 This gate defines **feature completeness**. Performance, reliability, visual fidelity, compatibility, testing, and release-readiness retain their own gates and are not automatically satisfied merely because feature coverage is complete.
 
+## Canonical feature inventory — 2026-08-30
+
+This is the current authoritative functional inventory for the single-illustration product scope. Items listed as adopted define the implementation target; implementation status is tracked separately from scope status. The inventory is a capability specification, not a requirement to copy another application's UI or proprietary assets.
+
+### 1. Document, canvas, navigation, and basic editing — ADOPTED
+
+- Create documents with arbitrary pixel dimensions, presets, DPI/resolution metadata, transparent or colored background, and explicit color-space/precision metadata.
+- Canvas/image resize and resampling; crop/trim; canvas expansion; horizontal/vertical flip; destructive document-level rotate/transform where applicable.
+- Pan, zoom, viewport rotation, reset view, fit-to-screen, full-screen/workspace presentation, mirror/flip preview, pixel/non-interpolated inspection, grid display and configurable grid spacing/position/color.
+- Undo/Redo across production editing commands, including parameterized operations; numeric entry for transforms and tool parameters.
+- Image import as a document or layer; drag-and-drop import where the platform permits it.
+- PNG, JPEG, transparent PNG export; native `.illustro` project/archive format preserving all adopted editable structures.
+
+### 2. Reference and navigation aids — ADOPTED
+
+- Reference/Sub View window with multiple reference images, switching, move/resize, zoom/rotate/reset, color picking from references, and current-canvas navigator mode.
+- Navigator/overview support for rapid movement around large canvases.
+- Floating/quick color access and configurable compact production panels where useful.
+
+### 3. Canonical Brush Engine — ADOPTED
+
+Illustro's brush engine is **not merely an ibisPaint-compatible engine**. It is a canonical superset intended to represent the single-illustration-relevant brush capabilities of both **ibisPaint and CLIP STUDIO PAINT**, so imported brushes can be mapped as faithfully as practical.
+
+Core capabilities include:
+
+- Brush, eraser, smudge/finger, blur and compatible paint/removal modes.
+- Brush preset create, duplicate, rename, delete, search, categorize, lock, reset, import/export and custom-tip/pattern creation.
+- Brush size, opacity, flow/density and per-brush limits.
+- Brush-tip shape/image controls, multiple tips where required, hardness, density, spacing/gap, angle, direction/follow-rotation behavior and stroke repetition.
+- Stroke start/end behavior, taper/entry/exit size and opacity, forced taper, stabilizer/correction and post-stroke correction where appropriate.
+- Paper/texture selection and strength, scale, rotation and blend behavior.
+- Random/jitter controls for size, opacity, rotation, position/scatter, density and color.
+- Spray/particle behavior including particle size, density, spread and orientation.
+- Generalized dynamics mapping from pen pressure, tilt/orientation, velocity and randomness to supported brush parameters, with response curves and minimum/maximum response.
+- Anti-aliasing/high-quality edge controls and suitable small-/large-brush spacing behavior.
+- Ink/color mixing capabilities sufficient for normal digital painting, including opacity/density mixing, color extension/drag and realistic general-purpose paint mixing where useful.
+- Dual Brush: combine a primary and secondary brush structure with configurable composition modes and compatible color mixing.
+- Main/sub color and color-jitter behavior where supported by the canonical model.
+- Reference-layer-aware anti-overflow/inside-line painting behavior.
+- Vector-compatible brush/eraser behavior, including vector eraser modes.
+
+**Watercolor scope:** ordinary useful watercolor brushes, mixing, texture and edge expression are supported, but highly specialized/overly complex watercolor-specific physical simulation is not a required completion target.
+
+### 4. Brush compatibility — ADOPTED
+
+- Import ibisPaint custom brushes, including parsing the ibisPaint brush-QR carrier when required for interoperability. This QR requirement applies to brush compatibility only.
+- Import CLIP STUDIO PAINT brush assets (`.sut`) as far as the format can be mapped into the canonical brush model.
+- Illustro-native brush import/export with a documented, versioned schema suitable for local sharing.
+- Photoshop `.abr` is an additional compatibility target when technically practical; unsupported source parameters must be surfaced rather than silently discarded.
+- Imported brushes are normalized into the Illustro Canonical Brush Model; the renderer does not depend on executing another application's format directly.
+
+### 5. Stylus, pointer and stroke input — ADOPTED
+
+- Pressure, tilt/orientation and supported pen-axis input; per-brush pressure curves and global/default response controls.
+- Stabilization/smoothing, real-time and post-stroke correction where appropriate, taper/start/end control.
+- Hover presentation where supported, including brush-outline/crosshair options.
+- Palm rejection and touch-position/input correction policies appropriate to pen/touch drawing.
+- Configurable stylus-button/shortcut actions when exposed by the platform.
+- Rich Pointer Events ingestion, including coalesced/raw/predicted samples as progressive enhancements without making them correctness requirements.
+
+### 6. Color system — ADOPTED
+
+- Color wheel and direct RGB, HSV/HSB and HEX entry.
+- Current/previous color, color history, editable palettes, multiple named palettes, palette reordering and color reordering.
+- Palette import/export through normal data/file interchange. **QR-code palette sharing is explicitly excluded.**
+- Eyedropper/quick eyedropper; merged-canvas, active-layer and reference-image sampling modes.
+- Standard gradients, editable gradient stops, gradient pen/tool behavior, Gradient Layers, Freeform Gradient and Gradient Map.
+- Color Mixing Palette plus Intermediate/Approximate Color-style helpers for practical palette exploration.
+- Explicit color-profile management for adopted RGB workflows, including sRGB and Display-P3; ICC/profile-aware conversion/preview architecture.
+
+### 7. Layer model and non-destructive editing — ADOPTED
+
+- Raster layers, vector layers, adjustment layers, selection/mask structures, layer folders, fill layers and gradient layers.
+- Layer create, duplicate, delete, rename, reorder, visibility, opacity, lock, alpha lock, clipping, clear, merge-down/merge-visible-copy, rasterize, invert, flip and folder-level operations.
+- Multi-layer selection and grouped movement/transform/organization.
+- Layer Masks with paint/edit, invert, link/unlink, independent move/transform, feather/blur as applicable, and conversion to/from selections.
+- Reference Layer designation usable by fill, selection and anti-overflow brush workflows.
+- Draft/sketch layer attribute with the ability to exclude/hide draft content from final-output workflows.
+- Linked/File Object-style layers that preserve a source object/image relationship instead of forcing immediate destructive rasterization where technically appropriate.
+- Layer Comps for saving and switching named visibility/state alternatives within one illustration document.
+- Layer search/filtering and bulk cleanup such as empty/hidden layer cleanup.
+- Folder **Pass Through** compositing semantics where needed for expected adjustment/blend behavior and PSD-style compatibility.
+- Non-destructive Layer Property/effect attributes where useful, integrated with the common effect/compositor architecture rather than duplicated as unrelated one-off implementations.
+
+### 8. Blend modes — ADOPTED
+
+Support the common ibisPaint/Photoshop-class set required by the audited workflow, including at minimum Normal; Darken; Multiply; Color Burn; Linear Burn; Darker Color; Lighten; Screen; Color Dodge; Linear Dodge/Add; Lighter Color; Overlay; Soft Light; Hard Light; Vivid Light; Linear Light; Pin Light; Hard Mix; Difference; Exclusion; Subtract; Divide; Hue; Saturation; Color; and Luminosity, with explicit color-space/blend semantics.
+
+### 9. Vector drawing and vector correction — ADOPTED
+
+- Vector layers and editable vector brush strokes.
+- Post-draw stroke color, width and brush reassignment where representable.
+- Shape/lasso selection of vector strokes; node/vertex and Bézier-handle editing; corner/smooth control; simplification/reduction.
+- Vector eraser modes including whole-line and erase-to-intersection behavior.
+- CSP-class Correct Line capabilities useful for illustration: vector magnet, pinch, simplify, connect, line-width adjustment, redraw vector line and redraw width.
+- SVG-compatible vector interchange/export where practical, including copy/export of vector content to SVG.
+
+### 10. Selection and masking workflow — ADOPTED
+
+- Lasso/free selection, automatic/magic-wand selection, color-range selection and brush-painted selection.
+- Add/subtract/intersect where applicable; clear/deselect; invert; expand; contract.
+- Selection Feather/soft edge.
+- Quick Mask workflow and selection↔mask conversion.
+- Alpha/transparency-to-selection from a layer.
+- Selection-scoped transform, filter, fill, cut/copy/paste and layer operations.
+
+### 11. Fill and enclosed-area tools — ADOPTED
+
+- Flood fill with tolerance/strength, gap recognition/closing, under-line expansion, boundary expansion/contraction and continuous/swipe filling.
+- Configurable reference source: active layer, designated Reference Layer(s), or merged canvas.
+- Enclose-and-Fill and Enclose-and-Erase workflows.
+- Transparent/erase fill where applicable.
+- Automatic-selection boundary logic should share the same high-quality region/contour foundations where possible.
+
+### 12. Transform, alignment and snapping — ADOPTED
+
+- Move, scale, rotate and numeric X/Y/scale/angle entry.
+- Perspective transform, mesh transform, configurable mesh subdivisions/smoothing, repeat/mirror-repeat patterns where useful.
+- Nearest Neighbor, Area/Average, Bilinear, Bicubic, Lanczos 2 and Lanczos 3 resampling/interpolation modes where the operation requires explicit choice.
+- Puppet Warp for practical local deformation without 3D.
+- **Non-destructive Transform** representation equivalent in capability to transform-mask/smart-object-style editing where useful, so repeated transform does not force repeated raster degradation.
+- Align and Distribute for layers/objects.
+- Smart Guides/Snapping/Magnetics to canvas center/axes, grid/guides and other eligible objects/layers with configurable snapping behavior.
+
+### 13. Shape and ruler systems — ADOPTED
+
+- Line, rectangle, rounded rectangle, circle/ellipse, regular polygon, polyline and Bézier curve drawing.
+- Fill/stroke on/off, brush-based stroke where useful, anti-aliased fills and post-creation shape adjustment.
+- Straight, circular, elliptical, radial/concentration, symmetry, kaleidoscope, array and perspective-related rulers useful to single illustrations.
+- CSP-class 1/2/3-point Perspective Ruler and Fisheye Perspective Ruler; ruler move/angle/center/phase adjustment and snap enable/disable.
+- Smart Shape-style post-stroke recognition/correction for common geometric forms.
+
+### 14. Filters, tonal correction and effects — ADOPTED
+
+Static-image ibisPaint-relevant filter/effect capability is part of the baseline, implemented through a common effect architecture where possible. Required families include:
+
+- Tonal/color: brightness/contrast, Tone Curve, hue/saturation/lightness, Color Balance, Levels, grayscale, monochrome/binarize, posterize, invert, Gradient Map, color replacement and line/color-extraction-related corrections.
+- Blur/sharpen: Gaussian, motion, zoom/radial/rotation/lens-style blur as applicable, mosaic/pixelation and Unsharp Mask.
+- Style/edge/light: stroke/outline, inner/outer glow, bevel/emboss/relief, drop shadow, satin-like effects, bloom and related static finishing effects.
+- Noise/glitch/aberration/retro-style static image effects relevant to illustration finishing.
+- Distortion: bloat, fisheye, spherical/lens, wave/ripple, twirl and polar-coordinate-style transforms.
+- Applicable generated graphic effects such as line/radial/parallel wave or cloud-style generation where useful for a single illustration.
+
+Adjustment Layers/non-destructive effect application must reuse the same underlying effect implementations instead of maintaining inconsistent duplicate algorithms.
+
+### 15. Non-destructive filter/effect stack — ADOPTED
+
+- A layer-local non-destructive Filter Stack / Filter Mask capability in addition to global/stack-position Adjustment Layers.
+- Effects can be enabled/disabled, reordered, reconfigured and masked without destructive baking until explicitly rasterized/applied.
+- The effect architecture should support the same processing kernel being invoked destructively or non-destructively where semantics allow it.
+
+### 16. Liquify, correction and special paint tools — ADOPTED
+
+- Liquify/local warp, lasso paint, lasso erase, clone/copy pen, smudge and blur tools.
+- Practical special drawing/correction tools from the audited ibis/CSP single-illustration workflow where they do not introduce comic/page or 3D dependencies.
+
+### 17. Productivity and interface customization — ADOPTED
+
+- Configurable keyboard shortcuts for Undo/Redo, brush/eraser, brush size, copy/cut/paste, navigation, eyedropper, tool commands and dialogs.
+- Quick Access panel for tools, commands, colors and Auto Actions.
+- Custom Command Bar/compact command strip.
+- Workspace layout save/switch for panel and shortcut arrangements.
+- Selection Launcher / contextual selected-area commands.
+- Auto Actions: record/replay appropriate command sequences, with local import/export of action definitions when safe and representable.
+- Layer/object alignment/distribution and other repetitive-operation accelerators already listed above must be accessible through these command surfaces.
+
+### 18. Reliability, history and native project preservation — ADOPTED
+
+- Autosave and continuous crash-recovery data sufficient to restore a recent coherent document state after abnormal termination.
+- Native `.illustro` format must preserve all adopted editable structures needed for round-trip editing, including raster/vector content, folders, masks, adjustment/effect structures, transforms, layer metadata, color/document metadata and references that are part of the project model.
+- OPFS working state is not a substitute for user-controlled project export/backup.
+
+### 19. Import/export and interoperability — ADOPTED BASELINE
+
+- PNG/JPEG/transparent PNG image interchange.
+- Native `.illustro` project import/export.
+- Brush interoperability described above for ibisPaint and CSP, plus Illustro-native brushes.
+- SVG-compatible vector interchange where applicable.
+- File/profile metadata must be explicit enough to avoid silently misinterpreting wide-gamut RGB assets.
+
+### 20. Explicitly excluded capabilities
+
+The following are **not** part of the required functional-completion target unless a later explicit decision supersedes this list:
+
+- Comic/manga panel splitting, page management, book/multi-page production and other primarily multi-page workflows.
+- Built-in material/content marketplace/catalog/distribution ecosystem.
+- **All 3D creation/posing/reference functionality** as an Illustro subsystem, including 3D figures, heads/hands, primitives/background scenes, All Sides View, 3D painting, 3D-derived perspective workflows, pose/hand scanners and 3D-based LT conversion.
+- Multi-canvas/batch processing whose purpose is to run operations across multiple open documents.
+- AI Super-resolution.
+- AI learning-disturbance/protection processing.
+- AI Watercolor filter.
+- AI background-removal feature.
+- Screentone-focused functionality.
+- Wacom Yuify integration.
+- QR-code-based **color-palette** sharing.
+- Highly specialized/overly complex watercolor-specific physical simulation beyond the practical general brush/mixing capabilities specified above.
+- Animation/multi-frame production is outside the current single-illustration completion target.
+
+### 21. Pending adoption decisions — NOT YET AUTHORITATIVE
+
+The following remain candidates rather than adopted requirements until explicitly decided:
+
+- Text tool and its exact typography scope.
+- CMYK export, ICC print-output scope and rendering-intent UI beyond the adopted RGB/profile-aware architecture.
+- Dedicated grayscale 8-bit / monochrome 1-bit export modes.
+- Cloud Sync and server-backed project synchronization.
+- Gallery/project-folder management and Recently Deleted/Trash UX.
+- Timelapse/history playback and history-extraction/export features.
+- Exact PSD round-trip fidelity target beyond ordinary image interchange; whether PSD import/export becomes a required compatibility gate.
+- Shading Assist.
+- Color Match to a reference image/gradient.
+- Companion-device mode.
+- Photoshop `.grd` gradient import.
+
+### 22. Feature-audit continuation rule
+
+This inventory captures the decisions made so far from ibisPaint, CLIP STUDIO PAINT and the cross-application mandatory-feature audit. It is **not permission to stop auditing other major painting applications**. When Procreate, Krita, Photoshop, Infinite Painter or other relevant applications expose a materially useful single-illustration capability that is not already represented here, it must be evaluated and either adopted, explicitly excluded, or recorded as pending. Duplicate brand-specific implementations should be normalized into a single stronger Illustro capability rather than copied redundantly.
+
 # UX / UI Specification
 
 ## Canonical visual reference asset — 2026-08-30
@@ -399,20 +617,19 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 
 - Product definition and target user beyond the confirmed single-illustration focus
 - Exact minimum supported device/browser matrix and compatibility tiers
-- Exact audited feature inventory and Illustro grouping/terminology
-- Exact set of additional CLIP STUDIO PAINT / other-app convenience features to adopt after the ibisPaint baseline audit
+- Remaining external-application feature audit after the current ibisPaint/CSP/mandatory-capability inventory
 - Exact editor information architecture and panel inventory
 - Exact left-toolbar tool inventory/order
 - Exact right-inspector tabs/panels and fixed-bottom controls
 - Responsive behavior for narrower tablets/phones
 - Document data model
-- Brush engine semantics, brush-asset schema, and preset representation
-- Layer model
+- Brush-asset schema details and versioned preset representation beneath the adopted canonical brush capabilities
+- Layer model implementation details
 - Undo/Redo command model, snapshot/delta strategy, and spill thresholds
 - Tile dimensions, seam/border policy, cache budgets, and numeric performance targets
 - Default color precision/document color modes and exact wide-gamut conversion policy
-- `.illustro` file format
-- Exact import/export format scope
+- `.illustro` file format details
+- Exact final import/export compatibility scope, including pending PSD/CMYK decisions
 - Release criteria
 
 # Change log
@@ -423,3 +640,4 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - 2026-08-30: Preserved the latest approved generated UI image as `ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png` on Google Drive and pinned its exact file ID, dimensions, URL, and SHA-256 here so implementation can inspect the same visual target directly.
 - 2026-08-30: Defined the functional-completion policy: ibisPaint's single-illustration-relevant capabilities form the baseline; selected high-value CLIP STUDIO PAINT and other paid/free-app capabilities extend it; comic/page-production and built-in material/content-library workflows are outside the required scope; feature completeness requires an explicit audited inventory with implemented/verified or intentionally excluded status.
 - 2026-08-30: Defined the initial production technical architecture: Web/PWA + WebGPU-first rendering/compute; Dedicated Workers; SharedArrayBuffer/Atomics with cross-origin isolation; Transferables; OPFS/SyncAccessHandle; Web Locks/BroadcastChannel; sparse tiled canvas; progressive pen-input enhancements; capability-adaptive GPU/performance policy; sRGB/Display-P3 and 8-bit/16F-ready color architecture; WASM optimization hooks; persistent-storage/quota handling; device-loss recovery; and explicit import/export compatibility principles.
+- 2026-08-30: Added the canonical feature inventory covering the adopted ibisPaint single-illustration baseline, selected CSP productivity/non-destructive/vector capabilities, mandatory cross-application painting features, the ibis+CSP Canonical Brush Engine, interoperability targets, explicit exclusions, and unresolved adoption candidates.
