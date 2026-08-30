@@ -79,7 +79,8 @@ function parseRequest(value: unknown): ProjectStorageRequestV1 | null {
     return null;
   }
   if (value.type === 'storage.library.list') {
-    if (value.includeTrashed !== undefined && typeof value.includeTrashed !== 'boolean') return null;
+    if (value.includeTrashed !== undefined && typeof value.includeTrashed !== 'boolean')
+      return null;
     return {
       type: value.type,
       requestId: value.requestId,
@@ -89,7 +90,8 @@ function parseRequest(value: unknown): ProjectStorageRequestV1 | null {
   if (value.type === 'storage.project.create') {
     if (typeof value.name !== 'string') return null;
     if (value.projectId !== undefined && typeof value.projectId !== 'string') return null;
-    if (value.documentRevision !== undefined && typeof value.documentRevision !== 'number') return null;
+    if (value.documentRevision !== undefined && typeof value.documentRevision !== 'number')
+      return null;
     if (
       value.previewResourceId !== undefined &&
       value.previewResourceId !== null &&
@@ -127,7 +129,11 @@ function parseRequest(value: unknown): ProjectStorageRequestV1 | null {
     typeof value.projectId === 'string'
   ) {
     if (value.type === 'storage.project.rename' && typeof value.name !== 'string') return null;
-    if (value.type === 'storage.project.duplicate' && value.name !== undefined && typeof value.name !== 'string') {
+    if (
+      value.type === 'storage.project.duplicate' &&
+      value.name !== undefined &&
+      typeof value.name !== 'string'
+    ) {
       return null;
     }
     const now = optionalTimestamp(value.now);

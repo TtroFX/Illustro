@@ -131,7 +131,10 @@ export function parseLocalProjectMetadataV1(value: unknown): LocalProjectMetadat
   }
   const lifecycle = value.lifecycle;
   const deletedAt = value.deletedAt === null ? null : parseTimestamp(value.deletedAt, 'deletedAt');
-  if ((lifecycle === 'active' && deletedAt !== null) || (lifecycle === 'trashed' && deletedAt === null)) {
+  if (
+    (lifecycle === 'active' && deletedAt !== null) ||
+    (lifecycle === 'trashed' && deletedAt === null)
+  ) {
     throw new Error('project lifecycle and deletedAt are inconsistent');
   }
   return Object.freeze({
@@ -140,7 +143,8 @@ export function parseLocalProjectMetadataV1(value: unknown): LocalProjectMetadat
     name: normalizeName(value.name),
     createdAt: parseTimestamp(value.createdAt, 'createdAt'),
     modifiedAt: parseTimestamp(value.modifiedAt, 'modifiedAt'),
-    previewResourceId: value.previewResourceId === null ? null : parseResourceId(value.previewResourceId),
+    previewResourceId:
+      value.previewResourceId === null ? null : parseResourceId(value.previewResourceId),
     compatibilityMetadata: jsonRecord(value.compatibilityMetadata, 'compatibilityMetadata'),
     provenanceMetadata: jsonRecord(value.provenanceMetadata, 'provenanceMetadata'),
     projectSettings: jsonRecord(value.projectSettings, 'projectSettings'),
@@ -156,7 +160,8 @@ function parseLibraryState(value: unknown): LocalProjectLibraryStateV1 {
   if (!Number.isSafeInteger(value.generation) || (value.generation as number) < 0) {
     throw new TypeError('invalid local project library generation');
   }
-  if (!Array.isArray(value.projects)) throw new TypeError('project library entries must be an array');
+  if (!Array.isArray(value.projects))
+    throw new TypeError('project library entries must be an array');
   const projects = Object.freeze(value.projects.map((item) => parseLocalProjectMetadataV1(item)));
   const ids = new Set<string>();
   for (const project of projects) {
@@ -202,7 +207,11 @@ async function parseLibraryEnvelope(text: string): Promise<LocalProjectLibraryEn
   const state = parseLibraryState(value.state);
   const observed = await sha256HexText(serializeJson(state));
   if (observed !== value.checksum) throw new Error('local project library checksum mismatch');
-  return Object.freeze({ schema: 'illustro.local-project-library-envelope/1', state, checksum: value.checksum });
+  return Object.freeze({
+    schema: 'illustro.local-project-library-envelope/1',
+    state,
+    checksum: value.checksum,
+  });
 }
 
 async function readLibrarySlot(
@@ -215,7 +224,8 @@ async function readLibrarySlot(
     return envelope.state;
   } catch (error) {
     if (error instanceof DOMException && error.name === 'NotFoundError') return null;
-    if (error instanceof SyntaxError || error instanceof TypeError || error instanceof RangeError) return null;
+    if (error instanceof SyntaxError || error instanceof TypeError || error instanceof RangeError)
+      return null;
     if (error instanceof Error && error.message.includes('checksum')) return null;
     throw error;
   }
@@ -248,9 +258,9 @@ async function publishLocalProjectLibrary(
     schema: 'illustro.local-project-library/1',
     generation: current.generation + 1,
     projects: Object.freeze(
-      [...projects].map((project) => parseLocalProjectMetadataV1(project)).sort((left, right) =>
-        left.projectId.localeCompare(right.projectId),
-      ),
+      [...projects]
+        .map((project) => parseLocalProjectMetadataV1(project))
+        .sort((left, right) => left.projectId.localeCompare(right.projectId)),
     ),
   });
   const envelope = await createLibraryEnvelope(state);
@@ -280,7 +290,11 @@ async function writeProjectMetadata(
     file.close();
   }
   const observed = parseLocalProjectMetadataV1(
-    JSON.parse(await (await project.project.getFileHandle(PROJECT_METADATA_FILENAME)).getFile().then((blob) => blob.text())) as unknown,
+    JSON.parse(
+      await (await project.project.getFileHandle(PROJECT_METADATA_FILENAME))
+        .getFile()
+        .then((blob) => blob.text()),
+    ) as unknown,
   );
   if (observed.projectId !== normalized.projectId || observed.lifecycle !== normalized.lifecycle) {
     throw new Error('project metadata read-back verification failed');
@@ -292,7 +306,9 @@ function replaceProject(
   project: LocalProjectMetadataV1,
 ): readonly LocalProjectMetadataV1[] {
   const normalized = parseLocalProjectMetadataV1(project);
-  const existingIndex = state.projects.findIndex((entry) => entry.projectId === normalized.projectId);
+  const existingIndex = state.projects.findIndex(
+    (entry) => entry.projectId === normalized.projectId,
+  );
   if (existingIndex < 0) return Object.freeze([...state.projects, normalized]);
   const next = [...state.projects];
   next[existingIndex] = normalized;
@@ -332,10 +348,18 @@ function parseCheckpointRoot(value: unknown, expectedProjectId: ProjectId): Chec
 async function readProjectSnapshot(
   root: IllustroOpfsRootV1,
   project: ProjectDirectoryLayoutV1,
-): Promise<{ snapshot: JsonValue; revision: Revision; sequence: number; recoveryGeneration: number }> {
+): Promise<{
+  snapshot: JsonValue;
+  revision: Revision;
+  sequence: number;
+  recoveryGeneration: number;
+}> {
   const recovery = await readDualRecoveryState(project);
   if (recovery.current === null) throw new Error('project has no coherent recovery head');
-  const checkpointBytes = await readImmutableObject(root.sha256Objects, recovery.current.checkpointObject.hash);
+  const checkpointBytes = await readImmutableObject(
+    root.sha256Objects,
+    recovery.current.checkpointObject.hash,
+  );
   const checkpoint = parseCheckpointRoot(
     JSON.parse(new TextDecoder().decode(checkpointBytes)) as unknown,
     project.projectId,
@@ -370,9 +394,14 @@ export class LocalProjectLibraryV1 {
     this.#root = root;
   }
 
-  async list(options: { includeTrashed?: boolean } = {}): Promise<readonly LocalProjectMetadataV1[]> {
+  async list(
+    options: { includeTrashed?: boolean } = {},
+  ): Promise<readonly LocalProjectMetadataV1[]> {
     const state = await readLocalProjectLibrary(this.#root);
-    const visible = options.includeTrashed === true ? state.projects : state.projects.filter((item) => item.lifecycle === 'active');
+    const visible =
+      options.includeTrashed === true
+        ? state.projects
+        : state.projects.filter((item) => item.lifecycle === 'active');
     return Object.freeze([...visible]);
   }
 
@@ -502,7 +531,8 @@ export class LocalProjectLibraryV1 {
     const metadata = updatedMetadata(current, { lifecycle: 'trashed', deletedAt: timestamp });
     const project = await ensureProjectDirectoryLayout(this.#root, projectId);
     const recovery = await readDualRecoveryState(project);
-    if (recovery.current === null) throw new Error('refusing to trash a project without a coherent recovery head');
+    if (recovery.current === null)
+      throw new Error('refusing to trash a project without a coherent recovery head');
     await writeProjectMetadata(project, metadata);
     await publishLocalProjectLibrary(this.#root, replaceProject(state, metadata));
     return metadata;
@@ -515,7 +545,8 @@ export class LocalProjectLibraryV1 {
     if (current.lifecycle === 'active') return current;
     const project = await ensureProjectDirectoryLayout(this.#root, projectId);
     const recovery = await readDualRecoveryState(project);
-    if (recovery.current === null) throw new Error('cannot restore a project without a coherent recovery head');
+    if (recovery.current === null)
+      throw new Error('cannot restore a project without a coherent recovery head');
     const metadata = updatedMetadata(current, { lifecycle: 'active', deletedAt: null });
     await writeProjectMetadata(project, metadata);
     await publishLocalProjectLibrary(this.#root, replaceProject(state, metadata));
