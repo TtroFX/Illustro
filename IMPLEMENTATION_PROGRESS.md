@@ -100,14 +100,14 @@ M1-036 serialization primitives:完了
 M1-037 deserialization primitives:完了
 M1-038 schema validation:完了
 M1-039 version handling:完了
-M1-040 migration framework:未完了
-M1-041 structured compatibility report:未完了
-M1-042 structured fidelity report:未完了
-M1-043 structured error record:未完了
-M1-044 runtime capability-profile model:未完了
-M1-045 workspace-state schema:未完了
-M1-046 user-settings schema:未完了
-M1-047 locale-neutral internal ID policy:未完了
+M1-040 migration framework:完了
+M1-041 structured compatibility report:完了
+M1-042 structured fidelity report:完了
+M1-043 structured error record:完了
+M1-044 runtime capability-profile model:完了
+M1-045 workspace-state schema:完了
+M1-046 user-settings schema:完了
+M1-047 locale-neutral internal ID policy:完了
 M1-検査 M1内部検査:未完了
 
 ## M2 — Persistence / History / Recovery / Local Project State
