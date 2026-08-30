@@ -90,5 +90,13 @@ jobs:
             exit 0
           fi
           git commit -m 'chore: close M0 licensing foundation batch 5 [skip ci]'
-          git pull --rebase origin main
-          git push origin HEAD:main
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            sleep $((attempt * 2))
+          done
+          echo 'failed to publish verified progress after retries' >&2
+          exit 1
