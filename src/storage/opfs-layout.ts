@@ -12,6 +12,7 @@ export const PROJECT_DIRECTORY_NAMES = [
   'journal',
   'checkpoints',
   'entities',
+  'history',
   'workspace',
   'previews',
   'tmp',
