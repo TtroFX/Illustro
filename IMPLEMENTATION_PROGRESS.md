@@ -83,13 +83,13 @@ M1-019 Adjustment Layer schema:完了
 M1-020 Fill Layer schema:完了
 M1-021 Gradient Layer schema:完了
 M1-022 Mask schema:完了
-M1-023 Linked Object schema:未完了
-M1-024 Lineart Group schema:未完了
-M1-025 Lineart Boundary schema:未完了
-M1-026 Reference Layer metadata schema:未完了
-M1-027 Draft/Sketch Layer metadata schema:未完了
-M1-028 Brush schema/version identifiers:未完了
-M1-029 Resource provenance schema:未完了
+M1-023 Linked Object schema:完了
+M1-024 Lineart Group schema:完了
+M1-025 Lineart Boundary schema:完了
+M1-026 Reference Layer metadata schema:完了
+M1-027 Draft/Sketch Layer metadata schema:完了
+M1-028 Brush schema/version identifiers:完了
+M1-029 Resource provenance schema:完了
 M1-030 canonical Command Registry:未完了
 M1-031 command ID contract:未完了
 M1-032 command parameter schema:未完了
