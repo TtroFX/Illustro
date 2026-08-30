@@ -1,3 +1,4 @@
+# trigger: 2026-08-30 layer UI canonicalization
 name: One-shot layer UI spec update
 
 on:
