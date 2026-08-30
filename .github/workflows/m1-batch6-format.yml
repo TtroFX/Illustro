@@ -1,0 +1,38 @@
+name: Format M1 final contracts
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m1-batch6-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Apply Biome formatting
+        run: npx biome format --write src/domain/internal-id.ts src/domain/migration.ts src/domain/reports.ts src/app/runtime-profile.ts src/domain/workspace-settings.ts src/domain/command-registry.ts src/domain/state-boundaries.ts src/app/main.ts tests/unit/m1-contracts.test.ts tests/unit/runtime-profile.test.ts tests/unit/workspace-settings.test.ts
+      - name: Commit formatting
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/domain/internal-id.ts src/domain/migration.ts src/domain/reports.ts src/app/runtime-profile.ts src/domain/workspace-settings.ts src/domain/command-registry.ts src/domain/state-boundaries.ts src/app/main.ts tests/unit/m1-contracts.test.ts tests/unit/runtime-profile.test.ts tests/unit/workspace-settings.test.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'style: format M1 final contracts [skip ci]'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
