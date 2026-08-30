@@ -1,0 +1,51 @@
+name: Normalize Illustro phase 3 references
+
+'on':
+  push:
+    paths:
+      - '.github/workflows/normalize-phase3-data-references.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Normalize superseded references
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('ILLUSTRO_DESIGN_MEMO.md')
+          t = p.read_text(encoding='utf-8')
+          t = t.replace(
+              '- Document-mutating command dispatch creates/joins the later N-defined transaction boundary; workspace commands never pollute document Undo history.',
+              '- Document-mutating command dispatch creates/joins the canonical transaction boundary defined by **P3-13/P3-14**; workspace commands never pollute document Undo history.'
+          )
+          t = t.replace(
+              '- OPFS is browser-managed working storage, not a substitute for an explicit user-controlled backup/export. The future `.illustro` exchange/archive format must allow projects to be exported outside origin storage.',
+              '- OPFS is browser-managed working storage, not a substitute for an explicit user-controlled backup/export. The **`.illustro` v1 archive defined by P3-17 through P3-19** is the user-controlled project exchange/backup format outside origin storage.'
+          )
+          t = t.replace(
+              '- CMYK/print-output scope and advanced print rendering-intent UI remain governed by the separate pending-adoption decision and are not implied by this RGB closure.',
+              '- CMYK/print-output scope and advanced print rendering-intent UI remain **POST-BASELINE** under P1-2/section 21 and are not implied by this RGB closure.'
+          )
+          p.write_text(t, encoding='utf-8')
+          PY
+          grep -F 'canonical transaction boundary defined by **P3-13/P3-14**' ILLUSTRO_DESIGN_MEMO.md
+          grep -F '**`.illustro` v1 archive defined by P3-17 through P3-19**' ILLUSTRO_DESIGN_MEMO.md
+          grep -F 'remain **POST-BASELINE** under P1-2/section 21' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F 'future `.illustro` exchange/archive format' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F 'later N-defined transaction boundary' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F 'separate pending-adoption decision' ILLUSTRO_DESIGN_MEMO.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'docs: normalize phase 3 cross references'
+          git push origin HEAD:main
