@@ -125,8 +125,8 @@ M2-011 journal integrity/checksum metadata:完了
 M2-012 checkpoint format:完了
 M2-013 checkpoint publication:完了
 M2-014 dual-head recovery state:完了
-M2-015 autosave scheduler:未完了
-M2-016 recovery flush scheduler:未完了
+M2-015 autosave scheduler:完了
+M2-016 recovery flush scheduler:完了
 M2-017 raw raster tile codec:未完了
 M2-018 LZ4-block raster tile codec:未完了
 M2-019 raw/LZ4 automatic selection policy:未完了
