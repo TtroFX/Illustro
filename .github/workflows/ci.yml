@@ -42,6 +42,8 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
       - name: Production build
         env:
           ILLUSTRO_BUILD_MODE: production
