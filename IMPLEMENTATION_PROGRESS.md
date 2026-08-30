@@ -61,12 +61,12 @@ M0.5-014 PreviewからPWA manifest取得可能化:完了
 M0.5-検査 M0.5公開基盤内部検査:完了
 
 ## M1 — Canonical Contracts / Data / Command Registry
-M1-001 Document ID:未完了
-M1-002 Layer ID:未完了
-M1-003 Resource ID:未完了
-M1-004 Object ID:未完了
-M1-005 Node ID:未完了
-M1-006 revision model:未完了
+M1-001 Document ID:完了
+M1-002 Layer ID:完了
+M1-003 Resource ID:完了
+M1-004 Object ID:完了
+M1-005 Node ID:完了
+M1-006 revision model:完了
 M1-007 DocumentV1:未完了
 M1-008 CanvasSpec:未完了
 M1-009 document color metadata:未完了
