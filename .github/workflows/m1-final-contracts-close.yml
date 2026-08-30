@@ -1,0 +1,50 @@
+name: Close M1 final contract items
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m1-final-contracts-close.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Close verified M1 final contract items
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          items = [
+              'M1-040 migration framework',
+              'M1-041 structured compatibility report',
+              'M1-042 structured fidelity report',
+              'M1-043 structured error record',
+              'M1-044 runtime capability-profile model',
+              'M1-045 workspace-state schema',
+              'M1-046 user-settings schema',
+              'M1-047 locale-neutral internal ID policy',
+          ]
+          for item in items:
+              old = f'{item}:未完了'
+              new = f'{item}:完了'
+              if old not in text and new not in text:
+                  raise SystemExit(f'missing progress item: {item}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit verified progress
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add IMPLEMENTATION_PROGRESS.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'docs: close M1 final contract items [skip ci]'
+          git push origin HEAD:main
