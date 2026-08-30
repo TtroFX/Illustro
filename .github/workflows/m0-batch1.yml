@@ -1,0 +1,63 @@
+name: Verify M0 build foundation batch 1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'tsconfig.json'
+      - 'scripts/generate-wgsl.mjs'
+      - 'scripts/build.mjs'
+      - 'scripts/verify-m0-batch1.mjs'
+      - 'src/**'
+      - '.github/workflows/m0-batch1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install batch dependencies
+        run: npm install --no-package-lock --ignore-scripts
+      - name: Verify M0-001 through M0-006
+        run: npm run verify:m0-batch1
+      - name: Close verified progress items
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          ids = ['M0-001', 'M0-002', 'M0-003', 'M0-004', 'M0-005', 'M0-006']
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          for item in ids:
+              pending = f'{item} '
+              matches = [line for line in text.splitlines() if line.startswith(pending)]
+              if len(matches) != 1:
+                  raise SystemExit(f'expected exactly one progress line for {item}')
+              line = matches[0]
+              if line.endswith(':未完了'):
+                  text = text.replace(line, line[:-3] + '完了', 1)
+              elif not line.endswith(':完了'):
+                  raise SystemExit(f'unexpected progress state for {item}: {line}')
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit verified progress
+        run: |
+          git diff --check
+          if git diff --quiet -- IMPLEMENTATION_PROGRESS.md; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: close M0 build foundation batch 1 [skip ci]'
+          git push origin HEAD:main

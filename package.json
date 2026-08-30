@@ -1,0 +1,19 @@
+{
+  "name": "illustro",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare:wgsl": "node scripts/generate-wgsl.mjs",
+    "typecheck": "npm run prepare:wgsl && tsc -p tsconfig.json --noEmit",
+    "build": "node scripts/build.mjs production",
+    "build:dev": "node scripts/build.mjs development",
+    "verify:m0-batch1": "node scripts/verify-m0-batch1.mjs"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  }
+}
