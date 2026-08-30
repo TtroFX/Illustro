@@ -1,0 +1,38 @@
+name: Format and verify M2 storage foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-storage-foundation-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Format storage quota and GC foundation
+        run: npx biome format --write src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - name: Commit formatted foundation and remove one-shot workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-storage-foundation-format.yml
+          git add src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts
+          git commit -m 'style: format M2 storage quota and GC foundation [skip ci]'
+          git push
