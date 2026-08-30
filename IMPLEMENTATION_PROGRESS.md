@@ -111,20 +111,20 @@ M1-047 locale-neutral internal ID policy:完了
 M1-検査 M1内部検査:完了
 
 ## M2 — Persistence / History / Recovery / Local Project State
-M2-001 OPFS project root:未完了
-M2-002 project directory layout:未完了
-M2-003 immutable object storage:未完了
-M2-004 SHA-256 content-addressed asset storage:未完了
-M2-005 stable entity ID + revision storage:未完了
-M2-006 Storage Worker:未完了
-M2-007 FileSystemSyncAccessHandle access layer:未完了
-M2-008 transactional project write:未完了
-M2-009 framed journal format:未完了
-M2-010 journal append:未完了
-M2-011 journal integrity/checksum metadata:未完了
-M2-012 checkpoint format:未完了
-M2-013 checkpoint publication:未完了
-M2-014 dual-head recovery state:未完了
+M2-001 OPFS project root:完了
+M2-002 project directory layout:完了
+M2-003 immutable object storage:完了
+M2-004 SHA-256 content-addressed asset storage:完了
+M2-005 stable entity ID + revision storage:完了
+M2-006 Storage Worker:完了
+M2-007 FileSystemSyncAccessHandle access layer:完了
+M2-008 transactional project write:完了
+M2-009 framed journal format:完了
+M2-010 journal append:完了
+M2-011 journal integrity/checksum metadata:完了
+M2-012 checkpoint format:完了
+M2-013 checkpoint publication:完了
+M2-014 dual-head recovery state:完了
 M2-015 autosave scheduler:未完了
 M2-016 recovery flush scheduler:未完了
 M2-017 raw raster tile codec:未完了
