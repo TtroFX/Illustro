@@ -80,6 +80,7 @@ Illustroの設計・仕様に関する正本は、この1つの `.md` に統合�
 29. Illustro adopts a **Quick Hole Controller**: an idle, donut-shaped six-slot radial command controller anchored only by eligible **canvas interaction**. Interacting with the right inspector, tool rail, top bar, detached PiP panels, or other application UI does not move its anchor; after UI interaction it remains at the previous canvas-derived position until the canvas is operated again. It is hidden while active drawing/contact is occurring. Tapping an eligible non-UI workspace area outside the canvas dismisses it, and it stays dismissed until a later eligible canvas interaction causes it to appear again. Its default mapping is Undo at left, Redo at right, Brush/Eraser Toggle and Eyedropper in the two upper slots, and Lasso and Fill in the two lower slots. All six slot positions and assigned commands are user-configurable through the shared command system.
 30. Illustro adopts a **customization-first workspace principle**. Workflow-affecting UI presentation should be user-adjustable wherever doing so does not compromise correctness or basic usability. This includes panel/rail dimensions, dock order, detached PiP placement, show/hide state, workspace layout, Quick Hole command mapping and ordering, Quick Hole size/radius and button sizing, and the opacity/translucency of overlay-style controls. Defaults must remain coherent and usable, every customizable surface must have a safe reset/default path, and ergonomic minimum/maximum constraints may prevent unusable configurations without otherwise restricting meaningful customization.
 31. Illustro adopts a **Lineart Group / Lineart Boundary Layer system**. A Lineart Group is a special folder-like container created from one or more existing visible lineart source layers and contains a generated non-rendering Lineart Boundary Layer. The boundary layer stores idealized line-boundary topology derived from the source rather than visible artwork pixels. Selecting it enters a dedicated edit mode for fixing unwanted automatic connections, adding missing connections, removing/splitting boundaries, and explicitly forbidding a rejected auto-connection from reappearing after regeneration. Automatic topology and manual overrides are stored separately. Multiple Lineart Boundary Layers can be selected as a union reference for Fill, Auto Select, Enclose Fill and compatible anti-overflow workflows. Group-level transforms and deformation, including Liquify-compatible displacement, keep visible lineart and boundary topology synchronized, while direct source edits trigger dirty-region boundary regeneration with manual overrides preserved.
+32. Lineart Boundary topology uses explicit **graph semantics**. A boundary endpoint is a graph node of degree 1, an ordinary interior line node is degree 2, and a junction/branch node is degree 3 or greater. Connecting two endpoints creates a boundary edge and atomically removes both nodes from the endpoint set when their resulting degree is no longer 1; stale endpoint metadata must never remain after a successful connection. Splitting/disconnecting a boundary creates/reclassifies endpoint nodes from the resulting graph. Connect/disconnect operations, endpoint classification changes, manual/automatic connection metadata and no-connect constraints are part of the normal Undo/Redo command state so Undo restores the exact pre-operation endpoint topology and Redo restores the exact post-operation topology.
 
 ## Working rules for this memo
 
@@ -299,7 +300,8 @@ The Lineart system separates **visible artistic linework** from the **idealized 
 #### Boundary generation model
 
 - Boundary generation analyzes the visible source lineart into an idealized thin barrier representation, conceptually near a one-pixel/centerline topology at document resolution rather than copying the antialiased stroke silhouette as-is.
-- The derived representation preserves endpoints, intersections, branches and closed-region connectivity needed for region operations.
+- The derived representation is an explicit boundary graph. **Endpoint nodes are exactly graph nodes of degree 1; ordinary interior line nodes are degree 2; junction/branch nodes are degree 3 or greater.** Endpoint status is derived from current topology and must not survive as stale independent metadata after the topology changes.
+- The representation preserves endpoints, intersections, branches and closed-region connectivity needed for region operations.
 - Small endpoint gaps can be bridged automatically. Candidate bridging should consider at least endpoint distance, endpoint direction/tangent and nearby boundary context rather than connecting every nearby point blindly.
 - Auto-generated gap bridges are tagged distinctly from extracted source boundaries and from explicit user edits.
 - Gap-closing can expose user settings such as enabled/disabled state, maximum connection distance and connection aggressiveness/sensitivity.
@@ -315,14 +317,25 @@ The Lineart system separates **visible artistic linework** from the **idealized 
   - reject an automatically generated bridge;
   - explicitly mark a rejected endpoint pair/bridge as **do not reconnect automatically**;
   - regenerate/reanalyze automatic topology without discarding valid manual corrections.
-- Automatic extraction, automatic gap bridges, manual additions, manual removals/splits and explicit no-connect constraints are stored as separate semantic data. This prevents a regeneration pass from silently restoring a connection that the user deliberately removed.
+- **Connecting two endpoints is one atomic graph-edit operation:** create the new boundary edge, recompute node degrees, and immediately remove either/both nodes from the endpoint set when their resulting degree is no longer 1. A successfully connected node must not remain available as an endpoint/gap-closing candidate merely because it used to be an endpoint.
+- **Splitting or disconnecting a boundary is the inverse topology operation:** remove/split the edge, recompute local node degrees, and create/reclassify degree-1 nodes as endpoints. If the disconnection represents an intentional rejection of an automatic bridge, the corresponding no-connect constraint is recorded so regeneration does not immediately recreate the rejected bridge.
+- Automatic extraction, automatic gap bridges, manual additions, manual removals/splits, explicit manual connections and explicit no-connect constraints are stored as separate semantic data. This prevents a regeneration pass from silently restoring a connection that the user deliberately removed.
 - Undo/Redo applies to these boundary-edit operations through the normal command/history system.
+
+#### Endpoint and Undo/Redo invariants
+
+- Endpoint membership is a consequence of the graph after each committed operation, not a separate long-lived flag that can diverge from topology.
+- A connect command records enough state to restore the previous edge set, node identities/positions, endpoint classifications and connection provenance. Undoing a connection must therefore remove the added edge and restore the original endpoints exactly; Redo must recreate the connection and remove those endpoint classifications again where appropriate.
+- A disconnect/split command likewise records enough state to Undo back to the connected graph and Redo back to the split graph, including any explicit no-connect decision created by the split.
+- Automatic/manual provenance, rejected-auto-bridge state and no-connect constraints participate in the same history transaction when they are changed by the operation.
+- These mutations are atomic from the document/history perspective: rendering, Fill and auto-gap search must never observe a state in which the edge has changed but endpoint classification has not yet been updated.
 
 #### Preview and editing overlay
 
 - In normal artwork view the boundary child is invisible.
 - When the boundary layer is selected, being edited, or explicitly previewed as an active Fill/selection reference, its topology is shown as a temporary **topmost overlay** above artwork.
 - The default overlay is a clear semi-transparent blue or similar high-contrast editing color; it is presentation-only and is not part of the artwork.
+- Endpoint nodes may be visually distinguished in boundary-edit mode so the user can understand which points are currently connectable; this visualization derives from the current degree-1 node set.
 - Overlay visibility can be toggled. Overlay color, opacity and practical preview width are user-configurable under Illustro's customization-first principle.
 - When multiple Lineart Boundary Layers are active as references, the UI can show their combined boundary preview; implementations may optionally distinguish constituent groups by preview color while retaining a combined-operation view.
 
@@ -337,7 +350,7 @@ The Lineart system separates **visible artistic linework** from the **idealized 
 
 - The boundary child maintains source references and a source-generation revision/state.
 - Direct edits to source lineart invalidate only affected/dirty regions where practical; boundary regeneration should be incremental rather than requiring a full-document analysis for every stroke.
-- Manual additions/removals/no-connect constraints are preserved and reapplied/validated across source-driven regeneration instead of being overwritten wholesale.
+- Manual additions/removals/connections/no-connect constraints are preserved and reapplied/validated across source-driven regeneration instead of being overwritten wholesale.
 - Group-level Move, Scale, Rotate, Mesh/Perspective-compatible transform and other applicable deformation operations act on the visible source and its boundary data as one logical unit.
 - For Liquify/local-warp style operations applied to the Lineart Group, the same displacement field must be applied to both visible source lineart and the boundary representation so they remain registered. A later local regeneration may refine the topology where the source itself changed materially.
 
@@ -352,9 +365,9 @@ The Lineart system separates **visible artistic linework** from the **idealized 
 The native `.illustro` project representation must preserve enough data to round-trip the Lineart system, including:
 
 - Lineart Group/source membership and source references;
-- derived/extracted boundary topology or its reproducible cached representation;
+- derived/extracted boundary graph/topology or its reproducible cached representation, including stable node/edge identity where required for manual overrides and history;
 - automatic gap bridges and their generation settings;
-- manual boundary additions;
+- manual boundary additions and explicit manual connections;
 - manual removals/splits;
 - explicit no-connect constraints/rejected auto bridges;
 - generation/source revision metadata;
@@ -843,3 +856,4 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - 2026-08-30: Adopted the resizable/reorderable right-inspector architecture with tear-off PiP blocks, Scratch-like magnetic re-docking, persistent detached panels across inspector collapse, and the six-slot fully remappable Quick Hole Controller for tablet-first shortcut access.
 - 2026-08-30: Refined Quick Hole behavior so UI interactions do not move its canvas-derived anchor, non-UI workspace taps can dismiss it until the next canvas interaction, the ring/buttons use configurable translucency, and the wider UI follows a customization-first workspace principle.
 - 2026-08-30: Adopted the Lineart Group / Lineart Boundary Layer system: visible source lineart is wrapped in a special folder-like group with non-rendering idealized boundary topology, editable automatic/manual gap connections, persistent no-connect overrides, multi-boundary union references for region tools, anti-alias-aware under-line fill behavior, and transform/Liquify synchronization.
+- 2026-08-30: Defined Lineart Boundary graph invariants: endpoints are degree-1 graph nodes, connecting endpoints atomically removes stale endpoint status when degree changes, splitting/disconnecting regenerates endpoint classification, and Undo/Redo restores topology, endpoint state, connection provenance and no-connect decisions exactly.
