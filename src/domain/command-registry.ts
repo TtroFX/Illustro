@@ -7,6 +7,7 @@ import {
   validateValueSchema,
 } from './serialization.js';
 import { isUuid } from './identity.js';
+import { parseInternalId } from './internal-id.js';
 
 export const COMMAND_NAMESPACES = [
   'app',
@@ -159,19 +160,14 @@ export class CommandRegistryError extends Error {
   }
 }
 
-const COMMAND_SEGMENT_PATTERN = /^[A-Za-z][A-Za-z0-9-]*$/;
-
 export function parseCommandId(value: unknown): CommandId {
-  if (typeof value !== 'string') throw new TypeError('command ID must be a string');
-  const segments = value.split('.');
+  const internalId = parseInternalId(value, 'command ID');
+  const segments = internalId.split('.');
   const namespace = segments[0];
   if (segments.length < 2 || !COMMAND_NAMESPACES.includes(namespace as CommandNamespace)) {
     throw new TypeError('command ID must start with a canonical top-level namespace');
   }
-  if (segments.some((segment) => !COMMAND_SEGMENT_PATTERN.test(segment))) {
-    throw new TypeError('command ID segments must be locale-neutral identifier tokens');
-  }
-  return value as CommandId;
+  return internalId as string as CommandId;
 }
 
 function createInvocationId(): CommandInvocationId {

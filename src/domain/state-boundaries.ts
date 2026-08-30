@@ -1,4 +1,9 @@
 import { createProjectId, type ProjectId, type ResourceId } from './identity.js';
+import {
+  createDefaultWorkspaceStateV1,
+  normalizeWorkspaceStateV1,
+  type WorkspaceStateV1,
+} from './workspace-settings.js';
 
 export interface ProjectMetadataState {
   readonly projectId: ProjectId;
@@ -21,6 +26,7 @@ export interface WorkspaceViewportState {
 export interface WorkspaceSessionState {
   readonly activeToolId: string | null;
   readonly viewport: WorkspaceViewportState;
+  readonly persistentWorkspace: WorkspaceStateV1;
   readonly panelState: Readonly<Record<string, unknown>>;
   readonly quickHoleState: Readonly<Record<string, unknown>>;
   readonly selectionPresentation: unknown | null;
@@ -49,6 +55,7 @@ function freezeWorkspaceState(state: WorkspaceSessionState): WorkspaceSessionSta
   return Object.freeze({
     ...state,
     viewport: Object.freeze({ ...state.viewport }),
+    persistentWorkspace: normalizeWorkspaceStateV1(state.persistentWorkspace),
     panelState: Object.freeze({ ...state.panelState }),
     quickHoleState: Object.freeze({ ...state.quickHoleState }),
   });
@@ -77,6 +84,7 @@ export function createDefaultWorkspaceSessionState(): WorkspaceSessionState {
   return freezeWorkspaceState({
     activeToolId: null,
     viewport: { zoom: 1, rotationDegrees: 0, panX: 0, panY: 0 },
+    persistentWorkspace: createDefaultWorkspaceStateV1(),
     panelState: {},
     quickHoleState: {},
     selectionPresentation: null,

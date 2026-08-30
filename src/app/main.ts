@@ -10,6 +10,11 @@ import {
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installDiagnosticsHook } from './diagnostics.js';
+import {
+  createRuntimeCapabilityProfile,
+  probeArrayBufferTransferSupport,
+  type CapabilityProbeStateV1,
+} from './runtime-profile.js';
 import { installFoundationShell } from './shell.js';
 import { startDedicatedWorkers } from './workers.js';
 
@@ -29,7 +34,7 @@ if (buildIdentityOutput) {
 root.dataset.illustroRuntime = 'bootstrapped';
 root.dataset.illustroBuildMode = runtime.buildMode;
 root.dataset.illustroBuildSha = buildIdentity.buildSha;
-root.dataset.illustroCapabilityProfile = capabilities.webGpu ? 'webgpu-present' : 'webgpu-missing';
+root.dataset.illustroCapabilityProfile = 'pending';
 root.dataset.illustroSecureContext = globalThis.isSecureContext ? 'secure' : 'insecure';
 root.dataset.illustroCrossOriginIsolated = globalThis.crossOriginIsolated
   ? 'isolated'
@@ -69,13 +74,30 @@ if ('serviceWorker' in navigator) {
   }
 }
 
+function publishCapabilityProfile(coreWebGpuDeviceReady: CapabilityProbeStateV1): void {
+  const profile = createRuntimeCapabilityProfile(capabilities, {
+    coreWebGpuDeviceReady,
+    transferableArrayBuffer: probeArrayBufferTransferSupport(),
+    storageWriteViable: 'pending',
+    viewportWidthCssPx: window.innerWidth,
+  });
+  root.dataset.illustroCapabilityProfile = profile.fullEditorEligibility;
+  root.dataset.illustroCapabilityBlockingReasons = profile.blockingReasonCodes.join(',');
+  root.dataset.illustroCapabilityPendingReasons = profile.pendingReasonCodes.join(',');
+  logger.info('runtime.capability-profile', { profile });
+}
+
+publishCapabilityProfile('pending');
+
 void initializeWebGpuBuildPath()
   .then((status) => {
     root.dataset.illustroWebgpu = status;
+    publishCapabilityProfile(status === 'ready');
     logger.info('webgpu.bootstrap-complete', { status });
   })
   .catch((error: unknown) => {
     root.dataset.illustroWebgpu = 'error';
+    publishCapabilityProfile(false);
     incrementPerformanceCounter('webgpu.bootstrap.failure');
     logger.error('webgpu.bootstrap-failed', error);
   })
