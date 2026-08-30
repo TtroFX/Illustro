@@ -55,9 +55,13 @@ describe('schema version handling', () => {
     const supported = parseSchemaVersion('1.2');
 
     expect(classifyVersionCompatibility(parseSchemaVersion('1.2'), supported)).toBe('exact');
-    expect(classifyVersionCompatibility(parseSchemaVersion('1.4'), supported)).toBe('compatible-newer-minor');
+    expect(classifyVersionCompatibility(parseSchemaVersion('1.4'), supported)).toBe(
+      'compatible-newer-minor',
+    );
     expect(classifyVersionCompatibility(parseSchemaVersion('1.1'), supported)).toBe('older');
-    expect(classifyVersionCompatibility(parseSchemaVersion('2.0'), supported)).toBe('unsupported-major');
+    expect(classifyVersionCompatibility(parseSchemaVersion('2.0'), supported)).toBe(
+      'unsupported-major',
+    );
     expect(() => assertSupportedMajor(parseSchemaVersion('2.0'), supported)).toThrow(RangeError);
     expect(() => parseSchemaVersion('1')).toThrow(TypeError);
   });

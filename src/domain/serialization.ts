@@ -1,5 +1,8 @@
 export type JsonPrimitive = null | boolean | number | string;
-export type JsonValue = JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue };
+export type JsonValue =
+  | JsonPrimitive
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
 
 export interface ValidationIssueV1 {
   readonly path: string;
@@ -43,7 +46,11 @@ export interface SchemaVersionV1 {
   readonly minor: number;
 }
 
-export type VersionCompatibilityV1 = 'exact' | 'compatible-newer-minor' | 'older' | 'unsupported-major';
+export type VersionCompatibilityV1 =
+  | 'exact'
+  | 'compatible-newer-minor'
+  | 'older'
+  | 'unsupported-major';
 
 function isPlainRecord(value: object): boolean {
   const prototype = Object.getPrototypeOf(value);
@@ -125,10 +132,14 @@ export function validateValueSchema(
         issues.push(issue(path, 'enum', 'value is not in the allowed set'));
       }
       if (schema.minLength !== undefined && value.length < schema.minLength) {
-        issues.push(issue(path, 'minLength', `string must contain at least ${schema.minLength} characters`));
+        issues.push(
+          issue(path, 'minLength', `string must contain at least ${schema.minLength} characters`),
+        );
       }
       if (schema.maxLength !== undefined && value.length > schema.maxLength) {
-        issues.push(issue(path, 'maxLength', `string must contain at most ${schema.maxLength} characters`));
+        issues.push(
+          issue(path, 'maxLength', `string must contain at most ${schema.maxLength} characters`),
+        );
       }
       break;
     case 'number':
@@ -154,12 +165,16 @@ export function validateValueSchema(
         break;
       }
       if (schema.minItems !== undefined && value.length < schema.minItems) {
-        issues.push(issue(path, 'minItems', `array must contain at least ${schema.minItems} items`));
+        issues.push(
+          issue(path, 'minItems', `array must contain at least ${schema.minItems} items`),
+        );
       }
       if (schema.maxItems !== undefined && value.length > schema.maxItems) {
         issues.push(issue(path, 'maxItems', `array must contain at most ${schema.maxItems} items`));
       }
-      value.forEach((item, index) => issues.push(...validateValueSchema(item, schema.items, `${path}[${index}]`)));
+      value.forEach((item, index) =>
+        issues.push(...validateValueSchema(item, schema.items, `${path}[${index}]`)),
+      );
       break;
     case 'object': {
       if (value === null || Array.isArray(value) || typeof value !== 'object') {
@@ -168,13 +183,16 @@ export function validateValueSchema(
       }
       const record = value as Readonly<Record<string, JsonValue>>;
       for (const required of schema.required ?? []) {
-        if (!(required in record)) issues.push(issue(`${path}.${required}`, 'required', 'required property is missing'));
+        if (!(required in record))
+          issues.push(issue(`${path}.${required}`, 'required', 'required property is missing'));
       }
       for (const [key, item] of Object.entries(record)) {
         const propertySchema = schema.properties[key];
         if (propertySchema === undefined) {
           if (schema.additionalProperties !== true) {
-            issues.push(issue(`${path}.${key}`, 'additionalProperty', 'unknown property is not allowed'));
+            issues.push(
+              issue(`${path}.${key}`, 'additionalProperty', 'unknown property is not allowed'),
+            );
           }
           continue;
         }
@@ -191,7 +209,9 @@ export function assertValueSchema(value: JsonValue, schema: ValueSchemaV1): void
   const issues = validateValueSchema(value, schema);
   if (issues.length === 0) return;
   const first = issues[0];
-  throw new TypeError(`schema validation failed at ${first?.path ?? '$'}: ${first?.message ?? 'invalid value'}`);
+  throw new TypeError(
+    `schema validation failed at ${first?.path ?? '$'}: ${first?.message ?? 'invalid value'}`,
+  );
 }
 
 export function parseSchemaVersion(value: string): SchemaVersionV1 {
@@ -206,8 +226,10 @@ export function parseSchemaVersion(value: string): SchemaVersionV1 {
 }
 
 export function formatSchemaVersion(version: SchemaVersionV1): string {
-  if (!Number.isSafeInteger(version.major) || version.major < 0) throw new RangeError('major version must be a non-negative safe integer');
-  if (!Number.isSafeInteger(version.minor) || version.minor < 0) throw new RangeError('minor version must be a non-negative safe integer');
+  if (!Number.isSafeInteger(version.major) || version.major < 0)
+    throw new RangeError('major version must be a non-negative safe integer');
+  if (!Number.isSafeInteger(version.minor) || version.minor < 0)
+    throw new RangeError('minor version must be a non-negative safe integer');
   return `${version.major}.${version.minor}`;
 }
 
@@ -222,6 +244,8 @@ export function classifyVersionCompatibility(
 
 export function assertSupportedMajor(found: SchemaVersionV1, supported: SchemaVersionV1): void {
   if (found.major !== supported.major) {
-    throw new RangeError(`unsupported schema major ${found.major}; supported major is ${supported.major}`);
+    throw new RangeError(
+      `unsupported schema major ${found.major}; supported major is ${supported.major}`,
+    );
   }
 }

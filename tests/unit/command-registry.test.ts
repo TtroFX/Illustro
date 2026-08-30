@@ -151,6 +151,8 @@ describe('canonical command registry', () => {
     });
     registry.register(command);
 
-    expect(registry.createInvocation({ commandId: command.id }, DOCUMENT_CONTEXT).transactionId).toBeNull();
+    expect(
+      registry.createInvocation({ commandId: command.id }, DOCUMENT_CONTEXT).transactionId,
+    ).toBeNull();
   });
 });

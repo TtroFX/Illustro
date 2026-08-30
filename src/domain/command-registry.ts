@@ -42,8 +42,12 @@ declare const commandInvocationIdBrand: unique symbol;
 declare const commandTransactionIdBrand: unique symbol;
 
 export type CommandId = string & { readonly [commandIdBrand]: 'CommandId' };
-export type CommandInvocationId = string & { readonly [commandInvocationIdBrand]: 'CommandInvocationId' };
-export type CommandTransactionId = string & { readonly [commandTransactionIdBrand]: 'CommandTransactionId' };
+export type CommandInvocationId = string & {
+  readonly [commandInvocationIdBrand]: 'CommandInvocationId';
+};
+export type CommandTransactionId = string & {
+  readonly [commandTransactionIdBrand]: 'CommandTransactionId';
+};
 
 export type CommandInvocationKind =
   | 'instant'
@@ -53,7 +57,11 @@ export type CommandInvocationKind =
   | 'modal-task'
   | 'parameterized';
 
-export type CommandUndoPolicy = 'none' | 'document-transaction' | 'workspace-state' | 'external-side-effect';
+export type CommandUndoPolicy =
+  | 'none'
+  | 'document-transaction'
+  | 'workspace-state'
+  | 'external-side-effect';
 export type CommandSafetyClass = 'ordinary' | 'destructive' | 'external-side-effect';
 export type CommandRepeatPolicy = 'none' | 'repeatable' | 'coalesce';
 
@@ -137,7 +145,12 @@ export interface CommandInvocationV1 extends CommandBindingV1 {
 
 export class CommandRegistryError extends Error {
   constructor(
-    readonly code: 'duplicate-command' | 'unknown-command' | 'unavailable' | 'disabled' | 'invalid-args',
+    readonly code:
+      | 'duplicate-command'
+      | 'unknown-command'
+      | 'unavailable'
+      | 'disabled'
+      | 'invalid-args',
     message: string,
     readonly issues: readonly ValidationIssueV1[] = [],
   ) {
@@ -203,7 +216,10 @@ export class CommandRegistryV1 {
   register(definition: CommandDefinitionV1): void {
     validateDefinition(definition);
     if (this.#definitions.has(definition.id)) {
-      throw new CommandRegistryError('duplicate-command', `command already registered: ${definition.id}`);
+      throw new CommandRegistryError(
+        'duplicate-command',
+        `command already registered: ${definition.id}`,
+      );
     }
     this.#definitions.set(definition.id, Object.freeze(definition));
   }
@@ -225,19 +241,21 @@ export class CommandRegistryV1 {
   }
 
   list(): readonly CommandDefinitionV1[] {
-    return Object.freeze([...this.#definitions.values()].sort((left, right) => left.id.localeCompare(right.id)));
+    return Object.freeze(
+      [...this.#definitions.values()].sort((left, right) => left.id.localeCompare(right.id)),
+    );
   }
 
-  evaluate(
-    binding: CommandBindingV1,
-    context: CommandContextV1,
-  ): CommandStateV1 {
+  evaluate(binding: CommandBindingV1, context: CommandContextV1): CommandStateV1 {
     const definition = this.get(binding.commandId);
     const args = this.normalizeArgs(definition, binding.args);
 
     for (const requirement of definition.contextRequirements) {
       if (context.requirements[requirement] !== true) {
-        return Object.freeze({ status: 'unavailable', reasonKey: `command.context.${requirement}` });
+        return Object.freeze({
+          status: 'unavailable',
+          reasonKey: `command.context.${requirement}`,
+        });
       }
     }
 
@@ -270,19 +288,21 @@ export class CommandRegistryV1 {
     return Object.freeze({ status: 'enabled' });
   }
 
-  createInvocation(
-    binding: CommandBindingV1,
-    context: CommandContextV1,
-  ): CommandInvocationV1 {
+  createInvocation(binding: CommandBindingV1, context: CommandContextV1): CommandInvocationV1 {
     const definition = this.get(binding.commandId);
     const args = this.normalizeArgs(definition, binding.args);
     const state = this.evaluate(
-      args === undefined ? { commandId: binding.commandId } : { commandId: binding.commandId, args },
+      args === undefined
+        ? { commandId: binding.commandId }
+        : { commandId: binding.commandId, args },
       context,
     );
 
     if (state.status !== 'enabled') {
-      throw new CommandRegistryError(state.status, `${binding.commandId} is ${state.status}: ${state.reasonKey}`);
+      throw new CommandRegistryError(
+        state.status,
+        `${binding.commandId} is ${state.status}: ${state.reasonKey}`,
+      );
     }
 
     const transactionId =
@@ -302,7 +322,10 @@ export class CommandRegistryV1 {
   ): JsonValue | undefined {
     if (definition.parameterSchema === undefined) {
       if (args !== undefined) {
-        throw new CommandRegistryError('invalid-args', `${definition.id} does not accept arguments`);
+        throw new CommandRegistryError(
+          'invalid-args',
+          `${definition.id} does not accept arguments`,
+        );
       }
       return undefined;
     }
@@ -314,7 +337,11 @@ export class CommandRegistryV1 {
     const normalized = toJsonValue(args);
     const issues = validateValueSchema(normalized, definition.parameterSchema);
     if (issues.length > 0) {
-      throw new CommandRegistryError('invalid-args', `invalid arguments for ${definition.id}`, issues);
+      throw new CommandRegistryError(
+        'invalid-args',
+        `invalid arguments for ${definition.id}`,
+        issues,
+      );
     }
     assertValueSchema(normalized, definition.parameterSchema);
     return normalized;
