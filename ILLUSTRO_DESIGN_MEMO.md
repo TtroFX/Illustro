@@ -481,25 +481,33 @@ The following are **not** part of the required functional-completion target unle
 - **Fisheye Perspective Ruler.** Normal 1/2/3-point perspective rulers remain supported.
 - Animation/multi-frame production is outside the current single-illustration completion target.
 
-### 21. Pending adoption decisions — NOT YET AUTHORITATIVE
+### 21. Initial-release adoption decisions — RESOLVED 2026-08-30
 
-The following remain candidates rather than adopted requirements until explicitly decided:
+The former pending-adoption list is closed for the initial release. The authoritative dispositions are:
 
-- Text tool and its exact typography scope.
-- CMYK export, ICC print-output scope and rendering-intent UI beyond the adopted RGB/profile-aware architecture.
-- Dedicated grayscale 8-bit / monochrome 1-bit export modes.
-- Cloud Sync and server-backed project synchronization.
-- Gallery/project-folder management and Recently Deleted/Trash UX.
-- Timelapse/history playback and history-extraction/export features.
-- Exact PSD round-trip fidelity target beyond ordinary image interchange; whether PSD import/export becomes a required compatibility gate.
-- Shading Assist.
-- Color Match to a reference image/gradient.
-- Companion-device mode.
-- Photoshop `.grd` gradient import.
+- **Text Tool — ADOPTED FOR INITIAL RELEASE.** Editable point/box text layers, common typographic controls, transform, and non-destructive re-editing. Comic/page-specific balloon and story-layout systems remain excluded.
+- **CMYK / print ICC workflow — POST-BASELINE CANDIDATE.** Initial release remains RGB-first with profile-aware conversion. Dedicated CMYK document/output workflow is not an initial-release gate.
+- **Dedicated grayscale 8-bit / monochrome 1-bit modes — EXCLUDED FROM INITIAL RELEASE.** Ordinary grayscale/monochrome conversion through corrections, filters, and compatible export remains available; manga/screentone-driven 1-bit production is outside the current focus.
+- **Cloud Sync — POST-BASELINE CANDIDATE.** Initial release is local-first/offline-capable and does not require an account or server for document correctness.
+- **Local Gallery / Project Library / Recently Deleted — ADOPTED FOR INITIAL RELEASE.** Provide local project browsing, search/sort/organization, create/open/import, recovery visibility, and reversible trash/recovery. This is local project management, not a public material/content catalog.
+- **Timelapse / drawing-history playback and export — ADOPTED FOR INITIAL RELEASE.** This records and plays back the creation process of one illustration; it does not create an animation/multi-frame editing product.
+- **PSD import/export — ADOPTED FOR INITIAL RELEASE WITH BOUNDED FIDELITY.** Support is test-corpus/matrix based. Unsupported or approximated Photoshop semantics must be reported explicitly; silent destructive claims of full fidelity are prohibited.
+- **Shading Assist — POST-BASELINE CANDIDATE.** A later deterministic/local lighting-assist capability may be adopted, but initial completion does not depend on it.
+- **Color Match — ADOPTED FOR INITIAL RELEASE.** Provide deterministic/local reference-based color matching/grading without a cloud generative-AI dependency.
+- **Companion-device mode — EXCLUDED FROM INITIAL RELEASE.** Cross-device networking/state synchronization is disproportionate to the core single-device painting path.
+- **Photoshop `.grd` gradient import — EXCLUDED FROM INITIAL RELEASE.** Illustro-native versioned gradient interchange is the authoritative gradient-sharing path.
 
-### 22. Feature-audit continuation rule
+These dispositions can change only through a later explicit supersession decision.
 
-This inventory captures the decisions made so far from ibisPaint, CLIP STUDIO PAINT and the cross-application mandatory-feature audit. It is **not permission to stop auditing other major painting applications**. When Procreate, Krita, Photoshop, Infinite Painter or other relevant applications expose a materially useful single-illustration capability that is not already represented here, it must be evaluated and either adopted, explicitly excluded, or recorded as pending. Duplicate brand-specific implementations should be normalized into a single stronger Illustro capability rather than copied redundantly. A feature may be excluded after technical/cost review even if a reference application provides it; such an exclusion must remain explicit.
+### 22. Post-baseline feature-audit rule
+
+The **initial 2026-08-30 external-application feature audit is closed** under FC-1 and P1-2. Illustro is not required to keep chasing newly released reference-app features during initial implementation.
+
+- Reference-app capabilities publicly available by the frozen 2026-08-30 audit date are governed by the canonical inventory and Phase-1 closure.
+- Reference-app releases or newly discovered capabilities after that freeze enter a **POST-BASELINE CANDIDATE** queue by default.
+- A post-baseline candidate affects the implementation/release gate only after an explicit Illustro adoption decision.
+- Duplicate brand-specific implementations should continue to be normalized into a single stronger Illustro capability rather than copied redundantly.
+- This rule does not prevent later product evolution; it prevents the initial implementation target from becoming a moving completion gate.
 
 # UX / UI Specification
 
@@ -880,7 +888,7 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - Tile dimensions, seam/border policy, cache budgets, and numeric performance targets
 - Default color precision/document color modes and exact wide-gamut conversion policy
 - `.illustro` file format details
-- Exact final import/export compatibility scope, including pending PSD/CMYK decisions
+- Exact final import/export compatibility contracts and fidelity matrices, including adopted PSD and deferred CMYK boundaries
 - Exact third-party-code/provenance record format and project-level software license
 - Release criteria
 
