@@ -30,6 +30,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+          package-manager-cache: false
       - name: Pin npm toolchain
         run: npm install --global npm@11.19.1
       - name: Generate dependency lock
