@@ -67,7 +67,9 @@ export async function persistEntityRevision(
   });
   const serializedRecord = serializeJson(record);
 
-  const kindDirectory = await project.directories.entities.getDirectoryHandle(kind, { create: true });
+  const kindDirectory = await project.directories.entities.getDirectoryHandle(kind, {
+    create: true,
+  });
   const entityDirectory = await kindDirectory.getDirectoryHandle(entityId, { create: true });
   try {
     const existingHandle = await entityDirectory.getFileHandle(filename);

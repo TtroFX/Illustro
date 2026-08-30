@@ -53,7 +53,9 @@ export interface ProjectDirectoryLayoutV1 {
 }
 
 function browserStorageManager(): StorageManagerLike {
-  const storage = navigator.storage as StorageManager & { getDirectory?: () => Promise<FileSystemDirectoryHandle> };
+  const storage = navigator.storage as StorageManager & {
+    getDirectory?: () => Promise<FileSystemDirectoryHandle>;
+  };
   if (typeof storage.getDirectory !== 'function') {
     throw new Error('OPFS is unavailable in this runtime');
   }
@@ -81,14 +83,15 @@ export async function ensureProjectDirectoryLayout(
   if (!isUuid(projectId)) throw new TypeError('projectId must be a UUID');
   const project = await root.projects.getDirectoryHandle(projectId, { create: true });
   const entries = await Promise.all(
-    PROJECT_DIRECTORY_NAMES.map(async (name) => [
-      name,
-      await project.getDirectoryHandle(name, { create: true }),
-    ] as const),
+    PROJECT_DIRECTORY_NAMES.map(
+      async (name) => [name, await project.getDirectoryHandle(name, { create: true })] as const,
+    ),
   );
   return Object.freeze({
     projectId,
     project,
-    directories: Object.freeze(Object.fromEntries(entries) as Record<ProjectDirectoryName, DirectoryHandleLike>),
+    directories: Object.freeze(
+      Object.fromEntries(entries) as Record<ProjectDirectoryName, DirectoryHandleLike>,
+    ),
   });
 }

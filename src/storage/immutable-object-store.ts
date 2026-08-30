@@ -50,8 +50,14 @@ export async function putImmutableObject(
   const existing = await readExistingObject(root, hash);
   if (existing !== null) {
     const existingHash = await sha256Hex(existing);
-    if (existingHash !== hash) throw new Error('content-addressed object failed integrity verification');
-    return Object.freeze({ algorithm: 'sha256', hash, byteLength: existing.byteLength, created: false });
+    if (existingHash !== hash)
+      throw new Error('content-addressed object failed integrity verification');
+    return Object.freeze({
+      algorithm: 'sha256',
+      hash,
+      byteLength: existing.byteLength,
+      created: false,
+    });
   }
 
   const [shard, filename] = immutableObjectPath(hash);
@@ -76,6 +82,7 @@ export async function readImmutableObject(
   const bytes = await readExistingObject(root, hash);
   if (bytes === null) throw new Error(`immutable object not found: ${hash}`);
   const actualHash = await sha256Hex(bytes);
-  if (actualHash !== hash) throw new Error('content-addressed object failed integrity verification');
+  if (actualHash !== hash)
+    throw new Error('content-addressed object failed integrity verification');
   return bytes;
 }

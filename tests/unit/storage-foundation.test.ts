@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createLayerId, createProjectId, INITIAL_REVISION } from '../../src/domain/identity.js';
-import { entityRevisionPath, persistEntityRevision } from '../../src/storage/entity-revision-store.js';
-import { immutableObjectPath, putImmutableObject, readImmutableObject } from '../../src/storage/immutable-object-store.js';
+import {
+  entityRevisionPath,
+  persistEntityRevision,
+} from '../../src/storage/entity-revision-store.js';
+import {
+  immutableObjectPath,
+  putImmutableObject,
+  readImmutableObject,
+} from '../../src/storage/immutable-object-store.js';
 import {
   ensureProjectDirectoryLayout,
   openIllustroOpfsRoot,
@@ -39,7 +46,10 @@ class MemoryDirectoryHandle implements DirectoryHandleLike {
   readonly directories = new Map<string, MemoryDirectoryHandle>();
   readonly files = new Map<string, MemoryFileHandle>();
 
-  async getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<MemoryDirectoryHandle> {
+  async getDirectoryHandle(
+    name: string,
+    options?: { create?: boolean },
+  ): Promise<MemoryDirectoryHandle> {
     const existing = this.directories.get(name);
     if (existing) return existing;
     if (options?.create !== true) throw new DOMException('missing', 'NotFoundError');
