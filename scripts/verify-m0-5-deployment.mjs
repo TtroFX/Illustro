@@ -13,6 +13,46 @@ assert.equal(headerMap.get('cross-origin-opener-policy'), 'same-origin');
 assert.equal(headerMap.get('cross-origin-embedder-policy'), 'require-corp');
 assert.equal(headerMap.get('cross-origin-resource-policy'), 'same-origin');
 
+const targets = await readJson('deployment/targets.json');
+assert.equal(targets.schemaVersion, 1);
+assert.equal(targets.provider, 'vercel');
+assert.equal(targets.projectName, 'illustro');
+assert.equal(targets.repository, 'TtroFX/Illustro');
+assert.equal(targets.production?.branch, 'main');
+assert.equal(targets.production?.automaticDeployment, true);
+assert.equal(targets.preview?.branch, 'preview');
+assert.equal(
+  targets.preview?.fixedUrl,
+  'https://illustro-git-preview-ibukioike2009-7645s-projects.vercel.app',
+);
+
+const runtimeEvidence = await readJson('verification/m0.5-preview-runtime.json');
+assert.equal(runtimeEvidence.evidenceType, 'user-runtime-verification');
+assert.match(runtimeEvidence.build?.buildSha ?? '', /^[0-9a-f]{40}$/);
+assert.equal(runtimeEvidence.build?.buildMode, 'production');
+assert.equal(runtimeEvidence.location?.protocol, 'https:');
+assert.equal(runtimeEvidence.location?.secureContext, true);
+assert.equal(runtimeEvidence.isolation?.crossOriginIsolated, true);
+assert.equal(runtimeEvidence.isolation?.sharedArrayBuffer, true);
+assert.equal(runtimeEvidence.serviceWorker?.supported, true);
+assert.equal(runtimeEvidence.serviceWorker?.controlled, true);
+assert.equal(runtimeEvidence.manifest?.id, './');
+assert.equal(runtimeEvidence.manifest?.startUrl, './');
+assert.equal(runtimeEvidence.manifest?.display, 'standalone');
+
+const productionEvidence = await readJson('verification/m0.5-production-link.json');
+assert.equal(productionEvidence.evidenceType, 'user-confirmed-external-configuration');
+assert.equal(productionEvidence.provider, 'vercel');
+assert.equal(productionEvidence.projectName, targets.projectName);
+assert.equal(productionEvidence.repository, targets.repository);
+assert.equal(productionEvidence.productionBranch, targets.production.branch);
+assert.equal(productionEvidence.automaticProductionDeployment, true);
+assert.equal(productionEvidence.confirmation, 'user-confirmed');
+
+const deploymentGuide = await readText('DEPLOYMENT.md');
+assert.ok(deploymentGuide.includes(targets.preview.fixedUrl));
+assert.ok(deploymentGuide.includes(`${targets.preview.fixedUrl}/diagnostics/`));
+
 for (const path of [
   'dist/index.html',
   'dist/app-shell.css',
@@ -75,5 +115,7 @@ console.log(
     event: 'verify.m0.5.deployment-contract.pass',
     buildSha: build.buildSha,
     headers: Object.fromEntries(headerMap),
+    deploymentTargets: targets,
+    runtimeEvidenceBuildSha: runtimeEvidence.build.buildSha,
   }),
 );

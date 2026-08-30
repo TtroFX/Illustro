@@ -18,6 +18,10 @@ jobs:
           fetch-depth: 0
       - name: Capture checked out identity
         run: echo "ILLUSTRO_BUILD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Verify deployment branches
+        run: |
+          git fetch origin preview:refs/remotes/origin/preview
+          git show-ref --verify refs/remotes/origin/preview
       - uses: actions/setup-node@v5
         with:
           node-version: '22'

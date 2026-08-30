@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "user-runtime-verification",
+  "verifiedOn": "2026-08-30",
+  "deploymentUrl": "https://illustro-6fbdef9vq-ibukioike2009-7645s-projects.vercel.app",
+  "build": {
+    "buildSha": "fa2c007a1b3b61f6c2a0136baa281e727d455963",
+    "buildMode": "production"
+  },
+  "location": {
+    "protocol": "https:",
+    "secureContext": true
+  },
+  "isolation": {
+    "crossOriginIsolated": true,
+    "sharedArrayBuffer": true
+  },
+  "serviceWorker": {
+    "supported": true,
+    "controlled": true
+  },
+  "manifest": {
+    "id": "./",
+    "startUrl": "./",
+    "display": "standalone"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "user-confirmed-external-configuration",
+  "confirmedOn": "2026-08-30",
+  "provider": "vercel",
+  "projectName": "illustro",
+  "repository": "TtroFX/Illustro",
+  "productionBranch": "main",
+  "automaticProductionDeployment": true,
+  "confirmation": "user-confirmed",
+  "connectorReadback": {
+    "status": "unavailable",
+    "reason": "The connected Vercel read API did not expose the project/deployment while write-side deployment and browser runtime verification were available."
+  }
+}

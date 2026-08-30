@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "provider": "vercel",
+  "projectName": "illustro",
+  "scopeSlug": "ibukioike2009-7645s-projects",
+  "repository": "TtroFX/Illustro",
+  "production": {
+    "branch": "main",
+    "automaticDeployment": true
+  },
+  "preview": {
+    "branch": "preview",
+    "fixedUrl": "https://illustro-git-preview-ibukioike2009-7645s-projects.vercel.app",
+    "urlRule": "<project-name>-git-<branch-name>-<scope-slug>.vercel.app"
+  }
+}
