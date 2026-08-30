@@ -4712,3 +4712,129 @@ Manual edits to generated notice output must flow back to the reviewed provenanc
 
 - 2026-08-30: Closed final-integration Stages 4–6. Defined a dependency-driven M0–M12 implementation roadmap from canonical contracts through storage/render vertical slice, complete feature/UI/interoperability integration, hardening, frozen feature closure and immutable RC verification; fixed objective GO/NO-GO release criteria covering canonical correctness, data safety, Tier-A physical devices, performance, interoperability, PWA, accessibility and provenance; selected Apache-2.0 for first-party Illustro work and fixed synchronized LICENSE/NOTICE/third-party-license/CycloneDX-SBOM/offline-license packaging with default exclusion of incompatible or unresolved copied code. Final Completion Gate / `IMPLEMENTATION READY — DESIGN FREEZE` remains the only open final-integration design action.
 
+
+
+# Phase 7C Final Completion Gate — IMPLEMENTATION READY / DESIGN FREEZE — 2026-08-30
+
+**Status:** AUTHORITATIVE / FINAL / DESIGN FREEZE. This section is the final design-integration gate for the Illustro rebuild. It is based on the canonical `ILLUSTRO_DESIGN_MEMO.md` state at pre-freeze `main` commit `cfd26e8031d6963d9d778bd05e34b449368e57e9` and the Phase 7A/7B closures already recorded there. It does not claim that the application has been implemented, feature-complete, release-tested or released. It declares that the canonical design is sufficiently complete, internally integrated and bounded to begin implementation under the frozen specification.
+
+## FI-7. Final reverse-audit — PASS
+
+The final audit traversed the canonical design in reverse dependency order, from release/licensing/roadmap/testing back through assets/visual/UX/technical/data/product scope.
+
+### Closed design domains
+
+The following are all closed and mutually integrated at design level:
+
+1. **Phase 1 — Product / Platform:** product definition, frozen external-reference baseline, initial-release adopted/excluded/post-baseline dispositions, Tier-A platform/browser/runtime matrix, responsive policy, accessibility and localization.
+2. **Phase 2 — UX / Interaction:** information architecture, Tool Rail / Inspector / contextual surfaces, user flows, multimodal input arbitration, Command Registry, error/recovery UX.
+3. **Phase 3 — Data / File Format:** canonical document/layer/resource/brush/history models, `.illustro` v1 / `.illbrush`, color semantics and interoperability contracts.
+4. **Phase 4 — Renderer / Performance / Persistence:** WebGPU baseline, worker topology, sparse tile geometry, scheduling/cache/memory/input limits, canvas bounds, numeric performance targets, OPFS/journal/checkpoint/autosave/Undo/quota/recovery contracts.
+5. **Phase 5A F/G:** final UI structure and visual design system.
+6. **Phase 5B H:** app icon and UI iconography.
+7. **Phase 5C V:** motion and spatial-feedback system.
+8. **Phase I Final:** procedural-first production sampled-resource inventory.
+9. **Phase 6 J:** 48-preset default brush pack, tuning, thumbnails and design-stage QA.
+10. **Phase 7A Stages 1–3:** consistency audit, residual-decision closure and testing/verification architecture.
+11. **Phase 7B Stages 4–6:** implementation roadmap/dependency graph, objective release criteria, Apache-2.0 project license and third-party NOTICE/provenance/SBOM policy.
+
+**Result:** no current authoritative design domain remains OPEN.
+
+## FI-7.1. Residual marker audit — PASS
+
+The memo still intentionally preserves historical phase wording for traceability. The final audit specifically rechecked `OPEN`, `Not yet defined`, pending/provisional language and the original `Open questions` section.
+
+The following residual strings are **historical/superseded, not active design state**:
+
+- original `Testing / Completion Gates — Not yet defined` and detailed-roadmap placeholder → superseded by FI-3 and FI-4;
+- original Open Questions for Release Criteria and project license / third-party NOTICE → superseded by FI-5 and FI-6;
+- earlier F/G/H/V/I/J phase-boundary statements saying later visual/asset phases remained open → superseded by their later AUTHORITATIVE / CLOSED sections;
+- intermediate I inventory/counts and `J remains OPEN` statements → superseded by Phase I Final and Phase 6 J;
+- early browser/worker/SAB/tile/cache wording → superseded or bounded by Phase 1, Feasibility Closure and Phase 4 as already recorded by FI-1 precedence.
+
+The canonical precedence rule from FI-1 remains binding after Design Freeze. Historical text must not be interpreted as reopening a later explicit closure.
+
+## FI-7.2. Remaining blocker classification — PASS
+
+### Design blockers
+
+**Count: 0.**
+
+There is no remaining undefined product behavior, required feature-scope decision, canonical data semantic, UI/interaction contract, renderer/storage architecture decision, asset/brush design decision, testing contract, implementation-order dependency, release criterion or project-license/NOTICE policy that must be invented before implementation begins.
+
+### Intentionally implementation-time work
+
+The following are not design blockers because the memo already defines their governing contracts and acceptance gates:
+
+- writing production source code, shaders, schemas and tests;
+- selecting exact implementation libraries only after license/provenance review;
+- generating the real dependency inventory, `LICENSE`, `NOTICE`, third-party license bundle and CycloneDX SBOM from the implementation graph;
+- implementation-specific tuning explicitly delegated to profiling/adaptive policies inside already closed numeric or semantic bounds;
+- executing FI-3 verification suites and Stage-5 release matrices on real builds/devices;
+- fixing implementation defects that do not change canonical semantics;
+- measuring actual RC performance, fidelity, recovery and physical-input results.
+
+Any implementation discovery that would change observable product behavior, canonical persistence semantics, compatibility guarantees, closed numeric limits, required scope or release criteria is a **specification defect**, not an implementation-team discretion. It must follow the post-freeze change-control rule below.
+
+## FI-7.3. Post-freeze change control — CLOSED
+
+After this declaration, `ILLUSTRO_DESIGN_MEMO.md` remains the canonical source of truth, but its frozen design may change only through explicit change control.
+
+A post-freeze design change must:
+
+1. be recorded as an explicit **DESIGN CHANGE / SUPERSESSION** entry in the canonical memo;
+2. identify the exact frozen rule(s) being changed and the reason;
+3. identify every dependent phase/gate affected;
+4. reopen only the affected design gate(s), not unrelated closed domains;
+5. define any required `.illustro` / `.illbrush` migration, compatibility or user-data consequences before merge when persistent semantics change;
+6. update tests/fixtures/release criteria/provenance obligations affected by the change;
+7. rerun the applicable consistency and completion gates before the changed design is treated as frozen again.
+
+Implementation details, refactors, optimizations and bug fixes that preserve the frozen observable/canonical contract do **not** reopen Design Freeze.
+
+Post-baseline candidate features remain outside the frozen initial-release gate unless a later explicit adoption change reopens the appropriate scope gate.
+
+## FI-7.4. Implementation-entry contract — CLOSED
+
+Implementation is now authorized to begin at **M0** from FI-4. M0 establishes the repository/build/CI/verification/provenance foundation; later milestones must respect the dependency graph and milestone exit gates rather than jumping directly to disconnected feature accumulation.
+
+During implementation:
+
+- consult this memo before architecture/product decisions;
+- never silently redefine a frozen specification because code is easier another way;
+- maintain feature-inventory status as implementation/verification progresses;
+- attach FI-3 evidence to milestone/release claims;
+- use Stage-5 GO/NO-GO criteria for release, not implementation progress alone;
+- create meaningful Git commits and push them after coherent verified work units rather than accumulating large verified changes only locally.
+
+## FI-7.5. Meaning of this freeze
+
+This freeze means:
+
+- **Design complete enough to implement:** YES.
+- **All planned initial-release design domains integrated:** YES.
+- **Remaining authoritative design blockers:** 0.
+- **Implementation started by this gate:** NO.
+- **Feature implementation complete:** NO.
+- **Future FI-3 verification executed against the application:** NO.
+- **Release candidate Stage-5 GO:** NO; no RC exists yet.
+- **Production release ready:** NO.
+
+Those later implementation/release states can be achieved only through M0–M12 and the defined verification/release gates.
+
+# FINAL COMPLETION GATE
+
+**Stage 7 final reverse-audit result: PASS.**
+
+**Remaining pre-implementation design blockers: 0.**
+
+**Remaining final-integration design stages: 0.**
+
+# `IMPLEMENTATION READY — DESIGN FREEZE`
+
+The Illustro rebuild specification is now frozen for implementation as of 2026-08-30. The next authorized project phase is **M0 — implementation foundation**, not additional unconstrained design expansion.
+
+### Phase 7C change-log entry
+
+- 2026-08-30: Passed the final Completion Gate after reverse-auditing every closed product/platform/UX/data/renderer/persistence/visual/icon/motion/asset/brush/testing/roadmap/release/licensing domain; classified all remaining OPEN/placeholder strings as explicitly superseded history; confirmed zero authoritative pre-implementation design blockers; fixed post-freeze supersession/change-control rules; and declared **`IMPLEMENTATION READY — DESIGN FREEZE`** without claiming implementation or release completion.
+
