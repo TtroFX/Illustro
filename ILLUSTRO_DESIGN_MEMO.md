@@ -1281,7 +1281,7 @@ Adaptation must preserve document correctness and final visual semantics; perfor
 - Request persistent storage with `navigator.storage.persist()` where supported and record/check the result; persistence permission is an optimization to durability, not a guarantee the application may assume blindly.
 - Use `navigator.storage.persisted()` and `navigator.storage.estimate()` to monitor persistence state, usage, and quota.
 - Surface actionable storage-pressure warnings before the application reaches a condition where continued editing is unsafe.
-- OPFS is browser-managed working storage, not a substitute for an explicit user-controlled backup/export. The future `.illustro` exchange/archive format must allow projects to be exported outside origin storage.
+- OPFS is browser-managed working storage, not a substitute for an explicit user-controlled backup/export. The **`.illustro` v1 archive defined by P3-17 through P3-19** is the user-controlled project exchange/backup format outside origin storage.
 
 ### Project ownership
 
@@ -1389,7 +1389,7 @@ Illustro owns **document color semantics and explicit color transforms inside it
 - If a profile or transform cannot be supported reliably, Illustro must explicitly warn, require conversion, or reject the operation; it must not silently reinterpret color values.
 - Illustro does **not** require arbitrary access to the operating system's active monitor ICC profile, GPU calibration LUT, display hardware calibration or printer-driver color pipeline. Final screen presentation after Illustro emits correctly tagged/defined output is delegated to the browser/OS color-management stack.
 - sRGB/Display-P3 support therefore means Illustro preserves and converts document color semantics correctly within the web platform's controllable boundary; it is not a claim of native control over every physical display's calibration.
-- CMYK/print-output scope and advanced print rendering-intent UI remain governed by the separate pending-adoption decision and are not implied by this RGB closure.
+- CMYK/print-output scope and advanced print rendering-intent UI remain **POST-BASELINE** under P1-2/section 21 and are not implied by this RGB closure.
 
 ## FC-5. Lineart Boundary regeneration identity model — PASS
 
@@ -2200,7 +2200,7 @@ The following command IDs are canonical initial-release entries; parameterized c
 - Menus/UI surfaces do not call document mutations directly; they dispatch commands.
 - A disabled command reports why when invoked through an indirect surface such as shortcut/Quick Hole.
 - Auto Actions may record deterministic document/workspace-safe commands but must not record permission prompts, external file pickers, permanent deletion, recovery destruction, browser security decisions or other unsafe external side effects as blindly replayable steps.
-- Document-mutating command dispatch creates/joins the later N-defined transaction boundary; workspace commands never pollute document Undo history.
+- Document-mutating command dispatch creates/joins the canonical transaction boundary defined by **P3-13/P3-14**; workspace commands never pollute document Undo history.
 - Visual icon identifiers are references added during H; command identity never depends on icon artwork.
 
 ## P2-9. Error, warning and recovery UX contract — CLOSED
