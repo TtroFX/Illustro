@@ -1,0 +1,100 @@
+name: Repair and verify M2 project lifecycle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-project-fix-verify.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Repair exact optional types and test assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/storage/project-library.ts')
+          s=p.read_text()
+          old="""        now: input.now,
+        previewResourceId: input.previewResourceId ?? null,
+"""
+          new="""        ...(input.now === undefined ? {} : { now: input.now }),
+        ...(input.previewResourceId === undefined
+          ? {}
+          : { previewResourceId: input.previewResourceId }),
+"""
+          if old not in s:
+              raise SystemExit('create optional-property target missing')
+          s=s.replace(old,new,1)
+          old="""      documentRevision: source.documentRevision,
+      now: input.now,
+      previewResourceId: source.metadata.previewResourceId,
+"""
+          new="""      documentRevision: source.documentRevision,
+      ...(input.now === undefined ? {} : { now: input.now }),
+      previewResourceId: source.metadata.previewResourceId,
+"""
+          if old not in s:
+              raise SystemExit('duplicate optional-property target missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          p=Path('tests/unit/project-library.test.ts')
+          s=p.read_text()
+          old="""    const illustroRoot = storage.root.directories.get('illustro');
+    expect(illustroRoot).toBeDefined();
+    const newest = illustroRoot!.files.get('library-b.json');
+    expect(newest).toBeDefined();
+    newest!.bytes = new TextEncoder().encode('{broken');
+"""
+          new="""    const illustroRoot = storage.root.directories.get('illustro');
+    if (illustroRoot === undefined) throw new Error('Illustro OPFS root missing');
+    const newest = illustroRoot.files.get('library-b.json');
+    if (newest === undefined) throw new Error('newest library slot missing');
+    newest.bytes = new TextEncoder().encode('{broken');
+"""
+          if old not in s:
+              raise SystemExit('project test assertion target missing')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - run: npx biome format --write src/storage/project-library.ts tests/unit/project-library.test.ts
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: Production build
+        run: npm run build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Commit verified repair and remove one-shot workflows
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-project-fix-verify.yml
+          if [ -f .github/workflows/m2-project-verify.yml ]; then git rm .github/workflows/m2-project-verify.yml; fi
+          git add src/storage/project-library.ts tests/unit/project-library.test.ts
+          git commit -m 'fix: verify local project lifecycle integration [skip ci]'
+          git push
