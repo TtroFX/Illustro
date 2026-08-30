@@ -23,8 +23,8 @@ describe('production build output', () => {
     expect(serviceWorker).toContain('APP_SHELL');
     expect(serviceWorker).toContain('cache.addAll(APP_SHELL)');
     expect(main).toContain('illustroRuntime');
-    expect(renderWorker).toContain('render-worker-ready');
-    expect(storageWorker).toContain('storage-worker-ready');
+    expect(renderWorker).toContain('worker.render.ready');
+    expect(storageWorker).toContain('worker.storage.ready');
 
     const identity = JSON.parse(buildInfo) as { buildSha?: string; buildMode?: string };
     expect(identity.buildSha?.length).toBeGreaterThan(0);
