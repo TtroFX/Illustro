@@ -47,7 +47,7 @@ jobs:
           path.write_text('\n'.join(lines) + marker + suffix, encoding='utf-8')
           PY
       - name: Remove one-time bootstrap transport
-        run: rm -rf .m0-bootstrap bootstrap-m0.mjs .github/workflows/bootstrap-m0.yml
+        run: rm -rf .m0-bootstrap .m0-bootstrap-bin bootstrap-m0.mjs .github/workflows/bootstrap-m0.yml
       - name: Commit verified M0 foundation
         run: |
           git diff --check
