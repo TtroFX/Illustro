@@ -67,14 +67,14 @@ M1-003 Resource ID:完了
 M1-004 Object ID:完了
 M1-005 Node ID:完了
 M1-006 revision model:完了
-M1-007 DocumentV1:未完了
-M1-008 CanvasSpec:未完了
-M1-009 document color metadata:未完了
-M1-010 document precision metadata:未完了
-M1-011 resolution/DPI metadata:未完了
-M1-012 project metadata state:未完了
-M1-013 workspace/session state store:未完了
-M1-014 derived/cache state boundary:未完了
+M1-007 DocumentV1:完了
+M1-008 CanvasSpec:完了
+M1-009 document color metadata:完了
+M1-010 document precision metadata:完了
+M1-011 resolution/DPI metadata:完了
+M1-012 project metadata state:完了
+M1-013 workspace/session state store:完了
+M1-014 derived/cache state boundary:完了
 M1-015 common Layer base schema:未完了
 M1-016 Raster Layer schema:未完了
 M1-017 Folder Layer schema:未完了
