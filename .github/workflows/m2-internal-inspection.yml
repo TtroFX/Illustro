@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/m2-internal-inspection.yml'
+      - 'scripts/verify-m2-persistence.mjs'
 
 permissions:
   contents: write
