@@ -24,13 +24,13 @@ describe('migration framework', () => {
     const registry = new MigrationRegistryV1();
     registry.registerMany([
       createMigrationStep({
-        id: 'migration.document.1-0-to-1-1',
+        id: 'migration.document.v1-0-to-v1-1',
         from: parseSchemaVersion('1.0'),
         to: parseSchemaVersion('1.1'),
         migrate: (input) => ({ ...(input as Record<string, never>), migrated: true }),
       }),
       createMigrationStep({
-        id: 'migration.document.1-1-to-1-2',
+        id: 'migration.document.v1-1-to-v1-2',
         from: parseSchemaVersion('1.1'),
         to: parseSchemaVersion('1.2'),
         migrate: (input) => ({ ...(input as Record<string, never>), version: '1.2' }),

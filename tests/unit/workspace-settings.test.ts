@@ -25,6 +25,8 @@ describe('workspace state schema', () => {
 
   it('rejects impossible dock duplication and unusable geometry', () => {
     const baseline = createDefaultWorkspaceStateV1();
+    const firstDockedBlockId = baseline.layout.dockedBlockOrder[0];
+    if (firstDockedBlockId === undefined) throw new Error('default workspace must contain a docked block');
     expect(() =>
       normalizeWorkspaceStateV1({
         ...baseline,
@@ -32,7 +34,7 @@ describe('workspace state schema', () => {
           ...baseline.layout,
           detachedBlocks: [
             {
-              blockId: baseline.layout.dockedBlockOrder[0]!,
+              blockId: firstDockedBlockId,
               x: 0,
               y: 0,
               width: 200,
