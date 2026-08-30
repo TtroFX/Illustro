@@ -7,12 +7,12 @@ Canonical specification: `ILLUSTRO_DESIGN_MEMO.md`
 Status values: `未完了` / `完了`
 
 ## M0 — Repository / Build / Engineering Foundation
-M0-001 Web/PWAプロジェクト初期化:未完了
-M0-002 TypeScript構成:未完了
-M0-003 production build構成:未完了
-M0-004 development build構成:未完了
-M0-005 WebGPU build path:未完了
-M0-006 WGSL shader asset pipeline:未完了
+M0-001 Web/PWAプロジェクト初期化:完了
+M0-002 TypeScript構成:完了
+M0-003 production build構成:完了
+M0-004 development build構成:完了
+M0-005 WebGPU build path:完了
+M0-006 WGSL shader asset pipeline:完了
 M0-007 Dedicated Worker build構成:未完了
 M0-008 Storage Worker build構成:未完了
 M0-009 Service Worker基盤:未完了
