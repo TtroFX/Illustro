@@ -1,0 +1,43 @@
+name: Reopen M2 tile selection policy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-tile-policy-reopen.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  reopen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Reopen M2-019 until canonical threshold is verified
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          old = 'M2-019 raw/LZ4 automatic selection policy:完了'
+          new = 'M2-019 raw/LZ4 automatic selection policy:未完了'
+          if old not in text and new not in text:
+              raise SystemExit('M2-019 progress line not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit progress correction and remove one-shot workflow
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/m2-tile-policy-reopen.yml
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: reopen M2 tile selection policy [skip ci]'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          exit 1
