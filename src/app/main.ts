@@ -92,7 +92,8 @@ publishCapabilityProfile('pending');
 void inspectWebGpuBuildPath()
   .then((result) => {
     root.dataset.illustroWebgpu = result.status;
-    root.dataset.illustroWebgpuCoreProfile = result.profile?.supported === true ? 'supported' : 'unsupported';
+    root.dataset.illustroWebgpuCoreProfile =
+      result.profile?.supported === true ? 'supported' : 'unsupported';
     root.dataset.illustroWebgpuShaderF16 = result.shaderF16 ? 'available' : 'unavailable';
     root.dataset.illustroWebgpuLimitFailures =
       result.profile?.failures.map((entry) => entry.limit).join(',') ?? '';

@@ -8,20 +8,20 @@ import {
   type WebGpuLimitsLikeV1,
 } from '../../src/gpu/webgpu-capability.js';
 
-function limits(
-  overrides: Partial<WebGpuLimitsLikeV1> = {},
-): WebGpuLimitsLikeV1 {
+function limits(overrides: Partial<WebGpuLimitsLikeV1> = {}): WebGpuLimitsLikeV1 {
   return {
     ...WEBGPU_CORE_LIMIT_REQUIREMENTS,
     ...overrides,
   };
 }
 
-function adapter(input: {
-  readonly limits?: Partial<WebGpuLimitsLikeV1>;
-  readonly shaderF16?: boolean;
-  readonly failDevice?: boolean;
-} = {}): IllustroGpuAdapterV1 {
+function adapter(
+  input: {
+    readonly limits?: Partial<WebGpuLimitsLikeV1>;
+    readonly shaderF16?: boolean;
+    readonly failDevice?: boolean;
+  } = {},
+): IllustroGpuAdapterV1 {
   return {
     limits: limits(input.limits),
     features: {

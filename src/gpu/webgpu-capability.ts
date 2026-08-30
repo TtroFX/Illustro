@@ -110,10 +110,7 @@ function browserGpu(): IllustroGpuV1 | null {
 }
 
 export async function acquireCoreWebGpuV1(
-  input: {
-    readonly secureContext?: boolean;
-    readonly gpu?: IllustroGpuV1 | null;
-  } = {},
+  input: { readonly secureContext?: boolean; readonly gpu?: IllustroGpuV1 | null } = {},
 ): Promise<WebGpuAcquireResultV1> {
   const secureContext = input.secureContext ?? globalThis.isSecureContext;
   if (!secureContext) {
