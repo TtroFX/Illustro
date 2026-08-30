@@ -870,13 +870,9 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 
 # Open questions
 
-- Product definition and target user beyond the confirmed single-illustration focus
-- Exact minimum supported device/browser matrix and compatibility tiers
-- Remaining external-application feature audit after the current ibisPaint/CSP/mandatory-capability inventory
 - Exact editor information architecture and panel inventory
 - Exact left-toolbar tool inventory/order
 - Exact right-inspector tabs/panels and fixed-bottom controls
-- Responsive behavior for narrower tablets/phones
 - Document data model
 - Brush-asset schema details and versioned preset representation beneath the adopted canonical brush capabilities
 - Layer model implementation details beyond the adopted Lineart Group semantics
@@ -1003,3 +999,199 @@ None of these closures removes an already adopted user-facing painting capabilit
 ## Feasibility closure change-log entry
 
 - 2026-08-30: Closed the six feasibility-review findings by freezing the external-reference audit baseline, bounding proprietary brush-format support, making WebGPU the explicit full-editor minimum requirement, defining the web color-management boundary, replacing permanent auto-graph identity assumptions with semantic Lineart override remapping, and creating a redundant SHA-pinned UI-reference backup.
+
+# Phase 1 Product / Platform Closure — 2026-08-30
+
+**Status:** authoritative Phase-1 specification. This is **not** the final global Design Freeze. F/G/H/I/V visual/asset decisions and later technical phases may still expose integration adjustments; any such change requires an explicit supersession rather than silently reopening Phase-1 decisions.
+
+## P1-1. Product definition and target users — CLOSED
+
+Illustro is a **serious single-illustration raster-first painting and image-editing application** with deep non-destructive, vector-path/shape, color, lineart and productivity support.
+
+### Primary users
+
+- Digital illustrators who primarily create one finished illustration per document and want a pen/touch-first workflow without giving up desktop-class depth.
+- Serious hobbyists through professional/advanced users. First-run defaults must remain learnable for less experienced artists, but the product must not reduce capability merely to remain beginner-simple.
+- Artists working mainly on pen-enabled tablets are the **primary interaction target**.
+
+### Secondary users
+
+- Desktop/laptop artists using mouse + keyboard, pen tablet, or pen display.
+- Users who open projects without a stylus must still be able to perform ordinary editing, selection, transform, layer, color, file and navigation operations.
+
+### Explicit non-target product categories
+
+- Comic/book/multi-page production as the primary workflow.
+- Animation/multi-frame artwork production.
+- 3D creation/posing/reference subsystems.
+- Public content/material marketplace or social-distribution platform.
+- Server/account-dependent collaborative editing or cloud-first document correctness.
+- Phone-first production UI for the initial release.
+
+The application may later grow beyond these boundaries only through explicit adoption decisions.
+
+## P1-2. Final initial-release feature-scope decisions — CLOSED
+
+The initial release includes all previously adopted capabilities plus the resolved decisions in section 21 above. The following additional capabilities are adopted from the completed Procreate/Krita/Photoshop/Infinite Painter audit because they materially improve one-illustration work and do not require excluded product categories.
+
+### Newly adopted capabilities
+
+1. **Seeded Auto-Colorize / Flatting Assist.** The user can place color-indication strokes/seeds over lineart and compute region colors automatically. It should integrate with Lineart Boundary/region infrastructure where useful and remain editable/recomputable before conversion to ordinary paint data.
+2. **Gamut Mask / Palette Constraint.** User-definable gamut masks can constrain compatible color selectors and be saved/imported/exported as Illustro resources.
+3. **Split by Color.** Convert color regions into separate paint layers and/or reusable selection-mask regions using configurable tolerance/fuzziness; useful after flatting and colorize-assist workflows.
+4. **Pattern Fill.** Local/user-imported seamless pattern tiles can fill selections/regions/layers with transformable scale/rotation/offset and ordinary color/opacity adjustment. No online material catalog is implied.
+5. **Magnetic / Edge-aware Selection.** Add an edge-following magnetic selection mode to the existing lasso/automatic/color-range/brush selection family.
+6. **Content-Aware Fill / Smart Patch.** Provide a deterministic/local context-aware repair/fill tool for removing or replacing selected image regions. This is distinct from cloud/generative image synthesis and must not require a generative-AI backend.
+7. **Hatching Guide.** Provide a guide that helps produce repeated controlled hatch strokes with configurable direction/spacing behavior using the current brush.
+8. **Conical/Sweep Gradient.** Explicitly include conical/sweep gradient geometry alongside linear/radial and already-adopted advanced gradient workflows.
+
+### Audit items already covered by existing Illustro capability
+
+- Procreate-style QuickShape is covered by the adopted Smart Shape/post-stroke recognition system.
+- Procreate Drawing Assist, perspective and symmetry behavior are covered by the ruler/guide and assisted drawing systems.
+- Procreate Reference Layer is already covered by Reference Layer + Fill/Selection/anti-overflow workflows.
+- Krita Transform Mask capability is covered by the adopted non-destructive transform representation.
+- Krita Enclose and Fill is already adopted.
+- Photoshop Smart Object/Smart Filter-class needs are covered by linked/embedded object-style layers, non-destructive transform and non-destructive filter stacks.
+- Infinite Painter reference images, lazy/stabilized drawing, pattern assets and geometric guides are either already covered or explicitly adopted above.
+
+### Explicit audit exclusions / post-baseline items
+
+- Krita-style Wrap-Around/seamless-canvas authoring mode is not an initial-release requirement; pattern resources can still be imported/created through normal asset workflows.
+- HDR-display/mastering workflow is not an initial-release completion gate. RGBA16F-class internal capability remains an architectural option; a dedicated HDR product workflow requires later adoption.
+- Cloud generative-image creation/editing features are **not part of the initial release baseline**. Local deterministic tools such as Color Match, Smart Patch, selection/fill analysis and future Shading Assist are not classified as generative-image features merely because they automate image processing.
+
+The 2026-08-30 external-application audit is therefore **closed for the initial release baseline**. New reference-app releases after the frozen audit date follow FC-1 and enter the post-baseline candidate queue unless explicitly adopted.
+
+## P1-3. Supported platform / browser matrix — CLOSED
+
+Full-editor support requires **all** of: a supported OS/browser combination below, secure HTTPS context, a qualifying WebGPU core adapter/device, required storage APIs, and the full-editor viewport tier. Browser/OS version alone never overrides a failed runtime capability gate.
+
+### Tier A — supported and release-QA required
+
+| Platform | Minimum OS | Minimum browser | Full-editor status |
+| --- | --- | --- | --- |
+| iPad | **iPadOS 26.6** | **Safari 26.6** / installed Safari Web App | Supported when runtime gates pass |
+| Android tablet | **Android 12** | **Chrome 152** | Supported when runtime gates pass |
+| Windows desktop/laptop | **Windows 11 25H2** | **Chrome 152** or **Edge 152** | Supported when runtime gates pass |
+| macOS desktop/laptop | **macOS Sonoma 14.8.8** or later | **Safari 26.6** or **Chrome 152** | Supported when runtime gates pass |
+
+Later stable releases of those browsers/OS families remain in scope unless a known regression is documented. Exact release-QA device samples will be fixed in the later testing/release phase; this matrix defines the minimum product contract.
+
+### Tier B — best-effort / not an initial release gate
+
+- ChromeOS/Chromium systems with a qualifying WebGPU adapter.
+- Firefox desktop/Android when its WebGPU/storage implementation passes Illustro runtime detection.
+- Chromium-derived browsers other than tested Chrome/Edge.
+
+Tier B environments may work but are not entitled to release-blocking compatibility treatment until explicitly promoted to Tier A.
+
+### Unsupported for the initial full editor
+
+- Browsers without a qualifying WebGPU implementation.
+- iPhone/Android-phone narrow layouts below the full-editor viewport gate.
+- Legacy OS/browser combinations below Tier-A minimums.
+- Embedded/in-app WebViews unless explicitly tested and promoted later.
+
+### Runtime gates
+
+Before entering full editing, startup must verify at minimum:
+
+- secure context;
+- `navigator.gpu` and successful request of a **core** WebGPU adapter/device satisfying the later numeric minimum capability profile;
+- OPFS availability through `navigator.storage.getDirectory()`;
+- required Worker/Transferable functionality;
+- required cross-origin-isolation contract when enabling SharedArrayBuffer paths;
+- full-editor viewport eligibility;
+- sufficient available storage for safe project creation/opening, evaluated by the storage subsystem rather than a hard-coded browser-name assumption.
+
+WebGPU compatibility-mode adapters may be experimented with later, but **core WebGPU is the initial Tier-A full-editor baseline**. Missing optional features such as `shader-f16` do not by themselves fail support.
+
+### Rationale snapshot
+
+At this closure date, Chrome 152 is the stable desktop/Android baseline and Edge 152 is stable; Safari 26.6 is the stable Safari line, and Safari 26 introduced WebGPU. OPFS is broadly available across modern browsers. WebGPU itself still has uneven browser-wide availability, so runtime capability detection remains authoritative over version labels.
+
+## P1-4. Responsive product behavior — CLOSED
+
+Responsive behavior is divided into **functional viewport tiers**. Exact visual arrangement, component dimensions, color and motion belong to F/G/V and are intentionally not frozen here.
+
+### Wide full editor — viewport width >= 1100 CSS px
+
+- Full production editor.
+- May present left tool rail, central canvas and right inspector simultaneously.
+- Detached panels/PiPs and desktop-style command surfaces are allowed.
+
+### Compact full editor — viewport width 600–1099 CSS px
+
+- Full production capability remains available.
+- The UI may collapse, overlay, temporarily hide or single-stack inspectors/tool groups to protect canvas space.
+- No adopted editing capability may disappear solely because the viewport is in this tier; access may move behind contextual/progressive-disclosure surfaces.
+
+### Narrow shell — viewport width < 600 CSS px
+
+- **Not a full-production-editor target for the initial release.**
+- Provide a coherent narrow shell for project listing/open metadata, compatibility diagnostics, recovery/export/backup where technically safe, settings/help and an explanation that full editing requires a larger viewport.
+- Do not create a separate phone-first editing architecture merely to claim feature parity on narrow screens.
+
+### Resize/orientation behavior
+
+- Crossing a viewport tier must preserve document state, active tool, selections and workspace state; responsive layout changes are presentation changes, not document commands.
+- Tablet portrait is supported when it remains >=600 CSS px wide; compact presentation is expected.
+- Orientation changes and desktop window resizes must not discard detached-panel/workspace state. When a saved position becomes invalid, clamp/reflow it into the visible work area while preserving its logical detached/docked state.
+
+## P1-5. Accessibility and inclusive-input contract — CLOSED
+
+Illustro targets **WCAG 2.2 AA for application UI** where applicable to a highly interactive graphics editor, with additional pen/touch ergonomics beyond minimum AA requirements.
+
+### Required accessibility behavior
+
+- Ordinary text targets at least **4.5:1** contrast; large text may use the WCAG large-text threshold; essential UI component/focus boundaries target at least **3:1** against adjacent colors.
+- State must never be conveyed by hue alone. Selected/error/warning/success states require shape, label, icon, border, pattern or other redundant indication.
+- Visible keyboard focus is mandatory for keyboard-focusable controls.
+- All ordinary application commands and controls must be operable by keyboard where the command itself does not intrinsically require freehand pointer geometry. Freehand drawing does not need to be recreated through arrow-key pixel painting.
+- Toolbars, menus, dialogs, fields, sliders, tabs, layer trees and command surfaces require semantic accessible names/roles/states compatible with platform accessibility APIs.
+- The artwork canvas must expose meaningful editor/document context and focusable associated commands, but Illustro does not claim to generate a semantic description of arbitrary user artwork pixels.
+- Respect `prefers-reduced-motion`; non-essential motion must be suppressible/reduced without removing functional feedback.
+- Support UI scaling and user-resizable workspace surfaces. Exact scale presets/ranges are finalized with G, but implementation must not assume one immutable pixel density.
+- Support left-handed workspace rearrangement through the adopted customizable workspace rather than hard-coding critical controls to one side only.
+- Pen pressure, tilt, hover or stylus buttons may improve drawing but cannot be mandatory for basic document editing; ordinary mouse/touch alternatives remain available.
+- Touch-first primary controls should target approximately **44×44 CSS px or larger hit regions** when practical. Dense pointer-oriented surfaces may visually appear smaller only when spacing/expanded hit regions/alternate access preserve reliable operation; never fall below WCAG 2.2 minimum target-size semantics without an allowed exception.
+- Shortcut customization must detect/report conflicts and must always provide a reset-to-default path.
+- Error/recovery flows must not rely on transient toast color alone; persistent actionable text is required for data-safety failures.
+
+## P1-6. Localization / terminology contract — CLOSED
+
+Initial release UI languages are:
+
+- **Japanese (`ja-JP`)**
+- **English (`en`)**
+
+### Localization architecture
+
+- Detect the user's preferred locale on first run; allow explicit language override in settings.
+- Unsupported locales fall back to English.
+- All user-facing application strings, accessibility labels, menu names, dialog copy, error/recovery messages, built-in preset names/descriptions and shortcut labels use localization keys rather than hard-coded concatenated prose.
+- Stable internal IDs, schema keys, command IDs, file-format fields and resource IDs are locale-neutral and never translated.
+- User-created layer/preset/project/resource names remain exactly as entered unless the user edits them.
+- Use `Intl`/BCP-47-aware formatting for dates, times and locale-facing numbers. Persisted numeric/schema values remain locale-independent.
+- Canonical units use explicit semantics (pixels, percent, degrees, DPI/PPI metadata as defined later); decimal display follows locale while serialized data does not.
+- Avoid embedding translatable text into icons, generated textures or other raster assets. Text-bearing onboarding/help imagery requires localized variants or live text overlays.
+- Maintain a terminology glossary so Japanese/English names for tools, layer types, Lineart concepts, blend modes and import/export warnings remain consistent across UI, help and compatibility reports.
+
+## P1-7. Phase 1 completion result
+
+The following previously open pre-implementation decisions are closed:
+
+1. product definition and target audience;
+2. initial-release adoption/exclusion/post-baseline decisions for all previously pending features;
+3. remaining 2026-08-30 external-application feature audit for the initial baseline;
+4. exact minimum Tier-A OS/browser matrix and runtime-gate policy;
+5. phone/narrow-tablet responsive product policy;
+6. accessibility/inclusive-input contract;
+7. Japanese/English localization contract.
+
+This Phase-1 closure does **not** finalize F/G/H/I/V visual or asset work and does **not** declare Illustro globally `IMPLEMENTATION READY`. Global Design Freeze remains reserved for the final integration phase after the jointly decided visual/icon/texture/motion work and the remaining internal technical phases are complete.
+
+## Phase 1 change-log entry
+
+- 2026-08-30: Closed Phase 1 product/platform planning: fixed the target audience and supported runtime matrix, resolved all previously pending feature candidates, completed the frozen external-app feature audit with additional single-illustration capabilities, defined wide/compact/narrow responsive behavior, adopted WCAG-2.2-AA-oriented accessibility requirements, and fixed Japanese/English localization architecture without declaring the final global Design Freeze.
