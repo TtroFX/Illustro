@@ -19,13 +19,13 @@ M0-009 Service Worker基盤:完了
 M0-010 PWA manifest基盤:完了
 M0-011 static asset管理構造:完了
 M0-012 environment/runtime configuration基盤:完了
-M0-013 capability情報取得基盤:未完了
-M0-014 structured logging基盤:未完了
-M0-015 diagnostics基盤:未完了
-M0-016 performance instrumentation基盤:未完了
-M0-017 fixture/golden-data配置構造:未完了
-M0-018 benchmark harness基盤:未完了
-M0-019 build identity/commit SHA埋め込み:未完了
+M0-013 capability情報取得基盤:完了
+M0-014 structured logging基盤:完了
+M0-015 diagnostics基盤:完了
+M0-016 performance instrumentation基盤:完了
+M0-017 fixture/golden-data配置構造:完了
+M0-018 benchmark harness基盤:完了
+M0-019 build identity/commit SHA埋め込み:完了
 M0-020 formatting構成:未完了
 M0-021 lint構成:未完了
 M0-022 typecheck構成:未完了
