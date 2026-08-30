@@ -172,9 +172,9 @@ export function validateValueSchema(
       if (schema.maxItems !== undefined && value.length > schema.maxItems) {
         issues.push(issue(path, 'maxItems', `array must contain at most ${schema.maxItems} items`));
       }
-      value.forEach((item, index) =>
-        issues.push(...validateValueSchema(item, schema.items, `${path}[${index}]`)),
-      );
+      for (const [index, item] of value.entries()) {
+        issues.push(...validateValueSchema(item, schema.items, `${path}[${index}]`));
+      }
       break;
     case 'object': {
       if (value === null || Array.isArray(value) || typeof value !== 'object') {
