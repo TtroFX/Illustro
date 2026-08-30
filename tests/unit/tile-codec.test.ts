@@ -125,7 +125,12 @@ describe('raster and mask tile persistence codecs', () => {
     });
     expect(encoded.codec).toBe('raw');
     const decoded = decodeTile(encoded.bytes);
-    expect(decoded).toMatchObject({ width: 16, height: 16, pixelFormat: 'rgba8-unorm', codec: 'raw' });
+    expect(decoded).toMatchObject({
+      width: 16,
+      height: 16,
+      pixelFormat: 'rgba8-unorm',
+      codec: 'raw',
+    });
     expect(decoded.bytes).toEqual(source);
   });
 

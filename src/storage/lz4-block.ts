@@ -28,7 +28,8 @@ class ByteWriter {
   }
 
   writeByte(value: number): void {
-    if (this.#offset >= this.#bytes.byteLength) throw new RangeError('LZ4 output exceeded compression bound');
+    if (this.#offset >= this.#bytes.byteLength)
+      throw new RangeError('LZ4 output exceeded compression bound');
     this.#bytes[this.#offset] = value & 0xff;
     this.#offset += 1;
   }
@@ -55,11 +56,12 @@ function ownedBytes(data: Uint8Array | ArrayBuffer): Uint8Array<ArrayBuffer> {
 
 function readU32(bytes: Uint8Array, offset: number): number {
   return (
-    bytes[offset]! |
-    (bytes[offset + 1]! << 8) |
-    (bytes[offset + 2]! << 16) |
-    (bytes[offset + 3]! << 24)
-  ) >>> 0;
+    (bytes[offset]! |
+      (bytes[offset + 1]! << 8) |
+      (bytes[offset + 2]! << 16) |
+      (bytes[offset + 3]! << 24)) >>>
+    0
+  );
 }
 
 function hashSequence(bytes: Uint8Array, offset: number): number {
@@ -104,11 +106,7 @@ export function compressLz4Block(data: Uint8Array | ArrayBuffer): Uint8Array<Arr
     const reference = table[hash]!;
     table[hash] = cursor;
 
-    if (
-      reference < 0 ||
-      cursor - reference > MAX_OFFSET ||
-      !sameFour(input, reference, cursor)
-    ) {
+    if (reference < 0 || cursor - reference > MAX_OFFSET || !sameFour(input, reference, cursor)) {
       cursor += 1;
       continue;
     }
@@ -151,11 +149,7 @@ export function compressLz4Block(data: Uint8Array | ArrayBuffer): Uint8Array<Arr
   return writer.finish();
 }
 
-function readLength(
-  input: Uint8Array,
-  cursor: { value: number },
-  initial: number,
-): number {
+function readLength(input: Uint8Array, cursor: { value: number }, initial: number): number {
   let length = initial;
   if (initial !== 15) return length;
   for (;;) {
@@ -189,7 +183,8 @@ export function decompressLz4Block(
     cursor.value += 1;
     const literalLength = readLength(input, cursor, token >>> 4);
     if (cursor.value + literalLength > input.byteLength) throw new Error('truncated LZ4 literals');
-    if (outputOffset + literalLength > output.byteLength) throw new Error('LZ4 literals exceed output');
+    if (outputOffset + literalLength > output.byteLength)
+      throw new Error('LZ4 literals exceed output');
     output.set(input.subarray(cursor.value, cursor.value + literalLength), outputOffset);
     cursor.value += literalLength;
     outputOffset += literalLength;
@@ -198,7 +193,8 @@ export function decompressLz4Block(
     if (cursor.value + 2 > input.byteLength) throw new Error('truncated LZ4 match offset');
     const matchOffset = input[cursor.value]! | (input[cursor.value + 1]! << 8);
     cursor.value += 2;
-    if (matchOffset === 0 || matchOffset > outputOffset) throw new Error('invalid LZ4 match offset');
+    if (matchOffset === 0 || matchOffset > outputOffset)
+      throw new Error('invalid LZ4 match offset');
 
     const matchLength = readLength(input, cursor, token & 0x0f) + MIN_MATCH;
     if (outputOffset + matchLength > output.byteLength) throw new Error('LZ4 match exceeds output');
@@ -210,7 +206,9 @@ export function decompressLz4Block(
   }
 
   if (outputOffset !== expectedByteLength) {
-    throw new Error(`LZ4 output length mismatch: expected ${expectedByteLength}, got ${outputOffset}`);
+    throw new Error(
+      `LZ4 output length mismatch: expected ${expectedByteLength}, got ${outputOffset}`,
+    );
   }
   return output;
 }

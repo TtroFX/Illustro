@@ -1,7 +1,4 @@
-import {
-  putImmutableObject,
-  type ImmutableObjectWriteResultV1,
-} from './immutable-object-store.js';
+import { putImmutableObject, type ImmutableObjectWriteResultV1 } from './immutable-object-store.js';
 import { compressLz4Block, decompressLz4Block } from './lz4-block.js';
 import type { IllustroOpfsRootV1 } from './opfs-layout.js';
 
@@ -102,7 +99,11 @@ function validatePolicy(policy: TileCodecPolicyV1): void {
   if (!Number.isSafeInteger(policy.minSavingsBytes) || policy.minSavingsBytes < 0) {
     throw new RangeError('minSavingsBytes must be a non-negative safe integer');
   }
-  if (!Number.isFinite(policy.minSavingsRatio) || policy.minSavingsRatio < 0 || policy.minSavingsRatio > 1) {
+  if (
+    !Number.isFinite(policy.minSavingsRatio) ||
+    policy.minSavingsRatio < 0 ||
+    policy.minSavingsRatio > 1
+  ) {
     throw new RangeError('minSavingsRatio must be in 0..1');
   }
 }
@@ -126,7 +127,9 @@ function validateTileInput(input: {
   const bytes = ownedBytes(input.bytes);
   const expected = expectedByteLength(input.width, input.height, input.pixelFormat);
   if (bytes.byteLength !== expected) {
-    throw new RangeError(`tile byte length mismatch: expected ${expected}, got ${bytes.byteLength}`);
+    throw new RangeError(
+      `tile byte length mismatch: expected ${expected}, got ${bytes.byteLength}`,
+    );
   }
   return bytes;
 }
@@ -139,7 +142,8 @@ function buildEnvelope(input: {
   rawByteLength: number;
   payload: Uint8Array<ArrayBuffer>;
 }): EncodedTileV1 {
-  if (input.payload.byteLength > MAX_U32) throw new RangeError('encoded tile exceeds payload length field');
+  if (input.payload.byteLength > MAX_U32)
+    throw new RangeError('encoded tile exceeds payload length field');
   const output = new Uint8Array(TILE_ENVELOPE_HEADER_BYTES + input.payload.byteLength);
   output.set(TILE_MAGIC, 0);
   const view = new DataView(output.buffer);
@@ -275,7 +279,8 @@ export function encodeMaskTile(
 export function decodeTile(data: Uint8Array | ArrayBuffer): DecodedTileV1 {
   const encoded = ownedBytes(data);
   if (encoded.byteLength < TILE_ENVELOPE_HEADER_BYTES) throw new Error('truncated tile envelope');
-  if (!sameBytes(encoded.subarray(0, 4), TILE_MAGIC)) throw new Error('invalid tile envelope magic');
+  if (!sameBytes(encoded.subarray(0, 4), TILE_MAGIC))
+    throw new Error('invalid tile envelope magic');
   const view = new DataView(encoded.buffer, encoded.byteOffset, encoded.byteLength);
   const version = view.getUint8(4);
   if (version !== TILE_CODEC_VERSION) throw new Error(`unsupported tile codec version: ${version}`);
@@ -325,7 +330,8 @@ export async function persistRasterTile(
   },
   policy: TileCodecPolicyV1 = DEFAULT_TILE_CODEC_POLICY,
 ): Promise<PersistedTileV1> {
-  if (!isRasterFormat(input.pixelFormat)) throw new TypeError('raster tiles require an RGBA pixel format');
+  if (!isRasterFormat(input.pixelFormat))
+    throw new TypeError('raster tiles require an RGBA pixel format');
   return persistEncodedTile(root, encodeRasterTileAuto(input, policy));
 }
 
@@ -339,6 +345,7 @@ export async function persistMaskTile(
   },
   policy: TileCodecPolicyV1 = DEFAULT_TILE_CODEC_POLICY,
 ): Promise<PersistedTileV1> {
-  if (!isMaskFormat(input.pixelFormat)) throw new TypeError('mask tiles require a single-channel pixel format');
+  if (!isMaskFormat(input.pixelFormat))
+    throw new TypeError('mask tiles require a single-channel pixel format');
   return persistEncodedTile(root, encodeMaskTile(input, policy));
 }

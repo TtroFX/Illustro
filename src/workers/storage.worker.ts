@@ -151,9 +151,7 @@ function isTilePixelFormat(value: unknown): value is TilePixelFormatV1 {
   );
 }
 
-function isRasterPixelFormat(
-  value: TilePixelFormatV1,
-): value is 'rgba8-unorm' | 'rgba16-float' {
+function isRasterPixelFormat(value: TilePixelFormatV1): value is 'rgba8-unorm' | 'rgba16-float' {
   return value === 'rgba8-unorm' || value === 'rgba16-float';
 }
 
