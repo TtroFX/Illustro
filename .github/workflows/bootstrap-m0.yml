@@ -14,12 +14,12 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+      - name: Materialize M0 source
+        run: node bootstrap-m0.mjs
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-      - name: Materialize M0 source
-        run: node bootstrap-m0.mjs
       - name: Restore exact dependencies
         run: npm ci
       - name: Verify M0 foundation
