@@ -234,10 +234,10 @@ describe('local project library lifecycle', () => {
     );
 
     const illustroRoot = storage.root.directories.get('illustro');
-    expect(illustroRoot).toBeDefined();
-    const newest = illustroRoot!.files.get('library-b.json');
-    expect(newest).toBeDefined();
-    newest!.bytes = new TextEncoder().encode('{broken');
+    if (illustroRoot === undefined) throw new Error('Illustro OPFS root missing');
+    const newest = illustroRoot.files.get('library-b.json');
+    if (newest === undefined) throw new Error('newest library slot missing');
+    newest.bytes = new TextEncoder().encode('{broken');
 
     const fallback = await readLocalProjectLibrary(root);
     expect(fallback.generation).toBe(1);

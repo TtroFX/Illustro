@@ -422,8 +422,10 @@ export class LocalProjectLibraryV1 {
       createProjectMetadataState({
         name: normalizeName(input.name),
         projectId,
-        now: input.now,
-        previewResourceId: input.previewResourceId ?? null,
+        ...(input.now === undefined ? {} : { now: input.now }),
+        ...(input.previewResourceId === undefined
+          ? {}
+          : { previewResourceId: input.previewResourceId }),
       }),
     );
     const project = await ensureProjectDirectoryLayout(this.#root, projectId);
@@ -498,7 +500,7 @@ export class LocalProjectLibraryV1 {
       name,
       initialSnapshot: source.snapshot,
       documentRevision: source.documentRevision,
-      now: input.now,
+      ...(input.now === undefined ? {} : { now: input.now }),
       previewResourceId: source.metadata.previewResourceId,
     });
   }
