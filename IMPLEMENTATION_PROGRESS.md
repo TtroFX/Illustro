@@ -129,7 +129,7 @@ M2-015 autosave scheduler:完了
 M2-016 recovery flush scheduler:完了
 M2-017 raw raster tile codec:完了
 M2-018 LZ4-block raster tile codec:完了
-M2-019 raw/LZ4 automatic selection policy:完了
+M2-019 raw/LZ4 automatic selection policy:未完了
 M2-020 mask single-channel persistence:完了
 M2-021 history transaction model:未完了
 M2-022 hybrid delta/snapshot history strategy:未完了
