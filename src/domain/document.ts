@@ -84,7 +84,10 @@ function assertCanvasDimension(value: number, label: string): void {
 }
 
 function assertUnitColor(color: RgbaUnitColor): void {
-  if (color.length !== 4 || color.some((component) => !Number.isFinite(component) || component < 0 || component > 1)) {
+  if (
+    color.length !== 4 ||
+    color.some((component) => !Number.isFinite(component) || component < 0 || component > 1)
+  ) {
     throw new RangeError('background RGBA components must be finite values in 0..1');
   }
 }
@@ -115,7 +118,12 @@ export function createCanvasSpec(input: {
     resolution: Object.freeze({ ppi }),
     background,
     displayCheckerPolicy: Object.freeze({ mode: 'default' as const }),
-    bounds: Object.freeze({ x: 0 as const, y: 0 as const, width: input.width, height: input.height }),
+    bounds: Object.freeze({
+      x: 0 as const,
+      y: 0 as const,
+      width: input.width,
+      height: input.height,
+    }),
   });
 }
 
