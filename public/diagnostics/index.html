@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Illustro Diagnostics</title>
+    <style>
+      :root { color-scheme: light; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: #f6f8fc; color: #15203a; }
+      body { max-width: 960px; margin: 0 auto; padding: 24px; }
+      header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      a { color: #2563eb; }
+      #state { padding: 6px 10px; border: 1px solid #d8e0ee; border-radius: 999px; background: #fff; }
+      pre { overflow: auto; padding: 18px; border: 1px solid #dde4ef; border-radius: 12px; background: #fff; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Illustro Diagnostics</h1>
+        <a href="../">Back to editor</a>
+      </div>
+      <output id="state">Collecting…</output>
+    </header>
+    <p>This page reports only deployment/runtime capability state and contains no document or user content.</p>
+    <pre id="report" aria-live="polite">Loading…</pre>
+    <script type="module" src="./runtime.js"></script>
+  </body>
+</html>
