@@ -1,0 +1,76 @@
+name: Apply Illustro phase 3 data closure
+
+'on':
+  push:
+    paths:
+      - '.github/workflows/apply-phase3-data-format-closure.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply Phase 3 canonical data-format closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('ILLUSTRO_DESIGN_MEMO.md')
+          stage = Path('.phase3-data-format-closure.md').read_text(encoding='utf-8').strip()
+          t = p.read_text(encoding='utf-8')
+
+          needle = '# Data Model / File Format\n\n_Not yet defined._\n\n# Rendering / Brush / Performance'
+          if needle not in t:
+              raise SystemExit('Data Model placeholder marker not found')
+          t = t.replace(needle, '# Data Model / File Format\n\n' + stage + '\n\n# Rendering / Brush / Performance', 1)
+
+          t = t.replace(
+              '- Architecture must support both **RGBA8-class** and **RGBA16F-class** render/intermediate targets. The default document precision and exact storage encoding remain to be selected from memory/performance/quality tests.',
+              '- Architecture supports the canonical **`rgba8-unorm`** and **`rgba16-float`** document modes defined by P3-15. The initial default is `srgb + rgba8-unorm`; runtime cache/intermediate precision may still adapt by capability without changing canonical document semantics.'
+          )
+          t = t.replace(
+              '- The exact public `.illustro` container/manifest/tile/history format is not yet defined, but it must be independent of live GPU resources and suitable for backup/exchange/migration.',
+              '- The public `.illustro` v1 container/manifest/tile contract is defined by P3-17 through P3-19. Live OPFS storage remains an internal runtime representation and may differ while preserving the same canonical semantics.'
+          )
+
+          remove_lines = [
+              '- Document data model\n',
+              '- Brush-asset schema details and versioned preset representation beneath the adopted canonical brush capabilities\n',
+              '- Layer model implementation details beyond the adopted Lineart Group semantics\n',
+              '- Undo/Redo command model, snapshot/delta strategy, and spill thresholds\n',
+              '- Default color precision/document color modes and exact wide-gamut conversion policy\n',
+              '- `.illustro` file format details\n',
+              '- Exact final import/export compatibility contracts and fidelity matrices, including adopted PSD and deferred CMYK boundaries\n',
+          ]
+          for line in remove_lines:
+              t = t.replace(line, '')
+          t = t.replace(
+              '- Exact third-party-code/provenance record format and project-level software license\n',
+              '- Project-level software license and final third-party NOTICE packaging policy\n'
+          )
+
+          p.write_text(t, encoding='utf-8')
+          PY
+
+          grep -F '## Phase 3 Data / Format Closure — 2026-08-30' ILLUSTRO_DESIGN_MEMO.md
+          grep -F '### P3-17. Native `.illustro` v1 container — CLOSED' ILLUSTRO_DESIGN_MEMO.md
+          grep -F '### P3-13. Undo / Redo transaction model — CLOSED' ILLUSTRO_DESIGN_MEMO.md
+          grep -F '### P3-15. Document color modes and precision — CLOSED' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F '# Data Model / File Format' -A2 ILLUSTRO_DESIGN_MEMO.md | grep -F '_Not yet defined._'
+          ! grep -F 'The default document precision and exact storage encoding remain to be selected' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F 'The exact public `.illustro` container/manifest/tile/history format is not yet defined' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F -- '- Document data model' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F -- '- `.illustro` file format details' ILLUSTRO_DESIGN_MEMO.md
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'docs: close phase 3 data model and file format specification'
+          git push origin HEAD:main
