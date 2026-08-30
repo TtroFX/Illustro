@@ -39,9 +39,9 @@ M0-029 third-party provenance manifest基盤:完了
 M0-030 third-party license bundle生成基盤:完了
 M0-031 CycloneDX SBOM生成基盤:完了
 M0-032 offline Open Source Licensesデータ生成基盤:完了
-M0-033 minimal application shell:未完了
-M0-034 clean checkoutからreproducible build可能化:未完了
-M0-検査 M0内部検査:未完了
+M0-033 minimal application shell:完了
+M0-034 clean checkoutからreproducible build可能化:完了
+M0-検査 M0内部検査:完了
 
 ## M0.5 — Public Preview / Deployment Foundation
 M0.5-001 HTTPS deployment基盤:未完了
