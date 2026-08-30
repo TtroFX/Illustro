@@ -21,10 +21,17 @@ const root = document.documentElement;
 const runtime = getRuntimeConfig();
 const capabilities = collectRuntimeCapabilities();
 const shell = installFoundationShell();
+const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
+if (buildIdentityOutput) {
+  buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
+  buildIdentityOutput.title = buildIdentity.buildSha;
+}
 root.dataset.illustroRuntime = 'bootstrapped';
 root.dataset.illustroBuildMode = runtime.buildMode;
 root.dataset.illustroBuildSha = buildIdentity.buildSha;
 root.dataset.illustroCapabilityProfile = capabilities.webGpu ? 'webgpu-present' : 'webgpu-missing';
+root.dataset.illustroSecureContext = globalThis.isSecureContext ? 'secure' : 'insecure';
+root.dataset.illustroCrossOriginIsolated = globalThis.crossOriginIsolated ? 'isolated' : 'not-isolated';
 installDiagnosticsHook();
 logger.info('runtime.bootstrap', { build: buildIdentity, runtime, capabilities });
 

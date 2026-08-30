@@ -44,6 +44,8 @@ jobs:
         run: npm run build
       - name: Integration tests
         run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
       - name: Report verified identity
         run: |
           echo "verified_sha=${ILLUSTRO_BUILD_SHA}"

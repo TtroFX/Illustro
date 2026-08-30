@@ -76,7 +76,7 @@ body {
 .shell-topbar-actions {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 14px;
 }
 
 .shell-topbar-track span {
@@ -86,12 +86,28 @@ body {
   background: #edf1f7;
 }
 
-.shell-topbar-actions span {
-  width: 24px;
-  height: 24px;
-  border: 1px solid #dfe6f1;
-  border-radius: 50%;
+.shell-build-identity,
+.shell-diagnostics-link {
+  border: 1px solid #e2e8f2;
+  border-radius: 999px;
   background: #fff;
+  color: #64708a;
+  font-size: 11px;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.shell-build-identity {
+  padding: 7px 9px;
+}
+
+.shell-diagnostics-link {
+  padding: 8px 10px;
+}
+
+.shell-diagnostics-link:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
 }
 
 .shell-workspace {
@@ -300,6 +316,10 @@ body {
   }
 
   .shell-topbar-track {
+    display: none;
+  }
+
+  .shell-build-identity {
     display: none;
   }
 
