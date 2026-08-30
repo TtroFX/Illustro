@@ -1,16 +1,10 @@
-import {
-  isCommandTransactionId,
-  type CommandTransactionId,
-} from '../domain/command-registry.js';
+import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
 import { isRevision, type Revision } from '../domain/identity.js';
 import { toJsonValue } from '../domain/serialization.js';
 import { createCheckpoint, publishCheckpoint } from './checkpoint.js';
 import { putImmutableObject } from './immutable-object-store.js';
 import { appendJournalFrame } from './journal.js';
-import type {
-  IllustroOpfsRootV1,
-  ProjectDirectoryLayoutV1,
-} from './opfs-layout.js';
+import type { IllustroOpfsRootV1, ProjectDirectoryLayoutV1 } from './opfs-layout.js';
 import { publishRecoveryHead } from './recovery-head.js';
 import { openSyncAccessFile } from './sync-access.js';
 

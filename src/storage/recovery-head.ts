@@ -35,7 +35,8 @@ const HEAD_FILENAMES: Readonly<Record<RecoveryHeadSlotV1, string>> = Object.free
 });
 
 function assertCounter(value: number, label: string): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${label} must be non-negative`);
+  if (!Number.isSafeInteger(value) || value < 0)
+    throw new RangeError(`${label} must be non-negative`);
 }
 
 function ownedBuffer(text: string): ArrayBuffer {
@@ -145,8 +146,10 @@ export async function publishRecoveryHead(
     journalByteOffset: number;
   },
 ): Promise<RecoveryHeadV1> {
-  if (!isCommandTransactionId(input.transactionId)) throw new TypeError('invalid recovery transaction ID');
-  if (!isSha256Hex(input.checkpointObject.hash)) throw new TypeError('invalid checkpoint object hash');
+  if (!isCommandTransactionId(input.transactionId))
+    throw new TypeError('invalid recovery transaction ID');
+  if (!isSha256Hex(input.checkpointObject.hash))
+    throw new TypeError('invalid checkpoint object hash');
   assertCounter(input.journalSequence, 'journal sequence');
   if (input.journalSequence < 1) throw new RangeError('journal sequence must be positive');
   assertCounter(input.journalByteOffset, 'journal byte offset');
@@ -168,7 +171,11 @@ export async function publishRecoveryHead(
     file.close();
   }
   const observed = await readSlot(project, slot);
-  if (observed === null || observed.generation !== generation || observed.transactionId !== head.transactionId) {
+  if (
+    observed === null ||
+    observed.generation !== generation ||
+    observed.transactionId !== head.transactionId
+  ) {
     throw new Error('recovery head read-back verification failed');
   }
   return observed;

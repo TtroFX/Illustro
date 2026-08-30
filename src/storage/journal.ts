@@ -105,7 +105,11 @@ export async function scanJournalFrames(
 
   while (offset < bytes.byteLength) {
     if (bytes.byteLength - offset < JOURNAL_FRAME_HEADER_BYTES) {
-      return Object.freeze({ frames: Object.freeze(frames), validByteLength: offset, truncatedTail: true });
+      return Object.freeze({
+        frames: Object.freeze(frames),
+        validByteLength: offset,
+        truncatedTail: true,
+      });
     }
     const frameHeader = bytes.subarray(offset, offset + JOURNAL_FRAME_HEADER_BYTES);
     if (!sameBytes(frameHeader.subarray(0, 4), JOURNAL_MAGIC)) {
@@ -113,15 +117,21 @@ export async function scanJournalFrames(
     }
     const view = new DataView(frameHeader.buffer, frameHeader.byteOffset, frameHeader.byteLength);
     const version = view.getUint8(4);
-    if (version !== JOURNAL_FRAME_VERSION) throw new Error(`unsupported journal frame version: ${version}`);
+    if (version !== JOURNAL_FRAME_VERSION)
+      throw new Error(`unsupported journal frame version: ${version}`);
     const kind = CODE_FRAME_KIND[view.getUint8(5)];
     if (kind === undefined) throw new Error(`unknown journal frame kind at byte ${offset}`);
     const payloadLength = view.getUint32(8, false);
     const sequenceBig = view.getBigUint64(12, false);
-    if (sequenceBig > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('journal sequence exceeds safe integer range');
+    if (sequenceBig > BigInt(Number.MAX_SAFE_INTEGER))
+      throw new Error('journal sequence exceeds safe integer range');
     const frameByteLength = JOURNAL_FRAME_HEADER_BYTES + payloadLength;
     if (bytes.byteLength - offset < frameByteLength) {
-      return Object.freeze({ frames: Object.freeze(frames), validByteLength: offset, truncatedTail: true });
+      return Object.freeze({
+        frames: Object.freeze(frames),
+        validByteLength: offset,
+        truncatedTail: true,
+      });
     }
     const payloadBytes = bytes.subarray(
       offset + JOURNAL_FRAME_HEADER_BYTES,
@@ -145,7 +155,11 @@ export async function scanJournalFrames(
     offset += frameByteLength;
   }
 
-  return Object.freeze({ frames: Object.freeze(frames), validByteLength: offset, truncatedTail: false });
+  return Object.freeze({
+    frames: Object.freeze(frames),
+    validByteLength: offset,
+    truncatedTail: false,
+  });
 }
 
 export async function appendJournalFrame(

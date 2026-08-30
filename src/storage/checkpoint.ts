@@ -1,14 +1,8 @@
 import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
 import { isRevision, type ProjectId, type Revision } from '../domain/identity.js';
 import { serializeJson } from '../domain/serialization.js';
-import {
-  putImmutableObject,
-  type ImmutableObjectRefV1,
-} from './immutable-object-store.js';
-import type {
-  IllustroOpfsRootV1,
-  ProjectDirectoryLayoutV1,
-} from './opfs-layout.js';
+import { putImmutableObject, type ImmutableObjectRefV1 } from './immutable-object-store.js';
+import type { IllustroOpfsRootV1, ProjectDirectoryLayoutV1 } from './opfs-layout.js';
 
 export interface CheckpointV1 {
   readonly schema: 'illustro.checkpoint/1';
@@ -92,7 +86,8 @@ export function createCheckpoint(input: {
   assertSequence(input.sequence);
   if (!isRevision(input.documentRevision)) throw new RangeError('checkpoint revision is invalid');
   assertByteOffset(input.journalByteOffset);
-  if (Number.isNaN(Date.parse(input.createdAt))) throw new TypeError('checkpoint createdAt must be ISO-like');
+  if (Number.isNaN(Date.parse(input.createdAt)))
+    throw new TypeError('checkpoint createdAt must be ISO-like');
   return Object.freeze({ schema: 'illustro.checkpoint/1', ...input });
 }
 
