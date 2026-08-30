@@ -3,9 +3,56 @@ name: Bootstrap M0 foundation
 on:
   push:
 
+permissions:
+  contents: write
+
 jobs:
   bootstrap:
     runs-on: ubuntu-latest
     steps:
-      - name: Actions smoke test
-        run: echo "actions-ok"
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Materialize M0 source
+        run: node bootstrap-m0.mjs
+      - name: Restore exact dependencies
+        run: npm ci
+      - name: Verify M0 foundation
+        run: npm run verify
+      - name: Verify exact build identity
+        run: |
+          ILLUSTRO_BUILD_SHA="$GITHUB_SHA" npm run build
+          node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync('dist/build-info.json','utf8'));if(v.sha!==process.env.GITHUB_SHA)process.exit(1)"
+      - name: Complete M0 progress after PASS
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '\n## M0.5 — Public Preview / Deployment Foundation'
+          prefix, suffix = text.split(marker, 1)
+          lines = prefix.splitlines()
+          changed = 0
+          for i, line in enumerate(lines):
+              if line.startswith('M0-') and line.endswith(':未完了'):
+                  lines[i] = line[:-3] + '完了'
+                  changed += 1
+          if changed != 35:
+              raise SystemExit(f'expected 35 M0 statuses, changed {changed}')
+          path.write_text('\n'.join(lines) + marker + suffix, encoding='utf-8')
+          PY
+      - name: Remove one-time bootstrap transport
+        run: rm -rf .m0-bootstrap bootstrap-m0.mjs .github/workflows/bootstrap-m0.yml
+      - name: Commit verified M0 foundation
+        run: |
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: establish M0 engineering foundation'
+          git push origin HEAD:main
