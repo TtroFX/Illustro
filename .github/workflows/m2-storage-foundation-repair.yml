@@ -58,6 +58,41 @@ jobs:
           p = Path('src/storage/garbage-collection.ts')
           s = p.read_text()
           s = s.replace("import { readImmutableObject } from './immutable-object-store.js';", "import { hasImmutableObject, readImmutableObject } from './immutable-object-store.js';")
+          old = """function collectHashesFromUnknown(value: unknown, output: Set<string>): void {
+  if (typeof value === 'string') {
+    if (isSha256Hex(value)) output.add(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectHashesFromUnknown(item, output);
+    return;
+  }
+  if (typeof value !== 'object' || value === null) return;
+  for (const item of Object.values(value as Readonly<Record<string, unknown>>)) {
+    collectHashesFromUnknown(item, output);
+  }
+}
+"""
+          new = """function collectHashesFromUnknown(value: unknown, output: Set<string>): void {
+  if (Array.isArray(value)) {
+    for (const item of value) collectHashesFromUnknown(item, output);
+    return;
+  }
+  if (typeof value !== 'object' || value === null) return;
+  const record = value as Readonly<Record<string, unknown>>;
+  if (record.algorithm === 'sha256' && isSha256Hex(record.hash)) output.add(record.hash);
+  for (const [key, item] of Object.entries(record)) {
+    if (typeof item === 'string' && key.toLowerCase().endsWith('objecthash') && isSha256Hex(item)) {
+      output.add(item);
+      continue;
+    }
+    collectHashesFromUnknown(item, output);
+  }
+}
+"""
+          if old not in s:
+              raise SystemExit('GC reference extractor target missing')
+          s = s.replace(old, new, 1)
           old = "    try {\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"
           new = "    try {\n      if (!(await hasImmutableObject(root.sha256Objects, hash))) {\n        missing.add(hash);\n        continue;\n      }\n      const bytes = await readImmutableObject(root.sha256Objects, hash);\n"
           if old not in s:
