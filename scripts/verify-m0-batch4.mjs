@@ -6,6 +6,7 @@ for (const script of ['format', 'format:check', 'lint', 'typecheck', 'test:unit'
   assert.equal(typeof packageJson.scripts?.[script], 'string', `missing npm script: ${script}`);
 }
 
+assert.equal(packageJson.packageManager, 'npm@11.19.1');
 assert.equal(packageJson.devDependencies?.['@biomejs/biome'], '2.5.11');
 assert.equal(packageJson.devDependencies?.vitest, '4.1.10');
 
