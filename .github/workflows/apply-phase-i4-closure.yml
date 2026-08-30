@@ -1,0 +1,35 @@
+name: Apply Illustro I-4 closure
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - '.phase-i4-closure.md'
+      - '.github/workflows/apply-phase-i4-closure.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append I-4 closure once
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Fq '# Phase I-4 Asset QA Closure — 2026-08-30' ILLUSTRO_DESIGN_MEMO.md; then
+            echo 'I-4 closure already present; no-op.'
+            exit 0
+          fi
+          printf '\n\n' >> ILLUSTRO_DESIGN_MEMO.md
+          cat .phase-i4-closure.md >> ILLUSTRO_DESIGN_MEMO.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'docs: close I production asset phase'
+          git push
