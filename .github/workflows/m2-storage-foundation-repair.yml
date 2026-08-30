@@ -1,0 +1,69 @@
+name: Repair and verify M2 storage foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-storage-foundation-repair.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Repair strict optional quota plumbing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/storage/storage-quota.ts')
+          s = p.read_text()
+          old = """    return calculateStorageQuotaSnapshotV1({
+      usage: estimate.usage,
+      quota: estimate.quota,
+      persisted,
+    });
+"""
+          new = """    return calculateStorageQuotaSnapshotV1({
+      ...(estimate.usage === undefined ? {} : { usage: estimate.usage }),
+      ...(estimate.quota === undefined ? {} : { quota: estimate.quota }),
+      persisted,
+    });
+"""
+          if old not in s:
+              raise SystemExit('quota snapshot target missing')
+          s = s.replace(old, new, 1)
+          s = s.replace("await this.#storage.persisted!()", "await this.#storage.persisted?.()")
+          s = s.replace("await this.#storage.persist!()", "await this.#storage.persist?.()")
+          p.write_text(s)
+
+          p = Path('src/storage/project-worker-extension.ts')
+          s = p.read_text().replace("  type ProjectId,\n", "")
+          p.write_text(s)
+          PY
+      - name: Format repaired foundation
+        run: npx biome format --write src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - name: Commit repaired foundation and remove one-shot workflows
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-storage-foundation-repair.yml
+          if [ -f .github/workflows/m2-storage-foundation-format.yml ]; then git rm .github/workflows/m2-storage-foundation-format.yml; fi
+          git add src/storage/garbage-collection.ts src/storage/storage-maintenance-worker-extension.ts src/storage/storage-quota.ts src/storage/project-worker-extension.ts
+          git commit -m 'fix: verify M2 storage quota and GC foundation [skip ci]'
+          git push
