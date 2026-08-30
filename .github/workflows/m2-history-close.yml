@@ -1,0 +1,42 @@
+name: Close M2 history foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-history-close.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Close verified history items
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('IMPLEMENTATION_PROGRESS.md')
+          s=p.read_text()
+          for n in range(21,28):
+              old=f'M2-{n:03d} '
+              for line in s.splitlines():
+                  if line.startswith(old) and line.endswith(':未完了'):
+                      s=s.replace(line, line[:-3]+'完了', 1)
+                      break
+              else:
+                  raise SystemExit(f'missing incomplete item {old}')
+          p.write_text(s)
+          PY
+      - name: Commit closure and remove one-shot workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-history-close.yml
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: close M2 history foundation [skip ci]'
+          git push
