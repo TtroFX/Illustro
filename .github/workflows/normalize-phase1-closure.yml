@@ -11,10 +11,28 @@ jobs:
       - uses: actions/checkout@v4
       - shell: bash
         run: |
+          set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import base64
-          p=Path('ILLUSTRO_DESIGN_MEMO.md'); t=p.read_text(encoding='utf-8')
-          a=t.index('### 21. Pending adoption decisions — NOT YET AUTHORITATIVE'); b=t.index('# UX / UI Specification',a)
-          x='IyMjIDIxLiBJbml0aWFsLXJlbGVhc2UgYWRvcHRpb24gZGVjaXNpb25zIOKAlCBSRVNPTFZFRCB2026-08-30'
+          p = Path('ILLUSTRO_DESIGN_MEMO.md')
+          text = p.read_text(encoding='utf-8')
+          replacement = Path('.phase1-scope-normalization.md').read_text(encoding='utf-8').rstrip()
+          start = text.index('### 21. Pending adoption decisions — NOT YET AUTHORITATIVE')
+          end = text.index('# UX / UI Specification', start)
+          text = text[:start] + replacement + '\n\n' + text[end:]
+          text = text.replace(
+              '- Exact final import/export compatibility scope, including pending PSD/CMYK decisions\n',
+              '- Exact final import/export compatibility contracts and fidelity matrices, including adopted PSD and deferred CMYK boundaries\n'
+          )
+          p.write_text(text, encoding='utf-8')
           PY
+          grep -F '### 21. Initial-release adoption decisions — RESOLVED 2026-08-30' ILLUSTRO_DESIGN_MEMO.md
+          grep -F '### 22. Post-baseline feature-audit rule' ILLUSTRO_DESIGN_MEMO.md
+          grep -F '**PSD import/export — ADOPTED FOR INITIAL RELEASE WITH BOUNDED FIDELITY.**' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F 'Pending adoption decisions — NOT YET AUTHORITATIVE' ILLUSTRO_DESIGN_MEMO.md
+          ! grep -F 'including pending PSD/CMYK decisions' ILLUSTRO_DESIGN_MEMO.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'docs: normalize resolved phase 1 scope decisions'
+          git push origin HEAD:main
