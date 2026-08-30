@@ -77,7 +77,8 @@ Illustroの設計・仕様に関する正本は、この1つの `.md` に統合�
 26. Illustro includes runtime performance instrumentation and an **adaptive performance policy** so cache sizes, worker count, GPU batch sizes, preview quality, and similar parameters can respond to measured device capability rather than fixed assumptions.
 27. The right inspector and primary tool rail are **user-resizable in thickness/width**. Exact ergonomic minimum/maximum limits are implementation details, but the user must be able to continuously adjust workspace density rather than being locked to one fixed panel width.
 28. The right inspector uses a **dockable block model**. Any normal right-inspector block can be reordered, torn away into a floating PiP panel, remain visible while the main inspector is collapsed, and be re-docked by bringing it near the inspector with a Scratch-like magnetic insertion interaction. Closing a detached block with its upper-right `×` returns it to the inspector rather than destroying its state.
-29. Illustro adopts a **Quick Hole Controller**: an idle, donut-shaped six-slot radial command controller anchored to the current pointer location, or to the most recent tap/pen-contact location on touch-first tablets. It is hidden while active drawing/contact is occurring and returns when the pointer/pen is idle. Its default mapping is Undo at left, Redo at right, Brush/Eraser Toggle and Eyedropper in the two upper slots, and Lasso and Fill in the two lower slots. All six slot positions and assigned commands are user-configurable through the shared command system.
+29. Illustro adopts a **Quick Hole Controller**: an idle, donut-shaped six-slot radial command controller anchored only by eligible **canvas interaction**. Interacting with the right inspector, tool rail, top bar, detached PiP panels, or other application UI does not move its anchor; after UI interaction it remains at the previous canvas-derived position until the canvas is operated again. It is hidden while active drawing/contact is occurring. Tapping an eligible non-UI workspace area outside the canvas dismisses it, and it stays dismissed until a later eligible canvas interaction causes it to appear again. Its default mapping is Undo at left, Redo at right, Brush/Eraser Toggle and Eyedropper in the two upper slots, and Lasso and Fill in the two lower slots. All six slot positions and assigned commands are user-configurable through the shared command system.
+30. Illustro adopts a **customization-first workspace principle**. Workflow-affecting UI presentation should be user-adjustable wherever doing so does not compromise correctness or basic usability. This includes panel/rail dimensions, dock order, detached PiP placement, show/hide state, workspace layout, Quick Hole command mapping and ordering, Quick Hole size/radius and button sizing, and the opacity/translucency of overlay-style controls. Defaults must remain coherent and usable, every customizable surface must have a safe reset/default path, and ergonomic minimum/maximum constraints may prevent unusable configurations without otherwise restricting meaningful customization.
 
 ## Working rules for this memo
 
@@ -326,7 +327,9 @@ Adjustment Layers/non-destructive effect application must reuse the same underly
 - Layer/object alignment/distribution and other repetitive-operation accelerators already listed above must be accessible through these command surfaces.
 - Right-inspector blocks are freely reorderable and detachable into persistent floating PiP panels; they support magnetic re-docking and remain available when the main inspector is collapsed.
 - Right-inspector width and primary tool-rail thickness are user-adjustable and stored as workspace layout state.
-- Quick Hole Controller provides six user-remappable radial command slots at the pointer/last-touch location. Its default commands are Undo, Redo, Brush/Eraser Toggle, Eyedropper, Lasso and Fill, and it uses the same canonical Command Registry as shortcuts/Quick Access rather than a separate hard-coded command path.
+- Quick Hole Controller provides six user-remappable radial command slots at the last eligible canvas-derived anchor. UI interactions do not move that anchor. The default commands are Undo, Redo, Brush/Eraser Toggle, Eyedropper, Lasso and Fill, and it uses the same canonical Command Registry as shortcuts/Quick Access rather than a separate hard-coded command path.
+- Quick Hole visual presentation is customizable, including overall/controller scale, ring radius, button sizing and overlay translucency/opacity within ergonomic limits. Overlay opacity settings must preserve sufficient command legibility and hit-target clarity.
+- Workspace/user settings provide reset-to-default behavior for configurable layout and overlay controls.
 
 ### 18. Reliability, history and native project preservation — ADOPTED
 
@@ -419,6 +422,15 @@ The currently approved mockup establishes the following visual and structural di
 - Rounded geometry is acceptable, but corner radii should be moderate and consistent. Shadows/borders should be subtle and used primarily to establish depth and panel separation.
 - Typography and iconography should remain sharp and legible against the colorful accents.
 
+### Customization-first UI principle
+
+- Illustro treats the workspace as **user-configurable production equipment**, not a fixed arrangement that every artist must accept.
+- Workflow-relevant dimensions, ordering, docking, visibility, overlay size and overlay opacity should be configurable when practical.
+- Customization must be discoverable but must not clutter the default workspace; sensible defaults remain the primary first-run experience.
+- Configurable values are persisted in workspace/user settings and provide a reliable reset-to-default path.
+- Customization can be constrained by ergonomic minimums/maximums when necessary to preserve touch targets, icon legibility, accessibility and editor operability.
+- This principle applies especially to the inspector, tool rail, detachable PiPs, Quick Hole Controller, Quick Access/Command surfaces and future workflow overlays.
+
 ### Main workspace composition
 
 - The editor is a **large central canvas workspace** with a persistent tool column on the left and a dedicated inspector/panel column on the right.
@@ -491,12 +503,23 @@ The exact ergonomic minimum/maximum dimensions for rails/panels are implementati
 
 The **Quick Hole Controller** is a pen/touch-first shortcut system intended to make fast illustration work practical without requiring a keyboard, macro pad, or secondary companion device.
 
-### Presentation and anchor behavior
+### Presentation, anchor and dismissal behavior
 
 - The controller is donut/ring-shaped, leaving a clear center and arranging six command buttons around the ring.
-- On mouse/pointer-first devices it anchors to the active pointer coordinate.
-- On touch-first tablets, when there is no continuously tracked hover pointer, it anchors to the most recent tap or pen-contact coordinate.
-- The controller is an **idle-state control**: it is hidden while a pen/touch drawing contact or active stroke is in progress so it does not obstruct drawing, then becomes available again at the appropriate anchor when contact ends.
+- Its anchor is updated by **eligible canvas interaction only**. On a pointer/hover-capable device, an eligible canvas pointer/pen position may become the current anchor; on touch-first tablets without useful hover tracking, the latest eligible tap/pen-contact location on the canvas becomes the anchor.
+- Interacting with the right inspector, left tool rail, top/application bars, dialogs, detached PiPs, Quick Access, or any other application UI **does not update the Quick Hole anchor**.
+- After any UI interaction, the controller therefore remains at its existing canvas-derived position until the canvas itself is operated again.
+- The controller is an **idle-state control**: it is hidden while a pen/touch drawing contact or active stroke is in progress so it does not obstruct drawing, then becomes available again at the current eligible anchor when contact ends unless it has been explicitly dismissed.
+- Tapping an eligible **non-UI workspace area outside the canvas** dismisses the controller immediately. That dismissal does not trigger a drawing command and the controller remains hidden until a subsequent eligible canvas interaction causes it to appear again.
+
+### Visual treatment and opacity customization
+
+- The donut/ring surface is **translucent**, allowing the artwork/workspace beneath it to remain partially visible.
+- The six command-button surfaces are also translucent rather than fully opaque blocks.
+- Ring/background opacity and command-button surface opacity are user-adjustable in settings; they may be exposed as independent controls or as a linked overall-opacity control plus an advanced override, provided the final implementation preserves the ability to tune the controller's transparency meaningfully.
+- Quick Hole scale, ring radius and button size are also user-adjustable within ergonomic bounds.
+- Icons, focus/selection states and hit targets must remain readable and operable at supported opacity values; the implementation may use outlines, contrast adaptation or similar non-destructive presentation aids rather than forcing an opaque background.
+- The default appearance should be visibly translucent without becoming visually noisy or difficult to identify over artwork.
 
 ### Default six-slot layout
 
@@ -517,7 +540,8 @@ This default is optimized for the repeated actions needed during ordinary linear
 - The command assigned to every slot can be changed by the user.
 - Eligible commands come from the same canonical **Command Registry** used by keyboard shortcuts, Quick Access, Command Bar and other command surfaces.
 - The controller must therefore not implement Undo, Fill, Lasso, etc. as private one-off code paths; each button invokes the same underlying command as other UI/shortcut surfaces.
-- Custom mappings are saved as workspace/user settings.
+- Custom mappings, size/geometry and opacity settings are saved as workspace/user settings.
+- A clear reset-to-default command restores the standard six-slot layout and standard visual settings.
 
 ### Interaction principle
 
@@ -527,7 +551,7 @@ The Quick Hole Controller is not a replacement for normal tools, shortcuts or Qu
 
 - Do **not** place the previously generated floating group of utility buttons in the canvas upper-right corner as part of the target layout.
 - Canvas-space controls should be kept minimal. Commands that belong to panels/application UI should live outside the canvas rather than floating over the artwork.
-- The Quick Hole Controller is an intentional exception because it is transient, pointer-anchored and directly serves the active drawing workflow rather than acting as a permanent floating toolbar.
+- The Quick Hole Controller is an intentional exception because it is transient, canvas-anchored and directly serves the active drawing workflow rather than acting as a permanent floating toolbar.
 - Any other future canvas-overlay control must be justified by a direct canvas interaction need and specified explicitly before inclusion.
 
 ### Right inspector fixed-bottom controls
@@ -729,3 +753,4 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - 2026-08-30: Defined the initial production technical architecture: Web/PWA + WebGPU-first rendering/compute; Dedicated Workers; SharedArrayBuffer/Atomics with cross-origin isolation; Transferables; OPFS/SyncAccessHandle; Web Locks/BroadcastChannel; sparse tiled canvas; progressive pen-input enhancements; capability-adaptive GPU/performance policy; sRGB/Display-P3 and 8-bit/16F-ready color architecture; WASM optimization hooks; persistent-storage/quota handling; device-loss recovery; and explicit import/export compatibility principles.
 - 2026-08-30: Added the canonical feature inventory covering the adopted ibisPaint single-illustration baseline, selected CSP productivity/non-destructive/vector capabilities, mandatory cross-application painting features, the ibis+CSP Canonical Brush Engine, interoperability targets, explicit exclusions, and unresolved adoption candidates.
 - 2026-08-30: Adopted the resizable/reorderable right-inspector architecture with tear-off PiP blocks, Scratch-like magnetic re-docking, persistent detached panels across inspector collapse, and the six-slot fully remappable Quick Hole Controller for tablet-first shortcut access.
+- 2026-08-30: Refined Quick Hole behavior so UI interactions do not move its canvas-derived anchor, non-UI workspace taps can dismiss it until the next canvas interaction, the ring/buttons use configurable translucency, and the wider UI follows a customization-first workspace principle.
