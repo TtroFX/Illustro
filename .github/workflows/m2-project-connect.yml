@@ -1,0 +1,40 @@
+name: Connect M2 project lifecycle worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m2-project-connect.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Connect project lifecycle extension
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/workers/storage.worker.ts')
+          s=p.read_text()
+          line="import '../storage/project-worker-extension.js';\n"
+          if line not in s:
+              anchor="import '../storage/history-worker-extension.js';\n"
+              if anchor not in s:
+                  raise SystemExit('history extension import anchor missing')
+              s=s.replace(anchor, anchor+line, 1)
+          p.write_text(s)
+          PY
+      - name: Commit connection and remove one-shot workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m2-project-connect.yml
+          git add src/workers/storage.worker.ts
+          git commit -m 'feat: connect local project lifecycle to storage worker'
+          git push
