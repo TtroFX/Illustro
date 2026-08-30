@@ -159,10 +159,7 @@ for (const record of rawRecords.sort(
   const usage = usageFor(record);
   if (usage === 'runtime-distributed') {
     assertDistributionAllowed(record.id, record.licenseExpression);
-    if (
-      record.lockLicenseExpression &&
-      record.lockLicenseExpression !== record.licenseExpression
-    ) {
+    if (record.lockLicenseExpression && record.lockLicenseExpression !== record.licenseExpression) {
       assertDistributionAllowed(record.id, record.lockLicenseExpression);
     }
     if (policy.runtimeRequiresExplicitReview && record.review?.reviewStatus !== 'reviewed') {
@@ -271,7 +268,9 @@ for (const item of runtimeLegal) {
   });
 }
 if (runtimeLegal.length === 0) {
-  thirdPartyLines.push('No third-party runtime components are distributed by the current application shell.');
+  thirdPartyLines.push(
+    'No third-party runtime components are distributed by the current application shell.',
+  );
   thirdPartyLines.push(
     'Build/test tooling is recorded in `third_party/provenance.json` and `bom.cdx.json`.',
   );
@@ -339,9 +338,7 @@ for (const record of rawRecords) {
 const appRef = toPurl(packageJson.name, packageJson.version);
 const directRefs = [
   ...new Set(
-    [...runtimeRoots, ...developmentRoots]
-      .map((path) => pathToRef.get(path))
-      .filter(Boolean),
+    [...runtimeRoots, ...developmentRoots].map((path) => pathToRef.get(path)).filter(Boolean),
   ),
 ].sort();
 const bom = {

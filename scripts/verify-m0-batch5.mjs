@@ -21,7 +21,11 @@ for (const direct of ['@biomejs/biome@2.5.11', 'typescript@5.9.2', 'vitest@4.1.1
   );
 }
 assert.ok(provenance.packages.every((entry) => entry.licenseExpression && entry.reviewStatus));
-assert.ok(provenance.packages.every((entry) => entry.usage !== 'runtime-distributed' || entry.reviewStatus === 'reviewed'));
+assert.ok(
+  provenance.packages.every(
+    (entry) => entry.usage !== 'runtime-distributed' || entry.reviewStatus === 'reviewed',
+  ),
+);
 
 const thirdParty = await readFile(new URL('THIRD_PARTY_NOTICES.md', root), 'utf8');
 assert.match(thirdParty, /Generated from `third_party\/provenance\.json`/);
@@ -30,12 +34,17 @@ const bom = await readJson('bom.cdx.json');
 assert.equal(bom.bomFormat, 'CycloneDX');
 assert.equal(bom.specVersion, '1.7');
 for (const name of ['@biomejs/biome', 'typescript', 'vitest']) {
-  assert.ok(bom.components.some((component) => component.name === name), `SBOM missing ${name}`);
+  assert.ok(
+    bom.components.some((component) => component.name === name),
+    `SBOM missing ${name}`,
+  );
 }
 
 const offline = await readJson('public/legal/open-source-licenses.json');
 assert.equal(offline.generatedFrom, 'third_party/provenance.json');
-const runtimeCount = provenance.packages.filter((entry) => entry.usage === 'runtime-distributed').length;
+const runtimeCount = provenance.packages.filter(
+  (entry) => entry.usage === 'runtime-distributed',
+).length;
 assert.equal(offline.components.length, runtimeCount);
 
 for (const path of [
