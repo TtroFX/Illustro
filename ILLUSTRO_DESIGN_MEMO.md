@@ -75,6 +75,9 @@ Illustroの設計・仕様に関する正本は、この1つの `.md` に統合�
 24. Cross-tab/project coordination uses **Web Locks** for write ownership and **BroadcastChannel** for same-origin status/event propagation.
 25. Input processing is Pointer Events based and should consume the richest supported pen data, including pressure, tilt, orientation data, coalesced samples, raw updates, and predicted samples through progressive enhancement.
 26. Illustro includes runtime performance instrumentation and an **adaptive performance policy** so cache sizes, worker count, GPU batch sizes, preview quality, and similar parameters can respond to measured device capability rather than fixed assumptions.
+27. The right inspector and primary tool rail are **user-resizable in thickness/width**. Exact ergonomic minimum/maximum limits are implementation details, but the user must be able to continuously adjust workspace density rather than being locked to one fixed panel width.
+28. The right inspector uses a **dockable block model**. Any normal right-inspector block can be reordered, torn away into a floating PiP panel, remain visible while the main inspector is collapsed, and be re-docked by bringing it near the inspector with a Scratch-like magnetic insertion interaction. Closing a detached block with its upper-right `×` returns it to the inspector rather than destroying its state.
+29. Illustro adopts a **Quick Hole Controller**: an idle, donut-shaped six-slot radial command controller anchored to the current pointer location, or to the most recent tap/pen-contact location on touch-first tablets. It is hidden while active drawing/contact is occurring and returns when the pointer/pen is idle. Its default mapping is Undo at left, Redo at right, Brush/Eraser Toggle and Eyedropper in the two upper slots, and Lasso and Fill in the two lower slots. All six slot positions and assigned commands are user-configurable through the shared command system.
 
 ## Working rules for this memo
 
@@ -321,6 +324,9 @@ Adjustment Layers/non-destructive effect application must reuse the same underly
 - Selection Launcher / contextual selected-area commands.
 - Auto Actions: record/replay appropriate command sequences, with local import/export of action definitions when safe and representable.
 - Layer/object alignment/distribution and other repetitive-operation accelerators already listed above must be accessible through these command surfaces.
+- Right-inspector blocks are freely reorderable and detachable into persistent floating PiP panels; they support magnetic re-docking and remain available when the main inspector is collapsed.
+- Right-inspector width and primary tool-rail thickness are user-adjustable and stored as workspace layout state.
+- Quick Hole Controller provides six user-remappable radial command slots at the pointer/last-touch location. Its default commands are Undo, Redo, Brush/Eraser Toggle, Eyedropper, Lasso and Fill, and it uses the same canonical Command Registry as shortcuts/Quick Access rather than a separate hard-coded command path.
 
 ### 18. Reliability, history and native project preservation — ADOPTED
 
@@ -428,6 +434,7 @@ The currently approved mockup establishes the following visual and structural di
 - Each tool icon may use its own accent color or soft tinted background, creating a multicolor identity while maintaining a consistent icon system.
 - Active-tool state should be obvious through a stronger accent/background/border rather than through oversized decoration.
 - This rail is intended to be compact, fast to scan, and suitable for pen/touch use.
+- The rail's thickness/width is user-resizable and is part of the persisted workspace layout rather than a fixed visual constant.
 
 ### Right-side UI / inspector area
 
@@ -436,12 +443,92 @@ The currently approved mockup establishes the following visual and structural di
 - The region should support clear sectioning and compact information density; it must not become a series of oversized playful cards.
 - Panel headers, selected tabs, active layers, and key values can use strong accent colors, while panel bodies remain predominantly white/light-neutral.
 - The right inspector is independent from the canvas, with a clear vertical boundary and its own scrolling behavior.
+- The right inspector's width is directly user-resizable and persisted with the workspace.
+
+## Dockable inspector blocks and detachable PiP panels — 2026-08-30
+
+The right inspector is not a fixed monolithic sidebar. It is a **reorderable dock made of independent functional blocks**.
+
+### Reordering
+
+- Normal inspector blocks can be reordered freely by drag interaction.
+- Dragging within the inspector shows an insertion position and moves neighboring blocks to make the resulting order unambiguous.
+- User-defined order is persisted as part of the active workspace.
+
+### Tear-off / PiP behavior
+
+- Dragging a block away from the right inspector can tear it off into a floating **PiP panel** without changing the tool's underlying state.
+- A detached PiP is an alternate presentation of the same block, not a duplicated tool instance.
+- Detached PiPs remain visible and usable even if the entire right inspector is collapsed, allowing the user to keep only the controls needed for the current task on the canvas/workspace.
+- Collapsing or reopening the right inspector does not implicitly re-dock detached PiPs.
+
+### Magnetic re-docking
+
+- Bringing a detached PiP close to the right inspector activates a **Scratch-like magnetic docking interaction**.
+- The UI shows the candidate insertion point before drop; dropping there inserts the block into that position and updates the inspector order.
+- Re-docking is therefore also an ordering operation: the user does not need a separate panel-order dialog.
+
+### Close-to-return behavior
+
+- A detached PiP exposes an upper-right `×` control.
+- For these detached blocks, `×` means **return to dock**, not destroy, reset, or permanently hide the feature.
+- The block returns to its previous/remembered dock position where possible; if that slot no longer exists, it returns to the nearest valid insertion position while preserving the current block state.
+
+### Layout persistence
+
+Workspace persistence must include, at minimum:
+
+- right-inspector width;
+- primary tool-rail thickness;
+- docked block order;
+- which blocks are detached;
+- detached PiP positions;
+- right-inspector collapsed/expanded state.
+
+The exact ergonomic minimum/maximum dimensions for rails/panels are implementation/QA decisions; they must prevent unusable zero-size controls without removing the user's ability to meaningfully choose workspace density.
+
+## Quick Hole Controller — 2026-08-30
+
+The **Quick Hole Controller** is a pen/touch-first shortcut system intended to make fast illustration work practical without requiring a keyboard, macro pad, or secondary companion device.
+
+### Presentation and anchor behavior
+
+- The controller is donut/ring-shaped, leaving a clear center and arranging six command buttons around the ring.
+- On mouse/pointer-first devices it anchors to the active pointer coordinate.
+- On touch-first tablets, when there is no continuously tracked hover pointer, it anchors to the most recent tap or pen-contact coordinate.
+- The controller is an **idle-state control**: it is hidden while a pen/touch drawing contact or active stroke is in progress so it does not obstruct drawing, then becomes available again at the appropriate anchor when contact ends.
+
+### Default six-slot layout
+
+The default layout is:
+
+- left: **Undo**;
+- right: **Redo**;
+- upper-left: **Brush / Eraser Toggle**;
+- upper-right: **Eyedropper**;
+- lower-left: **Lasso**;
+- lower-right: **Fill**.
+
+This default is optimized for the repeated actions needed during ordinary lineart, painting and cleanup rather than for feature discoverability.
+
+### Full customization
+
+- All six slots can be reordered.
+- The command assigned to every slot can be changed by the user.
+- Eligible commands come from the same canonical **Command Registry** used by keyboard shortcuts, Quick Access, Command Bar and other command surfaces.
+- The controller must therefore not implement Undo, Fill, Lasso, etc. as private one-off code paths; each button invokes the same underlying command as other UI/shortcut surfaces.
+- Custom mappings are saved as workspace/user settings.
+
+### Interaction principle
+
+The Quick Hole Controller is not a replacement for normal tools, shortcuts or Quick Access. It is the **lowest-travel canvas-local command surface**, specifically intended to reduce hand movement and dependence on external shortcut hardware during tablet drawing.
 
 ### Canvas upper-right controls
 
 - Do **not** place the previously generated floating group of utility buttons in the canvas upper-right corner as part of the target layout.
 - Canvas-space controls should be kept minimal. Commands that belong to panels/application UI should live outside the canvas rather than floating over the artwork.
-- Any future canvas-overlay control must be justified by a direct canvas interaction need and specified explicitly before inclusion.
+- The Quick Hole Controller is an intentional exception because it is transient, pointer-anchored and directly serves the active drawing workflow rather than acting as a permanent floating toolbar.
+- Any other future canvas-overlay control must be justified by a direct canvas interaction need and specified explicitly before inclusion.
 
 ### Right inspector fixed-bottom controls
 
@@ -641,3 +728,4 @@ _None are authoritative yet beyond the provisional UI visual target and confirme
 - 2026-08-30: Defined the functional-completion policy: ibisPaint's single-illustration-relevant capabilities form the baseline; selected high-value CLIP STUDIO PAINT and other paid/free-app capabilities extend it; comic/page-production and built-in material/content-library workflows are outside the required scope; feature completeness requires an explicit audited inventory with implemented/verified or intentionally excluded status.
 - 2026-08-30: Defined the initial production technical architecture: Web/PWA + WebGPU-first rendering/compute; Dedicated Workers; SharedArrayBuffer/Atomics with cross-origin isolation; Transferables; OPFS/SyncAccessHandle; Web Locks/BroadcastChannel; sparse tiled canvas; progressive pen-input enhancements; capability-adaptive GPU/performance policy; sRGB/Display-P3 and 8-bit/16F-ready color architecture; WASM optimization hooks; persistent-storage/quota handling; device-loss recovery; and explicit import/export compatibility principles.
 - 2026-08-30: Added the canonical feature inventory covering the adopted ibisPaint single-illustration baseline, selected CSP productivity/non-destructive/vector capabilities, mandatory cross-application painting features, the ibis+CSP Canonical Brush Engine, interoperability targets, explicit exclusions, and unresolved adoption candidates.
+- 2026-08-30: Adopted the resizable/reorderable right-inspector architecture with tear-off PiP blocks, Scratch-like magnetic re-docking, persistent detached panels across inspector collapse, and the six-slot fully remappable Quick Hole Controller for tablet-first shortcut access.
