@@ -1,0 +1,70 @@
+name: Continue M4 PNG
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify-record:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts
+          fi
+          npm ci --ignore-scripts
+      - name: Apply M4 PNG implementation
+        run: python scripts/.tmp-m4-png.py
+      - name: Canonical formatting
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M2 persistence inspection
+        run: npm run verify:m2
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical-slice inspection
+        run: npm run verify:m4
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record progress and push
+        run: |
+          sed -i 's/M4-017 PNG flatten\/render:未完了/M4-017 PNG flatten\/render:完了/' IMPLEMENTATION_PROGRESS.md
+          sed -i 's/M4-018 PNG export:未完了/M4-018 PNG export:完了/' IMPLEMENTATION_PROGRESS.md
+          sed -i 's/M4-検査 M4内部検査:未完了/M4-検査 M4内部検査:完了/' IMPLEMENTATION_PROGRESS.md
+          rm scripts/.tmp-m4-png.py
+          rm .github/workflows/continue-m4-png.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: add M4 PNG export vertical slice [skip ci]'
+          git push origin HEAD:main
