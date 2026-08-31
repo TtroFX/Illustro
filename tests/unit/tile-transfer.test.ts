@@ -79,8 +79,14 @@ describe('M3 tile GPU transfer foundation', () => {
 
   it('aligns texture-to-buffer readback rows to 256 bytes and strips staging padding', async () => {
     const mapped = new Uint8Array(512);
-    mapped.set(Array.from({ length: 12 }, (_, index) => index + 1), 0);
-    mapped.set(Array.from({ length: 12 }, (_, index) => index + 21), 256);
+    mapped.set(
+      Array.from({ length: 12 }, (_, index) => index + 1),
+      0,
+    );
+    mapped.set(
+      Array.from({ length: 12 }, (_, index) => index + 21),
+      256,
+    );
     let createdBuffer: unknown = null;
     let copied: unknown[] | null = null;
     let submitted = 0;

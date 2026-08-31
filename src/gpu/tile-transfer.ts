@@ -112,7 +112,9 @@ export function alignGpuBytesPerRowV1(byteLength: number): number {
   if (!Number.isSafeInteger(byteLength) || byteLength < 1) {
     throw new RangeError('row byte length must be a positive safe integer');
   }
-  return Math.ceil(byteLength / GPU_COPY_BYTES_PER_ROW_ALIGNMENT) * GPU_COPY_BYTES_PER_ROW_ALIGNMENT;
+  return (
+    Math.ceil(byteLength / GPU_COPY_BYTES_PER_ROW_ALIGNMENT) * GPU_COPY_BYTES_PER_ROW_ALIGNMENT
+  );
 }
 
 export function uploadTileToAtlasV1(

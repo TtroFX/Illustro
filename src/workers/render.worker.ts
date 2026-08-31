@@ -249,7 +249,12 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     }
     if (value.type === 'renderer.tiles.readback') {
       if (!isResidency(value.residency)) return null;
-      return { type: value.type, requestId: value.requestId, coordinate, residency: value.residency };
+      return {
+        type: value.type,
+        requestId: value.requestId,
+        coordinate,
+        residency: value.residency,
+      };
     }
     if (value.type === 'renderer.tiles.cacheCpu') {
       if (!(value.bytes instanceof ArrayBuffer) || !isResidency(value.residency)) return null;
