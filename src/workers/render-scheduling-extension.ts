@@ -303,11 +303,7 @@ export function installRenderSchedulingExtensionV1(
           colorSpace: value.colorSpace,
           precision: value.precision,
         });
-        const schedule = enqueueFrameCompositePlanV1(
-          scheduler,
-          plan,
-          value.interactionCritical,
-        );
+        const schedule = enqueueFrameCompositePlanV1(scheduler, plan, value.interactionCritical);
         postResponse(scope, requestId, schedule.accepted, {
           plan,
           schedule,

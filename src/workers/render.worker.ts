@@ -7,6 +7,10 @@ import {
   type RendererSurfaceLikeV1,
 } from '../gpu/renderer-device-resources.js';
 import { RendererTileStateV1 } from '../gpu/renderer-tile-state.js';
+import {
+  installRenderSchedulingExtensionV1,
+  type RenderSchedulingControllerV1,
+} from './render-scheduling-extension.js';
 import type { RectV1, TileCoordinateV1 } from '../gpu/sparse-tile-model.js';
 import type { TileCacheResidencyV1 } from '../gpu/tile-cache.js';
 import type { DocumentViewportRectV1 } from '../gpu/viewport-tiles.js';
@@ -81,18 +85,21 @@ type RenderWorkerRequestV1 =
 const scope = globalThis as unknown as WorkerScope;
 let surface: RendererSurfaceLikeV1 | null = null;
 let tileState: RendererTileStateV1 | null = null;
+let renderSchedulingController: RenderSchedulingControllerV1 | null = null;
 
 const deviceManager = new RendererDeviceManagerV1({
   acquire: acquireCoreWebGpuV1,
   rebuild(device, generation) {
     rebuildRendererDeviceResourcesV1(device, generation, surface);
     tileState?.attachGpuDevice(device);
+    renderSchedulingController?.attachGpuDevice(device);
   },
   onState(snapshot) {
     scope.postMessage({ type: 'renderer.device-state', snapshot });
   },
   onDiscardProvisional() {
     tileState?.attachGpuDevice(null);
+    renderSchedulingController?.attachGpuDevice(null);
     scope.postMessage({ type: 'renderer.provisional.discarded' });
   },
 });
@@ -293,6 +300,8 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
   if (request.type === 'renderer.dispose') {
     tileState?.dispose();
     tileState = null;
+    renderSchedulingController?.dispose();
+    renderSchedulingController = null;
     deviceManager.dispose();
     surface = null;
     return;
@@ -452,6 +461,11 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     }
   }
 }
+
+renderSchedulingController = installRenderSchedulingExtensionV1(scope, {
+  getTileState: () => tileState,
+});
+renderSchedulingController.attachGpuDevice(deviceManager.currentDevice());
 
 scope.addEventListener('message', (event) => {
   const request = parseRequest(event.data);

@@ -23,7 +23,12 @@ describe('M3 render scheduling and priority foundation', () => {
     scheduler.enqueue({ id: 'visible', priority: 'P1', kind: 'visible', payload: 'v' });
     scheduler.enqueue({ id: 'near', priority: 'P2', kind: 'near', payload: 'n' });
     scheduler.enqueue({ id: 'background', priority: 'P3', kind: 'background', payload: 'b' });
-    const result = scheduler.enqueue({ id: 'stroke', priority: 'P0', kind: 'stroke', payload: 's' });
+    const result = scheduler.enqueue({
+      id: 'stroke',
+      priority: 'P0',
+      kind: 'stroke',
+      payload: 's',
+    });
     expect(result).toEqual({ accepted: true, displacedTaskId: 'background' });
     expect(scheduler.drain(3).map((task) => task.id)).toEqual(['stroke', 'visible', 'near']);
   });
@@ -32,9 +37,10 @@ describe('M3 render scheduling and priority foundation', () => {
     const scheduler = new RenderSchedulerV1<string>(2);
     scheduler.enqueue({ id: 'a', priority: 'P0', kind: 'critical', payload: 'a' });
     scheduler.enqueue({ id: 'b', priority: 'P1', kind: 'visible', payload: 'b' });
-    expect(
-      scheduler.enqueue({ id: 'c', priority: 'P1', kind: 'visible', payload: 'c' }),
-    ).toEqual({ accepted: false, displacedTaskId: null });
+    expect(scheduler.enqueue({ id: 'c', priority: 'P1', kind: 'visible', payload: 'c' })).toEqual({
+      accepted: false,
+      displacedTaskId: null,
+    });
     expect(scheduler.snapshot()).toMatchObject({ size: 2, byPriority: { P0: 1, P1: 1 } });
   });
 });
