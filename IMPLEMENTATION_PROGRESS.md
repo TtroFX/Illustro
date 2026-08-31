@@ -188,13 +188,13 @@ M3-027 transient halo/filter target management:完了
 M3-028 render scheduling:完了
 M3-029 priority scheduling foundation:完了
 M3-030 frame compositor foundation:完了
-M3-031 Pointer Events ingestion:未完了
-M3-032 pressure ingestion:未完了
-M3-033 tilt ingestion:未完了
-M3-034 orientation ingestion:未完了
-M3-035 coalesced-event ingestion:未完了
-M3-036 raw-update ingestion:未完了
-M3-037 predicted-sample presentation path:未完了
+M3-031 Pointer Events ingestion:完了
+M3-032 pressure ingestion:完了
+M3-033 tilt ingestion:完了
+M3-034 orientation ingestion:完了
+M3-035 coalesced-event ingestion:完了
+M3-036 raw-update ingestion:完了
+M3-037 predicted-sample presentation path:完了
 M3-038 bounded input queue:未完了
 M3-039 input coalescing/backpressure:未完了
 M3-040 Transferable message transport:未完了
