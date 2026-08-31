@@ -12,6 +12,7 @@ import {
 } from '../shared/performance.js';
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
+import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
 import { installDiagnosticsHook } from './diagnostics.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { startRendererController } from './renderer-controller.js';
@@ -32,6 +33,7 @@ const runtime = getRuntimeConfig();
 const capabilities = collectRuntimeCapabilities();
 const shell = installFoundationShell();
 const workers = startDedicatedWorkers();
+const canvasAdmission = getCanvasAdmissionControllerV1();
 const pointerTransport = createPointerInputTransportV1(workers.render, {
   sharedMemoryFastPath:
     capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer && capabilities.atomics,
@@ -65,6 +67,7 @@ root.dataset.illustroPointerTransport = pointerTransport.snapshot().mode;
 root.dataset.illustroPointerFingerDrawing = pointerArbitration.snapshot().fingerDrawingEnabled
   ? 'enabled'
   : 'disabled';
+root.dataset.illustroCanvasAdmission = canvasAdmission.schema;
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
