@@ -1,0 +1,40 @@
+name: Fix M4 batch2 formatting
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-m4-batch2-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply canonical formatting
+        run: >-
+          npx biome format --write
+          src/app/renderer-controller.ts
+          src/gpu/baseline-paint-renderer.ts
+          tests/unit/baseline-paint-renderer.test.ts
+      - name: Commit formatting and remove helper
+        run: |
+          rm .github/workflows/fix-m4-batch2-format.yml
+          git add src/app/renderer-controller.ts src/gpu/baseline-paint-renderer.ts tests/unit/baseline-paint-renderer.test.ts .github/workflows/fix-m4-batch2-format.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style: format M4 baseline paint batch"
+          git push origin HEAD:main
