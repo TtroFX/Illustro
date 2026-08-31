@@ -169,14 +169,14 @@ M3-008 OffscreenCanvas transfer path:完了
 M3-009 main-context WebGPU fallback:完了
 M3-010 GPU device-loss detection:完了
 M3-011 GPU device-loss reconstruction:完了
-M3-012 canonical 256px sparse tile model:未完了
-M3-013 edge-tile valid bounds:未完了
-M3-014 tile addressing:未完了
-M3-015 dirty-tile tracking:未完了
-M3-016 per-tile dirty rectangle:未完了
-M3-017 50% dirty-region whole-tile promotion:未完了
-M3-018 tile allocation:未完了
-M3-019 tile deallocation:未完了
+M3-012 canonical 256px sparse tile model:完了
+M3-013 edge-tile valid bounds:完了
+M3-014 tile addressing:完了
+M3-015 dirty-tile tracking:完了
+M3-016 per-tile dirty rectangle:完了
+M3-017 50% dirty-region whole-tile promotion:完了
+M3-018 tile allocation:完了
+M3-019 tile deallocation:完了
 M3-020 GPU tile cache:未完了
 M3-021 CPU/backing tile cache:未完了
 M3-022 2048px atlas-page management:未完了
