@@ -148,12 +148,11 @@ export function installDocumentGeometryWorkflowControllerV1(
   };
 
   const assertAdmission = async (preview: PaintProjectSnapshotV1, label: string): Promise<void> => {
-    const admission = await options.canvasAdmission.preflight({
+    const admission = await options.canvasAdmission.preflightDocumentResize({
       width: preview.document.canvas.width,
       height: preview.document.canvas.height,
       precision: preview.document.color.precision,
       projectedTouchedTiles: projectedTouchedTilesForSnapshotV1(preview),
-      operationScratchBytes: 0,
     });
     if (!admission.allowed) throw new Error(`${label} rejected: ${admission.reasons.join(', ')}`);
   };

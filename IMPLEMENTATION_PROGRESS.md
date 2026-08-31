@@ -258,12 +258,12 @@ M5A-022 fit-to-screen:完了
 M5A-023 fullscreen/workspace presentation:完了
 M5A-024 mirror preview:完了
 M5A-025 pixel/non-interpolated preview:完了
-M5A-026 grid display:未完了
-M5A-027 grid spacing:未完了
-M5A-028 grid offset:未完了
-M5A-029 grid color:未完了
-M5A-030 create/resize/import admission control integration:未完了
-M5A-検査 M5A内部検査:未完了
+M5A-026 grid display:完了
+M5A-027 grid spacing:完了
+M5A-028 grid offset:完了
+M5A-029 grid color:完了
+M5A-030 create/resize/import admission control integration:完了
+M5A-検査 M5A内部検査:完了
 
 ## M5B — Layer / Mask / Linked Object System
 M5B-001 Raster Layer creation:未完了

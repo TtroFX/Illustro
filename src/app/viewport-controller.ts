@@ -251,6 +251,7 @@ export interface ViewportControllerV1 {
   ): ViewportDocumentPointV1;
   handleNavigationBatch(batch: PointerInputBatchV1): boolean;
   isMouseNavigationBatch(batch: PointerInputBatchV1): boolean;
+  subscribe(listener: (snapshot: ViewportSnapshotV1) => void): () => void;
   dispose(): void;
 }
 
@@ -284,8 +285,10 @@ export function installViewportControllerV1(input: {
   const root = input.root ?? document.documentElement;
   const canvas = input.canvas;
   const stage = requireElement<HTMLElement>('.shell-canvas-stage');
+  const frame = requireElement<HTMLElement>('#canvas-viewport-frame');
   const app = requireElement<HTMLElement>('#app');
   const transform = new ViewportTransformV1();
+  const subscribers = new Set<(snapshot: ViewportSnapshotV1) => void>();
   const activePointers = new Map<number, { x: number; y: number }>();
   let gesture: GestureBaselineV1 | null = null;
   let disposed = false;
@@ -298,9 +301,9 @@ export function installViewportControllerV1(input: {
 
   const publish = (): ViewportSnapshotV1 => {
     const snapshot = transform.snapshot();
-    canvas.style.width = `${snapshot.baseWidth}px`;
-    canvas.style.height = `${snapshot.baseHeight}px`;
-    canvas.style.transform = `translate(${snapshot.panX}px, ${snapshot.panY}px) rotate(${snapshot.rotationDegrees}deg) scale(${snapshot.mirrored ? -snapshot.zoom : snapshot.zoom}, ${snapshot.zoom})`;
+    frame.style.width = `${snapshot.baseWidth}px`;
+    frame.style.height = `${snapshot.baseHeight}px`;
+    frame.style.transform = `translate(${snapshot.panX}px, ${snapshot.panY}px) rotate(${snapshot.rotationDegrees}deg) scale(${snapshot.mirrored ? -snapshot.zoom : snapshot.zoom}, ${snapshot.zoom})`;
     canvas.dataset.pixelPreview = snapshot.pixelated ? 'true' : 'false';
     root.dataset.illustroViewportPanX = String(snapshot.panX);
     root.dataset.illustroViewportPanY = String(snapshot.panY);
@@ -311,6 +314,7 @@ export function installViewportControllerV1(input: {
     root.dataset.illustroWorkspacePresentation = snapshot.workspacePresentation
       ? 'enabled'
       : 'disabled';
+    for (const listener of subscribers) listener(snapshot);
     return snapshot;
   };
 
@@ -553,6 +557,11 @@ export function installViewportControllerV1(input: {
     },
     handleNavigationBatch,
     isMouseNavigationBatch,
+    subscribe(listener: (snapshot: ViewportSnapshotV1) => void) {
+      subscribers.add(listener);
+      listener(transform.snapshot());
+      return () => subscribers.delete(listener);
+    },
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -562,6 +571,7 @@ export function installViewportControllerV1(input: {
       document.removeEventListener('fullscreenchange', onFullscreenChange);
       for (const [button, listener] of listeners) button.removeEventListener('click', listener);
       activePointers.clear();
+      subscribers.clear();
       root.dataset.illustroViewport = 'disposed';
     },
   });

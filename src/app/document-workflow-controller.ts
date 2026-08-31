@@ -235,12 +235,10 @@ export function installDocumentWorkflowControllerV1(
           if (precision !== 'rgba8-unorm' && precision !== 'rgba16-float') {
             throw new TypeError('unsupported document precision');
           }
-          const admission = await options.canvasAdmission.preflight({
+          const admission = await options.canvasAdmission.preflightDocumentCreate({
             width,
             height,
             precision,
-            projectedTouchedTiles: 0,
-            operationScratchBytes: 0,
           });
           if (!admission.allowed) {
             status.value = `作成できません: ${admission.reasons.join(', ')}`;

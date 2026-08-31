@@ -51,6 +51,8 @@
               <button id="view-fit" type="button">画面に合わせる</button>
               <button id="view-mirror" type="button">左右反転プレビュー</button>
               <button id="view-pixel" type="button">ピクセル表示</button>
+              <button id="view-grid-toggle" type="button">グリッド表示</button>
+              <button id="view-grid-settings" type="button">グリッド設定…</button>
               <button id="view-workspace" type="button">全画面ワークスペース</button>
             </div>
           </details>
@@ -74,7 +76,10 @@
             <span class="shell-document-tab">Illustration</span>
           </div>
           <div class="shell-canvas-stage">
-            <canvas id="render-surface" class="shell-canvas" width="1" height="1" aria-label="Illustration canvas"></canvas>
+            <div id="canvas-viewport-frame" class="shell-canvas-frame">
+              <canvas id="render-surface" class="shell-canvas" width="1" height="1" aria-label="Illustration canvas"></canvas>
+              <div id="canvas-grid-overlay" class="shell-grid-overlay" aria-hidden="true" hidden></div>
+            </div>
           </div>
         </main>
         <aside class="shell-inspector" aria-label="Inspector">
@@ -137,6 +142,22 @@
         <footer>
           <button id="canvas-geometry-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
           <button id="canvas-geometry-submit" type="submit" class="document-dialog-primary">適用</button>
+        </footer>
+      </form>
+    </dialog>
+    <dialog id="grid-dialog" class="document-dialog" aria-labelledby="grid-dialog-title">
+      <form id="grid-form" method="dialog" class="document-dialog-form">
+        <header><h2 id="grid-dialog-title">グリッド設定</h2></header>
+        <div class="document-dialog-grid">
+          <label>間隔 (px)<input id="grid-spacing" type="number" min="1" max="32768" step="1" value="64" /></label>
+          <label>オフセット X<input id="grid-offset-x" type="number" step="1" value="0" /></label>
+          <label>オフセット Y<input id="grid-offset-y" type="number" step="1" value="0" /></label>
+          <label>色<input id="grid-color" type="color" value="#64748b" /></label>
+        </div>
+        <output id="grid-status" class="document-dialog-status" aria-live="polite"></output>
+        <footer>
+          <button id="grid-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+          <button type="submit" class="document-dialog-primary">適用</button>
         </footer>
       </form>
     </dialog>
