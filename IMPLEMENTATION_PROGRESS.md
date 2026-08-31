@@ -250,14 +250,14 @@ M5A-014 canvas expansion:完了
 M5A-015 destructive document rotate:完了
 M5A-016 horizontal flip:完了
 M5A-017 vertical flip:完了
-M5A-018 pan:未完了
-M5A-019 zoom:未完了
-M5A-020 viewport rotation:未完了
-M5A-021 reset view:未完了
-M5A-022 fit-to-screen:未完了
-M5A-023 fullscreen/workspace presentation:未完了
-M5A-024 mirror preview:未完了
-M5A-025 pixel/non-interpolated preview:未完了
+M5A-018 pan:完了
+M5A-019 zoom:完了
+M5A-020 viewport rotation:完了
+M5A-021 reset view:完了
+M5A-022 fit-to-screen:完了
+M5A-023 fullscreen/workspace presentation:完了
+M5A-024 mirror preview:完了
+M5A-025 pixel/non-interpolated preview:完了
 M5A-026 grid display:未完了
 M5A-027 grid spacing:未完了
 M5A-028 grid offset:未完了

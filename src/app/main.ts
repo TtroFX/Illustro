@@ -22,6 +22,7 @@ import { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
+import { installViewportControllerV1 } from './viewport-controller.js';
 import { startRendererController } from './renderer-controller.js';
 import {
   createRuntimeCapabilityProfile,
@@ -39,10 +40,14 @@ const root = document.documentElement;
 const runtime = getRuntimeConfig();
 const capabilities = collectRuntimeCapabilities();
 const shell = installFoundationShell();
+const viewport = installViewportControllerV1({ root, canvas: shell.canvas });
 const workers = startDedicatedWorkers();
 const canvasAdmission = getCanvasAdmissionControllerV1();
 const renderer = startRendererController(shell, workers.render, root);
-const paintSession = new PaintSessionControllerV1(renderer);
+const paintSession = new PaintSessionControllerV1(renderer, {
+  mapPointerToDocument: (sample, documentValue) =>
+    viewport.mapPointerToDocument(sample, documentValue),
+});
 const paintHistory = new PaintHistoryControllerV1(paintSession);
 const paintPersistence = new PaintPersistenceControllerV1(
   workers.storage,
@@ -82,6 +87,7 @@ function publishPaintHistory(): void {
 }
 
 function publishDocumentState(documentValue: DocumentV1): void {
+  viewport.setDocumentSize(documentValue.canvas.width, documentValue.canvas.height);
   root.dataset.illustroDocumentId = documentValue.documentId;
   root.dataset.illustroDocumentWidth = String(documentValue.canvas.width);
   root.dataset.illustroDocumentHeight = String(documentValue.canvas.height);
@@ -148,7 +154,13 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
   if (arbitration.disposition === 'rejected-palm') {
     incrementPerformanceCounter('input.pointer.palm-rejected');
   }
-  if (arbitration.forwardBatch !== null) {
+  const mouseNavigation = viewport.isMouseNavigationBatch(batch);
+  if (arbitration.disposition === 'navigation' || mouseNavigation) {
+    if (viewport.handleNavigationBatch(batch)) {
+      root.dataset.illustroPointerDisposition = 'navigation';
+      incrementPerformanceCounter('viewport.navigation.batch');
+    }
+  } else if (arbitration.forwardBatch !== null) {
     const previousStrokeId = paintSession.activeStroke()?.strokeId ?? null;
     const paint = paintSession.ingestPointerBatch(arbitration.forwardBatch);
     const activeStroke = paintSession.activeStroke();
@@ -328,6 +340,7 @@ globalThis.addEventListener(
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
     documentGeometryWorkflow.dispose();
     documentWorkflow.dispose();
+    viewport.dispose();
     pointerInput.dispose();
     pointerTransport.dispose();
     pointerHover.clear();

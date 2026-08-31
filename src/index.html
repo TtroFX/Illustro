@@ -39,7 +39,22 @@
               <button id="document-flip-vertical" type="button">上下反転</button>
             </div>
           </details>
-          <span>選択範囲</span><span>表示</span><span>フィルター</span>
+          <span>選択範囲</span>
+          <details class="shell-menu-dropdown">
+            <summary>表示</summary>
+            <div class="shell-menu-popover">
+              <button id="view-zoom-in" type="button">拡大</button>
+              <button id="view-zoom-out" type="button">縮小</button>
+              <button id="view-rotate-left" type="button">表示を左へ15°回転</button>
+              <button id="view-rotate-right" type="button">表示を右へ15°回転</button>
+              <button id="view-reset" type="button">表示をリセット</button>
+              <button id="view-fit" type="button">画面に合わせる</button>
+              <button id="view-mirror" type="button">左右反転プレビュー</button>
+              <button id="view-pixel" type="button">ピクセル表示</button>
+              <button id="view-workspace" type="button">全画面ワークスペース</button>
+            </div>
+          </details>
+          <span>フィルター</span>
         </nav>
         <div class="shell-topbar-actions">
           <button id="export-png" class="shell-export-button" type="button" disabled>Export PNG</button>

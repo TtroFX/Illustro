@@ -13,11 +13,10 @@ export interface FoundationShell {
 }
 
 function measureCanvasBackingStore(canvas: HTMLCanvasElement): CanvasBackingSizeV1 {
-  const rect = canvas.getBoundingClientRect();
   const pixelRatio = Math.min(Math.max(globalThis.devicePixelRatio || 1, 1), 4);
   return Object.freeze({
-    width: Math.max(1, Math.round(rect.width * pixelRatio)),
-    height: Math.max(1, Math.round(rect.height * pixelRatio)),
+    width: Math.max(1, Math.round(canvas.clientWidth * pixelRatio)),
+    height: Math.max(1, Math.round(canvas.clientHeight * pixelRatio)),
     pixelRatio,
   });
 }
