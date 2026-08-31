@@ -10,6 +10,7 @@ import {
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installDiagnosticsHook } from './diagnostics.js';
+import { startRendererController } from './renderer-controller.js';
 import {
   createRuntimeCapabilityProfile,
   probeArrayBufferTransferSupport,
@@ -43,9 +44,19 @@ installDiagnosticsHook();
 logger.info('runtime.bootstrap', { build: buildIdentity, runtime, capabilities });
 
 const workers = startDedicatedWorkers();
+const renderer = startRendererController(shell, workers.render, root);
+void renderer
+  .start()
+  .then((snapshot) => logger.info('renderer.runtime-ready', { snapshot }))
+  .catch((error: unknown) => {
+    incrementPerformanceCounter('renderer.runtime.failure');
+    logger.error('renderer.runtime-failed', error);
+  });
+
 globalThis.addEventListener(
   'pagehide',
   () => {
+    renderer.dispose();
     shell.dispose();
     workers.dispose();
     stopPerformanceInstrumentation();

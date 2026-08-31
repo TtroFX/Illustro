@@ -5,6 +5,7 @@ import {
   WEBGPU_CORE_LIMIT_REQUIREMENTS,
   type IllustroGpuAdapterV1,
   type IllustroGpuV1,
+  type WebGpuDeviceLostInfoLikeV1,
   type WebGpuLimitsLikeV1,
 } from '../../src/gpu/webgpu-capability.js';
 
@@ -32,6 +33,7 @@ function adapter(
     async requestDevice() {
       if (input.failDevice === true) throw new Error('device rejected');
       return {
+        lost: new Promise<WebGpuDeviceLostInfoLikeV1>(() => undefined),
         createShaderModule() {
           return {};
         },
@@ -114,5 +116,17 @@ describe('M3 core WebGPU capability profile', () => {
     expect(result.status).toBe('device-failed');
     expect(result.profile?.supported).toBe(true);
     expect(result.errorMessage).toBe('device rejected');
+  });
+
+  it('normalizes adapter request rejection as adapter unavailable', async () => {
+    const surface: IllustroGpuV1 = {
+      async requestAdapter() {
+        throw new Error('adapter reset');
+      },
+    };
+    await expect(acquireCoreWebGpuV1({ secureContext: true, gpu: surface })).resolves.toMatchObject({
+      status: 'adapter-unavailable',
+      errorMessage: 'adapter reset',
+    });
   });
 });

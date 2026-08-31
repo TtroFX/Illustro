@@ -22,7 +22,13 @@ export interface WebGpuFeaturesLikeV1 {
   has(feature: string): boolean;
 }
 
+export interface WebGpuDeviceLostInfoLikeV1 {
+  readonly reason: string;
+  readonly message: string;
+}
+
 export interface IllustroGpuDeviceV1 {
+  readonly lost: Promise<WebGpuDeviceLostInfoLikeV1>;
   createShaderModule(descriptor: { readonly code: string; readonly label?: string }): unknown;
 }
 
@@ -136,7 +142,19 @@ export async function acquireCoreWebGpuV1(
     });
   }
 
-  const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
+  let adapter: IllustroGpuAdapterV1 | null;
+  try {
+    adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
+  } catch (error) {
+    return Object.freeze({
+      schema: 'illustro.webgpu-acquire/1',
+      status: 'adapter-unavailable',
+      profile: null,
+      adapter: null,
+      device: null,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+  }
   if (adapter === null) {
     return Object.freeze({
       schema: 'illustro.webgpu-acquire/1',
