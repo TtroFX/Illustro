@@ -1,4 +1,8 @@
-import type { PointerInputBatchV1, PointerInputSampleV1, PointerInputSourceV1 } from './pointer-input.js';
+import type {
+  PointerInputBatchV1,
+  PointerInputSampleV1,
+  PointerInputSourceV1,
+} from './pointer-input.js';
 
 export interface PointerHoverSnapshotV1 {
   readonly schema: 'illustro.pointer-hover-state/1';

@@ -86,7 +86,9 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
     const arbitration = new PointerInputArbitrationV1();
     arbitration.route(batch(sample('pen', 'pointerdown', { timestampMs: 100 })));
     const touch = arbitration.route(
-      batch(sample('touch', 'pointerdown', { timestampMs: 110, contactWidth: 6, contactHeight: 6 })),
+      batch(
+        sample('touch', 'pointerdown', { timestampMs: 110, contactWidth: 6, contactHeight: 6 }),
+      ),
     );
     expect(touch).toMatchObject({
       disposition: 'rejected-palm',
@@ -134,7 +136,9 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
 
   it('supports explicit finger drawing without changing the default policy', () => {
     const arbitration = new PointerInputArbitrationV1({ fingerDrawingEnabled: true });
-    const decision = arbitration.route(batch(sample('touch', 'pointerdown', { timestampMs: 1000 })));
+    const decision = arbitration.route(
+      batch(sample('touch', 'pointerdown', { timestampMs: 1000 })),
+    );
     expect(decision).toMatchObject({
       disposition: 'tool',
       reason: 'touch-finger-drawing',
