@@ -1,0 +1,55 @@
+name: Update M6A performance progress v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-m6a-progress-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-progress:
+    if: ${{ !contains(github.event.head_commit.message, '[m6a-progress]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Patch implementation progress
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+
+          marker = 'M6A-077 deterministic brush thumbnails:未完了\nM6A-検査 M6A内部検査:未完了'
+          if 'M6A-PERF-001 incremental active-stroke rendering' in text:
+              raise SystemExit('M6A performance progress already present; refusing duplicate insertion')
+          if marker not in text:
+              raise SystemExit('M6A insertion marker not found')
+
+          replacement = '''M6A-077 deterministic brush thumbnails:未完了
+M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了
+M6A-PERF-002 retained tile/dirty-region presentation（normal hot pathでwhole-stroke/whole-history replay禁止）:未完了
+M6A-PERF-003 incremental GPU/transfer submission（累積stroke比例の毎回allocate/copy/destroy禁止）:未完了
+M6A-PERF-004 long-stroke scaling workload verification:未完了
+M6A-検査 M6A内部検査:未完了'''
+          path.write_text(text.replace(marker, replacement, 1), encoding='utf-8')
+          PY
+
+      - name: Verify and commit progress update
+        shell: bash
+        run: |
+          grep -Fq 'M6A-PERF-001 incremental active-stroke rendering' IMPLEMENTATION_PROGRESS.md
+          grep -Fq 'M6A-PERF-004 long-stroke scaling workload verification' IMPLEMENTATION_PROGRESS.md
+          rm .github/workflows/update-m6a-progress-v2.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md .github/workflows/update-m6a-progress-v2.yml
+          git commit -m 'docs: track M6A incremental rendering performance gates [m6a-progress] [skip ci]'
+          git push origin HEAD:main
