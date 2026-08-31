@@ -1,0 +1,67 @@
+name: Update incremental brush rendering spec
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-incremental-brush-spec.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update-spec:
+    if: ${{ !contains(github.event.head_commit.message, '[spec-update]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Patch canonical design memo
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('ILLUSTRO_DESIGN_MEMO.md')
+          text = path.read_text(encoding='utf-8')
+
+          marker = '### Active-stroke incremental rendering invariant — AUTHORITATIVE'
+          if marker in text:
+              raise SystemExit('incremental rendering invariant already present; refusing duplicate insertion')
+
+          decision_anchor = '## Working rules for this memo\n'
+          if decision_anchor not in text:
+              raise SystemExit('confirmed-decision insertion anchor not found')
+
+          decision = '''### 2026-09-01\n\n1. The production Canonical Brush Engine must use **incremental active-stroke rendering**: ordinary per-input presentation must not replay the already-confirmed stroke prefix or all committed document strokes merely to show newly confirmed input.\n2. The current M4 baseline paint/replay path is a functional vertical-slice/reference path, **not the performance-complete production brush architecture**. The incremental-rendering invariant becomes a required M6A Canonical Brush Engine gate. M5A–M5D work does not need to be interrupted solely to retrofit this optimization unless a current feature or measurement requires it.\n3. Stabilization/interpolation may keep a bounded mutable tail whose geometry can still change; once a prefix is outside that dependency window it is treated as stable for normal presentation and is not repeatedly resampled, restabilized, regenerated into dabs, or rasterized.\n4. Stroke/history data may remain available for Undo/Redo, persistence, recovery, deterministic reconstruction and diagnostics, but ordinary frame presentation must use retained raster/tile state and incremental dirty-region work rather than whole-history replay.\n\n'''
+          text = text.replace(decision_anchor, decision + decision_anchor, 1)
+
+          renderer_anchor = '''Every mutable raster/effect node tracks dirty tile coordinates plus an optional per-tile dirty rectangle. Dirty rectangles union during a transaction; once the union covers **>= 50% of a tile core**, the tile is treated as wholly dirty to reduce bookkeeping.\n\nWork scheduling uses four priorities:\n'''
+          if renderer_anchor not in text:
+              raise SystemExit('renderer dirty-tile insertion anchor not found')
+
+          renderer_section = '''Every mutable raster/effect node tracks dirty tile coordinates plus an optional per-tile dirty rectangle. Dirty rectangles union during a transaction; once the union covers **>= 50% of a tile core**, the tile is treated as wholly dirty to reduce bookkeeping.\n\n### Active-stroke incremental rendering invariant — AUTHORITATIVE\n\nThis rule constrains the production M6A Canonical Brush Engine and its renderer integration. It supplements the sparse-tile/dirty-region architecture above; it does not require the earlier M4 baseline vertical slice to already be the final optimized implementation.\n\n- **No whole-stroke replay on the normal hot path.** When a pointer/input batch contributes newly confirmed samples, the normal presentation path processes only the newly required sample/interpolation/dab work plus a bounded dependency tail. It must not regenerate or rerasterize the already-stable prefix simply because the stroke has become longer.\n- **No whole-document brush-history replay on the normal hot path.** Previously committed strokes may remain in canonical history/persistence structures, but adding or previewing a new brush segment must not flatten/re-submit every historical dab/stroke merely to reconstruct the current frame. Retained raster/tile/atlas state is the normal presentation source.\n- **Stable prefix + mutable tail.** Stabilization, smoothing, interpolation, prediction reconciliation or other algorithms that need look-ahead may keep a bounded mutable tail. The tail bound is determined by the selected algorithm/brush semantics and must not grow with total stroke duration. Samples/dabs older than that dependency window become a stable prefix and are not normally revisited.\n- **Incremental dirty work.** Newly stable dabs/coverage invalidate only the raster tiles and dirty rectangles they can affect, including any explicitly required halo/dependency region. Unaffected tiles remain reusable. A local brush update must not invalidate unrelated visible or off-screen tiles.\n- **Predicted input remains provisional.** Predicted samples may be redrawn/replaced as confirmed input arrives, but prediction must not force already-confirmed stable stroke content back into the mutable/replay set. Prediction state is not canonical history.\n- **Hot-path complexity invariant.** With the same brush, local geometry, newly delivered sample count and affected-tile count, per-batch CPU preparation, transfer/submission volume and GPU brush work should remain approximately independent of the number of dabs in the already-stable stroke prefix and of unrelated committed strokes. An implementation whose ordinary pointer-move cost is O(total active-stroke dabs) or O(total document brush-history dabs) violates this invariant even if WebGPU masks the issue on fast hardware.\n- **Allocation discipline.** Production rendering should reuse/batch GPU and transfer resources where practical. Repeated allocation/copy/destruction whose size is proportional to the entire accumulated stroke is not an acceptable substitute for incremental submission. Exact ring-buffer/pool/batch strategy remains benchmark-driven.\n- **Full replay is exceptional, not interactive presentation.** Replay/reconstruction is permitted for explicit recovery, device-loss rebuild, canonical-state verification, migration, export paths that require it, or other deliberate reconstruction operations. Such work must be scheduled separately from the ordinary low-latency pointer hot path and should use tile/checkpoint/cache state where available.\n- **Undo/Redo correctness is separate from presentation cost.** History may store stroke commands, tile deltas, snapshots or equivalent canonical information. Undo/Redo may invalidate/reconstruct the tiles actually affected by the transaction; preserving exact history does not justify replaying all history every frame.\n- **M6A verification requirement.** Before the Canonical Brush Engine is marked internally complete, include a long-stroke scaling workload that holds newly delivered work approximately constant while increasing the already-confirmed prefix. Instrument at least generated/reprocessed dabs, affected tiles/dirty area, CPU preparation/submission time and GPU submission/work counters where measurable. The result must demonstrate that stable-prefix length does not cause linear whole-prefix replay on ordinary pointer updates.\n\nThe M4 baseline renderer may continue to exist temporarily as a correctness/reference implementation while M5A–M5D proceed, but it must not be promoted unchanged as the final M6A production brush path if it clears/rebuilds the presentation from cumulative active/committed dab history on each update.\n\nWork scheduling uses four priorities:\n'''
+          text = text.replace(renderer_anchor, renderer_section, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+          # Minimal self-verification: exactly one authoritative marker and both stage constraints present.
+          check = path.read_text(encoding='utf-8')
+          assert check.count(marker) == 1
+          assert 'The current M4 baseline paint/replay path is a functional vertical-slice/reference path' in check
+          assert 'ordinary pointer-move cost is O(total active-stroke dabs)' in check
+          PY
+
+      - name: Verify and commit spec update
+        shell: bash
+        run: |
+          grep -Fq '### Active-stroke incremental rendering invariant — AUTHORITATIVE' ILLUSTRO_DESIGN_MEMO.md
+          grep -Fq 'The current M4 baseline paint/replay path is a functional vertical-slice/reference path' ILLUSTRO_DESIGN_MEMO.md
+          rm .github/workflows/update-incremental-brush-spec.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md .github/workflows/update-incremental-brush-spec.yml
+          git commit -m 'docs: define incremental stroke rendering invariant [spec-update] [skip ci]'
+          git push origin HEAD:main
