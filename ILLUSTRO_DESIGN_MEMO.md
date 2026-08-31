@@ -86,6 +86,13 @@ Illustroの設計・仕様に関する正本は、この1つの `.md` に統合�
 35. Illustro adopts a **license-aware algorithm/reference-implementation policy**: public algorithms, papers, standards and open-source implementations should be actively researched and reused where useful, but direct source-code reuse is allowed only when the license is compatible and obligations are recorded. Prefer public-domain/CC0 and permissive MIT/BSD/Apache-2.0 implementations for directly incorporated code. Strong-copyleft, source-available, or proprietary code may be studied as a reference, but must not be copied into the core unless the project's licensing decision explicitly accepts the resulting obligations.
 36. The implementation target must distinguish **logical capability from unlimited resource claims**. User-defined canvas dimensions are supported within validated document, storage, codec, CPU/GPU and platform limits; no specification may require literally unbounded dimensions or guaranteed identical performance across devices.
 
+### 2026-09-01
+
+1. The production Canonical Brush Engine must use **incremental active-stroke rendering**: ordinary per-input presentation must not replay the already-confirmed stroke prefix or all committed document strokes merely to show newly confirmed input.
+2. The current M4 baseline paint/replay path is a functional vertical-slice/reference path, **not the performance-complete production brush architecture**. The incremental-rendering invariant becomes a required M6A Canonical Brush Engine gate. M5A–M5D work does not need to be interrupted solely to retrofit this optimization unless a current feature or measurement requires it.
+3. Stabilization/interpolation may keep a bounded mutable tail whose geometry can still change; once a prefix is outside that dependency window it is treated as stable for normal presentation and is not repeatedly resampled, restabilized, regenerated into dabs, or rasterized.
+4. Stroke/history data may remain available for Undo/Redo, persistence, recovery, deterministic reconstruction and diagnostics, but ordinary frame presentation must use retained raster/tile state and incremental dirty-region work rather than whole-history replay.
+
 ## Working rules for this memo
 
 - Record confirmed product, UX, technical, data-model, file-format, performance, asset, testing, implementation-stage, and release decisions here.
@@ -1268,6 +1275,23 @@ Resident canonical/render tiles are cached in GPU **atlas pages** rather than re
 - Temporary filter/halo targets are separate transient resources and do not change canonical atlas contents.
 
 Every mutable raster/effect node tracks dirty tile coordinates plus an optional per-tile dirty rectangle. Dirty rectangles union during a transaction; once the union covers **>= 50% of a tile core**, the tile is treated as wholly dirty to reduce bookkeeping.
+
+### Active-stroke incremental rendering invariant — AUTHORITATIVE
+
+This rule constrains the production M6A Canonical Brush Engine and its renderer integration. It supplements the sparse-tile/dirty-region architecture above; it does not require the earlier M4 baseline vertical slice to already be the final optimized implementation.
+
+- **No whole-stroke replay on the normal hot path.** When a pointer/input batch contributes newly confirmed samples, the normal presentation path processes only the newly required sample/interpolation/dab work plus a bounded dependency tail. It must not regenerate or rerasterize the already-stable prefix simply because the stroke has become longer.
+- **No whole-document brush-history replay on the normal hot path.** Previously committed strokes may remain in canonical history/persistence structures, but adding or previewing a new brush segment must not flatten/re-submit every historical dab/stroke merely to reconstruct the current frame. Retained raster/tile/atlas state is the normal presentation source.
+- **Stable prefix + mutable tail.** Stabilization, smoothing, interpolation, prediction reconciliation or other algorithms that need look-ahead may keep a bounded mutable tail. The tail bound is determined by the selected algorithm/brush semantics and must not grow with total stroke duration. Samples/dabs older than that dependency window become a stable prefix and are not normally revisited.
+- **Incremental dirty work.** Newly stable dabs/coverage invalidate only the raster tiles and dirty rectangles they can affect, including any explicitly required halo/dependency region. Unaffected tiles remain reusable. A local brush update must not invalidate unrelated visible or off-screen tiles.
+- **Predicted input remains provisional.** Predicted samples may be redrawn/replaced as confirmed input arrives, but prediction must not force already-confirmed stable stroke content back into the mutable/replay set. Prediction state is not canonical history.
+- **Hot-path complexity invariant.** With the same brush, local geometry, newly delivered sample count and affected-tile count, per-batch CPU preparation, transfer/submission volume and GPU brush work should remain approximately independent of the number of dabs in the already-stable stroke prefix and of unrelated committed strokes. An implementation whose ordinary pointer-move cost is O(total active-stroke dabs) or O(total document brush-history dabs) violates this invariant even if WebGPU masks the issue on fast hardware.
+- **Allocation discipline.** Production rendering should reuse/batch GPU and transfer resources where practical. Repeated allocation/copy/destruction whose size is proportional to the entire accumulated stroke is not an acceptable substitute for incremental submission. Exact ring-buffer/pool/batch strategy remains benchmark-driven.
+- **Full replay is exceptional, not interactive presentation.** Replay/reconstruction is permitted for explicit recovery, device-loss rebuild, canonical-state verification, migration, export paths that require it, or other deliberate reconstruction operations. Such work must be scheduled separately from the ordinary low-latency pointer hot path and should use tile/checkpoint/cache state where available.
+- **Undo/Redo correctness is separate from presentation cost.** History may store stroke commands, tile deltas, snapshots or equivalent canonical information. Undo/Redo may invalidate/reconstruct the tiles actually affected by the transaction; preserving exact history does not justify replaying all history every frame.
+- **M6A verification requirement.** Before the Canonical Brush Engine is marked internally complete, include a long-stroke scaling workload that holds newly delivered work approximately constant while increasing the already-confirmed prefix. Instrument at least generated/reprocessed dabs, affected tiles/dirty area, CPU preparation/submission time and GPU submission/work counters where measurable. The result must demonstrate that stable-prefix length does not cause linear whole-prefix replay on ordinary pointer updates.
+
+The M4 baseline renderer may continue to exist temporarily as a correctness/reference implementation while M5A–M5D proceed, but it must not be promoted unchanged as the final M6A production brush path if it clears/rebuilds the presentation from cumulative active/committed dab history on each update.
 
 Work scheduling uses four priorities:
 
