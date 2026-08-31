@@ -30,4 +30,21 @@ describe('production build output', () => {
     expect(identity.buildSha?.length).toBeGreaterThan(0);
     expect(identity.buildMode).toBe('production');
   });
+
+  it('ships the M3 renderer cache, atlas, and viewport wiring in the production bundle', async () => {
+    const [renderWorker, tileCache, atlas, viewport] = await Promise.all([
+      readDist('workers/render.worker.js'),
+      readDist('gpu/tile-cache.js'),
+      readDist('gpu/gpu-atlas.js'),
+      readDist('gpu/viewport-tiles.js'),
+    ]);
+
+    expect(renderWorker).toContain('renderer.tiles.reserveGpu');
+    expect(renderWorker).toContain('renderer.tiles.cacheCpu');
+    expect(renderWorker).toContain('renderer.tiles.viewport');
+    expect(renderWorker).toContain('renderer.provisional.discarded');
+    expect(tileCache).toContain('class GpuTileCacheV1');
+    expect(atlas).toContain('GPU_ATLAS_PAGE_SIZE_PX = 2048');
+    expect(viewport).toContain('resolveViewportTilesV1');
+  });
 });
