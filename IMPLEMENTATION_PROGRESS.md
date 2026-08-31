@@ -215,10 +215,10 @@ M4-002 initial Raster Layer生成:完了
 M4-003 pen stroke開始:完了
 M4-004 mouse stroke開始:完了
 M4-005 stroke sample accumulation:完了
-M4-006 baseline brush dab生成:未完了
-M4-007 GPU rasterization:未完了
-M4-008 tile dirty update:未完了
-M4-009 canvasへの可視結果表示:未完了
+M4-006 baseline brush dab生成:完了
+M4-007 GPU rasterization:完了
+M4-008 tile dirty update:完了
+M4-009 canvasへの可視結果表示:完了
 M4-010 strokeを1 history transactionとしてcommit:未完了
 M4-011 stroke Undo:未完了
 M4-012 stroke Redo:未完了
