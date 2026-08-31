@@ -78,7 +78,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function sourceFromPointerType(pointerType: string): PointerInputSourceV1 {
-  if (pointerType === 'pen' || pointerType === 'touch' || pointerType === 'mouse') return pointerType;
+  if (pointerType === 'pen' || pointerType === 'touch' || pointerType === 'mouse')
+    return pointerType;
   return 'unknown';
 }
 

@@ -53,7 +53,14 @@ describe('M3 pointer sample normalization', () => {
 
   it('clamps malformed analog ranges and preserves unavailable orientation as null', () => {
     const sample = normalizePointerSampleV1(
-      event({ pressure: 2, tangentialPressure: -3, tiltX: 120, tiltY: -120, twist: 500, altitudeAngle: undefined }),
+      event({
+        pressure: 2,
+        tangentialPressure: -3,
+        tiltX: 120,
+        tiltY: -120,
+        twist: 500,
+        altitudeAngle: undefined,
+      }),
       { left: 0, top: 0 },
       'direct',
       0,

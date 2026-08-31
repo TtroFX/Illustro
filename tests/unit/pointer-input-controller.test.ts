@@ -60,7 +60,9 @@ describe('M3 production canvas pointer controller', () => {
   it('subscribes to Pointer Events including pointerrawupdate and maintains confirmed state', () => {
     const target = new FakePointerTarget();
     const batches: string[] = [];
-    const controller = installPointerInputControllerV1(target, (batch) => batches.push(batch.eventType));
+    const controller = installPointerInputControllerV1(target, (batch) =>
+      batches.push(batch.eventType),
+    );
 
     expect([...target.listeners.keys()]).toEqual([
       'pointerdown',
