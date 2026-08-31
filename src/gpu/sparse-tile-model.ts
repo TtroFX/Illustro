@@ -65,7 +65,8 @@ function assertNonNegativeInteger(value: number, label: string): void {
 
 function assertRect(rect: RectV1, label: string): void {
   for (const [name, value] of Object.entries(rect)) {
-    if (!Number.isSafeInteger(value)) throw new RangeError(`${label}.${name} must be a safe integer`);
+    if (!Number.isSafeInteger(value))
+      throw new RangeError(`${label}.${name} must be a safe integer`);
   }
   if (rect.x < 0 || rect.y < 0 || rect.width < 1 || rect.height < 1) {
     throw new RangeError(`${label} must have non-negative origin and positive size`);
@@ -160,7 +161,12 @@ function rectArea(rect: RectV1): number {
 }
 
 function coversValidTile(rect: RectV1, bounds: TileBoundsV1): boolean {
-  return rect.x === 0 && rect.y === 0 && rect.width >= bounds.validWidth && rect.height >= bounds.validHeight;
+  return (
+    rect.x === 0 &&
+    rect.y === 0 &&
+    rect.width >= bounds.validWidth &&
+    rect.height >= bounds.validHeight
+  );
 }
 
 function shouldPromoteWhole(rect: RectV1, bounds: TileBoundsV1): boolean {
@@ -214,7 +220,8 @@ export class DirtyTileTrackerV1 {
     const key = tileKeyV1(coordinate);
     const current = this.#dirty.get(key);
     if (current?.region.kind === 'whole') return current;
-    const combined = current?.region.kind === 'rect' ? unionRect(current.region.rect, clipped) : clipped;
+    const combined =
+      current?.region.kind === 'rect' ? unionRect(current.region.rect, clipped) : clipped;
     if (shouldPromoteWhole(combined, bounds)) return this.markWhole(coordinate);
 
     const state = Object.freeze({
@@ -268,11 +275,7 @@ export class SparseTileMapV1<Value> {
     const key = tileKeyV1(coordinate);
     const existing = this.#tiles.get(key);
     if (existing !== undefined) return existing;
-    const bounds = tileBoundsForDocumentV1(
-      this.#documentWidth,
-      this.#documentHeight,
-      coordinate,
-    );
+    const bounds = tileBoundsForDocumentV1(this.#documentWidth, this.#documentHeight, coordinate);
     const entry = Object.freeze({
       coordinate: bounds.coordinate,
       bounds,

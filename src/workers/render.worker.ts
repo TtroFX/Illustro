@@ -33,7 +33,10 @@ type RenderWorkerRequestV1 =
       readonly height: number;
     }
   | {
-      readonly type: 'renderer.tiles.allocate' | 'renderer.tiles.deallocate' | 'renderer.tiles.inspect';
+      readonly type:
+        | 'renderer.tiles.allocate'
+        | 'renderer.tiles.deallocate'
+        | 'renderer.tiles.inspect';
       readonly requestId: string;
       readonly coordinate: TileCoordinateV1;
     }

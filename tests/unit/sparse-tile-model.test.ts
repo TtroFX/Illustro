@@ -65,19 +65,13 @@ describe('M3 per-tile dirty tracking', () => {
   it('unions dirty rectangles and promotes at exactly 50% of a 256px tile core', () => {
     const tracker = new DirtyTileTrackerV1(512, 512);
     tracker.markRect({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 64, height: 256 });
-    const state = tracker.markRect(
-      { tx: 0, ty: 0 },
-      { x: 64, y: 0, width: 64, height: 256 },
-    );
+    const state = tracker.markRect({ tx: 0, ty: 0 }, { x: 64, y: 0, width: 64, height: 256 });
     expect(state).toEqual({ coordinate: { tx: 0, ty: 0 }, region: { kind: 'whole' } });
   });
 
   it('clips dirty rectangles to valid edge bounds and treats a fully covered edge tile as whole', () => {
     const tracker = new DirtyTileTrackerV1(300, 270);
-    const state = tracker.markRect(
-      { tx: 1, ty: 1 },
-      { x: 0, y: 0, width: 256, height: 256 },
-    );
+    const state = tracker.markRect({ tx: 1, ty: 1 }, { x: 0, y: 0, width: 256, height: 256 });
     expect(state).toEqual({ coordinate: { tx: 1, ty: 1 }, region: { kind: 'whole' } });
     expect(tracker.size).toBe(1);
     expect(tracker.clear({ tx: 1, ty: 1 })).toBe(true);

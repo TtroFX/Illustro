@@ -21,14 +21,15 @@ describe('M3 production renderer sparse tile state', () => {
 
   it('requires sparse allocation before tracking mutation dirtiness', () => {
     const state = new RendererTileStateV1(512, 512);
-    expect(() =>
-      state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 32, height: 32 }),
-    ).toThrow('allocate it first');
+    expect(() => state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 32, height: 32 })).toThrow(
+      'allocate it first',
+    );
 
     state.allocate({ tx: 0, ty: 0 });
-    expect(
-      state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 128, height: 256 }),
-    ).toEqual({ coordinate: { tx: 0, ty: 0 }, region: { kind: 'whole' } });
+    expect(state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 128, height: 256 })).toEqual({
+      coordinate: { tx: 0, ty: 0 },
+      region: { kind: 'whole' },
+    });
     expect(state.snapshot().dirtyTileCount).toBe(1);
   });
 
