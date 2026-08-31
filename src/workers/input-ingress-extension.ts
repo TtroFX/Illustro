@@ -1,4 +1,7 @@
-import { BoundedPointerInputQueueV1 } from '../input/input-queue.js';
+import {
+  BoundedPointerInputQueueV1,
+  DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1,
+} from '../input/input-queue.js';
 import {
   decodePointerSamplesV1,
   POINTER_INPUT_RECORD_STRIDE_V1,
@@ -32,7 +35,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 export function installRenderInputIngressV1(
   scope: RenderInputIngressScopeV1,
-  queueCapacity = 512,
+  queueCapacity = DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1,
 ): RenderInputIngressControllerV1 {
   const queue = new BoundedPointerInputQueueV1(queueCapacity);
   let disposed = false;
@@ -81,7 +84,8 @@ export function installRenderInputIngressV1(
         !(message.buffer instanceof ArrayBuffer) ||
         typeof message.count !== 'number' ||
         !Number.isSafeInteger(message.count) ||
-        message.count < 0
+        message.count < 0 ||
+        message.count > queueCapacity
       ) {
         scope.postMessage({ type: 'renderer.input.error', reason: 'invalid-transfer-message' });
         return true;
@@ -102,6 +106,7 @@ export function installRenderInputIngressV1(
         typeof message.capacity !== 'number' ||
         !Number.isSafeInteger(message.capacity) ||
         message.capacity < 1 ||
+        message.capacity > queueCapacity ||
         !(message.header instanceof SharedArrayBuffer) ||
         !(message.data instanceof SharedArrayBuffer)
       ) {

@@ -1,4 +1,7 @@
-import { BoundedPointerInputQueueV1 } from './input-queue.js';
+import {
+  BoundedPointerInputQueueV1,
+  DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1,
+} from './input-queue.js';
 import type {
   PointerInputBatchV1,
   PointerInputEventTypeV1,
@@ -8,7 +11,7 @@ import type {
 } from './pointer-input.js';
 
 export const POINTER_INPUT_RECORD_STRIDE_V1 = 22;
-export const DEFAULT_POINTER_SHARED_RING_CAPACITY_V1 = 256;
+export const DEFAULT_POINTER_SHARED_RING_CAPACITY_V1 = DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1;
 
 const HEADER_WRITE_INDEX = 0;
 const HEADER_READ_INDEX = 1;

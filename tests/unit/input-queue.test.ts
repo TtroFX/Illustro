@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BoundedPointerInputQueueV1 } from '../../src/input/input-queue.js';
+import {
+  BoundedPointerInputQueueV1,
+  DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1,
+} from '../../src/input/input-queue.js';
 import type {
   PointerInputBatchV1,
   PointerInputEventTypeV1,
@@ -10,6 +13,7 @@ function sample(
   sequence: number,
   eventType: PointerInputEventTypeV1,
   pointerId = 1,
+  overrides: Partial<PointerInputSampleV1> = {},
 ): PointerInputSampleV1 {
   return Object.freeze({
     schema: 'illustro.pointer-sample/1' as const,
@@ -35,6 +39,7 @@ function sample(
     contactHeight: 1,
     buttons: eventType === 'pointerup' ? 0 : 1,
     button: eventType === 'pointerdown' ? 0 : -1,
+    ...overrides,
   });
 }
 
@@ -49,6 +54,12 @@ function batch(samples: readonly PointerInputSampleV1[]): PointerInputBatchV1 {
 }
 
 describe('M3 bounded pointer input queue', () => {
+  it('uses the frozen P4-7 logical pointer bound by default', () => {
+    const queue = new BoundedPointerInputQueueV1();
+    expect(DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1).toBe(4_096);
+    expect(queue.snapshot().capacity).toBe(4_096);
+  });
+
   it('stays bounded and coalesces newest high-frequency updates for the same pointer', () => {
     const queue = new BoundedPointerInputQueueV1(4);
     queue.enqueue(sample(0, 'pointerdown'));
@@ -76,6 +87,29 @@ describe('M3 bounded pointer input queue', () => {
     expect(drained[0]?.eventType).toBe('pointerdown');
     expect(drained.at(-1)?.eventType).toBe('pointerup');
     expect(queue.snapshot().dropped).toBe(1);
+  });
+
+  it('preserves pressure extrema when a less important motion sample can be reduced', () => {
+    const queue = new BoundedPointerInputQueueV1(5);
+    queue.enqueue(sample(0, 'pointerdown'));
+    queue.enqueue(sample(1, 'pointermove', 1, { pressure: 0.2 }));
+    queue.enqueue(sample(2, 'pointermove', 1, { pressure: 1 }));
+    queue.enqueue(sample(3, 'pointermove', 1, { pressure: 0.4 }));
+    queue.enqueue(sample(4, 'pointermove', 1, { pressure: 0.45 }));
+    queue.enqueue(sample(5, 'pointermove', 1, { pressure: 0.5 }));
+
+    const drained = queue.drain();
+    expect(drained).toHaveLength(5);
+    expect(drained.some((entry) => entry.sequence === 2 && entry.pressure === 1)).toBe(true);
+    expect(drained.at(-1)?.sequence).toBe(5);
+  });
+
+  it('never silently discards a boundary event when no motion sample is available', () => {
+    const queue = new BoundedPointerInputQueueV1(2);
+    queue.enqueue(sample(0, 'pointerdown', 1));
+    queue.enqueue(sample(1, 'pointerdown', 2));
+    expect(() => queue.enqueue(sample(2, 'pointercancel', 1))).toThrow(/non-droppable/);
+    expect(queue.drain().map((entry) => entry.sequence)).toEqual([0, 1]);
   });
 
   it('bounds multi-pointer bursts without unbounded growth', () => {

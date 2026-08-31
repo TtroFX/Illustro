@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1 } from '../../src/input/input-queue.js';
 import {
   createPointerInputTransportV1,
   decodePointerSamplesV1,
+  DEFAULT_POINTER_SHARED_RING_CAPACITY_V1,
   encodePointerSamplesV1,
   POINTER_INPUT_RECORD_STRIDE_V1,
 } from '../../src/input/input-transport.js';
@@ -81,6 +83,11 @@ describe('M3 pointer input transport codec', () => {
     const decoded = decodePointerSamplesV1(encodePointerSamplesV1(original), original.length);
     expect(decoded).toEqual(original);
   });
+
+  it('uses the frozen 4096-sample P4-7 logical bound for queue and SAB ring defaults', () => {
+    expect(DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1).toBe(4_096);
+    expect(DEFAULT_POINTER_SHARED_RING_CAPACITY_V1).toBe(4_096);
+  });
 });
 
 describe('M3 Transferable fallback transport', () => {
@@ -105,10 +112,23 @@ describe('M3 Transferable fallback transport', () => {
     expect(decoded.map((entry) => entry.sequence)).toEqual([1, 2]);
   });
 
+  it('caps an oversized fallback batch at the same 4096-sample logical bound', () => {
+    const target = new FakeTarget();
+    const transport = createPointerInputTransportV1(target, { sharedMemoryFastPath: false });
+    const oversized = Array.from({ length: 4_500 }, (_, index) => sample(index));
+    transport.enqueueBatch(batch(oversized));
+    const message = record(target.messages[0]?.message);
+    expect(message.type).toBe('renderer.input.transfer');
+    expect(message.count).toBe(4_096);
+    const decoded = decodePointerSamplesV1(message.buffer as ArrayBuffer, 4_096);
+    expect(decoded.at(-1)?.sequence).toBe(4_499);
+  });
+
   it('is the functional mode whenever the shared-memory fast path is disabled', () => {
     const target = new FakeTarget();
     const transport = createPointerInputTransportV1(target, { sharedMemoryFastPath: false });
     expect(transport.snapshot().mode).toBe('transferable');
+    expect(transport.snapshot().queue.capacity).toBe(4_096);
   });
 });
 
@@ -128,6 +148,11 @@ describe('M3 render worker input ingress', () => {
     ).toBe(true);
     expect(ingress.snapshot().mode).toBe('transferable');
     expect(ingress.drain().map((entry) => entry.sequence)).toEqual([1, 2]);
+  });
+
+  it('uses the same 4096-sample logical bound by default', () => {
+    const ingress = installRenderInputIngressV1(new FakeScope());
+    expect(ingress.snapshot().queue.capacity).toBe(4_096);
   });
 
   it('uses SharedArrayBuffer + Atomics when available and preserves transferable fallback separately', () => {

@@ -44,6 +44,8 @@ jobs:
         run: npm run test:unit
       - name: M1 contract inspection
         run: npm run verify:m1
+      - name: M3 foundation inspection
+        run: npm run verify:m3
       - name: Production build
         env:
           ILLUSTRO_BUILD_MODE: production
