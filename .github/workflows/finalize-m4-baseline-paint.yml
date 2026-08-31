@@ -1,0 +1,71 @@
+name: Finalize M4 baseline paint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-m4-baseline-paint.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+          ILLUSTRO_BUILD_SHA: ${{ github.sha }}
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record verified M4 progress and remove helper
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          replacements = {
+              'M4-006 baseline brush dab生成:未完了': 'M4-006 baseline brush dab生成:完了',
+              'M4-007 GPU rasterization:未完了': 'M4-007 GPU rasterization:完了',
+              'M4-008 tile dirty update:未完了': 'M4-008 tile dirty update:完了',
+              'M4-009 canvasへの可視結果表示:未完了': 'M4-009 canvasへの可視結果表示:完了',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'missing progress entry: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+          rm .github/workflows/finalize-m4-baseline-paint.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md .github/workflows/finalize-m4-baseline-paint.yml
+          git commit -m 'chore: record verified M4 baseline paint progress [skip ci]'
+          git push origin HEAD:main
