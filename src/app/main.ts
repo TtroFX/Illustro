@@ -10,6 +10,7 @@ import {
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installDiagnosticsHook } from './diagnostics.js';
+import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { startRendererController } from './renderer-controller.js';
 import {
   createRuntimeCapabilityProfile,
@@ -27,6 +28,15 @@ const root = document.documentElement;
 const runtime = getRuntimeConfig();
 const capabilities = collectRuntimeCapabilities();
 const shell = installFoundationShell();
+const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
+  const latest = batch.confirmed.at(-1);
+  root.dataset.illustroPointerEvent = batch.eventType;
+  root.dataset.illustroPointerSource = latest?.source ?? 'unknown';
+  root.dataset.illustroPointerConfirmedSamples = String(batch.confirmed.length);
+  root.dataset.illustroPointerPredictedSamples = String(batch.predicted.length);
+  incrementPerformanceCounter('input.pointer.batch');
+});
+root.dataset.illustroPointerInput = 'ready';
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
@@ -56,6 +66,8 @@ void renderer
 globalThis.addEventListener(
   'pagehide',
   () => {
+    pointerInput.dispose();
+    root.dataset.illustroPointerInput = 'disposed';
     renderer.dispose();
     shell.dispose();
     workers.dispose();
