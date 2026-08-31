@@ -1,3 +1,4 @@
+import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
 import { acquireCoreWebGpuV1 } from '../gpu/webgpu-capability.js';
 import { RendererDeviceManagerV1 } from '../gpu/renderer-device-manager.js';
 import {
@@ -7,6 +8,8 @@ import {
 } from '../gpu/renderer-device-resources.js';
 import { RendererTileStateV1 } from '../gpu/renderer-tile-state.js';
 import type { RectV1, TileCoordinateV1 } from '../gpu/sparse-tile-model.js';
+import type { TileCacheResidencyV1 } from '../gpu/tile-cache.js';
+import type { DocumentViewportRectV1 } from '../gpu/viewport-tiles.js';
 
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
@@ -36,7 +39,9 @@ type RenderWorkerRequestV1 =
       readonly type:
         | 'renderer.tiles.allocate'
         | 'renderer.tiles.deallocate'
-        | 'renderer.tiles.inspect';
+        | 'renderer.tiles.inspect'
+        | 'renderer.tiles.releaseGpu'
+        | 'renderer.tiles.dropCpu';
       readonly requestId: string;
       readonly coordinate: TileCoordinateV1;
     }
@@ -45,6 +50,25 @@ type RenderWorkerRequestV1 =
       readonly requestId: string;
       readonly coordinate: TileCoordinateV1;
       readonly rect: RectV1;
+    }
+  | {
+      readonly type: 'renderer.tiles.reserveGpu';
+      readonly requestId: string;
+      readonly coordinate: TileCoordinateV1;
+      readonly pixelFormat: GpuAtlasPixelFormatV1;
+      readonly residency: TileCacheResidencyV1;
+    }
+  | {
+      readonly type: 'renderer.tiles.cacheCpu';
+      readonly requestId: string;
+      readonly coordinate: TileCoordinateV1;
+      readonly bytes: ArrayBuffer;
+      readonly residency: TileCacheResidencyV1;
+    }
+  | {
+      readonly type: 'renderer.tiles.viewport';
+      readonly requestId: string;
+      readonly rect: DocumentViewportRectV1;
     }
   | { readonly type: 'renderer.dispose' };
 
@@ -56,11 +80,13 @@ const deviceManager = new RendererDeviceManagerV1({
   acquire: acquireCoreWebGpuV1,
   rebuild(device, generation) {
     rebuildRendererDeviceResourcesV1(device, generation, surface);
+    tileState?.attachGpuDevice(device);
   },
   onState(snapshot) {
     scope.postMessage({ type: 'renderer.device-state', snapshot });
   },
   onDiscardProvisional() {
+    tileState?.attachGpuDevice(null);
     scope.postMessage({ type: 'renderer.provisional.discarded' });
   },
 });
@@ -77,12 +103,20 @@ function nonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isResidency(value: unknown): value is TileCacheResidencyV1 {
+  return value === 'interaction' || value === 'visible' || value === 'near' || value === 'background';
+}
+
+function isAtlasPixelFormat(value: unknown): value is GpuAtlasPixelFormatV1 {
+  return value === 'rgba8-unorm' || value === 'rgba16-float';
+}
+
 function parseCoordinate(value: Readonly<Record<string, unknown>>): TileCoordinateV1 | null {
   if (!nonNegativeInteger(value.tx) || !nonNegativeInteger(value.ty)) return null;
   return Object.freeze({ tx: value.tx, ty: value.ty });
 }
 
-function parseRect(value: unknown): RectV1 | null {
+function parseDirtyRect(value: unknown): RectV1 | null {
   if (!isRecord(value)) return null;
   if (
     !nonNegativeInteger(value.x) ||
@@ -93,6 +127,28 @@ function parseRect(value: unknown): RectV1 | null {
     return null;
   }
   return Object.freeze({ x: value.x, y: value.y, width: value.width, height: value.height });
+}
+
+function parseViewportRect(value: unknown): DocumentViewportRectV1 | null {
+  if (!isRecord(value)) return null;
+  const { x, y, width, height } = value;
+  if (
+    typeof x !== 'number' ||
+    typeof y !== 'number' ||
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    !Number.isFinite(x + width) ||
+    !Number.isFinite(y + height)
+  ) {
+    return null;
+  }
+  return Object.freeze({ x, y, width, height });
 }
 
 function isRendererSurface(value: unknown): value is RendererSurfaceLikeV1 {
@@ -148,19 +204,46 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
       height: value.height,
     };
   }
+  if (value.type === 'renderer.tiles.viewport' && typeof value.requestId === 'string') {
+    const rect = parseViewportRect(value.rect);
+    return rect === null ? null : { type: value.type, requestId: value.requestId, rect };
+  }
   if (
     (value.type === 'renderer.tiles.allocate' ||
       value.type === 'renderer.tiles.deallocate' ||
       value.type === 'renderer.tiles.inspect' ||
-      value.type === 'renderer.tiles.markDirty') &&
+      value.type === 'renderer.tiles.releaseGpu' ||
+      value.type === 'renderer.tiles.dropCpu' ||
+      value.type === 'renderer.tiles.markDirty' ||
+      value.type === 'renderer.tiles.reserveGpu' ||
+      value.type === 'renderer.tiles.cacheCpu') &&
     typeof value.requestId === 'string'
   ) {
     const coordinate = parseCoordinate(value);
     if (coordinate === null) return null;
     if (value.type === 'renderer.tiles.markDirty') {
-      const rect = parseRect(value.rect);
-      if (rect === null) return null;
-      return { type: value.type, requestId: value.requestId, coordinate, rect };
+      const rect = parseDirtyRect(value.rect);
+      return rect === null ? null : { type: value.type, requestId: value.requestId, coordinate, rect };
+    }
+    if (value.type === 'renderer.tiles.reserveGpu') {
+      if (!isAtlasPixelFormat(value.pixelFormat) || !isResidency(value.residency)) return null;
+      return {
+        type: value.type,
+        requestId: value.requestId,
+        coordinate,
+        pixelFormat: value.pixelFormat,
+        residency: value.residency,
+      };
+    }
+    if (value.type === 'renderer.tiles.cacheCpu') {
+      if (!(value.bytes instanceof ArrayBuffer) || !isResidency(value.residency)) return null;
+      return {
+        type: value.type,
+        requestId: value.requestId,
+        coordinate,
+        bytes: value.bytes,
+        residency: value.residency,
+      };
     }
     return { type: value.type, requestId: value.requestId, coordinate };
   }
@@ -187,9 +270,10 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     return;
   }
   if (request.type === 'renderer.dispose') {
+    tileState?.dispose();
+    tileState = null;
     deviceManager.dispose();
     surface = null;
-    tileState = null;
     return;
   }
   if (request.type === 'renderer.resize') {
@@ -202,7 +286,9 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
 
   try {
     if (request.type === 'renderer.tiles.configure') {
+      tileState?.dispose();
       tileState = new RendererTileStateV1(request.width, request.height);
+      tileState.attachGpuDevice(deviceManager.currentDevice());
       postResponse(request.requestId, true, tileState.snapshot());
       return;
     }
@@ -230,11 +316,54 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       });
       return;
     }
+    if (request.type === 'renderer.tiles.reserveGpu') {
+      const state = requireTileState();
+      postResponse(request.requestId, true, {
+        slot: state.reserveGpuTile(request.coordinate, request.pixelFormat, request.residency),
+        state: state.snapshot(),
+      });
+      return;
+    }
+    if (request.type === 'renderer.tiles.releaseGpu') {
+      const state = requireTileState();
+      postResponse(request.requestId, true, {
+        removed: state.releaseGpuTile(request.coordinate),
+        state: state.snapshot(),
+      });
+      return;
+    }
+    if (request.type === 'renderer.tiles.cacheCpu') {
+      const state = requireTileState();
+      postResponse(request.requestId, true, {
+        admitted: state.cacheCpuBacking(
+          request.coordinate,
+          new Uint8Array(request.bytes),
+          request.residency,
+        ),
+        state: state.snapshot(),
+      });
+      return;
+    }
+    if (request.type === 'renderer.tiles.dropCpu') {
+      const state = requireTileState();
+      postResponse(request.requestId, true, {
+        removed: state.releaseCpuBacking(request.coordinate),
+        state: state.snapshot(),
+      });
+      return;
+    }
+    if (request.type === 'renderer.tiles.viewport') {
+      const state = requireTileState();
+      postResponse(request.requestId, true, state.resolveViewport(request.rect));
+      return;
+    }
     if (request.type === 'renderer.tiles.inspect') {
       const state = requireTileState();
       postResponse(request.requestId, true, {
         tile: state.getTile(request.coordinate),
         dirty: state.getDirty(request.coordinate),
+        gpuSlot: state.getGpuSlot(request.coordinate),
+        cpuBackingBytes: state.getCpuBacking(request.coordinate)?.byteLength ?? 0,
         state: state.snapshot(),
       });
       return;
@@ -259,6 +388,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
         return;
       }
       configureRendererSurfaceV1(surface, device);
+      tileState?.attachGpuDevice(device);
       postResponse(request.requestId, true, deviceManager.snapshot());
       return;
     }
