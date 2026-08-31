@@ -1,5 +1,8 @@
 import { buildIdentity } from '../generated/build-info.js';
 import { inspectWebGpuBuildPath } from '../gpu/webgpu-bootstrap.js';
+import { PointerHoverTrackerV1 } from '../input/hover-state.js';
+import { createPointerInputArbitrationV1 } from '../input/input-arbitration.js';
+import { createPointerInputTransportV1 } from '../input/input-transport.js';
 import { createLogger } from '../shared/logger.js';
 import {
   incrementPerformanceCounter,
@@ -10,7 +13,6 @@ import {
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installDiagnosticsHook } from './diagnostics.js';
-import { createPointerInputTransportV1 } from '../input/input-transport.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { startRendererController } from './renderer-controller.js';
 import {
@@ -34,17 +36,35 @@ const pointerTransport = createPointerInputTransportV1(workers.render, {
   sharedMemoryFastPath:
     capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer && capabilities.atomics,
 });
+const pointerArbitration = createPointerInputArbitrationV1();
+const pointerHover = new PointerHoverTrackerV1();
 const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
   const latest = batch.confirmed.at(-1);
+  const hover = pointerHover.ingest(batch);
+  const arbitration = pointerArbitration.route(batch);
   root.dataset.illustroPointerEvent = batch.eventType;
   root.dataset.illustroPointerSource = latest?.source ?? 'unknown';
   root.dataset.illustroPointerConfirmedSamples = String(batch.confirmed.length);
   root.dataset.illustroPointerPredictedSamples = String(batch.predicted.length);
+  root.dataset.illustroPointerDisposition = arbitration.disposition;
+  root.dataset.illustroPointerArbitrationReason = arbitration.reason;
+  root.dataset.illustroPointerHover = hover.active ? 'active' : 'inactive';
+  root.dataset.illustroPointerHoverSource = hover.source ?? 'none';
+  root.dataset.illustroPointerHoverX = hover.surfaceX === null ? '' : String(hover.surfaceX);
+  root.dataset.illustroPointerHoverY = hover.surfaceY === null ? '' : String(hover.surfaceY);
   incrementPerformanceCounter('input.pointer.batch');
-  pointerTransport.enqueueBatch(batch);
+  if (arbitration.disposition === 'rejected-palm') {
+    incrementPerformanceCounter('input.pointer.palm-rejected');
+  }
+  if (arbitration.forwardBatch !== null) {
+    pointerTransport.enqueueBatch(arbitration.forwardBatch);
+  }
 });
 root.dataset.illustroPointerInput = 'ready';
 root.dataset.illustroPointerTransport = pointerTransport.snapshot().mode;
+root.dataset.illustroPointerFingerDrawing = pointerArbitration.snapshot().fingerDrawingEnabled
+  ? 'enabled'
+  : 'disabled';
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
@@ -75,6 +95,7 @@ globalThis.addEventListener(
   () => {
     pointerInput.dispose();
     pointerTransport.dispose();
+    pointerHover.clear();
     root.dataset.illustroPointerInput = 'disposed';
     renderer.dispose();
     shell.dispose();
