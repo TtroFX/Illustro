@@ -10,6 +10,7 @@ import { parseRevision } from '../domain/identity.js';
 import {
   PaintSessionControllerV1,
   parsePaintProjectSnapshotV1,
+  type PaintDocumentSettingsUpdateV1,
 } from './paint-session-controller.js';
 
 export interface PaintHistorySnapshotV1 {
@@ -74,6 +75,32 @@ export class PaintHistoryControllerV1 {
     const transaction = createHistoryTransactionV1({
       transactionId: crypto.randomUUID(),
       commandId: 'brush.stroke',
+      beforeRevision: committed.before.document.revision,
+      afterRevision: committed.after.document.revision,
+      payload: createHistoryPayloadV1({
+        strategy: 'object-before-after',
+        before: committed.before,
+        after: committed.after,
+      }),
+    });
+    this.#spine.commit(transaction);
+    this.#revisionHighWater = Math.max(this.#revisionHighWater, committed.after.document.revision);
+    return transaction;
+  }
+
+  commitDocumentSettings(input: PaintDocumentSettingsUpdateV1): HistoryTransactionV1 {
+    const before = this.#session.projectSnapshot();
+    if (before === null) throw new Error('document settings history requires an active document');
+    if (this.#revisionHighWater >= Number.MAX_SAFE_INTEGER) {
+      throw new RangeError('paint document revision high-water is exhausted');
+    }
+    const afterRevision = parseRevision(
+      Math.max(this.#revisionHighWater, before.document.revision) + 1,
+    );
+    const committed = this.#session.commitDocumentSettings(input, afterRevision);
+    const transaction = createHistoryTransactionV1({
+      transactionId: crypto.randomUUID(),
+      commandId: 'document.settings.update',
       beforeRevision: committed.before.document.revision,
       afterRevision: committed.after.document.revision,
       payload: createHistoryPayloadV1({

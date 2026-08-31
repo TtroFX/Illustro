@@ -15,9 +15,23 @@
           <span class="shell-menu-mark" aria-hidden="true"><i></i><i></i><i></i></span>
           <strong>Illustro</strong>
         </div>
-        <div class="shell-topbar-track" aria-hidden="true">
-          <span></span><span></span><span></span><span></span><span></span><span></span>
-        </div>
+        <nav class="shell-topbar-menus" aria-label="Application menus">
+          <details class="shell-menu-dropdown">
+            <summary>ファイル</summary>
+            <div class="shell-menu-popover">
+              <button id="new-document" type="button">新規作成…</button>
+              <button id="export-png-menu" type="button">PNGを書き出し…</button>
+            </div>
+          </details>
+          <span>編集</span>
+          <details class="shell-menu-dropdown">
+            <summary>ページ</summary>
+            <div class="shell-menu-popover">
+              <button id="document-settings" type="button">ドキュメント設定…</button>
+            </div>
+          </details>
+          <span>選択範囲</span><span>表示</span><span>フィルター</span>
+        </nav>
         <div class="shell-topbar-actions">
           <button id="export-png" class="shell-export-button" type="button" disabled>Export PNG</button>
           <output id="build-identity" class="shell-build-identity" aria-label="Build identity">Build …</output>
@@ -58,6 +72,32 @@
         </aside>
       </div>
     </div>
+    <dialog id="document-dialog" class="document-dialog" aria-labelledby="document-dialog-title">
+      <form id="document-form" method="dialog" class="document-dialog-form">
+        <header><h2 id="document-dialog-title">新規ドキュメント</h2></header>
+        <label>名前<input id="document-name" type="text" value="Untitled" maxlength="120" /></label>
+        <label>プリセット<select id="document-preset"><option value="custom">カスタム</option></select></label>
+        <div class="document-dialog-grid">
+          <label>幅 <input id="document-width" type="number" min="1" max="32768" step="1" value="2048" /></label>
+          <label>高さ <input id="document-height" type="number" min="1" max="32768" step="1" value="2048" /></label>
+          <label>PPI <input id="document-ppi" type="number" min="0.01" step="0.01" value="300" /></label>
+        </div>
+        <div class="document-dialog-grid document-dialog-grid-wide">
+          <label>背景<select id="document-background-mode"><option value="transparent">透明</option><option value="solid">単色</option></select></label>
+          <label>背景色<input id="document-background-color" type="color" value="#ffffff" /></label>
+          <label>背景不透明度<input id="document-background-alpha" type="number" min="0" max="100" step="1" value="100" /></label>
+        </div>
+        <div class="document-dialog-grid">
+          <label>色空間<select id="document-working-space"><option value="srgb">sRGB</option><option value="display-p3">Display-P3</option></select></label>
+          <label>精度<select id="document-precision"><option value="rgba8-unorm">RGBA8</option><option value="rgba16-float">RGBA16F</option></select></label>
+        </div>
+        <output id="document-dialog-status" class="document-dialog-status" aria-live="polite"></output>
+        <footer>
+          <button type="button" class="document-dialog-secondary" onclick="this.closest('dialog').close()">キャンセル</button>
+          <button id="document-submit" type="submit" class="document-dialog-primary">作成</button>
+        </footer>
+      </form>
+    </dialog>
     <script type="module" src="./app/main.js"></script>
   </body>
 </html>

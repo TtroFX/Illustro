@@ -233,15 +233,15 @@ PUB-01 ユーザー確認1用Preview公開:未完了
 USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了
 
 ## M5A — Document / Canvas / Navigation
-M5A-001 custom canvas width/height:未完了
-M5A-002 document presets:未完了
-M5A-003 transparent background:未完了
-M5A-004 colored background:未完了
-M5A-005 DPI/resolution metadata editing:未完了
-M5A-006 RGBA8 document precision:未完了
-M5A-007 RGBA16F-class document precision:未完了
-M5A-008 sRGB document mode foundation:未完了
-M5A-009 Display-P3 document mode foundation:未完了
+M5A-001 custom canvas width/height:完了
+M5A-002 document presets:完了
+M5A-003 transparent background:完了
+M5A-004 colored background:完了
+M5A-005 DPI/resolution metadata editing:完了
+M5A-006 RGBA8 document precision:完了
+M5A-007 RGBA16F-class document precision:完了
+M5A-008 sRGB document mode foundation:完了
+M5A-009 Display-P3 document mode foundation:完了
 M5A-010 canvas resize:未完了
 M5A-011 image resize:未完了
 M5A-012 crop:未完了

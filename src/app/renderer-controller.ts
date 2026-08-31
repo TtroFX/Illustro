@@ -1,4 +1,5 @@
 import { type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
   BaselinePaintRendererV1,
   type BaselinePaintCommittedStrokeV1,
@@ -42,6 +43,8 @@ export interface RendererDocumentConfigurationV1 {
   readonly owner: Exclude<RendererOwnerV1, 'pending'>;
   readonly width: number;
   readonly height: number;
+  readonly workingSpace: DocumentColorSpace;
+  readonly precision: DocumentPrecision;
 }
 
 const WORKER_RESPONSE_TIMEOUT_MS = 4_000;
@@ -203,6 +206,8 @@ export class RendererControllerV1 {
   async configureDocument(input: {
     readonly width: number;
     readonly height: number;
+    readonly workingSpace: DocumentColorSpace;
+    readonly precision: DocumentPrecision;
   }): Promise<RendererDocumentConfigurationV1> {
     if (this.#disposed) throw new Error('renderer controller is disposed');
     const snapshot = await this.start();
@@ -217,16 +222,20 @@ export class RendererControllerV1 {
         requestId,
         width: input.width,
         height: input.height,
+        workingSpace: input.workingSpace,
+        precision: input.precision,
       });
       if (response?.ok !== true) {
         throw new Error('Render Worker failed to configure document tile state');
       }
-      this.#publishDocumentConfiguration(input.width, input.height);
+      this.#publishDocumentConfiguration(input);
       return Object.freeze({
         schema: 'illustro.renderer-document-configuration/1' as const,
         owner: 'worker' as const,
         width: input.width,
         height: input.height,
+        workingSpace: input.workingSpace,
+        precision: input.precision,
       });
     }
 
@@ -239,12 +248,14 @@ export class RendererControllerV1 {
     this.#mainTileState = new RendererTileStateV1(input.width, input.height);
     this.#mainTileState.attachGpuDevice(device);
     this.#mainBaselinePaint.configureDocument(this.#mainTileState, input.width, input.height);
-    this.#publishDocumentConfiguration(input.width, input.height);
+    this.#publishDocumentConfiguration(input);
     return Object.freeze({
       schema: 'illustro.renderer-document-configuration/1' as const,
       owner: 'main' as const,
       width: input.width,
       height: input.height,
+      workingSpace: input.workingSpace,
+      precision: input.precision,
     });
   }
 
@@ -453,10 +464,17 @@ export class RendererControllerV1 {
     this.#publish();
   }
 
-  #publishDocumentConfiguration(width: number, height: number): void {
+  #publishDocumentConfiguration(input: {
+    readonly width: number;
+    readonly height: number;
+    readonly workingSpace: DocumentColorSpace;
+    readonly precision: DocumentPrecision;
+  }): void {
     this.#root.dataset.illustroRendererDocument = 'configured';
-    this.#root.dataset.illustroRendererDocumentWidth = String(width);
-    this.#root.dataset.illustroRendererDocumentHeight = String(height);
+    this.#root.dataset.illustroRendererDocumentWidth = String(input.width);
+    this.#root.dataset.illustroRendererDocumentHeight = String(input.height);
+    this.#root.dataset.illustroRendererWorkingSpace = input.workingSpace;
+    this.#root.dataset.illustroRendererPrecision = input.precision;
   }
 
   #publish(): void {

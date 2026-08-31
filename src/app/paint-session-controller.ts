@@ -1,4 +1,9 @@
-import { createDocumentV1, type DocumentV1 } from '../domain/document.js';
+import {
+  createCanvasSpec,
+  createDocumentV1,
+  type CanvasBackgroundSpec,
+  type DocumentV1,
+} from '../domain/document.js';
 import {
   isUuid,
   parseDocumentId,
@@ -17,7 +22,12 @@ import type {
 } from '../input/pointer-input.js';
 
 export interface PaintRendererDocumentPortV1 {
-  configureDocument(input: { readonly width: number; readonly height: number }): Promise<unknown>;
+  configureDocument(input: {
+    readonly width: number;
+    readonly height: number;
+    readonly workingSpace: DocumentV1['color']['workingSpace'];
+    readonly precision: DocumentV1['color']['precision'];
+  }): Promise<unknown>;
   restoreBaselineStrokes(
     strokes: readonly { readonly strokeId: string; readonly dabs: readonly BaselineBrushDabV1[] }[],
   ): Promise<unknown>;
@@ -74,6 +84,16 @@ export interface PaintStrokeCommitV1 {
   readonly before: PaintProjectSnapshotV1;
   readonly after: PaintProjectSnapshotV1;
   readonly committed: CompletedPaintStrokeV1;
+}
+
+export interface PaintDocumentSettingsUpdateV1 {
+  readonly ppi?: number;
+  readonly background?: CanvasBackgroundSpec;
+}
+
+export interface PaintDocumentSettingsCommitV1 {
+  readonly before: PaintProjectSnapshotV1;
+  readonly after: PaintProjectSnapshotV1;
 }
 
 export interface PaintSessionSnapshotV1 {
@@ -361,12 +381,59 @@ export class PaintSessionControllerV1 {
     return Object.freeze({ before, after, committed });
   }
 
+  commitDocumentSettings(
+    input: PaintDocumentSettingsUpdateV1,
+    afterRevision: Revision | number,
+    now: Date = new Date(),
+  ): PaintDocumentSettingsCommitV1 {
+    const document = this.#document;
+    if (document === null) throw new Error('document settings require an active document');
+    const revision = parseRevision(afterRevision);
+    if (revision <= document.revision) {
+      throw new RangeError('document settings revision must advance the document');
+    }
+    const ppi = input.ppi ?? document.canvas.resolution.ppi;
+    const background = input.background ?? document.canvas.background;
+    const nextCanvas = createCanvasSpec({
+      width: document.canvas.width,
+      height: document.canvas.height,
+      ppi,
+      background,
+    });
+    const currentBackground = document.canvas.background;
+    const nextBackground = nextCanvas.background;
+    let backgroundUnchanged = false;
+    if (currentBackground.kind === 'transparent' && nextBackground.kind === 'transparent') {
+      backgroundUnchanged = true;
+    } else if (currentBackground.kind === 'solid' && nextBackground.kind === 'solid') {
+      backgroundUnchanged = currentBackground.rgba.every(
+        (component, index) => component === nextBackground.rgba[index],
+      );
+    }
+    if (document.canvas.resolution.ppi === nextCanvas.resolution.ppi && backgroundUnchanged) {
+      throw new Error('document settings update has no changes');
+    }
+    const before = this.projectSnapshot();
+    if (before === null) throw new Error('document settings snapshot is unavailable');
+    this.#document = Object.freeze({
+      ...document,
+      revision,
+      modifiedAt: now.toISOString(),
+      canvas: nextCanvas,
+    });
+    const after = this.projectSnapshot();
+    if (after === null) throw new Error('document settings snapshot disappeared');
+    return Object.freeze({ before, after });
+  }
+
   async restoreProjectSnapshot(snapshot: PaintProjectSnapshotV1): Promise<PaintProjectSnapshotV1> {
     if (this.#disposed) throw new Error('paint session is disposed');
     const normalized = parsePaintProjectSnapshotV1(snapshot);
     await this.#renderer.configureDocument({
       width: normalized.document.canvas.width,
       height: normalized.document.canvas.height,
+      workingSpace: normalized.document.color.workingSpace,
+      precision: normalized.document.color.precision,
     });
     await this.#renderer.restoreBaselineStrokes(
       normalized.committedStrokes.map((entry) => ({
@@ -405,6 +472,8 @@ export class PaintSessionControllerV1 {
     await this.#renderer.configureDocument({
       width: initial.document.canvas.width,
       height: initial.document.canvas.height,
+      workingSpace: initial.document.color.workingSpace,
+      precision: initial.document.color.precision,
     });
     this.#document = initial.document;
     this.#activeLayerId = initial.layer.id;

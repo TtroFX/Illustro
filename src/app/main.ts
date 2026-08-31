@@ -13,6 +13,8 @@ import {
 } from '../shared/performance.js';
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
+import type { DocumentV1 } from '../domain/document.js';
+import { installDocumentWorkflowControllerV1 } from './document-workflow-controller.js';
 import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
 import { installDiagnosticsHook } from './diagnostics.js';
 import { PaintHistoryControllerV1 } from './paint-history-controller.js';
@@ -77,6 +79,38 @@ function publishPaintHistory(): void {
   root.dataset.illustroHistoryUndo = history.canUndo ? 'enabled' : 'disabled';
   root.dataset.illustroHistoryRedo = history.canRedo ? 'enabled' : 'disabled';
 }
+
+function publishDocumentState(documentValue: DocumentV1): void {
+  root.dataset.illustroDocumentId = documentValue.documentId;
+  root.dataset.illustroDocumentWidth = String(documentValue.canvas.width);
+  root.dataset.illustroDocumentHeight = String(documentValue.canvas.height);
+  root.dataset.illustroDocumentPpi = String(documentValue.canvas.resolution.ppi);
+  root.dataset.illustroDocumentWorkingSpace = documentValue.color.workingSpace;
+  root.dataset.illustroDocumentPrecision = documentValue.color.precision;
+  root.dataset.illustroDocumentBackground = documentValue.canvas.background.kind;
+  shell.canvas.dataset.backgroundKind = documentValue.canvas.background.kind;
+  if (documentValue.canvas.background.kind === 'solid') {
+    const [red, green, blue, alpha] = documentValue.canvas.background.rgba;
+    const cssColor =
+      documentValue.color.workingSpace === 'display-p3'
+        ? `color(display-p3 ${red} ${green} ${blue} / ${alpha})`
+        : `rgb(${Math.round(red * 255)} ${Math.round(green * 255)} ${Math.round(blue * 255)} / ${alpha})`;
+    shell.canvas.style.setProperty('--illustro-canvas-background', cssColor);
+  } else {
+    shell.canvas.style.removeProperty('--illustro-canvas-background');
+  }
+}
+
+const documentWorkflow = installDocumentWorkflowControllerV1({
+  root,
+  canvasAdmission,
+  paintSession,
+  paintHistory,
+  paintPersistence,
+  schedule: enqueuePaintRender,
+  onDocumentChanged: publishDocumentState,
+  onHistoryChanged: publishPaintHistory,
+});
 
 const pointerTransport = createPointerInputTransportV1(workers.render, {
   sharedMemoryFastPath:
@@ -180,6 +214,8 @@ const onPaintHistoryKeyDown = (event: KeyboardEvent): void => {
     if (!changed) return;
     await paintPersistence.markDirty();
     root.dataset.illustroPaintVisible = 'committed';
+    const documentValue = paintSession.currentDocument();
+    if (documentValue !== null) publishDocumentState(documentValue);
     publishPaintHistory();
     incrementPerformanceCounter(redo ? 'history.paint.redo' : 'history.paint.undo');
   });
@@ -245,9 +281,7 @@ void renderer
     if (document === null) throw new Error('paint persistence initialized without a document');
     root.dataset.illustroPaintRecovery = persistence.mode;
     root.dataset.illustroPaintSession = 'ready';
-    root.dataset.illustroDocumentId = document.documentId;
-    root.dataset.illustroDocumentWidth = String(document.canvas.width);
-    root.dataset.illustroDocumentHeight = String(document.canvas.height);
+    publishDocumentState(document);
     root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
     root.dataset.illustroPaintStroke = 'idle';
     root.dataset.illustroPaintStrokeSamples = '0';
@@ -280,6 +314,7 @@ globalThis.addEventListener(
     window.removeEventListener('keydown', onPaintHistoryKeyDown);
     exportPngButton?.removeEventListener('click', onExportPngClick);
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
+    documentWorkflow.dispose();
     pointerInput.dispose();
     pointerTransport.dispose();
     pointerHover.clear();

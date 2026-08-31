@@ -1,4 +1,5 @@
 import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
+import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
 import {
   BaselinePaintRendererV1,
@@ -44,6 +45,8 @@ type RenderWorkerRequestV1 =
       readonly requestId: string;
       readonly width: number;
       readonly height: number;
+      readonly workingSpace: DocumentColorSpace;
+      readonly precision: DocumentPrecision;
     }
   | {
       readonly type:
@@ -152,6 +155,14 @@ function isResidency(value: unknown): value is TileCacheResidencyV1 {
 }
 
 function isAtlasPixelFormat(value: unknown): value is GpuAtlasPixelFormatV1 {
+  return value === 'rgba8-unorm' || value === 'rgba16-float';
+}
+
+function isDocumentWorkingSpace(value: unknown): value is DocumentColorSpace {
+  return value === 'srgb' || value === 'display-p3';
+}
+
+function isDocumentPrecision(value: unknown): value is DocumentPrecision {
   return value === 'rgba8-unorm' || value === 'rgba16-float';
 }
 
@@ -296,13 +307,17 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     value.type === 'renderer.tiles.configure' &&
     typeof value.requestId === 'string' &&
     positiveDimension(value.width) &&
-    positiveDimension(value.height)
+    positiveDimension(value.height) &&
+    isDocumentWorkingSpace(value.workingSpace) &&
+    isDocumentPrecision(value.precision)
   ) {
     return {
       type: value.type,
       requestId: value.requestId,
       width: value.width,
       height: value.height,
+      workingSpace: value.workingSpace,
+      precision: value.precision,
     };
   }
   if (value.type === 'renderer.tiles.viewport' && typeof value.requestId === 'string') {
@@ -431,7 +446,11 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       tileState = new RendererTileStateV1(request.width, request.height);
       tileState.attachGpuDevice(deviceManager.currentDevice());
       baselinePaint.configureDocument(tileState, request.width, request.height);
-      postResponse(request.requestId, true, tileState.snapshot());
+      postResponse(request.requestId, true, {
+        ...tileState.snapshot(),
+        workingSpace: request.workingSpace,
+        precision: request.precision,
+      });
       return;
     }
     if (request.type === 'renderer.paint.restore') {

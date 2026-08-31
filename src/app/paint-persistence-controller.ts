@@ -65,7 +65,7 @@ export interface PaintStorageWorkerLikeV1 {
   removeEventListener(type: 'message', listener: (event: MessageEvent<unknown>) => void): void;
 }
 
-type PaintPersistenceNewDocumentInputV1 = Omit<PaintDocumentCreationInputV1, 'projectId'>;
+export type PaintPersistenceNewDocumentInputV1 = Omit<PaintDocumentCreationInputV1, 'projectId'>;
 
 type PendingStorageRequestV1 = {
   readonly resolve: (result: unknown) => void;
@@ -257,6 +257,57 @@ export class PaintPersistenceControllerV1 {
       );
       if (created.projectId !== projectId)
         throw new Error('storage created an unexpected project ID');
+      this.#adoptProject(created);
+      this.#rememberProject(created.projectId);
+      this.#setStatus('ready');
+      return Object.freeze({
+        schema: 'illustro.paint-persistence-initialize/1' as const,
+        mode: 'created' as const,
+        projectId: created.projectId,
+        sequence: created.sequence,
+        recoveryGeneration: created.recoveryGeneration,
+        documentRevision: created.documentRevision,
+      });
+    } catch (error) {
+      this.#fail(error);
+      throw error;
+    }
+  }
+
+  async createNewProject(input: {
+    readonly name: string;
+    readonly document: PaintPersistenceNewDocumentInputV1;
+  }): Promise<PaintPersistenceInitializeResultV1> {
+    this.#assertNotDisposed();
+    if (this.#status === 'initializing' || this.#status === 'saving') {
+      throw new Error('paint persistence is busy');
+    }
+    const previousProjectId = this.#projectId;
+    this.#setStatus('initializing');
+    try {
+      if (previousProjectId !== null) {
+        await this.#request({
+          type: 'storage.persistence.flush',
+          projectId: previousProjectId,
+          reason: 'autosave',
+        });
+        await this.#request({ type: 'storage.project.close', projectId: previousProjectId });
+      }
+      const projectId = createProjectId();
+      const document = await this.#session.createNewDocument({ ...input.document, projectId });
+      this.#history.reset();
+      const created = parseStorageProjectState(
+        await this.#request({
+          type: 'storage.project.create',
+          name: input.name,
+          projectId,
+          initialSnapshot: this.projectSnapshot(),
+          documentRevision: document.revision,
+        }),
+      );
+      if (created.projectId !== projectId) {
+        throw new Error('storage created an unexpected project ID');
+      }
       this.#adoptProject(created);
       this.#rememberProject(created.projectId);
       this.#setStatus('ready');
