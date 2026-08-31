@@ -4995,3 +4995,26 @@ This revision explicitly supersedes:
 
 All unchanged F/G/H/V Editor Shell, iconography, accessibility, responsive, input-role, Command Registry, Layer UI revision, and Quick Hole behavioral rules remain authoritative.
 
+# Post-freeze Performance Correction — Incremental Baseline Paint — 2026-09-01
+
+**Status: AUTHORITATIVE / IMPLEMENTATION CORRECTION.**
+
+This controlled correction does not alter user-visible brush semantics. It supersedes only the deferral wording in the 2026-09-01 confirmed performance decision / P4-4 that allowed the current M4 baseline replay path to remain unchanged until M6A. Direct inspection of the production-connected baseline path showed that ordinary `renderer.paint.present` could redraw `committed + active`, while the session repeatedly materialized cumulative sample/dab arrays per input batch. Because that behavior violates the P4-4 hot-path invariant on a live interaction path, the baseline hot path is corrected now rather than deferred.
+
+## Immediate invariant
+
+1. For each confirmed input batch, Main → Renderer transfers only newly generated dabs. The cumulative active-stroke dab list must not be resent on the ordinary paint hot path.
+2. Canonical/history sample and dab accumulation must not require O(total stroke length) copying on every pointer batch. The mutable active accumulator is frozen/materialized only at an explicit snapshot/finalization boundary.
+3. The baseline renderer retains a GPU raster scene across ordinary presentation. Newly confirmed dabs are composited exactly once with `load`, after which the retained scene is presented without replaying stable brush history.
+4. Stroke finalization stores the exact full canonical stroke/history and marks affected sparse tiles, but it must not repaint dabs already committed to the retained raster scene. Only a missing pointer-up/final tail may be appended.
+5. Whole-history replay is an exceptional recovery operation only: provisional-stroke cancellation/rollback, explicit history restore such as Undo/Redo, GPU device replacement, retained-scene recreation, or an incompatible render-surface change.
+6. The retained full-surface GPU scene introduced by this correction is an interim M4/M5 hot-path fix, not the final large-document architecture. M6A remains responsible for canonical sparse tile/atlas retention, dirty-tile compositing, bounded mutable-tail smoothing, and tighter reusable/ring-buffer allocation.
+7. Regression coverage must prove that repeated presentation work scales with the dab delta rather than the accumulated stroke prefix or unrelated committed history.
+
+## Complexity target
+
+Ordinary active-stroke work must be **O(new dabs + bounded presentation cost)** and independent of both the stable stroke prefix and unrelated committed stroke history. Whole-history O(N) reconstruction is permitted only on the exceptional recovery paths listed above.
+
+## Implementation note
+
+The baseline implementation therefore uses **Committed Prefix + Incremental Append** now. Future smoothing/stabilization may replace the final few points with a bounded mutable tail, but it must preserve the same invariant: once a prefix is stable, normal pointer updates never recalculate or rerasterize that stable prefix.

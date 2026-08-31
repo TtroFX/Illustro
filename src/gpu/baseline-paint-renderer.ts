@@ -536,7 +536,8 @@ export class BaselinePaintRendererV1 {
     if (strokeId.length === 0) throw new TypeError('baseline paint strokeId must not be empty');
     if (this.#finalizations.has(strokeId)) return this.snapshot();
     const delta = freezeDabs(dabs);
-    if (delta.some((dab) => !isRenderableDab(dab))) throw new RangeError('invalid baseline brush dab');
+    if (delta.some((dab) => !isRenderableDab(dab)))
+      throw new RangeError('invalid baseline brush dab');
 
     if (this.#activeStroke !== null && this.#activeStroke.strokeId !== strokeId) {
       this.#activeStroke = null;
