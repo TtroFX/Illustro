@@ -1,3 +1,9 @@
+import { type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import {
+  BaselinePaintRendererV1,
+  type BaselinePaintFinalizationV1,
+  type BaselinePaintRendererSnapshotV1,
+} from '../gpu/baseline-paint-renderer.js';
 import { acquireCoreWebGpuV1 } from '../gpu/webgpu-capability.js';
 import {
   RendererDeviceManagerV1,
@@ -54,6 +60,35 @@ function parseDeviceSnapshot(value: unknown): RendererDeviceSnapshotV1 | null {
     return null;
   }
   return value as unknown as RendererDeviceSnapshotV1;
+}
+
+function parsePaintSnapshot(value: unknown): BaselinePaintRendererSnapshotV1 | null {
+  if (
+    !isRecord(value) ||
+    value.schema !== 'illustro.baseline-paint-renderer/1' ||
+    typeof value.activeDabCount !== 'number' ||
+    typeof value.committedStrokeCount !== 'number' ||
+    typeof value.committedDabCount !== 'number' ||
+    typeof value.surfaceReady !== 'boolean' ||
+    typeof value.deviceReady !== 'boolean'
+  ) {
+    return null;
+  }
+  return value as unknown as BaselinePaintRendererSnapshotV1;
+}
+
+function parsePaintFinalization(value: unknown): BaselinePaintFinalizationV1 | null {
+  if (
+    !isRecord(value) ||
+    value.schema !== 'illustro.baseline-paint-finalization/1' ||
+    typeof value.strokeId !== 'string' ||
+    typeof value.dabCount !== 'number' ||
+    !Array.isArray(value.affectedTiles) ||
+    parsePaintSnapshot(value.renderer) === null
+  ) {
+    return null;
+  }
+  return value as unknown as BaselinePaintFinalizationV1;
 }
 
 function parseWorkerResponse(value: unknown, requestId: string): RendererWorkerResponseV1 | null {
@@ -115,6 +150,7 @@ export class RendererControllerV1 {
   readonly #worker: WorkerLikeV1;
   readonly #root: HTMLElement;
   readonly #workerStateListener: (event: MessageEvent<unknown>) => void;
+  readonly #mainBaselinePaint = new BaselinePaintRendererV1();
   #owner: RendererOwnerV1 = 'pending';
   #deviceState: RendererDeviceStateV1 = 'idle';
   #generation = 0;
@@ -201,6 +237,7 @@ export class RendererControllerV1 {
     this.#mainTileState?.dispose();
     this.#mainTileState = new RendererTileStateV1(input.width, input.height);
     this.#mainTileState.attachGpuDevice(device);
+    this.#mainBaselinePaint.configureDocument(this.#mainTileState, input.width, input.height);
     this.#publishDocumentConfiguration(input.width, input.height);
     return Object.freeze({
       schema: 'illustro.renderer-document-configuration/1' as const,
@@ -208,6 +245,62 @@ export class RendererControllerV1 {
       width: input.width,
       height: input.height,
     });
+  }
+
+  async presentBaselineStroke(
+    strokeId: string,
+    dabs: readonly BaselineBrushDabV1[],
+  ): Promise<BaselinePaintRendererSnapshotV1> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.paint.present',
+        requestId,
+        strokeId,
+        dabs,
+      });
+      const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
+      if (paint === null) throw new Error('Render Worker failed to present baseline stroke');
+      return paint;
+    }
+    return this.#mainBaselinePaint.presentStroke(strokeId, dabs);
+  }
+
+  async cancelBaselineStroke(strokeId: string): Promise<BaselinePaintRendererSnapshotV1> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.paint.cancel',
+        requestId,
+        strokeId,
+      });
+      const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
+      if (paint === null) throw new Error('Render Worker failed to cancel baseline stroke');
+      return paint;
+    }
+    return this.#mainBaselinePaint.cancelStroke(strokeId);
+  }
+
+  async finalizeBaselineStroke(
+    strokeId: string,
+    dabs: readonly BaselineBrushDabV1[],
+  ): Promise<BaselinePaintFinalizationV1> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.paint.finalize',
+        requestId,
+        strokeId,
+        dabs,
+      });
+      const finalization = response?.ok === true ? parsePaintFinalization(response.result) : null;
+      if (finalization === null) throw new Error('Render Worker failed to finalize baseline stroke');
+      return finalization;
+    }
+    return this.#mainBaselinePaint.finalizeStroke(strokeId, dabs);
   }
 
   async retry(): Promise<RendererControllerSnapshotV1> {
@@ -232,6 +325,7 @@ export class RendererControllerV1 {
     this.#disposed = true;
     this.#removeSizeSubscription?.();
     this.#removeSizeSubscription = null;
+    this.#mainBaselinePaint.dispose();
     this.#mainTileState?.dispose();
     this.#mainTileState = null;
     this.#mainDeviceManager?.dispose();
@@ -240,6 +334,15 @@ export class RendererControllerV1 {
     this.#worker.postMessage({ type: 'renderer.dispose' });
     this.#deviceState = 'disposed';
     this.#publish();
+  }
+
+  async #requirePaintReady(): Promise<RendererControllerSnapshotV1> {
+    if (this.#disposed) throw new Error('renderer controller is disposed');
+    const snapshot = await this.start();
+    if (snapshot.deviceState !== 'ready' || snapshot.owner === 'pending') {
+      throw new Error(`renderer is not ready for paint presentation: ${snapshot.deviceState}`);
+    }
+    return snapshot;
   }
 
   async #startInternal(): Promise<RendererControllerSnapshotV1> {
@@ -304,12 +407,18 @@ export class RendererControllerV1 {
     this.#mainDeviceManager ??= new RendererDeviceManagerV1({
       acquire: acquireCoreWebGpuV1,
       rebuild: (device, generation) => {
-        rebuildRendererDeviceResourcesV1(device, generation, this.#shell.canvas);
+        const resources = rebuildRendererDeviceResourcesV1(device, generation, this.#shell.canvas);
         this.#mainTileState?.attachGpuDevice(device);
+        this.#mainBaselinePaint.attachDevice(device);
+        if (resources.canvasFormat === null) {
+          throw new Error('main renderer surface format is unavailable after configuration');
+        }
+        this.#mainBaselinePaint.attachSurface(this.#shell.canvas, resources.canvasFormat);
       },
       onState: (snapshot) => this.#applyDeviceSnapshot(snapshot),
       onDiscardProvisional: () => {
         this.#mainTileState?.attachGpuDevice(null);
+        this.#mainBaselinePaint.attachDevice(null);
         this.#root.dataset.illustroRendererProvisional = 'discarded';
       },
     });

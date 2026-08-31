@@ -1,6 +1,7 @@
 import { createDocumentV1, type DocumentV1 } from '../domain/document.js';
 import type { LayerId } from '../domain/identity.js';
 import { createRasterLayer, type RasterLayerV1 } from '../domain/layers.js';
+import { BaselineBrushDabBuilderV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
 import type {
   PointerInputBatchV1,
   PointerInputSampleV1,
@@ -47,12 +48,18 @@ export interface PaintStrokeV1 {
   readonly samples: readonly PaintStrokeSampleV1[];
 }
 
+export interface CompletedPaintStrokeV1 {
+  readonly stroke: PaintStrokeV1;
+  readonly dabs: readonly BaselineBrushDabV1[];
+}
+
 export interface PaintSessionSnapshotV1 {
   readonly schema: 'illustro.paint-session/1';
   readonly documentId: string | null;
   readonly activeLayerId: LayerId | null;
   readonly activeStrokeId: string | null;
   readonly activeStrokeSampleCount: number;
+  readonly activeDabCount: number;
   readonly pendingCompletedStrokeCount: number;
 }
 
@@ -109,13 +116,22 @@ function withInitialRasterLayer(document: DocumentV1): {
   return Object.freeze({ document: nextDocument, layer });
 }
 
+function freezeCompletedStroke(
+  stroke: PaintStrokeV1,
+  dabs: readonly BaselineBrushDabV1[],
+): CompletedPaintStrokeV1 {
+  return Object.freeze({ stroke, dabs: Object.freeze([...dabs]) });
+}
+
 export class PaintSessionControllerV1 {
   readonly #renderer: PaintRendererDocumentPortV1;
   readonly #mapPointerToDocument: PaintPointerToDocumentMapperV1;
   #document: DocumentV1 | null = null;
   #activeLayerId: LayerId | null = null;
   #activeStroke: PaintStrokeV1 | null = null;
-  readonly #completedStrokes: PaintStrokeV1[] = [];
+  #activeDabBuilder: BaselineBrushDabBuilderV1 | null = null;
+  #activeDabs: readonly BaselineBrushDabV1[] = Object.freeze([]);
+  readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
   #disposed = false;
 
   constructor(
@@ -133,6 +149,7 @@ export class PaintSessionControllerV1 {
       activeLayerId: this.#activeLayerId,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeStrokeSampleCount: this.#activeStroke?.samples.length ?? 0,
+      activeDabCount: this.#activeDabs.length,
       pendingCompletedStrokeCount: this.#completedStrokes.length,
     });
   }
@@ -145,8 +162,20 @@ export class PaintSessionControllerV1 {
     return this.#activeStroke;
   }
 
-  takeCompletedStroke(): PaintStrokeV1 | null {
+  activeDabs(): readonly BaselineBrushDabV1[] {
+    return this.#activeDabs;
+  }
+
+  latestCompletedPaintStroke(): CompletedPaintStrokeV1 | null {
+    return this.#completedStrokes.at(-1) ?? null;
+  }
+
+  takeCompletedPaintStroke(): CompletedPaintStrokeV1 | null {
     return this.#completedStrokes.shift() ?? null;
+  }
+
+  takeCompletedStroke(): PaintStrokeV1 | null {
+    return this.takeCompletedPaintStroke()?.stroke ?? null;
   }
 
   async createNewDocument(input: PaintDocumentCreationInputV1): Promise<DocumentV1> {
@@ -158,7 +187,7 @@ export class PaintSessionControllerV1 {
     });
     this.#document = initial.document;
     this.#activeLayerId = initial.layer.id;
-    this.#activeStroke = null;
+    this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
     return initial.document;
   }
@@ -188,7 +217,7 @@ export class PaintSessionControllerV1 {
     }
 
     if (batch.eventType === 'pointercancel') {
-      this.#activeStroke = null;
+      this.#clearActiveStroke();
       return this.snapshot();
     }
 
@@ -202,8 +231,12 @@ export class PaintSessionControllerV1 {
 
     if (batch.eventType === 'pointerup') {
       const completed = this.#activeStroke;
-      this.#activeStroke = null;
-      if (completed !== null) this.#completedStrokes.push(completed);
+      const builder = this.#activeDabBuilder;
+      if (completed !== null && builder !== null) {
+        this.#activeDabs = builder.finish();
+        this.#completedStrokes.push(freezeCompletedStroke(completed, this.#activeDabs));
+      }
+      this.#clearActiveStroke();
     }
     return this.snapshot();
   }
@@ -213,7 +246,7 @@ export class PaintSessionControllerV1 {
     this.#disposed = true;
     this.#document = null;
     this.#activeLayerId = null;
-    this.#activeStroke = null;
+    this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
   }
 
@@ -224,7 +257,9 @@ export class PaintSessionControllerV1 {
     const samples = batch.confirmed
       .filter((sample) => sample.pointerId === batch.pointerId && sample.source === source)
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
-    if (samples.length === 0) return;
+    const firstSample = samples[0];
+    if (firstSample === undefined) return;
+
     this.#activeStroke = Object.freeze({
       schema: 'illustro.paint-stroke/1' as const,
       strokeId: crypto.randomUUID(),
@@ -233,12 +268,18 @@ export class PaintSessionControllerV1 {
       layerId,
       samples: Object.freeze(samples),
     });
+    const builder = new BaselineBrushDabBuilderV1();
+    builder.begin(firstSample);
+    builder.append(samples.slice(1));
+    this.#activeDabBuilder = builder;
+    this.#activeDabs = builder.dabs();
   }
 
   #appendConfirmedSamples(batch: PointerInputBatchV1): void {
     const active = this.#activeStroke;
     const document = this.#document;
-    if (active === null || document === null) return;
+    const builder = this.#activeDabBuilder;
+    if (active === null || document === null || builder === null) return;
     const additions = batch.confirmed
       .filter((sample) => sample.pointerId === active.pointerId && sample.source === active.source)
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
@@ -247,5 +288,12 @@ export class PaintSessionControllerV1 {
       ...active,
       samples: Object.freeze([...active.samples, ...additions]),
     });
+    this.#activeDabs = builder.append(additions);
+  }
+
+  #clearActiveStroke(): void {
+    this.#activeStroke = null;
+    this.#activeDabBuilder = null;
+    this.#activeDabs = Object.freeze([]);
   }
 }

@@ -37,6 +37,20 @@ const workers = startDedicatedWorkers();
 const canvasAdmission = getCanvasAdmissionControllerV1();
 const renderer = startRendererController(shell, workers.render, root);
 const paintSession = new PaintSessionControllerV1(renderer);
+let paintRenderTask: Promise<void> = Promise.resolve();
+
+function enqueuePaintRender(operation: () => Promise<unknown>): void {
+  paintRenderTask = paintRenderTask
+    .then(async () => {
+      await operation();
+    })
+    .catch((error: unknown) => {
+      root.dataset.illustroPaintVisible = 'error';
+      incrementPerformanceCounter('renderer.paint.failure');
+      logger.error('renderer.paint-failed', error);
+    });
+}
+
 const pointerTransport = createPointerInputTransportV1(workers.render, {
   sharedMemoryFastPath:
     capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer && capabilities.atomics,
@@ -62,7 +76,9 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
     incrementPerformanceCounter('input.pointer.palm-rejected');
   }
   if (arbitration.forwardBatch !== null) {
+    const previousStrokeId = paintSession.activeStroke()?.strokeId ?? null;
     const paint = paintSession.ingestPointerBatch(arbitration.forwardBatch);
+    const activeStroke = paintSession.activeStroke();
     root.dataset.illustroPaintStroke =
       paint.activeStrokeId !== null
         ? 'active'
@@ -70,6 +86,34 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
           ? 'pending-commit'
           : 'idle';
     root.dataset.illustroPaintStrokeSamples = String(paint.activeStrokeSampleCount);
+    root.dataset.illustroPaintDabs = String(paint.activeDabCount);
+
+    if (activeStroke !== null) {
+      const dabs = paintSession.activeDabs();
+      root.dataset.illustroPaintVisible = 'provisional';
+      enqueuePaintRender(() => renderer.presentBaselineStroke(activeStroke.strokeId, dabs));
+    } else if (
+      arbitration.forwardBatch.eventType === 'pointercancel' &&
+      previousStrokeId !== null
+    ) {
+      root.dataset.illustroPaintVisible = 'cancelled';
+      enqueuePaintRender(() => renderer.cancelBaselineStroke(previousStrokeId));
+    } else if (arbitration.forwardBatch.eventType === 'pointerup' && previousStrokeId !== null) {
+      const completed = paintSession.latestCompletedPaintStroke();
+      if (completed?.stroke.strokeId === previousStrokeId) {
+        const strokeId = completed.stroke.strokeId;
+        const dabs = completed.dabs;
+        root.dataset.illustroPaintVisible = 'finalizing';
+        enqueuePaintRender(async () => {
+          const finalization = await renderer.finalizeBaselineStroke(strokeId, dabs);
+          root.dataset.illustroPaintVisible = 'committed';
+          root.dataset.illustroPaintDabs = String(finalization.dabCount);
+          root.dataset.illustroPaintDirtyTiles = String(finalization.affectedTiles.length);
+          incrementPerformanceCounter('renderer.paint.stroke-finalized');
+        });
+      }
+    }
+
     pointerTransport.enqueueBatch(arbitration.forwardBatch);
   }
 });
@@ -80,6 +124,9 @@ root.dataset.illustroPointerFingerDrawing = pointerArbitration.snapshot().finger
   : 'disabled';
 root.dataset.illustroCanvasAdmission = canvasAdmission.schema;
 root.dataset.illustroPaintSession = 'pending-document';
+root.dataset.illustroPaintVisible = 'idle';
+root.dataset.illustroPaintDabs = '0';
+root.dataset.illustroPaintDirtyTiles = '0';
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;

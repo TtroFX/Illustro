@@ -1,4 +1,6 @@
 import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
+import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import { BaselinePaintRendererV1 } from '../gpu/baseline-paint-renderer.js';
 import { acquireCoreWebGpuV1 } from '../gpu/webgpu-capability.js';
 import { RendererDeviceManagerV1 } from '../gpu/renderer-device-manager.js';
 import {
@@ -81,10 +83,22 @@ type RenderWorkerRequestV1 =
       readonly requestId: string;
       readonly rect: DocumentViewportRectV1;
     }
+  | {
+      readonly type: 'renderer.paint.present' | 'renderer.paint.finalize';
+      readonly requestId: string;
+      readonly strokeId: string;
+      readonly dabs: readonly BaselineBrushDabV1[];
+    }
+  | {
+      readonly type: 'renderer.paint.cancel';
+      readonly requestId: string;
+      readonly strokeId: string;
+    }
   | { readonly type: 'renderer.dispose' };
 
 const scope = globalThis as unknown as WorkerScope;
 const inputIngress = installRenderInputIngressV1(scope);
+const baselinePaint = new BaselinePaintRendererV1();
 let surface: RendererSurfaceLikeV1 | null = null;
 let tileState: RendererTileStateV1 | null = null;
 let renderSchedulingController: RenderSchedulingControllerV1 | null = null;
@@ -92,8 +106,12 @@ let renderSchedulingController: RenderSchedulingControllerV1 | null = null;
 const deviceManager = new RendererDeviceManagerV1({
   acquire: acquireCoreWebGpuV1,
   rebuild(device, generation) {
-    rebuildRendererDeviceResourcesV1(device, generation, surface);
+    const resources = rebuildRendererDeviceResourcesV1(device, generation, surface);
     tileState?.attachGpuDevice(device);
+    baselinePaint.attachDevice(device);
+    if (surface !== null && resources.canvasFormat !== null) {
+      baselinePaint.attachSurface(surface, resources.canvasFormat);
+    }
     renderSchedulingController?.attachGpuDevice(device);
   },
   onState(snapshot) {
@@ -101,6 +119,7 @@ const deviceManager = new RendererDeviceManagerV1({
   },
   onDiscardProvisional() {
     tileState?.attachGpuDevice(null);
+    baselinePaint.attachDevice(null);
     renderSchedulingController?.attachGpuDevice(null);
     scope.postMessage({ type: 'renderer.provisional.discarded' });
   },
@@ -168,6 +187,40 @@ function parseViewportRect(value: unknown): DocumentViewportRectV1 | null {
   return Object.freeze({ x, y, width, height });
 }
 
+function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null {
+  if (!Array.isArray(value)) return null;
+  const dabs: BaselineBrushDabV1[] = [];
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      candidate.schema !== 'illustro.baseline-brush-dab/1' ||
+      typeof candidate.x !== 'number' ||
+      typeof candidate.y !== 'number' ||
+      typeof candidate.radius !== 'number' ||
+      typeof candidate.opacity !== 'number' ||
+      !Number.isFinite(candidate.x) ||
+      !Number.isFinite(candidate.y) ||
+      !Number.isFinite(candidate.radius) ||
+      !Number.isFinite(candidate.opacity) ||
+      candidate.radius <= 0 ||
+      candidate.opacity < 0 ||
+      candidate.opacity > 1
+    ) {
+      return null;
+    }
+    dabs.push(
+      Object.freeze({
+        schema: 'illustro.baseline-brush-dab/1' as const,
+        x: candidate.x,
+        y: candidate.y,
+        radius: candidate.radius,
+        opacity: candidate.opacity,
+      }),
+    );
+  }
+  return Object.freeze(dabs);
+}
+
 function isRendererSurface(value: unknown): value is RendererSurfaceLikeV1 {
   return (
     isRecord(value) &&
@@ -224,6 +277,25 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
   if (value.type === 'renderer.tiles.viewport' && typeof value.requestId === 'string') {
     const rect = parseViewportRect(value.rect);
     return rect === null ? null : { type: value.type, requestId: value.requestId, rect };
+  }
+  if (
+    (value.type === 'renderer.paint.present' || value.type === 'renderer.paint.finalize') &&
+    typeof value.requestId === 'string' &&
+    typeof value.strokeId === 'string' &&
+    value.strokeId.length > 0
+  ) {
+    const dabs = parseBaselineDabs(value.dabs);
+    return dabs === null
+      ? null
+      : { type: value.type, requestId: value.requestId, strokeId: value.strokeId, dabs };
+  }
+  if (
+    value.type === 'renderer.paint.cancel' &&
+    typeof value.requestId === 'string' &&
+    typeof value.strokeId === 'string' &&
+    value.strokeId.length > 0
+  ) {
+    return { type: value.type, requestId: value.requestId, strokeId: value.strokeId };
   }
   if (
     (value.type === 'renderer.tiles.allocate' ||
@@ -301,6 +373,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
   }
   if (request.type === 'renderer.dispose') {
     inputIngress.dispose();
+    baselinePaint.dispose();
     tileState?.dispose();
     tileState = null;
     renderSchedulingController?.dispose();
@@ -322,7 +395,28 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       tileState?.dispose();
       tileState = new RendererTileStateV1(request.width, request.height);
       tileState.attachGpuDevice(deviceManager.currentDevice());
+      baselinePaint.configureDocument(tileState, request.width, request.height);
       postResponse(request.requestId, true, tileState.snapshot());
+      return;
+    }
+    if (request.type === 'renderer.paint.present') {
+      postResponse(
+        request.requestId,
+        true,
+        baselinePaint.presentStroke(request.strokeId, request.dabs),
+      );
+      return;
+    }
+    if (request.type === 'renderer.paint.cancel') {
+      postResponse(request.requestId, true, baselinePaint.cancelStroke(request.strokeId));
+      return;
+    }
+    if (request.type === 'renderer.paint.finalize') {
+      postResponse(
+        request.requestId,
+        true,
+        baselinePaint.finalizeStroke(request.strokeId, request.dabs),
+      );
       return;
     }
     if (request.type === 'renderer.tiles.allocate') {
@@ -440,15 +534,21 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
         postResponse(request.requestId, false, deviceManager.snapshot());
         return;
       }
-      configureRendererSurfaceV1(surface, device);
+      const canvasFormat = configureRendererSurfaceV1(surface, device);
       tileState?.attachGpuDevice(device);
+      baselinePaint.attachDevice(device);
+      baselinePaint.attachSurface(surface, canvasFormat);
       postResponse(request.requestId, true, deviceManager.snapshot());
       return;
     }
 
     await deviceManager.start();
     const device = deviceManager.currentDevice();
-    if (device !== null && surface !== null) configureRendererSurfaceV1(surface, device);
+    if (device !== null && surface !== null) {
+      const canvasFormat = configureRendererSurfaceV1(surface, device);
+      baselinePaint.attachDevice(device);
+      baselinePaint.attachSurface(surface, canvasFormat);
+    }
     postResponse(
       request.requestId,
       deviceManager.snapshot().state === 'ready',
