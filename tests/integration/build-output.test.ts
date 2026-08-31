@@ -44,7 +44,8 @@ describe('production build output', () => {
     expect(renderWorker).toContain('renderer.tiles.viewport');
     expect(renderWorker).toContain('renderer.provisional.discarded');
     expect(tileCache).toContain('class GpuTileCacheV1');
-    expect(atlas).toContain('GPU_ATLAS_PAGE_SIZE_PX = 2048');
+    expect(atlas).toContain('GPU_ATLAS_PAGE_SIZE_PX = 2_048');
+    expect(atlas).toContain('GPU_ATLAS_SLOTS_PER_PAGE');
     expect(viewport).toContain('resolveViewportTilesV1');
   });
 });
