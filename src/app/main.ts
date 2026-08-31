@@ -163,9 +163,9 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
       incrementPerformanceCounter('viewport.navigation.batch');
     }
   } else if (arbitration.forwardBatch !== null) {
-    const previousStrokeId = paintSession.activeStroke()?.strokeId ?? null;
+    const previousStrokeId = paintSession.activeStrokeId();
     const paint = paintSession.ingestPointerBatch(arbitration.forwardBatch);
-    const activeStroke = paintSession.activeStroke();
+    const activeStrokeId = paintSession.activeStrokeId();
     root.dataset.illustroPaintStroke =
       paint.activeStrokeId !== null
         ? 'active'
@@ -175,10 +175,12 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
     root.dataset.illustroPaintStrokeSamples = String(paint.activeStrokeSampleCount);
     root.dataset.illustroPaintDabs = String(paint.activeDabCount);
 
-    if (activeStroke !== null) {
-      const dabs = paintSession.activeDabs();
+    if (activeStrokeId !== null) {
+      const dabDelta = paintSession.takeActiveDabDelta();
       root.dataset.illustroPaintVisible = 'provisional';
-      enqueuePaintRender(() => renderer.presentBaselineStroke(activeStroke.strokeId, dabs));
+      if (dabDelta.length > 0) {
+        enqueuePaintRender(() => renderer.presentBaselineStroke(activeStrokeId, dabDelta));
+      }
     } else if (
       arbitration.forwardBatch.eventType === 'pointercancel' &&
       previousStrokeId !== null
