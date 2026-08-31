@@ -112,7 +112,11 @@ requireText(
   "return input.workerDeviceReady && input.offscreenTransferAvailable ? 'worker' : 'main';",
   'worker/main renderer ownership selection missing',
 );
-requireText(rendererController, 'transferControlToOffscreen', 'OffscreenCanvas transfer gate missing');
+requireText(
+  rendererController,
+  'transferControlToOffscreen',
+  'OffscreenCanvas transfer gate missing',
+);
 requireText(rendererController, '#startMainFallback', 'main-context WebGPU fallback missing');
 requireText(renderWorker, 'RendererDeviceManagerV1', 'Render Worker device ownership missing');
 requireText(renderWorker, 'installRenderInputIngressV1', 'Render Worker input ingress missing');
@@ -131,8 +135,16 @@ requireText(tileState, 'CpuBackingTileCacheV1', 'CPU tile cache integration miss
 requireText(tileState, 'resolveViewport', 'viewport tile resolver integration missing');
 requireText(tileTransfer, 'uploadTileToAtlasV1', 'tile upload path missing');
 requireText(tileTransfer, 'readbackTileFromAtlasV1', 'tile readback path missing');
-requireText(transientTargets, 'TransientTargetManagerV1', 'transient halo/filter target foundation missing');
-requireText(renderScheduler, 'RENDER_COMMAND_QUEUE_SOFT_BOUND = 1_024', '1024 render queue bound missing');
+requireText(
+  transientTargets,
+  'TransientTargetManagerV1',
+  'transient halo/filter target foundation missing',
+);
+requireText(
+  renderScheduler,
+  'RENDER_COMMAND_QUEUE_SOFT_BOUND = 1_024',
+  '1024 render queue bound missing',
+);
 requireText(renderScheduler, "'P0' | 'P1' | 'P2' | 'P3'", 'render priority classes missing');
 requireText(compositor, 'buildFrameCompositePlanV1', 'frame compositor foundation missing');
 
@@ -149,7 +161,11 @@ requireText(
   '4096 fallback input queue bound missing',
 );
 requireText(inputQueue, 'isNonDroppable', 'non-droppable pointer boundary policy missing');
-requireText(inputQueue, 'reductionImportance', 'time/geometry-aware motion reduction foundation missing');
+requireText(
+  inputQueue,
+  'reductionImportance',
+  'time/geometry-aware motion reduction foundation missing',
+);
 requireText(
   inputTransport,
   'DEFAULT_POINTER_SHARED_RING_CAPACITY_V1 = DEFAULT_POINTER_INPUT_QUEUE_CAPACITY_V1',
@@ -171,11 +187,19 @@ requireText(hover, 'PointerHoverTrackerV1', 'hover state foundation missing');
 
 requireText(admission, 'MAX_CANVAS_DIMENSION', 'maximum canvas dimension admission check missing');
 requireText(admission, 'MAX_CANVAS_AREA', 'logical-area admission check missing');
-requireText(admission, 'bytesPerPixelForDocumentPrecisionV1', 'precision-aware admission estimate missing');
+requireText(
+  admission,
+  'bytesPerPixelForDocumentPrecisionV1',
+  'precision-aware admission estimate missing',
+);
 requireText(admission, 'projectedTouchedTiles', 'sparse touched-tile estimate missing');
 requireText(admission, 'operationScratchBytes', 'operation scratch estimate missing');
 requireText(admission, 'hardReserveBytes', 'storage safety reserve integration missing');
-requireText(admissionController, 'getStorageQuotaMonitor', 'runtime storage quota preflight missing');
+requireText(
+  admissionController,
+  'getStorageQuotaMonitor',
+  'runtime storage quota preflight missing',
+);
 requireText(
   admissionController,
   'DEFAULT_CANVAS_CHECKPOINT_JOURNAL_HEADROOM_BYTES_V1',
@@ -186,7 +210,11 @@ requireText(
   'getCanvasAdmissionControllerV1',
   'canvas admission controller not connected to production bootstrap',
 );
-requireText(main, 'pointerArbitration.route(batch)', 'pointer arbitration not connected to production path');
+requireText(
+  main,
+  'pointerArbitration.route(batch)',
+  'pointer arbitration not connected to production path',
+);
 requireText(
   main,
   'pointerTransport.enqueueBatch(arbitration.forwardBatch)',

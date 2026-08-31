@@ -33,8 +33,7 @@ function reductionImportance(
 
   const previousCandidate = items[index - 1];
   const nextCandidate = items[index + 1];
-  const previous =
-    previousCandidate?.pointerId === current.pointerId ? previousCandidate : null;
+  const previous = previousCandidate?.pointerId === current.pointerId ? previousCandidate : null;
   const next =
     nextCandidate?.pointerId === current.pointerId
       ? nextCandidate
@@ -58,8 +57,7 @@ function reductionImportance(
     current.pressure - interpolate(previous.pressure, next.pressure),
   );
   const tangentialDeviation = Math.abs(
-    current.tangentialPressure -
-      interpolate(previous.tangentialPressure, next.tangentialPressure),
+    current.tangentialPressure - interpolate(previous.tangentialPressure, next.tangentialPressure),
   );
   const tiltDeviation =
     Math.abs(current.tiltX - interpolate(previous.tiltX, next.tiltX)) +
