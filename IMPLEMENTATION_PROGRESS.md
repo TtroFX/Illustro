@@ -164,11 +164,11 @@ M3-003 GPU adapter selection:完了
 M3-004 GPU device creation:完了
 M3-005 required capability profile gate:完了
 M3-006 optional shader-f16 capability handling:完了
-M3-007 Render Worker ownership path:未完了
-M3-008 OffscreenCanvas transfer path:未完了
-M3-009 main-context WebGPU fallback:未完了
-M3-010 GPU device-loss detection:未完了
-M3-011 GPU device-loss reconstruction:未完了
+M3-007 Render Worker ownership path:完了
+M3-008 OffscreenCanvas transfer path:完了
+M3-009 main-context WebGPU fallback:完了
+M3-010 GPU device-loss detection:完了
+M3-011 GPU device-loss reconstruction:完了
 M3-012 canonical 256px sparse tile model:未完了
 M3-013 edge-tile valid bounds:未完了
 M3-014 tile addressing:未完了
