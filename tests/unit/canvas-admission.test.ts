@@ -131,9 +131,7 @@ describe('M3 canvas admission resource estimation', () => {
       storage,
     });
     expect(result.availableStorageGrowthBytes).toBe(8_000_000);
-    expect(result.projectedAdditionalStorageBytes).toBe(
-      CANONICAL_TILE_AREA_PX * 4 + 8_000_000,
-    );
+    expect(result.projectedAdditionalStorageBytes).toBe(CANONICAL_TILE_AREA_PX * 4 + 8_000_000);
     expect(result.allowed).toBe(false);
     expect(result.reasons).toContain('storage-headroom-insufficient');
   });

@@ -1,8 +1,5 @@
 import { MAX_CANVAS_AREA, MAX_CANVAS_DIMENSION, type DocumentPrecision } from './document.js';
-import {
-  CANONICAL_TILE_AREA_PX,
-  tileGridForDocumentV1,
-} from '../gpu/sparse-tile-model.js';
+import { CANONICAL_TILE_AREA_PX, tileGridForDocumentV1 } from '../gpu/sparse-tile-model.js';
 
 export const CANVAS_ADMISSION_V1_SCHEMA = 'illustro.canvas-admission/1' as const;
 

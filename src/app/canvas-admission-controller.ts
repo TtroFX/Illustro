@@ -9,10 +9,7 @@ import {
   STORAGE_RAW_WRITE_OVERHEAD_BYTES,
   STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES,
 } from '../storage/storage-growth-guard.js';
-import {
-  getStorageQuotaMonitor,
-  type StorageQuotaMonitorV1,
-} from '../storage/storage-quota.js';
+import { getStorageQuotaMonitor, type StorageQuotaMonitorV1 } from '../storage/storage-quota.js';
 
 export const DEFAULT_CANVAS_CHECKPOINT_JOURNAL_HEADROOM_BYTES_V1 =
   STORAGE_TRANSACTION_WRITE_OVERHEAD_BYTES +
@@ -48,8 +45,7 @@ export class CanvasAdmissionControllerV1 {
       precision: input.precision,
       projectedTouchedTiles: input.projectedTouchedTiles,
       checkpointJournalHeadroomBytes:
-        input.checkpointJournalHeadroomBytes ??
-        DEFAULT_CANVAS_CHECKPOINT_JOURNAL_HEADROOM_BYTES_V1,
+        input.checkpointJournalHeadroomBytes ?? DEFAULT_CANVAS_CHECKPOINT_JOURNAL_HEADROOM_BYTES_V1,
       operationScratchBytes: input.operationScratchBytes,
       storage: Object.freeze({
         freeBytes: quota.freeBytes,
