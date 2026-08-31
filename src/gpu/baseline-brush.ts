@@ -62,34 +62,55 @@ export class BaselineBrushDabBuilderV1 {
   #finished = false;
 
   begin(sample: BaselineBrushSampleV1): readonly BaselineBrushDabV1[] {
-    if (this.#lastPoint !== null) throw new Error('baseline brush dab builder has already begun');
-    if (this.#finished) throw new Error('baseline brush dab builder is finished');
-    assertFinitePoint(sample);
-    this.#lastPoint = { x: sample.documentX, y: sample.documentY };
-    this.#dabs.push(freezeDab(sample.documentX, sample.documentY));
-    this.#distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
+    this.beginDelta(sample);
     return this.dabs();
   }
 
-  append(samples: readonly BaselineBrushSampleV1[]): readonly BaselineBrushDabV1[] {
+  beginDelta(sample: BaselineBrushSampleV1): readonly BaselineBrushDabV1[] {
+    if (this.#lastPoint !== null) throw new Error('baseline brush dab builder has already begun');
     if (this.#finished) throw new Error('baseline brush dab builder is finished');
+    assertFinitePoint(sample);
+    const start = this.#dabs.length;
+    this.#lastPoint = { x: sample.documentX, y: sample.documentY };
+    this.#dabs.push(freezeDab(sample.documentX, sample.documentY));
+    this.#distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
+    return this.#deltaFrom(start);
+  }
+
+  append(samples: readonly BaselineBrushSampleV1[]): readonly BaselineBrushDabV1[] {
+    this.appendDelta(samples);
+    return this.dabs();
+  }
+
+  appendDelta(samples: readonly BaselineBrushSampleV1[]): readonly BaselineBrushDabV1[] {
+    if (this.#finished) throw new Error('baseline brush dab builder is finished');
+    const start = this.#dabs.length;
     if (this.#lastPoint === null) {
-      if (samples.length === 0) return this.dabs();
       const first = samples[0];
-      if (first === undefined) return this.dabs();
-      this.begin(first);
-      return this.append(samples.slice(1));
+      if (first === undefined) return Object.freeze([]);
+      this.beginDelta(first);
+      for (const sample of samples.slice(1)) {
+        assertFinitePoint(sample);
+        this.#appendPoint(sample.documentX, sample.documentY);
+      }
+      return this.#deltaFrom(start);
     }
 
     for (const sample of samples) {
       assertFinitePoint(sample);
       this.#appendPoint(sample.documentX, sample.documentY);
     }
-    return this.dabs();
+    return this.#deltaFrom(start);
   }
 
   finish(): readonly BaselineBrushDabV1[] {
-    if (this.#finished) return this.dabs();
+    this.finishDelta();
+    return this.dabs();
+  }
+
+  finishDelta(): readonly BaselineBrushDabV1[] {
+    if (this.#finished) return Object.freeze([]);
+    const start = this.#dabs.length;
     this.#finished = true;
     const lastPoint = this.#lastPoint;
     const lastDab = this.#dabs.at(-1);
@@ -97,11 +118,19 @@ export class BaselineBrushDabBuilderV1 {
       const distance = Math.hypot(lastPoint.x - lastDab.x, lastPoint.y - lastDab.y);
       if (distance > 1e-6) this.#dabs.push(freezeDab(lastPoint.x, lastPoint.y));
     }
-    return this.dabs();
+    return this.#deltaFrom(start);
+  }
+
+  dabCount(): number {
+    return this.#dabs.length;
   }
 
   dabs(): readonly BaselineBrushDabV1[] {
     return Object.freeze([...this.#dabs]);
+  }
+
+  #deltaFrom(start: number): readonly BaselineBrushDabV1[] {
+    return Object.freeze(this.#dabs.slice(start));
   }
 
   #appendPoint(x: number, y: number): void {
