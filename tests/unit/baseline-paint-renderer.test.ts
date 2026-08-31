@@ -152,4 +152,20 @@ describe('M4 baseline WebGPU paint renderer', () => {
     expect(tileState.snapshot()).toMatchObject({ allocatedTileCount: 0, dirtyTileCount: 0 });
     expect(harness.counts()).toMatchObject({ renderPasses: 2, submits: 2 });
   });
+
+  it('restores canonical committed strokes and redraws them after a GPU rebuild', () => {
+    const { harness, tileState, renderer } = configuredRenderer();
+    renderer.restoreCommittedStrokes([
+      { strokeId: 'stroke-restored', dabs: [dab(64, 64), dab(260, 64)] },
+    ]);
+    expect(renderer.snapshot()).toMatchObject({ committedStrokeCount: 1, committedDabCount: 2 });
+    expect(tileState.snapshot().dirtyTileCount).toBe(2);
+    const beforeRebuild = harness.counts().renderPasses;
+
+    renderer.attachDevice(null);
+    renderer.attachDevice(harness.device);
+
+    expect(renderer.snapshot()).toMatchObject({ committedStrokeCount: 1, committedDabCount: 2 });
+    expect(harness.counts().renderPasses).toBeGreaterThan(beforeRebuild);
+  });
 });

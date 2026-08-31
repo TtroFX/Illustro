@@ -219,9 +219,9 @@ M4-006 baseline brush dab生成:完了
 M4-007 GPU rasterization:完了
 M4-008 tile dirty update:完了
 M4-009 canvasへの可視結果表示:完了
-M4-010 strokeを1 history transactionとしてcommit:未完了
-M4-011 stroke Undo:未完了
-M4-012 stroke Redo:未完了
+M4-010 strokeを1 history transactionとしてcommit:完了
+M4-011 stroke Undo:完了
+M4-012 stroke Redo:完了
 M4-013 autosave接続:未完了
 M4-014 checkpoint接続:未完了
 M4-015 reload/recovery接続:未完了

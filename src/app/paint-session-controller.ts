@@ -1,5 +1,13 @@
 import { createDocumentV1, type DocumentV1 } from '../domain/document.js';
-import type { LayerId } from '../domain/identity.js';
+import {
+  isUuid,
+  parseDocumentId,
+  parseLayerId,
+  parseProjectId,
+  parseRevision,
+  type LayerId,
+  type Revision,
+} from '../domain/identity.js';
 import { createRasterLayer, type RasterLayerV1 } from '../domain/layers.js';
 import { BaselineBrushDabBuilderV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
 import type {
@@ -10,6 +18,9 @@ import type {
 
 export interface PaintRendererDocumentPortV1 {
   configureDocument(input: { readonly width: number; readonly height: number }): Promise<unknown>;
+  restoreBaselineStrokes(
+    strokes: readonly { readonly strokeId: string; readonly dabs: readonly BaselineBrushDabV1[] }[],
+  ): Promise<unknown>;
 }
 
 export interface PaintDocumentPointV1 {
@@ -53,6 +64,18 @@ export interface CompletedPaintStrokeV1 {
   readonly dabs: readonly BaselineBrushDabV1[];
 }
 
+export interface PaintProjectSnapshotV1 {
+  readonly schema: 'illustro.paint-project-snapshot/1';
+  readonly document: DocumentV1;
+  readonly committedStrokes: readonly CompletedPaintStrokeV1[];
+}
+
+export interface PaintStrokeCommitV1 {
+  readonly before: PaintProjectSnapshotV1;
+  readonly after: PaintProjectSnapshotV1;
+  readonly committed: CompletedPaintStrokeV1;
+}
+
 export interface PaintSessionSnapshotV1 {
   readonly schema: 'illustro.paint-session/1';
   readonly documentId: string | null;
@@ -61,9 +84,144 @@ export interface PaintSessionSnapshotV1 {
   readonly activeStrokeSampleCount: number;
   readonly activeDabCount: number;
   readonly pendingCompletedStrokeCount: number;
+  readonly committedStrokeCount: number;
 }
 
 export type PaintDocumentCreationInputV1 = Parameters<typeof createDocumentV1>[0];
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown, label: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${label} must be finite`);
+  }
+  return value;
+}
+
+function parseStoredStrokeSample(value: unknown): PaintStrokeSampleV1 {
+  if (!isRecord(value) || value.schema !== 'illustro.paint-stroke-sample/1') {
+    throw new TypeError('invalid paint stroke sample schema');
+  }
+  if (!Number.isSafeInteger(value.sequence) || (value.sequence as number) < 0) {
+    throw new TypeError('invalid paint stroke sample sequence');
+  }
+  const nullableAngle = (angle: unknown, label: string): number | null =>
+    angle === null ? null : finiteNumber(angle, label);
+  return Object.freeze({
+    schema: 'illustro.paint-stroke-sample/1' as const,
+    sequence: value.sequence as number,
+    timestampMs: finiteNumber(value.timestampMs, 'stroke timestamp'),
+    documentX: finiteNumber(value.documentX, 'stroke x'),
+    documentY: finiteNumber(value.documentY, 'stroke y'),
+    pressure: finiteNumber(value.pressure, 'stroke pressure'),
+    tangentialPressure: finiteNumber(value.tangentialPressure, 'stroke tangential pressure'),
+    tiltX: finiteNumber(value.tiltX, 'stroke tiltX'),
+    tiltY: finiteNumber(value.tiltY, 'stroke tiltY'),
+    twist: finiteNumber(value.twist, 'stroke twist'),
+    altitudeAngle: nullableAngle(value.altitudeAngle, 'stroke altitude'),
+    azimuthAngle: nullableAngle(value.azimuthAngle, 'stroke azimuth'),
+  });
+}
+
+function parseStoredDab(value: unknown): BaselineBrushDabV1 {
+  if (!isRecord(value) || value.schema !== 'illustro.baseline-brush-dab/1') {
+    throw new TypeError('invalid baseline dab schema');
+  }
+  const radius = finiteNumber(value.radius, 'baseline dab radius');
+  const opacity = finiteNumber(value.opacity, 'baseline dab opacity');
+  if (radius <= 0 || opacity < 0 || opacity > 1) throw new RangeError('invalid baseline dab range');
+  return Object.freeze({
+    schema: 'illustro.baseline-brush-dab/1' as const,
+    x: finiteNumber(value.x, 'baseline dab x'),
+    y: finiteNumber(value.y, 'baseline dab y'),
+    radius,
+    opacity,
+  });
+}
+
+function parseStoredCompletedStroke(value: unknown): CompletedPaintStrokeV1 {
+  if (!isRecord(value) || !isRecord(value.stroke) || !Array.isArray(value.dabs)) {
+    throw new TypeError('invalid completed paint stroke');
+  }
+  const stroke = value.stroke;
+  if (stroke.schema !== 'illustro.paint-stroke/1' || !isUuid(stroke.strokeId)) {
+    throw new TypeError('invalid paint stroke identity');
+  }
+  if (!Number.isSafeInteger(stroke.pointerId) || (stroke.pointerId as number) < 0) {
+    throw new TypeError('invalid paint stroke pointerId');
+  }
+  if (stroke.source !== 'pen' && stroke.source !== 'mouse')
+    throw new TypeError('invalid paint stroke source');
+  if (!Array.isArray(stroke.samples)) throw new TypeError('paint stroke samples must be an array');
+  const normalizedStroke: PaintStrokeV1 = Object.freeze({
+    schema: 'illustro.paint-stroke/1' as const,
+    strokeId: stroke.strokeId,
+    pointerId: stroke.pointerId as number,
+    source: stroke.source,
+    layerId: parseLayerId(stroke.layerId),
+    samples: Object.freeze(stroke.samples.map(parseStoredStrokeSample)),
+  });
+  return freezeCompletedStroke(normalizedStroke, value.dabs.map(parseStoredDab));
+}
+
+export function parsePaintProjectSnapshotV1(value: unknown): PaintProjectSnapshotV1 {
+  if (!isRecord(value) || value.schema !== 'illustro.paint-project-snapshot/1') {
+    throw new TypeError('invalid paint project snapshot schema');
+  }
+  if (!isRecord(value.document) || value.document.schema !== 'illustro.document/1') {
+    throw new TypeError('invalid paint project document');
+  }
+  const documentValue = value.document;
+  if (!isRecord(documentValue.canvas) || !isRecord(documentValue.layerTree)) {
+    throw new TypeError('invalid paint project document structure');
+  }
+  if (
+    !Number.isSafeInteger(documentValue.canvas.width) ||
+    (documentValue.canvas.width as number) < 1 ||
+    !Number.isSafeInteger(documentValue.canvas.height) ||
+    (documentValue.canvas.height as number) < 1
+  ) {
+    throw new RangeError('invalid recovered canvas dimensions');
+  }
+  if (
+    !Array.isArray(documentValue.layerTree.rootLayerIds) ||
+    !isRecord(documentValue.layerTree.layers)
+  ) {
+    throw new TypeError('invalid recovered layer tree');
+  }
+  const rootLayerIds = Object.freeze(documentValue.layerTree.rootLayerIds.map(parseLayerId));
+  if (rootLayerIds.length === 0) throw new Error('paint snapshot requires an active raster layer');
+  for (const layerId of rootLayerIds) {
+    if (!(layerId in documentValue.layerTree.layers))
+      throw new Error('paint snapshot root layer is missing');
+  }
+  const document = Object.freeze({
+    ...documentValue,
+    documentId: parseDocumentId(documentValue.documentId),
+    projectId: parseProjectId(documentValue.projectId),
+    revision: parseRevision(documentValue.revision),
+    layerTree: Object.freeze({
+      rootLayerIds,
+      layers: Object.freeze({ ...documentValue.layerTree.layers }),
+    }),
+  }) as unknown as DocumentV1;
+  if (!Array.isArray(value.committedStrokes)) {
+    throw new TypeError('paint snapshot committed strokes must be an array');
+  }
+  const committedStrokes = Object.freeze(value.committedStrokes.map(parseStoredCompletedStroke));
+  for (const completed of committedStrokes) {
+    if (!(completed.stroke.layerId in document.layerTree.layers)) {
+      throw new Error('paint stroke targets a missing layer');
+    }
+  }
+  return Object.freeze({
+    schema: 'illustro.paint-project-snapshot/1' as const,
+    document,
+    committedStrokes,
+  });
+}
 
 function identityPointerToDocument(
   sample: PointerInputSampleV1,
@@ -132,6 +290,7 @@ export class PaintSessionControllerV1 {
   #activeDabBuilder: BaselineBrushDabBuilderV1 | null = null;
   #activeDabs: readonly BaselineBrushDabV1[] = Object.freeze([]);
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
+  readonly #committedStrokes: CompletedPaintStrokeV1[] = [];
   #disposed = false;
 
   constructor(
@@ -151,6 +310,7 @@ export class PaintSessionControllerV1 {
       activeStrokeSampleCount: this.#activeStroke?.samples.length ?? 0,
       activeDabCount: this.#activeDabs.length,
       pendingCompletedStrokeCount: this.#completedStrokes.length,
+      committedStrokeCount: this.#committedStrokes.length,
     });
   }
 
@@ -160,6 +320,67 @@ export class PaintSessionControllerV1 {
 
   activeStroke(): PaintStrokeV1 | null {
     return this.#activeStroke;
+  }
+
+  projectSnapshot(): PaintProjectSnapshotV1 | null {
+    const document = this.#document;
+    if (document === null) return null;
+    return Object.freeze({
+      schema: 'illustro.paint-project-snapshot/1' as const,
+      document,
+      committedStrokes: Object.freeze([...this.#committedStrokes]),
+    });
+  }
+
+  committedStrokes(): readonly CompletedPaintStrokeV1[] {
+    return Object.freeze([...this.#committedStrokes]);
+  }
+
+  commitCompletedPaintStroke(
+    strokeId: string,
+    afterRevision: Revision | number,
+    now: Date = new Date(),
+  ): PaintStrokeCommitV1 | null {
+    const document = this.#document;
+    if (document === null) return null;
+    const index = this.#completedStrokes.findIndex((entry) => entry.stroke.strokeId === strokeId);
+    if (index < 0) return null;
+    const revision = parseRevision(afterRevision);
+    if (revision <= document.revision) {
+      throw new RangeError('committed paint stroke revision must advance the document');
+    }
+    const timestamp = now.toISOString();
+    const before = this.projectSnapshot();
+    if (before === null) return null;
+    const [committed] = this.#completedStrokes.splice(index, 1);
+    if (committed === undefined) return null;
+    this.#committedStrokes.push(committed);
+    this.#document = Object.freeze({ ...document, revision, modifiedAt: timestamp });
+    const after = this.projectSnapshot();
+    if (after === null) throw new Error('paint project snapshot disappeared during commit');
+    return Object.freeze({ before, after, committed });
+  }
+
+  async restoreProjectSnapshot(snapshot: PaintProjectSnapshotV1): Promise<PaintProjectSnapshotV1> {
+    if (this.#disposed) throw new Error('paint session is disposed');
+    const normalized = parsePaintProjectSnapshotV1(snapshot);
+    await this.#renderer.configureDocument({
+      width: normalized.document.canvas.width,
+      height: normalized.document.canvas.height,
+    });
+    await this.#renderer.restoreBaselineStrokes(
+      normalized.committedStrokes.map((entry) => ({
+        strokeId: entry.stroke.strokeId,
+        dabs: entry.dabs,
+      })),
+    );
+    this.#document = normalized.document;
+    this.#activeLayerId = normalized.document.layerTree.rootLayerIds[0] ?? null;
+    this.#clearActiveStroke();
+    this.#completedStrokes.length = 0;
+    this.#committedStrokes.length = 0;
+    this.#committedStrokes.push(...normalized.committedStrokes);
+    return this.projectSnapshot()!;
   }
 
   activeDabs(): readonly BaselineBrushDabV1[] {
@@ -189,6 +410,7 @@ export class PaintSessionControllerV1 {
     this.#activeLayerId = initial.layer.id;
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
+    this.#committedStrokes.length = 0;
     return initial.document;
   }
 
@@ -248,6 +470,7 @@ export class PaintSessionControllerV1 {
     this.#activeLayerId = null;
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
+    this.#committedStrokes.length = 0;
   }
 
   #startStroke(batch: PointerInputBatchV1, source: PaintStrokeSourceV1): void {

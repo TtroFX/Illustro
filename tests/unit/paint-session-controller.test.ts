@@ -17,6 +17,8 @@ class FakeRendererDocumentPort {
   }): Promise<void> {
     this.configured.push(Object.freeze({ ...input }));
   }
+
+  async restoreBaselineStrokes(): Promise<void> {}
 }
 
 function sample(

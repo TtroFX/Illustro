@@ -1,6 +1,9 @@
 import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
 import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
-import { BaselinePaintRendererV1 } from '../gpu/baseline-paint-renderer.js';
+import {
+  BaselinePaintRendererV1,
+  type BaselinePaintCommittedStrokeV1,
+} from '../gpu/baseline-paint-renderer.js';
 import { acquireCoreWebGpuV1 } from '../gpu/webgpu-capability.js';
 import { RendererDeviceManagerV1 } from '../gpu/renderer-device-manager.js';
 import {
@@ -93,6 +96,11 @@ type RenderWorkerRequestV1 =
       readonly type: 'renderer.paint.cancel';
       readonly requestId: string;
       readonly strokeId: string;
+    }
+  | {
+      readonly type: 'renderer.paint.restore';
+      readonly requestId: string;
+      readonly strokes: readonly BaselinePaintCommittedStrokeV1[];
     }
   | { readonly type: 'renderer.dispose' };
 
@@ -221,6 +229,29 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
   return Object.freeze(dabs);
 }
 
+function parseBaselineCommittedStrokes(
+  value: unknown,
+): readonly BaselinePaintCommittedStrokeV1[] | null {
+  if (!Array.isArray(value)) return null;
+  const strokes: BaselinePaintCommittedStrokeV1[] = [];
+  const seen = new Set<string>();
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.strokeId !== 'string' ||
+      candidate.strokeId.length === 0
+    ) {
+      return null;
+    }
+    if (seen.has(candidate.strokeId)) return null;
+    const dabs = parseBaselineDabs(candidate.dabs);
+    if (dabs === null) return null;
+    seen.add(candidate.strokeId);
+    strokes.push(Object.freeze({ strokeId: candidate.strokeId, dabs }));
+  }
+  return Object.freeze(strokes);
+}
+
 function isRendererSurface(value: unknown): value is RendererSurfaceLikeV1 {
   return (
     isRecord(value) &&
@@ -288,6 +319,10 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     return dabs === null
       ? null
       : { type: value.type, requestId: value.requestId, strokeId: value.strokeId, dabs };
+  }
+  if (value.type === 'renderer.paint.restore' && typeof value.requestId === 'string') {
+    const strokes = parseBaselineCommittedStrokes(value.strokes);
+    return strokes === null ? null : { type: value.type, requestId: value.requestId, strokes };
   }
   if (
     value.type === 'renderer.paint.cancel' &&
@@ -397,6 +432,10 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       tileState.attachGpuDevice(deviceManager.currentDevice());
       baselinePaint.configureDocument(tileState, request.width, request.height);
       postResponse(request.requestId, true, tileState.snapshot());
+      return;
+    }
+    if (request.type === 'renderer.paint.restore') {
+      postResponse(request.requestId, true, baselinePaint.restoreCommittedStrokes(request.strokes));
       return;
     }
     if (request.type === 'renderer.paint.present') {

@@ -14,6 +14,7 @@ import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
 import { installDiagnosticsHook } from './diagnostics.js';
+import { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { startRendererController } from './renderer-controller.js';
@@ -37,6 +38,7 @@ const workers = startDedicatedWorkers();
 const canvasAdmission = getCanvasAdmissionControllerV1();
 const renderer = startRendererController(shell, workers.render, root);
 const paintSession = new PaintSessionControllerV1(renderer);
+const paintHistory = new PaintHistoryControllerV1(paintSession);
 let paintRenderTask: Promise<void> = Promise.resolve();
 
 function enqueuePaintRender(operation: () => Promise<unknown>): void {
@@ -49,6 +51,14 @@ function enqueuePaintRender(operation: () => Promise<unknown>): void {
       incrementPerformanceCounter('renderer.paint.failure');
       logger.error('renderer.paint-failed', error);
     });
+}
+
+function publishPaintHistory(): void {
+  const history = paintHistory.snapshot();
+  root.dataset.illustroHistoryLength = String(history.length);
+  root.dataset.illustroHistoryCursor = String(history.cursor);
+  root.dataset.illustroHistoryUndo = history.canUndo ? 'enabled' : 'disabled';
+  root.dataset.illustroHistoryRedo = history.canRedo ? 'enabled' : 'disabled';
 }
 
 const pointerTransport = createPointerInputTransportV1(workers.render, {
@@ -106,6 +116,9 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
         root.dataset.illustroPaintVisible = 'finalizing';
         enqueuePaintRender(async () => {
           const finalization = await renderer.finalizeBaselineStroke(strokeId, dabs);
+          const transaction = paintHistory.commitCompletedStroke(strokeId);
+          root.dataset.illustroHistoryTransaction = transaction.transactionId;
+          publishPaintHistory();
           root.dataset.illustroPaintVisible = 'committed';
           root.dataset.illustroPaintDabs = String(finalization.dabCount);
           root.dataset.illustroPaintDirtyTiles = String(finalization.affectedTiles.length);
@@ -127,6 +140,33 @@ root.dataset.illustroPaintSession = 'pending-document';
 root.dataset.illustroPaintVisible = 'idle';
 root.dataset.illustroPaintDabs = '0';
 root.dataset.illustroPaintDirtyTiles = '0';
+publishPaintHistory();
+
+const onPaintHistoryKeyDown = (event: KeyboardEvent): void => {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+  const target = event.target;
+  if (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  )
+    return;
+  const key = event.key.toLowerCase();
+  const redo = (key === 'z' && event.shiftKey) || key === 'y';
+  const undo = key === 'z' && !event.shiftKey;
+  if (!undo && !redo) return;
+  event.preventDefault();
+  enqueuePaintRender(async () => {
+    const changed = redo ? await paintHistory.redo() : await paintHistory.undo();
+    if (!changed) return;
+    root.dataset.illustroPaintVisible = 'committed';
+    publishPaintHistory();
+    incrementPerformanceCounter(redo ? 'history.paint.redo' : 'history.paint.undo');
+  });
+};
+window.addEventListener('keydown', onPaintHistoryKeyDown);
+
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
@@ -160,6 +200,8 @@ void renderer
     root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
     root.dataset.illustroPaintStroke = 'idle';
     root.dataset.illustroPaintStrokeSamples = '0';
+    paintHistory.reset();
+    publishPaintHistory();
     logger.info('paint-session.document-ready', {
       documentId: document.documentId,
       activeLayerId: document.layerTree.rootLayerIds[0] ?? null,
@@ -176,6 +218,7 @@ void renderer
 globalThis.addEventListener(
   'pagehide',
   () => {
+    window.removeEventListener('keydown', onPaintHistoryKeyDown);
     pointerInput.dispose();
     pointerTransport.dispose();
     pointerHover.clear();

@@ -121,6 +121,11 @@ export interface BaselinePaintRendererSnapshotV1 {
   readonly deviceReady: boolean;
 }
 
+export interface BaselinePaintCommittedStrokeV1 {
+  readonly strokeId: string;
+  readonly dabs: readonly BaselineBrushDabV1[];
+}
+
 export interface BaselinePaintAffectedTileV1 {
   readonly coordinate: TileCoordinateV1;
   readonly dirty: DirtyTileStateV1 | null;
@@ -372,6 +377,7 @@ export class BaselinePaintRendererV1 {
   attachDevice(device: IllustroGpuDeviceV1 | null): void {
     this.#device = device;
     this.#gpu.attachDevice(device);
+    this.#present();
   }
 
   attachSurface(surface: RendererSurfaceLikeV1 | null, format: string | null): void {
@@ -380,6 +386,7 @@ export class BaselinePaintRendererV1 {
     }
     this.#surface = surface;
     this.#surfaceFormat = format;
+    this.#present();
   }
 
   configureDocument(
@@ -443,6 +450,33 @@ export class BaselinePaintRendererV1 {
     });
     this.#finalizations.set(strokeId, finalization);
     return finalization;
+  }
+
+  restoreCommittedStrokes(
+    strokes: readonly BaselinePaintCommittedStrokeV1[],
+  ): BaselinePaintRendererSnapshotV1 {
+    const { tileState, width, height } = this.#requireDocument();
+    tileState.resetContent();
+    this.#activeStroke = null;
+    this.#committedStrokes.clear();
+    this.#finalizations.clear();
+    const seen = new Set<string>();
+    for (const stroke of strokes) {
+      if (stroke.strokeId.length === 0 || seen.has(stroke.strokeId)) {
+        throw new TypeError('baseline restored stroke IDs must be unique and non-empty');
+      }
+      seen.add(stroke.strokeId);
+      const dabs = freezeDabs(stroke.dabs);
+      if (dabs.some((dab) => !isRenderableDab(dab)))
+        throw new RangeError('invalid restored baseline dab');
+      for (const plan of planBaselineBrushTilesV1(dabs, width, height)) {
+        tileState.allocate(plan.coordinate);
+        tileState.markDirty(plan.coordinate, plan.dirtyRect);
+      }
+      this.#committedStrokes.set(stroke.strokeId, dabs);
+    }
+    this.#present();
+    return this.snapshot();
   }
 
   dispose(): void {

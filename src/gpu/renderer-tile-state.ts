@@ -301,6 +301,11 @@ export class RendererTileStateV1 {
     return this.#dirty.get(coordinate);
   }
 
+  resetContent(): void {
+    for (const entry of this.#tiles.entries()) this.deallocate(entry.coordinate);
+    this.#dirty.clearAll();
+  }
+
   dispose(): void {
     this.discardGpuResidency();
     this.#cpuCache.clear();
