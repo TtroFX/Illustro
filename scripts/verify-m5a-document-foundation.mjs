@@ -14,6 +14,8 @@ const persistence = read('src/app/paint-persistence-controller.ts');
 const renderer = read('src/app/renderer-controller.ts');
 const worker = read('src/workers/render.worker.ts');
 const presets = read('src/domain/document-presets.ts');
+const geometry = read('src/app/document-geometry.ts');
+const geometryWorkflow = read('src/app/document-geometry-workflow-controller.ts');
 
 for (const id of [
   'new-document',
@@ -38,5 +40,14 @@ required(worker, 'isDocumentWorkingSpace', 'worker working-space validation');
 required(worker, 'isDocumentPrecision', 'worker precision validation');
 required(presets, 'a4-portrait-300', 'print preset');
 required(presets, 'uhd-4k', 'screen preset');
+required(geometry, 'resizeCanvasSnapshotV1', 'canvas resize operation');
+required(geometry, 'cropCanvasSnapshotV1', 'crop operation');
+required(geometry, 'trimTransparentCanvasSnapshotV1', 'trim operation');
+required(geometry, 'isCanvasExpansionV1', 'canvas expansion classification');
+required(geometryWorkflow, 'canvasAdmission.preflight', 'geometry admission preflight');
+required(geometryWorkflow, 'commitSnapshotTransform', 'geometry history transaction path');
+required(html, 'id="canvas-resize"', 'canvas resize UI');
+required(html, 'id="canvas-crop"', 'crop UI');
+required(html, 'id="canvas-trim"', 'trim UI');
 
-console.log('M5A document foundation verification passed');
+console.log('M5A document/canvas foundation verification passed');

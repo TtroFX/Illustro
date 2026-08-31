@@ -547,3 +547,11 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+
+.document-dialog-help {
+  margin: -4px 0 0;
+  color: #75829a;
+  font-size: 12px;
+  line-height: 1.5;
+}

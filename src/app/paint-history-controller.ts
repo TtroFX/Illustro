@@ -6,7 +6,7 @@ import {
   type HistorySpineStateV1,
   type HistoryTransactionV1,
 } from '../history/history.js';
-import { parseRevision } from '../domain/identity.js';
+import { parseRevision, type Revision } from '../domain/identity.js';
 import {
   PaintSessionControllerV1,
   parsePaintProjectSnapshotV1,
@@ -85,6 +85,48 @@ export class PaintHistoryControllerV1 {
     });
     this.#spine.commit(transaction);
     this.#revisionHighWater = Math.max(this.#revisionHighWater, committed.after.document.revision);
+    return transaction;
+  }
+
+  async commitSnapshotTransform(
+    commandId: string,
+    transform: (
+      before: ReturnType<PaintSessionControllerV1['projectSnapshot']> extends infer Snapshot
+        ? Exclude<Snapshot, null>
+        : never,
+      revision: Revision,
+    ) => ReturnType<PaintSessionControllerV1['projectSnapshot']> extends infer Snapshot
+      ? Exclude<Snapshot, null>
+      : never,
+  ): Promise<HistoryTransactionV1> {
+    const before = this.#session.projectSnapshot();
+    if (before === null) throw new Error('document transform history requires an active document');
+    if (this.#revisionHighWater >= Number.MAX_SAFE_INTEGER) {
+      throw new RangeError('paint document revision high-water is exhausted');
+    }
+    const afterRevision = parseRevision(
+      Math.max(this.#revisionHighWater, before.document.revision) + 1,
+    );
+    const after = transform(before, afterRevision);
+    if (
+      after.document.documentId !== before.document.documentId ||
+      after.document.projectId !== before.document.projectId
+    ) {
+      throw new Error('document transform must preserve project/document identity');
+    }
+    if (after.document.revision !== afterRevision) {
+      throw new Error('document transform must use the assigned revision');
+    }
+    const transaction = createHistoryTransactionV1({
+      transactionId: crypto.randomUUID(),
+      commandId,
+      beforeRevision: before.document.revision,
+      afterRevision,
+      payload: createHistoryPayloadV1({ strategy: 'object-before-after', before, after }),
+    });
+    await this.#session.restoreProjectSnapshot(after);
+    this.#spine.commit(transaction);
+    this.#revisionHighWater = Math.max(this.#revisionHighWater, afterRevision);
     return transaction;
   }
 

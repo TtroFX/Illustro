@@ -28,6 +28,9 @@
             <summary>ページ</summary>
             <div class="shell-menu-popover">
               <button id="document-settings" type="button">ドキュメント設定…</button>
+              <button id="canvas-resize" type="button">キャンバスサイズ…</button>
+              <button id="canvas-crop" type="button">クロップ…</button>
+              <button id="canvas-trim" type="button">透明部分をトリミング</button>
             </div>
           </details>
           <span>選択範囲</span><span>表示</span><span>フィルター</span>
@@ -95,6 +98,24 @@
         <footer>
           <button type="button" class="document-dialog-secondary" onclick="this.closest('dialog').close()">キャンセル</button>
           <button id="document-submit" type="submit" class="document-dialog-primary">作成</button>
+        </footer>
+      </form>
+    </dialog>
+    <dialog id="canvas-geometry-dialog" class="document-dialog" aria-labelledby="canvas-geometry-title">
+      <form id="canvas-geometry-form" method="dialog" class="document-dialog-form">
+        <header><h2 id="canvas-geometry-title">キャンバスサイズ</h2></header>
+        <div class="document-dialog-grid">
+          <label id="canvas-geometry-x-row"><span id="canvas-geometry-x-label">内容オフセット X</span><input id="canvas-geometry-x" type="number" step="1" value="0" /></label>
+          <label id="canvas-geometry-y-row"><span id="canvas-geometry-y-label">内容オフセット Y</span><input id="canvas-geometry-y" type="number" step="1" value="0" /></label>
+          <span></span>
+          <label>幅 <input id="canvas-geometry-width" type="number" min="1" max="32768" step="1" /></label>
+          <label>高さ <input id="canvas-geometry-height" type="number" min="1" max="32768" step="1" /></label>
+        </div>
+        <p class="document-dialog-help">オフセットは既存内容を新しいキャンバス座標へ移動します。大きくする場合は余白追加として扱われます。</p>
+        <output id="canvas-geometry-status" class="document-dialog-status" aria-live="polite"></output>
+        <footer>
+          <button id="canvas-geometry-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+          <button id="canvas-geometry-submit" type="submit" class="document-dialog-primary">適用</button>
         </footer>
       </form>
     </dialog>
