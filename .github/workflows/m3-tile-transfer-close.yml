@@ -1,0 +1,70 @@
+name: Close M3 tile transfer foundation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m3-tile-transfer-close.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Verify tile transfer production wiring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          transfer = Path('src/gpu/tile-transfer.ts').read_text()
+          state = Path('src/gpu/renderer-tile-state.ts').read_text()
+          worker = Path('src/workers/render.worker.ts').read_text()
+          atlas = Path('src/gpu/gpu-atlas.ts').read_text()
+          checks = [
+              ('writeTexture' in transfer and 'uploadTileToAtlasV1' in transfer, 'tile upload path missing'),
+              ('copyTextureToBuffer' in transfer and 'GPU_COPY_BYTES_PER_ROW_ALIGNMENT = 256' in transfer, 'aligned tile readback path missing'),
+              ('getPageResource' in atlas, 'atlas resource access missing'),
+              ('uploadCpuBackingToGpu' in state and 'readbackGpuToCpu' in state, 'renderer tile transfer state wiring missing'),
+              ('renderer.tiles.upload' in worker and 'renderer.tiles.readback' in worker, 'Render Worker transfer protocol missing'),
+          ]
+          failed = [message for ok, message in checks if not ok]
+          if failed:
+              raise SystemExit('\n'.join(failed))
+          PY
+      - name: Tile transfer unit matrix
+        run: >-
+          npx vitest run
+          tests/unit/tile-transfer.test.ts
+          tests/unit/renderer-tile-transfer.test.ts
+      - name: Close M3-025 and M3-026
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          s = p.read_text()
+          for target in ['M3-025 tile upload', 'M3-026 tile readback']:
+              old = f'{target}:未完了'
+              new = f'{target}:完了'
+              if old not in s:
+                  raise SystemExit(f'progress target missing: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit verified closure and retire workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m3-tile-transfer-close.yml
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: close M3 tile transfer foundation [skip ci]'
+          git push
