@@ -14,6 +14,7 @@ import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
 import { installDiagnosticsHook } from './diagnostics.js';
+import { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { startRendererController } from './renderer-controller.js';
 import {
@@ -34,6 +35,8 @@ const capabilities = collectRuntimeCapabilities();
 const shell = installFoundationShell();
 const workers = startDedicatedWorkers();
 const canvasAdmission = getCanvasAdmissionControllerV1();
+const renderer = startRendererController(shell, workers.render, root);
+const paintSession = new PaintSessionControllerV1(renderer);
 const pointerTransport = createPointerInputTransportV1(workers.render, {
   sharedMemoryFastPath:
     capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer && capabilities.atomics,
@@ -59,6 +62,14 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
     incrementPerformanceCounter('input.pointer.palm-rejected');
   }
   if (arbitration.forwardBatch !== null) {
+    const paint = paintSession.ingestPointerBatch(arbitration.forwardBatch);
+    root.dataset.illustroPaintStroke =
+      paint.activeStrokeId !== null
+        ? 'active'
+        : paint.pendingCompletedStrokeCount > 0
+          ? 'pending-commit'
+          : 'idle';
+    root.dataset.illustroPaintStrokeSamples = String(paint.activeStrokeSampleCount);
     pointerTransport.enqueueBatch(arbitration.forwardBatch);
   }
 });
@@ -68,6 +79,7 @@ root.dataset.illustroPointerFingerDrawing = pointerArbitration.snapshot().finger
   ? 'enabled'
   : 'disabled';
 root.dataset.illustroCanvasAdmission = canvasAdmission.schema;
+root.dataset.illustroPaintSession = 'pending-document';
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
@@ -84,11 +96,32 @@ root.dataset.illustroCrossOriginIsolated = globalThis.crossOriginIsolated
 installDiagnosticsHook();
 logger.info('runtime.bootstrap', { build: buildIdentity, runtime, capabilities });
 
-const renderer = startRendererController(shell, workers.render, root);
 void renderer
   .start()
-  .then((snapshot) => logger.info('renderer.runtime-ready', { snapshot }))
+  .then(async (snapshot) => {
+    logger.info('renderer.runtime-ready', { snapshot });
+    if (snapshot.deviceState !== 'ready') return;
+    const surfaceSize = shell.currentRenderSurfaceSize();
+    const document = await paintSession.createNewDocument({
+      width: Math.max(1, Math.round(surfaceSize.width / surfaceSize.pixelRatio)),
+      height: Math.max(1, Math.round(surfaceSize.height / surfaceSize.pixelRatio)),
+    });
+    root.dataset.illustroPaintSession = 'ready';
+    root.dataset.illustroDocumentId = document.documentId;
+    root.dataset.illustroDocumentWidth = String(document.canvas.width);
+    root.dataset.illustroDocumentHeight = String(document.canvas.height);
+    root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
+    root.dataset.illustroPaintStroke = 'idle';
+    root.dataset.illustroPaintStrokeSamples = '0';
+    logger.info('paint-session.document-ready', {
+      documentId: document.documentId,
+      activeLayerId: document.layerTree.rootLayerIds[0] ?? null,
+      width: document.canvas.width,
+      height: document.canvas.height,
+    });
+  })
   .catch((error: unknown) => {
+    root.dataset.illustroPaintSession = 'error';
     incrementPerformanceCounter('renderer.runtime.failure');
     logger.error('renderer.runtime-failed', error);
   });
@@ -99,7 +132,9 @@ globalThis.addEventListener(
     pointerInput.dispose();
     pointerTransport.dispose();
     pointerHover.clear();
+    paintSession.dispose();
     root.dataset.illustroPointerInput = 'disposed';
+    root.dataset.illustroPaintSession = 'disposed';
     renderer.dispose();
     shell.dispose();
     workers.dispose();

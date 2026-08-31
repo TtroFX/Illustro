@@ -5,6 +5,7 @@ import {
   type RendererDeviceStateV1,
 } from '../gpu/renderer-device-manager.js';
 import { rebuildRendererDeviceResourcesV1 } from '../gpu/renderer-device-resources.js';
+import { RendererTileStateV1 } from '../gpu/renderer-tile-state.js';
 import type { FoundationShell } from './shell.js';
 
 type RendererOwnerV1 = 'pending' | 'worker' | 'main';
@@ -27,6 +28,13 @@ export interface RendererControllerSnapshotV1 {
   readonly owner: RendererOwnerV1;
   readonly deviceState: RendererDeviceStateV1;
   readonly generation: number;
+}
+
+export interface RendererDocumentConfigurationV1 {
+  readonly schema: 'illustro.renderer-document-configuration/1';
+  readonly owner: Exclude<RendererOwnerV1, 'pending'>;
+  readonly width: number;
+  readonly height: number;
 }
 
 const WORKER_RESPONSE_TIMEOUT_MS = 4_000;
@@ -111,6 +119,7 @@ export class RendererControllerV1 {
   #deviceState: RendererDeviceStateV1 = 'idle';
   #generation = 0;
   #mainDeviceManager: RendererDeviceManagerV1 | null = null;
+  #mainTileState: RendererTileStateV1 | null = null;
   #removeSizeSubscription: (() => void) | null = null;
   #startTask: Promise<RendererControllerSnapshotV1> | null = null;
   #disposed = false;
@@ -154,6 +163,53 @@ export class RendererControllerV1 {
     return task;
   }
 
+  async configureDocument(input: {
+    readonly width: number;
+    readonly height: number;
+  }): Promise<RendererDocumentConfigurationV1> {
+    if (this.#disposed) throw new Error('renderer controller is disposed');
+    const snapshot = await this.start();
+    if (snapshot.deviceState !== 'ready') {
+      throw new Error(`renderer is not ready for document configuration: ${snapshot.deviceState}`);
+    }
+
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.tiles.configure',
+        requestId,
+        width: input.width,
+        height: input.height,
+      });
+      if (response?.ok !== true) {
+        throw new Error('Render Worker failed to configure document tile state');
+      }
+      this.#publishDocumentConfiguration(input.width, input.height);
+      return Object.freeze({
+        schema: 'illustro.renderer-document-configuration/1' as const,
+        owner: 'worker' as const,
+        width: input.width,
+        height: input.height,
+      });
+    }
+
+    if (snapshot.owner !== 'main' || this.#mainDeviceManager === null) {
+      throw new Error('renderer ownership is unresolved');
+    }
+    const device = this.#mainDeviceManager.currentDevice();
+    if (device === null) throw new Error('main renderer device is unavailable');
+    this.#mainTileState?.dispose();
+    this.#mainTileState = new RendererTileStateV1(input.width, input.height);
+    this.#mainTileState.attachGpuDevice(device);
+    this.#publishDocumentConfiguration(input.width, input.height);
+    return Object.freeze({
+      schema: 'illustro.renderer-document-configuration/1' as const,
+      owner: 'main' as const,
+      width: input.width,
+      height: input.height,
+    });
+  }
+
   async retry(): Promise<RendererControllerSnapshotV1> {
     if (this.#disposed) return this.snapshot();
     if (this.#owner === 'worker') {
@@ -176,6 +232,8 @@ export class RendererControllerV1 {
     this.#disposed = true;
     this.#removeSizeSubscription?.();
     this.#removeSizeSubscription = null;
+    this.#mainTileState?.dispose();
+    this.#mainTileState = null;
     this.#mainDeviceManager?.dispose();
     this.#mainDeviceManager = null;
     this.#worker.removeEventListener('message', this.#workerStateListener);
@@ -247,9 +305,11 @@ export class RendererControllerV1 {
       acquire: acquireCoreWebGpuV1,
       rebuild: (device, generation) => {
         rebuildRendererDeviceResourcesV1(device, generation, this.#shell.canvas);
+        this.#mainTileState?.attachGpuDevice(device);
       },
       onState: (snapshot) => this.#applyDeviceSnapshot(snapshot),
       onDiscardProvisional: () => {
+        this.#mainTileState?.attachGpuDevice(null);
         this.#root.dataset.illustroRendererProvisional = 'discarded';
       },
     });
@@ -262,6 +322,12 @@ export class RendererControllerV1 {
     this.#deviceState = snapshot.state;
     this.#generation = snapshot.generation;
     this.#publish();
+  }
+
+  #publishDocumentConfiguration(width: number, height: number): void {
+    this.#root.dataset.illustroRendererDocument = 'configured';
+    this.#root.dataset.illustroRendererDocumentWidth = String(width);
+    this.#root.dataset.illustroRendererDocumentHeight = String(height);
   }
 
   #publish(): void {
