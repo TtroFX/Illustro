@@ -14,6 +14,13 @@ import {
   type TileCacheSnapshotV1,
 } from './tile-cache.js';
 import {
+  readbackTileFromAtlasV1,
+  type TileReadbackResultV1,
+  type TileTransferGpuDeviceV1,
+  type TileUploadResultV1,
+  uploadTileToAtlasV1,
+} from './tile-transfer.js';
+import {
   CANONICAL_TILE_SIZE_PX,
   DirtyTileTrackerV1,
   SparseTileMapV1,
@@ -216,6 +223,38 @@ export class RendererTileStateV1 {
     return slot;
   }
 
+  uploadCpuBackingToGpu(
+    coordinate: TileCoordinateV1,
+    pixelFormat: GpuAtlasPixelFormatV1,
+    residency: TileCacheResidencyV1 = 'visible',
+  ): TileUploadResultV1 {
+    const tile = this.#tiles.get(coordinate);
+    if (tile === null) throw new Error('cannot upload an absent sparse tile');
+    const bytes = this.getCpuBacking(coordinate);
+    if (bytes === null) throw new Error('cannot upload a tile without CPU backing bytes');
+    const slot = this.reserveGpuTile(coordinate, pixelFormat, residency);
+    const texture = this.#requireAtlasResource(slot);
+    const device = this.#requireTransferDevice();
+    return uploadTileToAtlasV1(device, texture, slot, tile.bounds, bytes);
+  }
+
+  async readbackGpuToCpu(
+    coordinate: TileCoordinateV1,
+    residency: TileCacheResidencyV1 = 'visible',
+  ): Promise<TileReadbackResultV1> {
+    const tile = this.#tiles.get(coordinate);
+    if (tile === null) throw new Error('cannot read back an absent sparse tile');
+    const slot = this.getGpuSlot(coordinate);
+    if (slot === null) throw new Error('cannot read back a tile without GPU residency');
+    const texture = this.#requireAtlasResource(slot);
+    const device = this.#requireTransferDevice();
+    const result = await readbackTileFromAtlasV1(device, texture, slot, tile.bounds);
+    if (!this.cacheCpuBacking(coordinate, result.bytes, residency)) {
+      throw new RangeError('CPU backing cache could not admit tile readback');
+    }
+    return result;
+  }
+
   releaseGpuTile(coordinate: TileCoordinateV1): boolean {
     return this.#gpuCache.delete(tileKeyV1(coordinate));
   }
@@ -266,5 +305,16 @@ export class RendererTileStateV1 {
     this.discardGpuResidency();
     this.#cpuCache.clear();
     this.#gpuDevice = null;
+  }
+
+  #requireAtlasResource(slot: GpuAtlasSlotV1): RendererGpuTextureLikeV1 {
+    const resource = this.#atlas.getPageResource(slot.pageId);
+    if (resource === null) throw new Error('GPU atlas slot references a missing texture page');
+    return resource;
+  }
+
+  #requireTransferDevice(): TileTransferGpuDeviceV1 {
+    if (this.#gpuDevice === null) throw new Error('renderer GPU device is not attached');
+    return this.#gpuDevice as unknown as TileTransferGpuDeviceV1;
   }
 }

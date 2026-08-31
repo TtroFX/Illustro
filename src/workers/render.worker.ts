@@ -52,10 +52,16 @@ type RenderWorkerRequestV1 =
       readonly rect: RectV1;
     }
   | {
-      readonly type: 'renderer.tiles.reserveGpu';
+      readonly type: 'renderer.tiles.reserveGpu' | 'renderer.tiles.upload';
       readonly requestId: string;
       readonly coordinate: TileCoordinateV1;
       readonly pixelFormat: GpuAtlasPixelFormatV1;
+      readonly residency: TileCacheResidencyV1;
+    }
+  | {
+      readonly type: 'renderer.tiles.readback';
+      readonly requestId: string;
+      readonly coordinate: TileCoordinateV1;
       readonly residency: TileCacheResidencyV1;
     }
   | {
@@ -218,6 +224,8 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
       value.type === 'renderer.tiles.dropCpu' ||
       value.type === 'renderer.tiles.markDirty' ||
       value.type === 'renderer.tiles.reserveGpu' ||
+      value.type === 'renderer.tiles.upload' ||
+      value.type === 'renderer.tiles.readback' ||
       value.type === 'renderer.tiles.cacheCpu') &&
     typeof value.requestId === 'string'
   ) {
@@ -229,7 +237,7 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
         ? null
         : { type: value.type, requestId: value.requestId, coordinate, rect };
     }
-    if (value.type === 'renderer.tiles.reserveGpu') {
+    if (value.type === 'renderer.tiles.reserveGpu' || value.type === 'renderer.tiles.upload') {
       if (!isAtlasPixelFormat(value.pixelFormat) || !isResidency(value.residency)) return null;
       return {
         type: value.type,
@@ -238,6 +246,10 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
         pixelFormat: value.pixelFormat,
         residency: value.residency,
       };
+    }
+    if (value.type === 'renderer.tiles.readback') {
+      if (!isResidency(value.residency)) return null;
+      return { type: value.type, requestId: value.requestId, coordinate, residency: value.residency };
     }
     if (value.type === 'renderer.tiles.cacheCpu') {
       if (!(value.bytes instanceof ArrayBuffer) || !isResidency(value.residency)) return null;
@@ -324,6 +336,26 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       const state = requireTileState();
       postResponse(request.requestId, true, {
         slot: state.reserveGpuTile(request.coordinate, request.pixelFormat, request.residency),
+        state: state.snapshot(),
+      });
+      return;
+    }
+    if (request.type === 'renderer.tiles.upload') {
+      const state = requireTileState();
+      postResponse(request.requestId, true, {
+        transfer: state.uploadCpuBackingToGpu(
+          request.coordinate,
+          request.pixelFormat,
+          request.residency,
+        ),
+        state: state.snapshot(),
+      });
+      return;
+    }
+    if (request.type === 'renderer.tiles.readback') {
+      const state = requireTileState();
+      postResponse(request.requestId, true, {
+        transfer: await state.readbackGpuToCpu(request.coordinate, request.residency),
         state: state.snapshot(),
       });
       return;

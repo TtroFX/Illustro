@@ -109,6 +109,10 @@ export class GpuAtlasPageManagerV1<Resource> {
     return this.#assignments.get(tileKey) ?? null;
   }
 
+  getPageResource(pageId: string): Resource | null {
+    return this.#pages.get(pageId)?.resource ?? null;
+  }
+
   allocate(tileKey: string, pixelFormat: GpuAtlasPixelFormatV1): GpuAtlasSlotV1 {
     if (tileKey.length === 0) throw new TypeError('atlas tile key must not be empty');
     const existing = this.#assignments.get(tileKey);
