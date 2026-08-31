@@ -24,7 +24,42 @@ jobs:
       - name: Restore locked dependencies
         run: npm ci --ignore-scripts
       - name: Apply M5A viewport navigation
-        run: python scripts/.tmp-m5a-viewport.py
+        run: |
+          python scripts/.tmp-m5a-viewport.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/viewport-controller.ts')
+          text = path.read_text()
+          text = text.replace(
+              'const point = points[0]!;',
+              'const point = points[0];\n      if (point === undefined) return null;',
+          )
+          text = text.replace(
+              'const left = points[0]!;\n    const right = points[1]!;',
+              'const left = points[0];\n    const right = points[1];\n    if (left === undefined || right === undefined) return null;',
+          )
+          text = text.replace(
+              'setDocumentSize(width, height) {',
+              'setDocumentSize(width: number, height: number) {',
+          )
+          text = text.replace(
+              'mapPointerToDocument(sample, documentValue) {',
+              'mapPointerToDocument(\n      sample: { readonly clientX: number; readonly clientY: number },\n      documentValue: DocumentV1,\n    ) {',
+          )
+          text = text.replace(
+              'reset: () => publish() && transform.resetView() && publish(),',
+              'reset: () => { transform.resetView(); publish(); },',
+          )
+          text = text.replace(
+              'fit: () => publish() && transform.fitToScreen() && publish(),',
+              'fit: () => { transform.fitToScreen(); publish(); },',
+          )
+          text = text.replace(
+              'mirror: () => publish() && transform.toggleMirror() && publish(),',
+              'mirror: () => { transform.toggleMirror(); publish(); },',
+          )
+          path.write_text(text)
+          PY
       - name: Canonical formatting
         run: npm run format
       - name: Formatting check
