@@ -150,7 +150,8 @@ export class GpuAtlasPageManagerV1<Resource> {
   }
 
   clear(): void {
-    for (const page of this.#pages.values()) this.#factory.destroy?.(page.resource, page.descriptor);
+    for (const page of this.#pages.values())
+      this.#factory.destroy?.(page.resource, page.descriptor);
     this.#pages.clear();
     this.#assignments.clear();
   }

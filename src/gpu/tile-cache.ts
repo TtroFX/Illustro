@@ -61,10 +61,7 @@ export function gpuSingleAllocationSoftLimitV1(profile: RendererCacheProfileV1):
 export class BudgetedTileCacheV1<Value> {
   readonly #kind: TileCacheKindV1;
   readonly #entries = new Map<string, TileCacheEntryV1<Value>>();
-  readonly #onRemove: (
-    entry: TileCacheEntryV1<Value>,
-    reason: TileCacheRemovalReasonV1,
-  ) => void;
+  readonly #onRemove: (entry: TileCacheEntryV1<Value>, reason: TileCacheRemovalReasonV1) => void;
   #profile: RendererCacheProfileV1;
   #residentBytes = 0;
   #clock = 0;
@@ -72,10 +69,8 @@ export class BudgetedTileCacheV1<Value> {
   constructor(
     kind: TileCacheKindV1,
     profile: RendererCacheProfileV1 = 'conservative',
-    onRemove: (
-      entry: TileCacheEntryV1<Value>,
-      reason: TileCacheRemovalReasonV1,
-    ) => void = () => undefined,
+    onRemove: (entry: TileCacheEntryV1<Value>, reason: TileCacheRemovalReasonV1) => void = () =>
+      undefined,
   ) {
     this.#kind = kind;
     this.#profile = profile;
@@ -119,7 +114,8 @@ export class BudgetedTileCacheV1<Value> {
     assertByteLength(byteLength);
     const budget = budgetFor(this.#kind, this.#profile);
     if (byteLength > budget) return false;
-    const excludedBytes = excludedKey === null ? 0 : (this.#entries.get(excludedKey)?.byteLength ?? 0);
+    const excludedBytes =
+      excludedKey === null ? 0 : (this.#entries.get(excludedKey)?.byteLength ?? 0);
     const fits = (): boolean => this.#residentBytes - excludedBytes + byteLength <= budget;
     if (fits()) return true;
 

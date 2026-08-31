@@ -5,7 +5,11 @@ import { MEBIBYTE } from '../../src/gpu/tile-cache.js';
 function gpuDeviceHarness() {
   const descriptors: Array<{
     readonly label: string;
-    readonly size: { readonly width: number; readonly height: number; readonly depthOrArrayLayers: number };
+    readonly size: {
+      readonly width: number;
+      readonly height: number;
+      readonly depthOrArrayLayers: number;
+    };
     readonly format: string;
     readonly usage: number;
   }> = [];
@@ -55,9 +59,9 @@ describe('M3 production renderer sparse tile state', () => {
 
   it('requires sparse allocation before tracking mutation dirtiness', () => {
     const state = new RendererTileStateV1(512, 512);
-    expect(() =>
-      state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 32, height: 32 }),
-    ).toThrow('allocate it first');
+    expect(() => state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 32, height: 32 })).toThrow(
+      'allocate it first',
+    );
 
     state.allocate({ tx: 0, ty: 0 });
     expect(state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 128, height: 256 })).toEqual({
@@ -134,9 +138,7 @@ describe('M3 production renderer sparse tile state', () => {
 
   it('resolves fractional viewport movement to visible tile coordinates only', () => {
     const state = new RendererTileStateV1(768, 512);
-    expect(
-      state.resolveViewport({ x: 255.5, y: 10.25, width: 2, height: 20 }).visible,
-    ).toEqual([
+    expect(state.resolveViewport({ x: 255.5, y: 10.25, width: 2, height: 20 }).visible).toEqual([
       { tx: 0, ty: 0 },
       { tx: 1, ty: 0 },
     ]);

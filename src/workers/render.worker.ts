@@ -104,7 +104,9 @@ function nonNegativeInteger(value: unknown): value is number {
 }
 
 function isResidency(value: unknown): value is TileCacheResidencyV1 {
-  return value === 'interaction' || value === 'visible' || value === 'near' || value === 'background';
+  return (
+    value === 'interaction' || value === 'visible' || value === 'near' || value === 'background'
+  );
 }
 
 function isAtlasPixelFormat(value: unknown): value is GpuAtlasPixelFormatV1 {
@@ -223,7 +225,9 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     if (coordinate === null) return null;
     if (value.type === 'renderer.tiles.markDirty') {
       const rect = parseDirtyRect(value.rect);
-      return rect === null ? null : { type: value.type, requestId: value.requestId, coordinate, rect };
+      return rect === null
+        ? null
+        : { type: value.type, requestId: value.requestId, coordinate, rect };
     }
     if (value.type === 'renderer.tiles.reserveGpu') {
       if (!isAtlasPixelFormat(value.pixelFormat) || !isResidency(value.residency)) return null;

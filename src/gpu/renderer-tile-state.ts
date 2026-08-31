@@ -69,11 +69,7 @@ export interface RendererTileStateSnapshotV1 {
 }
 
 function tileGpuByteLength(pixelFormat: GpuAtlasPixelFormatV1): number {
-  return (
-    CANONICAL_TILE_SIZE_PX *
-    CANONICAL_TILE_SIZE_PX *
-    (pixelFormat === 'rgba8-unorm' ? 4 : 8)
-  );
+  return CANONICAL_TILE_SIZE_PX * CANONICAL_TILE_SIZE_PX * (pixelFormat === 'rgba8-unorm' ? 4 : 8);
 }
 
 function webGpuAtlasFormat(pixelFormat: GpuAtlasPixelFormatV1): 'rgba8unorm' | 'rgba16float' {
