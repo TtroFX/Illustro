@@ -1,0 +1,45 @@
+name: Record M4 batch1 progress
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/record-m4-batch1-progress.yml
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Record verified progress
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              'M4-001 New Documentからrenderer接続:未完了': 'M4-001 New Documentからrenderer接続:完了',
+              'M4-002 initial Raster Layer生成:未完了': 'M4-002 initial Raster Layer生成:完了',
+              'M4-003 pen stroke開始:未完了': 'M4-003 pen stroke開始:完了',
+              'M4-004 mouse stroke開始:未完了': 'M4-004 mouse stroke開始:完了',
+              'M4-005 stroke sample accumulation:未完了': 'M4-005 stroke sample accumulation:完了',
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'missing expected progress entry: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          rm .github/workflows/record-m4-batch1-progress.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md .github/workflows/record-m4-batch1-progress.yml
+          git commit -m 'chore: record verified M4 paint session progress [skip ci]'
+          git push origin HEAD:main
