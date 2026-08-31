@@ -177,11 +177,11 @@ M3-016 per-tile dirty rectangle:完了
 M3-017 50% dirty-region whole-tile promotion:完了
 M3-018 tile allocation:完了
 M3-019 tile deallocation:完了
-M3-020 GPU tile cache:未完了
-M3-021 CPU/backing tile cache:未完了
-M3-022 2048px atlas-page management:未完了
-M3-023 atlas slot allocation:未完了
-M3-024 viewport tile visibility resolver:未完了
+M3-020 GPU tile cache:完了
+M3-021 CPU/backing tile cache:完了
+M3-022 2048px atlas-page management:完了
+M3-023 atlas slot allocation:完了
+M3-024 viewport tile visibility resolver:完了
 M3-025 tile upload:未完了
 M3-026 tile readback:未完了
 M3-027 transient halo/filter target management:未完了
