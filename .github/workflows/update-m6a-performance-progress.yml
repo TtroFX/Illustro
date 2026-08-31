@@ -3,13 +3,14 @@ name: Update M6A performance progress
 on:
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/update-m6a-performance-progress.yml'
 
 permissions:
   contents: write
 
 jobs:
   update:
-    if: ${{ !contains(github.event.head_commit.message, '[m6a-progress-applied]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -42,5 +43,5 @@ M6A-検査 M6A内部検査:未完了"""
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add IMPLEMENTATION_PROGRESS.md
-          git commit -m "docs: track M6A incremental rendering performance gates [m6a-progress-applied] [skip ci]"
+          git commit -m "docs: track M6A incremental rendering performance gates [skip ci]"
           git push origin HEAD:main
