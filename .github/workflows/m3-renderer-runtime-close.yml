@@ -54,6 +54,8 @@ jobs:
           if failed:
               raise SystemExit('\n'.join(failed))
           PY
+      - name: Prepare generated renderer assets
+        run: npm run prepare:generated
       - name: Renderer runtime unit matrix
         run: >-
           npx vitest run
