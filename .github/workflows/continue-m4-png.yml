@@ -27,6 +27,24 @@ jobs:
             npm install --package-lock-only --ignore-scripts
           fi
           npm ci --ignore-scripts
+      - name: Repair staged filename sanitizer
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/.tmp-m4-png.py')
+          text = path.read_text()
+          old = "  const safe = trimmed.replace(/[\\\\/:*?\"<>|\\u0000-\\u001f]/g, '-').replace(/\\.+$/g, '');"
+          new = """  const safe = [...trimmed]
+            .map((character) => {
+              const code = character.charCodeAt(0);
+              return code <= 0x1f || '\\\\/:*?\"<>|'.includes(character) ? '-' : character;
+            })
+            .join('')
+            .replace(/\\.+$/g, '');"""
+          if old not in text:
+              raise SystemExit('staged sanitizer source not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Apply M4 PNG implementation
         run: python scripts/.tmp-m4-png.py
       - name: Canonical formatting
