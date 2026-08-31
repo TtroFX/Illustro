@@ -240,10 +240,7 @@ export class PaintSessionControllerV1 {
     const document = this.#document;
     if (active === null || document === null) return;
     const additions = batch.confirmed
-      .filter(
-        (sample) =>
-          sample.pointerId === active.pointerId && sample.source === active.source,
-      )
+      .filter((sample) => sample.pointerId === active.pointerId && sample.source === active.source)
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
     if (additions.length === 0) return;
     this.#activeStroke = Object.freeze({

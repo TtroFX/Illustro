@@ -11,7 +11,10 @@ import type {
 class FakeRendererDocumentPort {
   readonly configured: Array<{ readonly width: number; readonly height: number }> = [];
 
-  async configureDocument(input: { readonly width: number; readonly height: number }): Promise<void> {
+  async configureDocument(input: {
+    readonly width: number;
+    readonly height: number;
+  }): Promise<void> {
     this.configured.push(Object.freeze({ ...input }));
   }
 }
