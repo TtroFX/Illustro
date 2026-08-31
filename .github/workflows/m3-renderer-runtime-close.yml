@@ -1,0 +1,92 @@
+name: Close M3 renderer runtime slice
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m3-renderer-runtime-close.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Verify renderer ownership and recovery production wiring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          controller = Path('src/app/renderer-controller.ts').read_text()
+          worker = Path('src/workers/render.worker.ts').read_text()
+          capability = Path('src/gpu/webgpu-capability.ts').read_text()
+          manager = Path('src/gpu/renderer-device-manager.ts').read_text()
+          resources = Path('src/gpu/renderer-device-resources.ts').read_text()
+          main = Path('src/app/main.ts').read_text()
+          shell = Path('src/app/shell.ts').read_text()
+          checks = [
+              ('renderer.probe' in controller, 'worker WebGPU probe missing'),
+              ('transferRenderSurface()' in controller, 'OffscreenCanvas transfer path missing'),
+              (controller.index('renderer.probe') < controller.index('transferRenderSurface()'), 'canvas is transferred before worker qualification'),
+              ('#startMainFallback' in controller, 'main-context fallback missing'),
+              ("illustroRendererMutationGate" in controller, 'device-loss mutation gate missing'),
+              ('renderer.attach' in worker and 'renderer.resize' in worker, 'worker surface ownership protocol missing'),
+              ('renderer.retry' in worker, 'renderer retry protocol missing'),
+              ('readonly lost: Promise' in capability, 'GPUDevice.lost contract missing'),
+              ('device.lost.then' in manager, 'GPUDevice.lost observation missing'),
+              ('DEFAULT_DEVICE_REACQUIRE_ATTEMPTS = 2' in manager, 'bounded reacquisition policy missing'),
+              ("'recovery-required'" in manager, 'recovery-required terminal state missing'),
+              ('rebuildRendererDeviceResourcesV1' in resources, 'device resource rebuild boundary missing'),
+              ('configureRendererSurfaceV1' in resources, 'canvas reconfiguration missing'),
+              ('startRendererController' in main, 'renderer runtime not connected to production bootstrap'),
+              ('transferControlToOffscreen' in shell, 'shell OffscreenCanvas handoff missing'),
+          ]
+          failed = [message for ok, message in checks if not ok]
+          if failed:
+              raise SystemExit('\n'.join(failed))
+          PY
+      - name: Renderer runtime unit matrix
+        run: >-
+          npx vitest run
+          tests/unit/webgpu-capability.test.ts
+          tests/unit/renderer-device-manager.test.ts
+          tests/unit/renderer-device-resources.test.ts
+          tests/unit/renderer-controller.test.ts
+      - name: Close M3-007 through M3-011
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          s = p.read_text()
+          targets = [
+              'M3-007 Render Worker ownership path',
+              'M3-008 OffscreenCanvas transfer path',
+              'M3-009 main-context WebGPU fallback',
+              'M3-010 GPU device-loss detection',
+              'M3-011 GPU device-loss reconstruction',
+          ]
+          for target in targets:
+              old = f'{target}:未完了'
+              new = f'{target}:完了'
+              if old not in s:
+                  raise SystemExit(f'progress target missing: {old}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Commit verified closure
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/m3-renderer-runtime-close.yml
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'docs: close M3 renderer runtime slice [skip ci]'
+          git push
