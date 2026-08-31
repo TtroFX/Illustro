@@ -33,7 +33,8 @@
     "verify:m0.5": "node scripts/verify-m0-5-deployment.mjs",
     "verify:m1": "node scripts/verify-m1-contracts.mjs",
     "verify:m2": "node scripts/verify-m2-persistence.mjs",
-    "verify:m3": "node scripts/verify-m3-foundation.mjs"
+    "verify:m3": "node scripts/verify-m3-foundation.mjs",
+    "verify:m4": "node scripts/verify-m4-vertical-slice.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",

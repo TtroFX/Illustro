@@ -3,6 +3,7 @@ import { inspectWebGpuBuildPath } from '../gpu/webgpu-bootstrap.js';
 import { PointerHoverTrackerV1 } from '../input/hover-state.js';
 import { createPointerInputArbitrationV1 } from '../input/input-arbitration.js';
 import { createPointerInputTransportV1 } from '../input/input-transport.js';
+import { downloadPngBlobV1, encodePaintSnapshotToPngV1 } from '../export/png-export.js';
 import { createLogger } from '../shared/logger.js';
 import {
   incrementPerformanceCounter,
@@ -185,6 +186,32 @@ const onPaintHistoryKeyDown = (event: KeyboardEvent): void => {
 };
 window.addEventListener('keydown', onPaintHistoryKeyDown);
 
+const exportPngButton = document.querySelector<HTMLButtonElement>('#export-png');
+const onExportPngClick = (): void => {
+  if (exportPngButton === null || exportPngButton.disabled) return;
+  exportPngButton.disabled = true;
+  root.dataset.illustroPngExport = 'exporting';
+  enqueuePaintRender(async () => {
+    try {
+      await paintPersistence.flushCheckpoint();
+      const snapshot = paintSession.projectSnapshot();
+      if (snapshot === null) throw new Error('PNG export requires an active document');
+      const blob = await encodePaintSnapshotToPngV1(snapshot);
+      downloadPngBlobV1(blob, 'Illustro.png');
+      root.dataset.illustroPngExport = 'complete';
+      incrementPerformanceCounter('export.png.complete');
+    } catch (error) {
+      root.dataset.illustroPngExport = 'error';
+      incrementPerformanceCounter('export.png.failure');
+      logger.error('export.png-failed', error);
+    } finally {
+      exportPngButton.disabled = false;
+    }
+  });
+};
+exportPngButton?.addEventListener('click', onExportPngClick);
+root.dataset.illustroPngExport = exportPngButton === null ? 'unavailable' : 'ready';
+
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
@@ -224,6 +251,7 @@ void renderer
     root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
     root.dataset.illustroPaintStroke = 'idle';
     root.dataset.illustroPaintStrokeSamples = '0';
+    if (exportPngButton !== null) exportPngButton.disabled = false;
     publishPaintHistory();
     logger.info('paint-session.document-ready', {
       documentId: document.documentId,
@@ -250,6 +278,7 @@ globalThis.addEventListener(
   'pagehide',
   () => {
     window.removeEventListener('keydown', onPaintHistoryKeyDown);
+    exportPngButton?.removeEventListener('click', onExportPngClick);
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
     pointerInput.dispose();
     pointerTransport.dispose();

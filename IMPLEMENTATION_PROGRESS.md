@@ -226,9 +226,9 @@ M4-013 autosave接続:完了
 M4-014 checkpoint接続:完了
 M4-015 reload/recovery接続:完了
 M4-016 GPU rebuild後のcanonical state再構築:完了
-M4-017 PNG flatten/render:未完了
-M4-018 PNG export:未完了
-M4-検査 M4内部検査:未完了
+M4-017 PNG flatten/render:完了
+M4-018 PNG export:完了
+M4-検査 M4内部検査:完了
 PUB-01 ユーザー確認1用Preview公開:未完了
 USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了
 
