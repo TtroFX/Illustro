@@ -222,10 +222,10 @@ M4-009 canvasへの可視結果表示:完了
 M4-010 strokeを1 history transactionとしてcommit:完了
 M4-011 stroke Undo:完了
 M4-012 stroke Redo:完了
-M4-013 autosave接続:未完了
-M4-014 checkpoint接続:未完了
-M4-015 reload/recovery接続:未完了
-M4-016 GPU rebuild後のcanonical state再構築:未完了
+M4-013 autosave接続:完了
+M4-014 checkpoint接続:完了
+M4-015 reload/recovery接続:完了
+M4-016 GPU rebuild後のcanonical state再構築:完了
 M4-017 PNG flatten/render:未完了
 M4-018 PNG export:未完了
 M4-検査 M4内部検査:未完了

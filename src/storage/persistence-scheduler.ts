@@ -24,8 +24,8 @@ export interface PersistenceSchedulerStateV1 {
 }
 
 export const DEFAULT_PERSISTENCE_SCHEDULER_POLICY: PersistenceSchedulerPolicyV1 = Object.freeze({
-  recoveryQuietMs: 1_500,
-  recoveryMaxMs: 5_000,
+  recoveryQuietMs: 2_000,
+  recoveryMaxMs: 2_000,
   autosaveIntervalMs: 30_000,
   retryDelayMs: 5_000,
 });

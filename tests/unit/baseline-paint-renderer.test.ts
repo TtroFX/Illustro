@@ -168,4 +168,33 @@ describe('M4 baseline WebGPU paint renderer', () => {
     expect(renderer.snapshot()).toMatchObject({ committedStrokeCount: 1, committedDabCount: 2 });
     expect(harness.counts().renderPasses).toBeGreaterThan(beforeRebuild);
   });
+
+  it('re-presents canonical committed strokes after a GPU device rebuild', () => {
+    const first = gpuHarness();
+    const tileState = new RendererTileStateV1(512, 256);
+    const renderer = new BaselinePaintRendererV1();
+    tileState.attachGpuDevice(first.device);
+    renderer.attachDevice(first.device);
+    renderer.attachSurface(first.surface, 'bgra8unorm');
+    renderer.configureDocument(tileState, 512, 256);
+    renderer.finalizeStroke('stroke-rebuild', [dab(80, 90)]);
+
+    const second = gpuHarness();
+    tileState.attachGpuDevice(null);
+    renderer.attachDevice(null);
+    tileState.attachGpuDevice(second.device);
+    renderer.attachDevice(second.device);
+
+    expect(renderer.snapshot()).toMatchObject({
+      committedStrokeCount: 1,
+      committedDabCount: 1,
+      deviceReady: true,
+    });
+    expect(second.counts()).toMatchObject({
+      drawCalls: 1,
+      renderPasses: 1,
+      submits: 1,
+      instanceCount: 1,
+    });
+  });
 });

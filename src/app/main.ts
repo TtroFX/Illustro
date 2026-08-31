@@ -15,6 +15,7 @@ import { collectRuntimeCapabilities } from './capabilities.js';
 import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
 import { installDiagnosticsHook } from './diagnostics.js';
 import { PaintHistoryControllerV1 } from './paint-history-controller.js';
+import { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { startRendererController } from './renderer-controller.js';
@@ -39,6 +40,21 @@ const canvasAdmission = getCanvasAdmissionControllerV1();
 const renderer = startRendererController(shell, workers.render, root);
 const paintSession = new PaintSessionControllerV1(renderer);
 const paintHistory = new PaintHistoryControllerV1(paintSession);
+const paintPersistence = new PaintPersistenceControllerV1(
+  workers.storage,
+  paintSession,
+  paintHistory,
+  {
+    resumeStore: globalThis.localStorage,
+    onState(snapshot) {
+      root.dataset.illustroPersistence = snapshot.status;
+      root.dataset.illustroProjectId = snapshot.projectId ?? '';
+      root.dataset.illustroProjectSequence = String(snapshot.sequence);
+      root.dataset.illustroRecoveryGeneration = String(snapshot.recoveryGeneration);
+      root.dataset.illustroPersistenceError = snapshot.lastError ?? '';
+    },
+  },
+);
 let paintRenderTask: Promise<void> = Promise.resolve();
 
 function enqueuePaintRender(operation: () => Promise<unknown>): void {
@@ -117,6 +133,7 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
         enqueuePaintRender(async () => {
           const finalization = await renderer.finalizeBaselineStroke(strokeId, dabs);
           const transaction = paintHistory.commitCompletedStroke(strokeId);
+          await paintPersistence.markDirty(transaction.transactionId);
           root.dataset.illustroHistoryTransaction = transaction.transactionId;
           publishPaintHistory();
           root.dataset.illustroPaintVisible = 'committed';
@@ -160,6 +177,7 @@ const onPaintHistoryKeyDown = (event: KeyboardEvent): void => {
   enqueuePaintRender(async () => {
     const changed = redo ? await paintHistory.redo() : await paintHistory.undo();
     if (!changed) return;
+    await paintPersistence.markDirty();
     root.dataset.illustroPaintVisible = 'committed';
     publishPaintHistory();
     incrementPerformanceCounter(redo ? 'history.paint.redo' : 'history.paint.undo');
@@ -189,10 +207,16 @@ void renderer
     logger.info('renderer.runtime-ready', { snapshot });
     if (snapshot.deviceState !== 'ready') return;
     const surfaceSize = shell.currentRenderSurfaceSize();
-    const document = await paintSession.createNewDocument({
-      width: Math.max(1, Math.round(surfaceSize.width / surfaceSize.pixelRatio)),
-      height: Math.max(1, Math.round(surfaceSize.height / surfaceSize.pixelRatio)),
+    const persistence = await paintPersistence.initialize({
+      name: 'Untitled',
+      document: {
+        width: Math.max(1, Math.round(surfaceSize.width / surfaceSize.pixelRatio)),
+        height: Math.max(1, Math.round(surfaceSize.height / surfaceSize.pixelRatio)),
+      },
     });
+    const document = paintSession.currentDocument();
+    if (document === null) throw new Error('paint persistence initialized without a document');
+    root.dataset.illustroPaintRecovery = persistence.mode;
     root.dataset.illustroPaintSession = 'ready';
     root.dataset.illustroDocumentId = document.documentId;
     root.dataset.illustroDocumentWidth = String(document.canvas.width);
@@ -200,7 +224,6 @@ void renderer
     root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
     root.dataset.illustroPaintStroke = 'idle';
     root.dataset.illustroPaintStrokeSamples = '0';
-    paintHistory.reset();
     publishPaintHistory();
     logger.info('paint-session.document-ready', {
       documentId: document.documentId,
@@ -215,20 +238,36 @@ void renderer
     logger.error('renderer.runtime-failed', error);
   });
 
+const onPaintVisibilityChange = (): void => {
+  if (document.visibilityState !== 'hidden') return;
+  void paintRenderTask
+    .then(() => paintPersistence.flushRecovery())
+    .catch((error: unknown) => logger.error('paint-persistence.lifecycle-flush-failed', error));
+};
+document.addEventListener('visibilitychange', onPaintVisibilityChange);
+
 globalThis.addEventListener(
   'pagehide',
   () => {
     window.removeEventListener('keydown', onPaintHistoryKeyDown);
+    document.removeEventListener('visibilitychange', onPaintVisibilityChange);
     pointerInput.dispose();
     pointerTransport.dispose();
     pointerHover.clear();
-    paintSession.dispose();
     root.dataset.illustroPointerInput = 'disposed';
-    root.dataset.illustroPaintSession = 'disposed';
-    renderer.dispose();
-    shell.dispose();
-    workers.dispose();
+    root.dataset.illustroPaintSession = 'closing';
     stopPerformanceInstrumentation();
+    void paintRenderTask
+      .then(() => paintPersistence.close())
+      .catch((error: unknown) => logger.error('paint-persistence.close-failed', error))
+      .finally(() => {
+        paintSession.dispose();
+        paintPersistence.dispose();
+        renderer.dispose();
+        shell.dispose();
+        workers.dispose();
+        root.dataset.illustroPaintSession = 'disposed';
+      });
   },
   { once: true },
 );
