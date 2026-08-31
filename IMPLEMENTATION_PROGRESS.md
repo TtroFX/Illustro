@@ -200,9 +200,9 @@ M3-039 input coalescing/backpressure:完了
 M3-040 Transferable message transport:完了
 M3-041 SAB/Atomics optimized path:完了
 M3-042 non-SAB functional fallback:完了
-M3-043 Pen/Touch/Mouse source arbitration:未完了
-M3-044 application-side palm/touch rejection foundation:未完了
-M3-045 hover data foundation:未完了
+M3-043 Pen/Touch/Mouse source arbitration:完了
+M3-044 application-side palm/touch rejection foundation:完了
+M3-045 hover data foundation:完了
 M3-046 canvas admission-control foundation:未完了
 M3-047 maximum width/height admission check:未完了
 M3-048 logical-area admission check:未完了
