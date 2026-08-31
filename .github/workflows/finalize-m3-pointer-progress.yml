@@ -1,0 +1,65 @@
+name: Finalize M3 pointer progress
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-m3-pointer-progress.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Record verified M3 pointer ingestion progress
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          items = [
+              'M3-031 Pointer Events ingestion',
+              'M3-032 pressure ingestion',
+              'M3-033 tilt ingestion',
+              'M3-034 orientation ingestion',
+              'M3-035 coalesced-event ingestion',
+              'M3-036 raw-update ingestion',
+              'M3-037 predicted-sample presentation path',
+          ]
+          for item in items:
+              old = f'{item}:未完了'
+              new = f'{item}:完了'
+              if old not in text:
+                  raise SystemExit(f'expected progress entry not found: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git rm .github/workflows/finalize-m3-pointer-progress.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'chore: record verified M3 pointer ingestion progress [skip ci]'
+          git push
