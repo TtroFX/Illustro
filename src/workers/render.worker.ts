@@ -14,6 +14,7 @@ import {
 import type { RectV1, TileCoordinateV1 } from '../gpu/sparse-tile-model.js';
 import type { TileCacheResidencyV1 } from '../gpu/tile-cache.js';
 import type { DocumentViewportRectV1 } from '../gpu/viewport-tiles.js';
+import { installRenderInputIngressV1 } from './input-ingress-extension.js';
 
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
@@ -83,6 +84,7 @@ type RenderWorkerRequestV1 =
   | { readonly type: 'renderer.dispose' };
 
 const scope = globalThis as unknown as WorkerScope;
+const inputIngress = installRenderInputIngressV1(scope);
 let surface: RendererSurfaceLikeV1 | null = null;
 let tileState: RendererTileStateV1 | null = null;
 let renderSchedulingController: RenderSchedulingControllerV1 | null = null;
@@ -298,6 +300,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     return;
   }
   if (request.type === 'renderer.dispose') {
+    inputIngress.dispose();
     tileState?.dispose();
     tileState = null;
     renderSchedulingController?.dispose();
@@ -468,6 +471,7 @@ renderSchedulingController = installRenderSchedulingExtensionV1(scope, {
 renderSchedulingController.attachGpuDevice(deviceManager.currentDevice());
 
 scope.addEventListener('message', (event) => {
+  if (inputIngress.handle(event.data)) return;
   const request = parseRequest(event.data);
   if (request === null) return;
   void handleRequest(request);

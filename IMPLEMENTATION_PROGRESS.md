@@ -195,11 +195,11 @@ M3-034 orientation ingestion:完了
 M3-035 coalesced-event ingestion:完了
 M3-036 raw-update ingestion:完了
 M3-037 predicted-sample presentation path:完了
-M3-038 bounded input queue:未完了
-M3-039 input coalescing/backpressure:未完了
-M3-040 Transferable message transport:未完了
-M3-041 SAB/Atomics optimized path:未完了
-M3-042 non-SAB functional fallback:未完了
+M3-038 bounded input queue:完了
+M3-039 input coalescing/backpressure:完了
+M3-040 Transferable message transport:完了
+M3-041 SAB/Atomics optimized path:完了
+M3-042 non-SAB functional fallback:完了
 M3-043 Pen/Touch/Mouse source arbitration:未完了
 M3-044 application-side palm/touch rejection foundation:未完了
 M3-045 hover data foundation:未完了

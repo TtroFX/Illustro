@@ -10,6 +10,7 @@ import {
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installDiagnosticsHook } from './diagnostics.js';
+import { createPointerInputTransportV1 } from '../input/input-transport.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { startRendererController } from './renderer-controller.js';
 import {
@@ -28,6 +29,11 @@ const root = document.documentElement;
 const runtime = getRuntimeConfig();
 const capabilities = collectRuntimeCapabilities();
 const shell = installFoundationShell();
+const workers = startDedicatedWorkers();
+const pointerTransport = createPointerInputTransportV1(workers.render, {
+  sharedMemoryFastPath:
+    capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer && capabilities.atomics,
+});
 const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
   const latest = batch.confirmed.at(-1);
   root.dataset.illustroPointerEvent = batch.eventType;
@@ -35,8 +41,10 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
   root.dataset.illustroPointerConfirmedSamples = String(batch.confirmed.length);
   root.dataset.illustroPointerPredictedSamples = String(batch.predicted.length);
   incrementPerformanceCounter('input.pointer.batch');
+  pointerTransport.enqueueBatch(batch);
 });
 root.dataset.illustroPointerInput = 'ready';
+root.dataset.illustroPointerTransport = pointerTransport.snapshot().mode;
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
   buildIdentityOutput.value = `Build ${buildIdentity.buildSha.slice(0, 8)}`;
@@ -53,7 +61,6 @@ root.dataset.illustroCrossOriginIsolated = globalThis.crossOriginIsolated
 installDiagnosticsHook();
 logger.info('runtime.bootstrap', { build: buildIdentity, runtime, capabilities });
 
-const workers = startDedicatedWorkers();
 const renderer = startRendererController(shell, workers.render, root);
 void renderer
   .start()
@@ -67,6 +74,7 @@ globalThis.addEventListener(
   'pagehide',
   () => {
     pointerInput.dispose();
+    pointerTransport.dispose();
     root.dataset.illustroPointerInput = 'disposed';
     renderer.dispose();
     shell.dispose();
