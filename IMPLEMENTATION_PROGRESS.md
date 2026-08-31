@@ -184,10 +184,10 @@ M3-023 atlas slot allocation:完了
 M3-024 viewport tile visibility resolver:完了
 M3-025 tile upload:完了
 M3-026 tile readback:完了
-M3-027 transient halo/filter target management:未完了
-M3-028 render scheduling:未完了
-M3-029 priority scheduling foundation:未完了
-M3-030 frame compositor foundation:未完了
+M3-027 transient halo/filter target management:完了
+M3-028 render scheduling:完了
+M3-029 priority scheduling foundation:完了
+M3-030 frame compositor foundation:完了
 M3-031 Pointer Events ingestion:未完了
 M3-032 pressure ingestion:未完了
 M3-033 tilt ingestion:未完了
