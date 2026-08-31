@@ -1,0 +1,77 @@
+name: Continue M5A Document
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify-record:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply M5A document implementation
+        run: python scripts/.tmp-m5a-document-foundation.py
+      - name: Canonical formatting
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M2 persistence inspection
+        run: npm run verify:m2
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical-slice inspection
+        run: npm run verify:m4
+      - name: M5A document foundation inspection
+        run: npm run verify:m5a
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record progress and push
+        run: |
+          for item in \
+            'M5A-001 custom canvas width/height' \
+            'M5A-002 document presets' \
+            'M5A-003 transparent background' \
+            'M5A-004 colored background' \
+            'M5A-005 DPI/resolution metadata editing' \
+            'M5A-006 RGBA8 document precision' \
+            'M5A-007 RGBA16F-class document precision' \
+            'M5A-008 sRGB document mode foundation' \
+            'M5A-009 Display-P3 document mode foundation'; do
+            sed -i "s/${item}:未完了/${item}:完了/" IMPLEMENTATION_PROGRESS.md
+          done
+          rm scripts/.tmp-m5a-document-foundation.py
+          rm .github/workflows/continue-m5a-document.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: add M5A document configuration foundation [skip ci]'
+          git push origin HEAD:main
