@@ -207,7 +207,7 @@ M3-046 canvas admission-control foundation:完了
 M3-047 maximum width/height admission check:完了
 M3-048 logical-area admission check:完了
 M3-049 scratch/storage-headroom admission estimation:完了
-M3-検査 M3内部検査:未完了
+M3-検査 M3内部検査:完了
 
 ## M4 — Production End-to-End Paint Vertical Slice
 M4-001 New Documentからrenderer接続:未完了
