@@ -119,10 +119,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       schema: 'illustro.baseline-paint-finalization/1',
       strokeId: 'stroke-b',
       dabCount: 1,
-      affectedTiles: [
-        { coordinate: { tx: 0, ty: 0 } },
-        { coordinate: { tx: 1, ty: 0 } },
-      ],
+      affectedTiles: [{ coordinate: { tx: 0, ty: 0 } }, { coordinate: { tx: 1, ty: 0 } }],
       renderer: {
         activeStrokeId: null,
         activeDabCount: 0,

@@ -297,7 +297,8 @@ export class RendererControllerV1 {
         dabs,
       });
       const finalization = response?.ok === true ? parsePaintFinalization(response.result) : null;
-      if (finalization === null) throw new Error('Render Worker failed to finalize baseline stroke');
+      if (finalization === null)
+        throw new Error('Render Worker failed to finalize baseline stroke');
       return finalization;
     }
     return this.#mainBaselinePaint.finalizeStroke(strokeId, dabs);

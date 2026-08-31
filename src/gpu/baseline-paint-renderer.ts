@@ -25,7 +25,12 @@ interface BaselineGpuBufferLikeV1 {
 interface BaselineGpuRenderPassLikeV1 {
   setPipeline(pipeline: object): void;
   setVertexBuffer(slot: number, buffer: BaselineGpuBufferLikeV1): void;
-  draw(vertexCount: number, instanceCount: number, firstVertex?: number, firstInstance?: number): void;
+  draw(
+    vertexCount: number,
+    instanceCount: number,
+    firstVertex?: number,
+    firstInstance?: number,
+  ): void;
   end(): void;
 }
 
@@ -229,7 +234,8 @@ class BaselineGpuSurfaceRasterizerV1 {
     const rawDevice = this.#device;
     if (rawDevice === null) throw new Error('baseline brush renderer has no WebGPU device');
     const device = requireRenderDevice(rawDevice);
-    if (input.format.length === 0) throw new TypeError('baseline brush canvas format must not be empty');
+    if (input.format.length === 0)
+      throw new TypeError('baseline brush canvas format must not be empty');
     if (input.surface.width < 1 || input.surface.height < 1) {
       throw new RangeError('baseline brush target surface must have positive dimensions');
     }
@@ -478,11 +484,7 @@ export class BaselinePaintRendererV1 {
     readonly width: number;
     readonly height: number;
   } {
-    if (
-      this.#tileState === null ||
-      this.#documentWidth === null ||
-      this.#documentHeight === null
-    ) {
+    if (this.#tileState === null || this.#documentWidth === null || this.#documentHeight === null) {
       throw new Error('baseline paint document is not configured');
     }
     return {
