@@ -1,6 +1,11 @@
 import { createCanvasSpec, MAX_CANVAS_AREA, MAX_CANVAS_DIMENSION } from '../domain/document.js';
 import type { Revision } from '../domain/identity.js';
-import { planBaselineBrushTilesV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import {
+  baselineDabRadiusXV1,
+  baselineDabRadiusYV1,
+  planBaselineBrushTilesV1,
+  type BaselineBrushDabV1,
+} from '../gpu/baseline-brush.js';
 import type {
   CompletedPaintStrokeV1,
   PaintProjectSnapshotV1,
@@ -21,6 +26,14 @@ export interface CanvasCropInputV1 {
   readonly height: number;
 }
 
+export interface ImageResizeInputV1 {
+  readonly width: number;
+  readonly height: number;
+}
+
+export type DocumentQuarterTurnV1 = 'clockwise-90' | 'counterclockwise-90' | 'rotate-180';
+export type DocumentFlipAxisV1 = 'horizontal' | 'vertical';
+
 function assertDimension(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 1 || value > MAX_CANVAS_DIMENSION) {
     throw new RangeError(`${label} must be an integer in 1..${MAX_CANVAS_DIMENSION}`);
@@ -37,48 +50,77 @@ function assertCanvasArea(width: number, height: number): void {
   }
 }
 
-function shiftedSample(
+function transformedSample(
   sample: PaintStrokeSampleV1,
-  offsetX: number,
-  offsetY: number,
+  transform: (x: number, y: number) => readonly [number, number],
 ): PaintStrokeSampleV1 {
+  const [documentX, documentY] = transform(sample.documentX, sample.documentY);
+  return Object.freeze({ ...sample, documentX, documentY });
+}
+
+function transformedDab(
+  dab: BaselineBrushDabV1,
+  transform: (dab: BaselineBrushDabV1) => {
+    readonly x: number;
+    readonly y: number;
+    readonly radiusX: number;
+    readonly radiusY: number;
+  },
+): BaselineBrushDabV1 {
+  const next = transform(dab);
+  if (
+    !Number.isFinite(next.x) ||
+    !Number.isFinite(next.y) ||
+    !Number.isFinite(next.radiusX) ||
+    next.radiusX <= 0 ||
+    !Number.isFinite(next.radiusY) ||
+    next.radiusY <= 0
+  ) {
+    throw new RangeError('document transform produced an invalid baseline dab');
+  }
   return Object.freeze({
-    ...sample,
-    documentX: sample.documentX + offsetX,
-    documentY: sample.documentY + offsetY,
+    ...dab,
+    x: next.x,
+    y: next.y,
+    radius: Math.max(next.radiusX, next.radiusY),
+    radiusX: next.radiusX,
+    radiusY: next.radiusY,
   });
 }
 
-function shiftedDab(dab: BaselineBrushDabV1, offsetX: number, offsetY: number): BaselineBrushDabV1 {
-  return Object.freeze({ ...dab, x: dab.x + offsetX, y: dab.y + offsetY });
-}
-
 function dabIntersectsCanvas(dab: BaselineBrushDabV1, width: number, height: number): boolean {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
   return (
     dab.opacity > 0 &&
-    dab.x + dab.radius > 0 &&
-    dab.y + dab.radius > 0 &&
-    dab.x - dab.radius < width &&
-    dab.y - dab.radius < height
+    dab.x + radiusX > 0 &&
+    dab.y + radiusY > 0 &&
+    dab.x - radiusX < width &&
+    dab.y - radiusY < height
   );
 }
 
-function translateAndClipStroke(
+function transformStroke(
   completed: CompletedPaintStrokeV1,
   width: number,
   height: number,
-  offsetX: number,
-  offsetY: number,
+  pointTransform: (x: number, y: number) => readonly [number, number],
+  dabTransform: (dab: BaselineBrushDabV1) => {
+    readonly x: number;
+    readonly y: number;
+    readonly radiusX: number;
+    readonly radiusY: number;
+  },
 ): CompletedPaintStrokeV1 | null {
   const dabs = completed.dabs
-    .map((dab) => shiftedDab(dab, offsetX, offsetY))
+    .map((dab) => transformedDab(dab, dabTransform))
     .filter((dab) => dabIntersectsCanvas(dab, width, height));
   if (dabs.length === 0) return null;
   return Object.freeze({
     stroke: Object.freeze({
       ...completed.stroke,
       samples: Object.freeze(
-        completed.stroke.samples.map((sample) => shiftedSample(sample, offsetX, offsetY)),
+        completed.stroke.samples.map((sample) => transformedSample(sample, pointTransform)),
       ),
     }),
     dabs: Object.freeze(dabs),
@@ -106,6 +148,30 @@ function transformedDocument(
   });
 }
 
+function transformSnapshot(
+  snapshot: PaintProjectSnapshotV1,
+  width: number,
+  height: number,
+  revision: Revision,
+  pointTransform: (x: number, y: number) => readonly [number, number],
+  dabTransform: (dab: BaselineBrushDabV1) => {
+    readonly x: number;
+    readonly y: number;
+    readonly radiusX: number;
+    readonly radiusY: number;
+  },
+  now: Date,
+): PaintProjectSnapshotV1 {
+  const committedStrokes = snapshot.committedStrokes
+    .map((completed) => transformStroke(completed, width, height, pointTransform, dabTransform))
+    .filter((completed): completed is CompletedPaintStrokeV1 => completed !== null);
+  return Object.freeze({
+    schema: 'illustro.paint-project-snapshot/1' as const,
+    document: transformedDocument(snapshot, width, height, revision, now),
+    committedStrokes: Object.freeze(committedStrokes),
+  });
+}
+
 export function resizeCanvasSnapshotV1(
   snapshot: PaintProjectSnapshotV1,
   input: CanvasResizeInputV1,
@@ -125,16 +191,52 @@ export function resizeCanvasSnapshotV1(
   ) {
     throw new Error('canvas resize has no changes');
   }
-  const committedStrokes = snapshot.committedStrokes
-    .map((completed) =>
-      translateAndClipStroke(completed, input.width, input.height, input.offsetX, input.offsetY),
-    )
-    .filter((completed): completed is CompletedPaintStrokeV1 => completed !== null);
-  return Object.freeze({
-    schema: 'illustro.paint-project-snapshot/1' as const,
-    document: transformedDocument(snapshot, input.width, input.height, revision, now),
-    committedStrokes: Object.freeze(committedStrokes),
-  });
+  return transformSnapshot(
+    snapshot,
+    input.width,
+    input.height,
+    revision,
+    (x, y) => [x + input.offsetX, y + input.offsetY],
+    (dab) => ({
+      x: dab.x + input.offsetX,
+      y: dab.y + input.offsetY,
+      radiusX: baselineDabRadiusXV1(dab),
+      radiusY: baselineDabRadiusYV1(dab),
+    }),
+    now,
+  );
+}
+
+export function imageResizeSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  input: ImageResizeInputV1,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  assertDimension(input.width, 'image width');
+  assertDimension(input.height, 'image height');
+  assertCanvasArea(input.width, input.height);
+  const oldWidth = snapshot.document.canvas.width;
+  const oldHeight = snapshot.document.canvas.height;
+  if (input.width === oldWidth && input.height === oldHeight) {
+    throw new Error('image resize has no changes');
+  }
+  const scaleX = input.width / oldWidth;
+  const scaleY = input.height / oldHeight;
+  return transformSnapshot(
+    snapshot,
+    input.width,
+    input.height,
+    revision,
+    (x, y) => [x * scaleX, y * scaleY],
+    (dab) => ({
+      x: dab.x * scaleX,
+      y: dab.y * scaleY,
+      radiusX: baselineDabRadiusXV1(dab) * scaleX,
+      radiusY: baselineDabRadiusYV1(dab) * scaleY,
+    }),
+    now,
+  );
 }
 
 export function cropCanvasSnapshotV1(
@@ -186,10 +288,12 @@ export function transparentContentBoundsV1(
       ) {
         continue;
       }
-      left = Math.min(left, Math.floor(dab.x - dab.radius));
-      top = Math.min(top, Math.floor(dab.y - dab.radius));
-      right = Math.max(right, Math.ceil(dab.x + dab.radius));
-      bottom = Math.max(bottom, Math.ceil(dab.y + dab.radius));
+      const radiusX = baselineDabRadiusXV1(dab);
+      const radiusY = baselineDabRadiusYV1(dab);
+      left = Math.min(left, Math.floor(dab.x - radiusX));
+      top = Math.min(top, Math.floor(dab.y - radiusY));
+      right = Math.max(right, Math.ceil(dab.x + radiusX));
+      bottom = Math.max(bottom, Math.ceil(dab.y + radiusY));
     }
   }
   if (!Number.isFinite(left)) return null;
@@ -220,6 +324,108 @@ export function trimTransparentCanvasSnapshotV1(
     throw new Error('trim has no transparent border');
   }
   return cropCanvasSnapshotV1(snapshot, bounds, revision, now);
+}
+
+export function rotateDocumentSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  turn: DocumentQuarterTurnV1,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  const oldWidth = snapshot.document.canvas.width;
+  const oldHeight = snapshot.document.canvas.height;
+  if (turn === 'rotate-180') {
+    return transformSnapshot(
+      snapshot,
+      oldWidth,
+      oldHeight,
+      revision,
+      (x, y) => [oldWidth - x, oldHeight - y],
+      (dab) => ({
+        x: oldWidth - dab.x,
+        y: oldHeight - dab.y,
+        radiusX: baselineDabRadiusXV1(dab),
+        radiusY: baselineDabRadiusYV1(dab),
+      }),
+      now,
+    );
+  }
+  if (turn === 'clockwise-90') {
+    return transformSnapshot(
+      snapshot,
+      oldHeight,
+      oldWidth,
+      revision,
+      (x, y) => [oldHeight - y, x],
+      (dab) => ({
+        x: oldHeight - dab.y,
+        y: dab.x,
+        radiusX: baselineDabRadiusYV1(dab),
+        radiusY: baselineDabRadiusXV1(dab),
+      }),
+      now,
+    );
+  }
+  if (turn === 'counterclockwise-90') {
+    return transformSnapshot(
+      snapshot,
+      oldHeight,
+      oldWidth,
+      revision,
+      (x, y) => [y, oldWidth - x],
+      (dab) => ({
+        x: dab.y,
+        y: oldWidth - dab.x,
+        radiusX: baselineDabRadiusYV1(dab),
+        radiusY: baselineDabRadiusXV1(dab),
+      }),
+      now,
+    );
+  }
+  throw new TypeError(`unsupported document rotation: ${String(turn)}`);
+}
+
+export function flipDocumentSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  axis: DocumentFlipAxisV1,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  const width = snapshot.document.canvas.width;
+  const height = snapshot.document.canvas.height;
+  if (axis === 'horizontal') {
+    return transformSnapshot(
+      snapshot,
+      width,
+      height,
+      revision,
+      (x, y) => [width - x, y],
+      (dab) => ({
+        x: width - dab.x,
+        y: dab.y,
+        radiusX: baselineDabRadiusXV1(dab),
+        radiusY: baselineDabRadiusYV1(dab),
+      }),
+      now,
+    );
+  }
+  if (axis === 'vertical') {
+    return transformSnapshot(
+      snapshot,
+      width,
+      height,
+      revision,
+      (x, y) => [x, height - y],
+      (dab) => ({
+        x: dab.x,
+        y: height - dab.y,
+        radiusX: baselineDabRadiusXV1(dab),
+        radiusY: baselineDabRadiusYV1(dab),
+      }),
+      now,
+    );
+  }
+  throw new TypeError(`unsupported document flip axis: ${String(axis)}`);
 }
 
 export function isCanvasExpansionV1(

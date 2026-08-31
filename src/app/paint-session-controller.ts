@@ -150,13 +150,21 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     throw new TypeError('invalid baseline dab schema');
   }
   const radius = finiteNumber(value.radius, 'baseline dab radius');
+  const radiusX =
+    value.radiusX === undefined ? radius : finiteNumber(value.radiusX, 'baseline dab radiusX');
+  const radiusY =
+    value.radiusY === undefined ? radius : finiteNumber(value.radiusY, 'baseline dab radiusY');
   const opacity = finiteNumber(value.opacity, 'baseline dab opacity');
-  if (radius <= 0 || opacity < 0 || opacity > 1) throw new RangeError('invalid baseline dab range');
+  if (radius <= 0 || radiusX <= 0 || radiusY <= 0 || opacity < 0 || opacity > 1) {
+    throw new RangeError('invalid baseline dab range');
+  }
   return Object.freeze({
     schema: 'illustro.baseline-brush-dab/1' as const,
     x: finiteNumber(value.x, 'baseline dab x'),
     y: finiteNumber(value.y, 'baseline dab y'),
     radius,
+    radiusX,
+    radiusY,
     opacity,
   });
 }

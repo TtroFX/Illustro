@@ -1,5 +1,10 @@
 import { baselineBrushShaderSource } from '../generated/baseline-brush-shader.js';
-import { planBaselineBrushTilesV1, type BaselineBrushDabV1 } from './baseline-brush.js';
+import {
+  baselineDabRadiusXV1,
+  baselineDabRadiusYV1,
+  planBaselineBrushTilesV1,
+  type BaselineBrushDabV1,
+} from './baseline-brush.js';
 import type { RendererSurfaceLikeV1 } from './renderer-device-resources.js';
 import type { RendererTileStateV1 } from './renderer-tile-state.js';
 import type { DirtyTileStateV1, TileCoordinateV1 } from './sparse-tile-model.js';
@@ -152,6 +157,8 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         x: dab.x,
         y: dab.y,
         radius: dab.radius,
+        radiusX: baselineDabRadiusXV1(dab),
+        radiusY: baselineDabRadiusYV1(dab),
         opacity: dab.opacity,
       }),
     ),
@@ -165,6 +172,10 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
     Number.isFinite(dab.y) &&
     Number.isFinite(dab.radius) &&
     dab.radius > 0 &&
+    Number.isFinite(baselineDabRadiusXV1(dab)) &&
+    baselineDabRadiusXV1(dab) > 0 &&
+    Number.isFinite(baselineDabRadiusYV1(dab)) &&
+    baselineDabRadiusYV1(dab) > 0 &&
     Number.isFinite(dab.opacity) &&
     dab.opacity >= 0 &&
     dab.opacity <= 1
@@ -211,8 +222,8 @@ function createInstanceData(
     const centerY = dab.y * scaleY;
     values[offset] = (centerX / targetWidth) * 2 - 1;
     values[offset + 1] = 1 - (centerY / targetHeight) * 2;
-    values[offset + 2] = (dab.radius * scaleX * 2) / targetWidth;
-    values[offset + 3] = (dab.radius * scaleY * 2) / targetHeight;
+    values[offset + 2] = (baselineDabRadiusXV1(dab) * scaleX * 2) / targetWidth;
+    values[offset + 3] = (baselineDabRadiusYV1(dab) * scaleY * 2) / targetHeight;
     values[offset + 4] = dab.opacity;
   }
   return values;

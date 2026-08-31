@@ -28,9 +28,15 @@
             <summary>ページ</summary>
             <div class="shell-menu-popover">
               <button id="document-settings" type="button">ドキュメント設定…</button>
+              <button id="image-resize" type="button">画像サイズ…</button>
               <button id="canvas-resize" type="button">キャンバスサイズ…</button>
               <button id="canvas-crop" type="button">クロップ…</button>
               <button id="canvas-trim" type="button">透明部分をトリミング</button>
+              <button id="document-rotate-cw" type="button">右に90°回転</button>
+              <button id="document-rotate-ccw" type="button">左に90°回転</button>
+              <button id="document-rotate-180" type="button">180°回転</button>
+              <button id="document-flip-horizontal" type="button">左右反転</button>
+              <button id="document-flip-vertical" type="button">上下反転</button>
             </div>
           </details>
           <span>選択範囲</span><span>表示</span><span>フィルター</span>
@@ -111,7 +117,7 @@
           <label>幅 <input id="canvas-geometry-width" type="number" min="1" max="32768" step="1" /></label>
           <label>高さ <input id="canvas-geometry-height" type="number" min="1" max="32768" step="1" /></label>
         </div>
-        <p class="document-dialog-help">オフセットは既存内容を新しいキャンバス座標へ移動します。大きくする場合は余白追加として扱われます。</p>
+        <p id="canvas-geometry-help" class="document-dialog-help">オフセットは既存内容を新しいキャンバス座標へ移動します。大きくする場合は余白追加として扱われます。</p>
         <output id="canvas-geometry-status" class="document-dialog-status" aria-live="polite"></output>
         <footer>
           <button id="canvas-geometry-cancel" type="button" class="document-dialog-secondary">キャンセル</button>

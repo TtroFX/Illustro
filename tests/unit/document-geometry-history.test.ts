@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { PaintHistoryControllerV1 } from '../../src/app/paint-history-controller.js';
-import { resizeCanvasSnapshotV1 } from '../../src/app/document-geometry.js';
+import {
+  resizeCanvasSnapshotV1,
+  rotateDocumentSnapshotV1,
+} from '../../src/app/document-geometry.js';
 import { PaintSessionControllerV1 } from '../../src/app/paint-session-controller.js';
 import type { BaselineBrushDabV1 } from '../../src/gpu/baseline-brush.js';
 
@@ -36,5 +39,22 @@ describe('M5A geometry history', () => {
     expect(session.currentDocument()?.canvas).toMatchObject({ width: 100, height: 80 });
     expect(await history.redo()).toBe(true);
     expect(session.currentDocument()?.canvas).toMatchObject({ width: 120, height: 90 });
+  });
+
+  it('commits destructive rotation as one undo/redo transaction', async () => {
+    const session = new PaintSessionControllerV1(new Renderer());
+    await session.createNewDocument({ width: 100, height: 80 });
+    const history = new PaintHistoryControllerV1(session);
+    history.reset();
+    const transaction = await history.commitSnapshotTransform(
+      'document.rotate.clockwise-90',
+      (before, revision) => rotateDocumentSnapshotV1(before, 'clockwise-90', revision),
+    );
+    expect(transaction.commandId).toBe('document.rotate.clockwise-90');
+    expect(session.currentDocument()?.canvas).toMatchObject({ width: 80, height: 100 });
+    expect(await history.undo()).toBe(true);
+    expect(session.currentDocument()?.canvas).toMatchObject({ width: 100, height: 80 });
+    expect(await history.redo()).toBe(true);
+    expect(session.currentDocument()?.canvas).toMatchObject({ width: 80, height: 100 });
   });
 });

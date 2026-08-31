@@ -243,13 +243,13 @@ M5A-007 RGBA16F-class document precision:完了
 M5A-008 sRGB document mode foundation:完了
 M5A-009 Display-P3 document mode foundation:完了
 M5A-010 canvas resize:完了
-M5A-011 image resize:未完了
+M5A-011 image resize:完了
 M5A-012 crop:完了
 M5A-013 trim:完了
 M5A-014 canvas expansion:完了
-M5A-015 destructive document rotate:未完了
-M5A-016 horizontal flip:未完了
-M5A-017 vertical flip:未完了
+M5A-015 destructive document rotate:完了
+M5A-016 horizontal flip:完了
+M5A-017 vertical flip:完了
 M5A-018 pan:未完了
 M5A-019 zoom:未完了
 M5A-020 viewport rotation:未完了

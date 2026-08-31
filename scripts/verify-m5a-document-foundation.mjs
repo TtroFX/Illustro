@@ -44,10 +44,18 @@ required(geometry, 'resizeCanvasSnapshotV1', 'canvas resize operation');
 required(geometry, 'cropCanvasSnapshotV1', 'crop operation');
 required(geometry, 'trimTransparentCanvasSnapshotV1', 'trim operation');
 required(geometry, 'isCanvasExpansionV1', 'canvas expansion classification');
+required(geometry, 'imageResizeSnapshotV1', 'image resize operation');
+required(geometry, 'rotateDocumentSnapshotV1', 'destructive document rotation');
+required(geometry, 'flipDocumentSnapshotV1', 'document flip operation');
+required(geometry, 'radiusX', 'non-uniform transformed dab geometry');
 required(geometryWorkflow, 'canvasAdmission.preflight', 'geometry admission preflight');
 required(geometryWorkflow, 'commitSnapshotTransform', 'geometry history transaction path');
 required(html, 'id="canvas-resize"', 'canvas resize UI');
 required(html, 'id="canvas-crop"', 'crop UI');
 required(html, 'id="canvas-trim"', 'trim UI');
+required(html, 'id="image-resize"', 'image resize UI');
+required(html, 'id="document-rotate-cw"', 'rotate UI');
+required(html, 'id="document-flip-horizontal"', 'horizontal flip UI');
+required(html, 'id="document-flip-vertical"', 'vertical flip UI');
 
 console.log('M5A document/canvas foundation verification passed');

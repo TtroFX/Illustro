@@ -1,5 +1,9 @@
 import type { CanvasBackgroundSpec } from '../domain/document.js';
-import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import {
+  baselineDabRadiusXV1,
+  baselineDabRadiusYV1,
+  type BaselineBrushDabV1,
+} from '../gpu/baseline-brush.js';
 import type { PaintProjectSnapshotV1 } from '../app/paint-session-controller.js';
 
 export const PNG_MIME_TYPE = 'image/png' as const;
@@ -39,6 +43,10 @@ function validateDab(dab: BaselineBrushDabV1): void {
     !Number.isFinite(dab.y) ||
     !Number.isFinite(dab.radius) ||
     dab.radius <= 0 ||
+    !Number.isFinite(baselineDabRadiusXV1(dab)) ||
+    baselineDabRadiusXV1(dab) <= 0 ||
+    !Number.isFinite(baselineDabRadiusYV1(dab)) ||
+    baselineDabRadiusYV1(dab) <= 0 ||
     !Number.isFinite(dab.opacity) ||
     dab.opacity < 0 ||
     dab.opacity > 1
@@ -67,11 +75,13 @@ function dabIntersectsTile(
   tileWidth: number,
   tileHeight: number,
 ): boolean {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
   return (
-    dab.x + dab.radius > tileX &&
-    dab.y + dab.radius > tileY &&
-    dab.x - dab.radius < tileX + tileWidth &&
-    dab.y - dab.radius < tileY + tileHeight
+    dab.x + radiusX > tileX &&
+    dab.y + radiusY > tileY &&
+    dab.x - radiusX < tileX + tileWidth &&
+    dab.y - radiusY < tileY + tileHeight
   );
 }
 
@@ -84,16 +94,18 @@ function rasterizeBlackDab(
   dab: BaselineBrushDabV1,
 ): void {
   validateDab(dab);
-  const minX = Math.max(tileX, Math.floor(dab.x - dab.radius));
-  const minY = Math.max(tileY, Math.floor(dab.y - dab.radius));
-  const maxX = Math.min(tileX + tileWidth - 1, Math.ceil(dab.x + dab.radius) - 1);
-  const maxY = Math.min(tileY + tileHeight - 1, Math.ceil(dab.y + dab.radius) - 1);
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const minX = Math.max(tileX, Math.floor(dab.x - radiusX));
+  const minY = Math.max(tileY, Math.floor(dab.y - radiusY));
+  const maxX = Math.min(tileX + tileWidth - 1, Math.ceil(dab.x + radiusX) - 1);
+  const maxY = Math.min(tileY + tileHeight - 1, Math.ceil(dab.y + radiusY) - 1);
   if (maxX < minX || maxY < minY) return;
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
-    const localY = (documentY + 0.5 - dab.y) / dab.radius;
+    const localY = (documentY + 0.5 - dab.y) / radiusY;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
-      const localX = (documentX + 0.5 - dab.x) / dab.radius;
+      const localX = (documentX + 0.5 - dab.x) / radiusX;
       const radialDistance = Math.hypot(localX, localY);
       if (radialDistance >= 1) continue;
       const coverage = 1 - smoothstep(0.85, 1, radialDistance);

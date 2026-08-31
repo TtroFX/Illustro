@@ -4,8 +4,11 @@ import { createRasterLayer } from '../../src/domain/layers.js';
 import type { Revision } from '../../src/domain/identity.js';
 import {
   cropCanvasSnapshotV1,
+  flipDocumentSnapshotV1,
+  imageResizeSnapshotV1,
   isCanvasExpansionV1,
   resizeCanvasSnapshotV1,
+  rotateDocumentSnapshotV1,
   transparentContentBoundsV1,
   trimTransparentCanvasSnapshotV1,
 } from '../../src/app/document-geometry.js';
@@ -129,5 +132,46 @@ describe('M5A canvas geometry', () => {
     const before = snapshot([{ x: 50, y: 30, radius: 5 }], 100, 80, true);
     expect(transparentContentBoundsV1(before)).toBeNull();
     expect(() => trimTransparentCanvasSnapshotV1(before, revision(1))).toThrow(/transparent/);
+  });
+
+  it('resizes image content with independent X/Y radii', () => {
+    const before = snapshot([{ x: 20, y: 30, radius: 5 }], 100, 80);
+    const after = imageResizeSnapshotV1(before, { width: 200, height: 40 }, revision(1));
+    expect(after.document.canvas).toMatchObject({ width: 200, height: 40 });
+    expect(after.committedStrokes[0]?.dabs[0]).toMatchObject({
+      x: 40,
+      y: 15,
+      radius: 10,
+      radiusX: 10,
+      radiusY: 2.5,
+    });
+    expect(after.committedStrokes[0]?.stroke.samples[0]).toMatchObject({
+      documentX: 40,
+      documentY: 15,
+    });
+  });
+
+  it('rotates document quarter turns without losing non-uniform dab geometry', () => {
+    const resized = imageResizeSnapshotV1(
+      snapshot([{ x: 20, y: 30, radius: 5 }], 100, 80),
+      { width: 200, height: 40 },
+      revision(1),
+    );
+    const rotated = rotateDocumentSnapshotV1(resized, 'clockwise-90', revision(2));
+    expect(rotated.document.canvas).toMatchObject({ width: 40, height: 200 });
+    expect(rotated.committedStrokes[0]?.dabs[0]).toMatchObject({
+      x: 25,
+      y: 40,
+      radiusX: 2.5,
+      radiusY: 10,
+    });
+  });
+
+  it('flips canonical document content horizontally and vertically', () => {
+    const before = snapshot([{ x: 20, y: 30, radius: 5 }], 100, 80);
+    const horizontal = flipDocumentSnapshotV1(before, 'horizontal', revision(1));
+    expect(horizontal.committedStrokes[0]?.dabs[0]).toMatchObject({ x: 80, y: 30 });
+    const vertical = flipDocumentSnapshotV1(before, 'vertical', revision(1));
+    expect(vertical.committedStrokes[0]?.dabs[0]).toMatchObject({ x: 20, y: 50 });
   });
 });

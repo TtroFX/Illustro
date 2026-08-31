@@ -20,7 +20,17 @@ export interface BaselineBrushDabV1 {
   readonly x: number;
   readonly y: number;
   readonly radius: number;
+  readonly radiusX?: number;
+  readonly radiusY?: number;
   readonly opacity: number;
+}
+
+export function baselineDabRadiusXV1(dab: BaselineBrushDabV1): number {
+  return dab.radiusX ?? dab.radius;
+}
+
+export function baselineDabRadiusYV1(dab: BaselineBrushDabV1): number {
+  return dab.radiusY ?? dab.radius;
 }
 
 export interface BaselineBrushTilePlanV1 {
@@ -134,10 +144,12 @@ function intersectRect(left: RectV1, right: RectV1): RectV1 | null {
 }
 
 function dabDocumentBounds(dab: BaselineBrushDabV1): RectV1 {
-  const left = Math.floor(dab.x - dab.radius);
-  const top = Math.floor(dab.y - dab.radius);
-  const right = Math.ceil(dab.x + dab.radius);
-  const bottom = Math.ceil(dab.y + dab.radius);
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const left = Math.floor(dab.x - radiusX);
+  const top = Math.floor(dab.y - radiusY);
+  const right = Math.ceil(dab.x + radiusX);
+  const bottom = Math.ceil(dab.y + radiusY);
   return Object.freeze({
     x: left,
     y: top,
@@ -180,6 +192,10 @@ export function planBaselineBrushTilesV1(
       !Number.isFinite(dab.y) ||
       !Number.isFinite(dab.radius) ||
       dab.radius <= 0 ||
+      !Number.isFinite(baselineDabRadiusXV1(dab)) ||
+      baselineDabRadiusXV1(dab) <= 0 ||
+      !Number.isFinite(baselineDabRadiusYV1(dab)) ||
+      baselineDabRadiusYV1(dab) <= 0 ||
       !Number.isFinite(dab.opacity) ||
       dab.opacity < 0 ||
       dab.opacity > 1
