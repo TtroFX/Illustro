@@ -48,4 +48,20 @@ describe('production build output', () => {
     expect(atlas).toContain('GPU_ATLAS_SLOTS_PER_PAGE');
     expect(viewport).toContain('resolveViewportTilesV1');
   });
+
+  it('ships the M3 tile upload and aligned readback path in the production bundle', async () => {
+    const [renderWorker, tileTransfer, rendererTileState] = await Promise.all([
+      readDist('workers/render.worker.js'),
+      readDist('gpu/tile-transfer.js'),
+      readDist('gpu/renderer-tile-state.js'),
+    ]);
+
+    expect(renderWorker).toContain('renderer.tiles.upload');
+    expect(renderWorker).toContain('renderer.tiles.readback');
+    expect(tileTransfer).toContain('GPU_COPY_BYTES_PER_ROW_ALIGNMENT = 256');
+    expect(tileTransfer).toContain('writeTexture');
+    expect(tileTransfer).toContain('copyTextureToBuffer');
+    expect(rendererTileState).toContain('uploadCpuBackingToGpu');
+    expect(rendererTileState).toContain('readbackGpuToCpu');
+  });
 });
