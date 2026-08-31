@@ -315,8 +315,9 @@ export class PaintSessionControllerV1 {
   #document: DocumentV1 | null = null;
   #activeLayerId: LayerId | null = null;
   #activeStroke: PaintStrokeV1 | null = null;
+  readonly #activeSamples: PaintStrokeSampleV1[] = [];
   #activeDabBuilder: BaselineBrushDabBuilderV1 | null = null;
-  #activeDabs: readonly BaselineBrushDabV1[] = Object.freeze([]);
+  #activeDabDelta: readonly BaselineBrushDabV1[] = Object.freeze([]);
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
   readonly #committedStrokes: CompletedPaintStrokeV1[] = [];
   #disposed = false;
@@ -335,8 +336,8 @@ export class PaintSessionControllerV1 {
       documentId: this.#document?.documentId ?? null,
       activeLayerId: this.#activeLayerId,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
-      activeStrokeSampleCount: this.#activeStroke?.samples.length ?? 0,
-      activeDabCount: this.#activeDabs.length,
+      activeStrokeSampleCount: this.#activeSamples.length,
+      activeDabCount: this.#activeDabBuilder?.dabCount() ?? 0,
       pendingCompletedStrokeCount: this.#completedStrokes.length,
       committedStrokeCount: this.#committedStrokes.length,
     });
@@ -346,8 +347,17 @@ export class PaintSessionControllerV1 {
     return this.#document;
   }
 
+  activeStrokeId(): string | null {
+    return this.#activeStroke?.strokeId ?? null;
+  }
+
   activeStroke(): PaintStrokeV1 | null {
-    return this.#activeStroke;
+    const active = this.#activeStroke;
+    if (active === null) return null;
+    return Object.freeze({
+      ...active,
+      samples: Object.freeze([...this.#activeSamples]),
+    });
   }
 
   projectSnapshot(): PaintProjectSnapshotV1 | null {
@@ -459,7 +469,13 @@ export class PaintSessionControllerV1 {
   }
 
   activeDabs(): readonly BaselineBrushDabV1[] {
-    return this.#activeDabs;
+    return this.#activeDabBuilder?.dabs() ?? Object.freeze([]);
+  }
+
+  takeActiveDabDelta(): readonly BaselineBrushDabV1[] {
+    const delta = this.#activeDabDelta;
+    this.#activeDabDelta = Object.freeze([]);
+    return delta;
   }
 
   latestCompletedPaintStroke(): CompletedPaintStrokeV1 | null {
@@ -529,11 +545,11 @@ export class PaintSessionControllerV1 {
     }
 
     if (batch.eventType === 'pointerup') {
-      const completed = this.#activeStroke;
+      const completed = this.activeStroke();
       const builder = this.#activeDabBuilder;
       if (completed !== null && builder !== null) {
-        this.#activeDabs = builder.finish();
-        this.#completedStrokes.push(freezeCompletedStroke(completed, this.#activeDabs));
+        builder.finishDelta();
+        this.#completedStrokes.push(freezeCompletedStroke(completed, builder.dabs()));
       }
       this.#clearActiveStroke();
     }
@@ -560,19 +576,20 @@ export class PaintSessionControllerV1 {
     const firstSample = samples[0];
     if (firstSample === undefined) return;
 
+    this.#activeSamples.length = 0;
+    this.#activeSamples.push(...samples);
     this.#activeStroke = Object.freeze({
       schema: 'illustro.paint-stroke/1' as const,
       strokeId: crypto.randomUUID(),
       pointerId: batch.pointerId,
       source,
       layerId,
-      samples: Object.freeze(samples),
+      samples: Object.freeze([]),
     });
     const builder = new BaselineBrushDabBuilderV1();
-    builder.begin(firstSample);
-    builder.append(samples.slice(1));
+    this.#queueActiveDabDelta(builder.beginDelta(firstSample));
+    this.#queueActiveDabDelta(builder.appendDelta(samples.slice(1)));
     this.#activeDabBuilder = builder;
-    this.#activeDabs = builder.dabs();
   }
 
   #appendConfirmedSamples(batch: PointerInputBatchV1): void {
@@ -584,16 +601,23 @@ export class PaintSessionControllerV1 {
       .filter((sample) => sample.pointerId === active.pointerId && sample.source === active.source)
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
     if (additions.length === 0) return;
-    this.#activeStroke = Object.freeze({
-      ...active,
-      samples: Object.freeze([...active.samples, ...additions]),
-    });
-    this.#activeDabs = builder.append(additions);
+    this.#activeSamples.push(...additions);
+    this.#queueActiveDabDelta(builder.appendDelta(additions));
+  }
+
+  #queueActiveDabDelta(delta: readonly BaselineBrushDabV1[]): void {
+    if (delta.length === 0) return;
+    if (this.#activeDabDelta.length === 0) {
+      this.#activeDabDelta = delta;
+      return;
+    }
+    this.#activeDabDelta = Object.freeze([...this.#activeDabDelta, ...delta]);
   }
 
   #clearActiveStroke(): void {
     this.#activeStroke = null;
+    this.#activeSamples.length = 0;
     this.#activeDabBuilder = null;
-    this.#activeDabs = Object.freeze([]);
+    this.#activeDabDelta = Object.freeze([]);
   }
 }
