@@ -203,10 +203,10 @@ M3-042 non-SAB functional fallback:完了
 M3-043 Pen/Touch/Mouse source arbitration:完了
 M3-044 application-side palm/touch rejection foundation:完了
 M3-045 hover data foundation:完了
-M3-046 canvas admission-control foundation:未完了
-M3-047 maximum width/height admission check:未完了
-M3-048 logical-area admission check:未完了
-M3-049 scratch/storage-headroom admission estimation:未完了
+M3-046 canvas admission-control foundation:完了
+M3-047 maximum width/height admission check:完了
+M3-048 logical-area admission check:完了
+M3-049 scratch/storage-headroom admission estimation:完了
 M3-検査 M3内部検査:未完了
 
 ## M4 — Production End-to-End Paint Vertical Slice
