@@ -12,11 +12,14 @@ import type { IllustroGpuDeviceV1 } from './webgpu-capability.js';
 
 const GPU_BUFFER_USAGE_COPY_DST = 0x0008;
 const GPU_BUFFER_USAGE_VERTEX = 0x0020;
+const GPU_TEXTURE_USAGE_COPY_SRC = 0x0001;
+const GPU_TEXTURE_USAGE_RENDER_ATTACHMENT = 0x0010;
 const INSTANCE_FLOATS = 5;
 const INSTANCE_STRIDE_BYTES = INSTANCE_FLOATS * Float32Array.BYTES_PER_ELEMENT;
 
 interface BaselineGpuTextureLikeV1 {
   createView(): object;
+  destroy?(): void;
 }
 
 interface BaselineGpuCanvasContextLikeV1 {
@@ -45,7 +48,7 @@ interface BaselineGpuCommandEncoderLikeV1 {
     readonly colorAttachments: readonly [
       {
         readonly view: object;
-        readonly loadOp: 'clear';
+        readonly loadOp: 'clear' | 'load';
         readonly storeOp: 'store';
         readonly clearValue: {
           readonly r: number;
@@ -56,6 +59,15 @@ interface BaselineGpuCommandEncoderLikeV1 {
       },
     ];
   }): BaselineGpuRenderPassLikeV1;
+  copyTextureToTexture(
+    source: { readonly texture: BaselineGpuTextureLikeV1 },
+    destination: { readonly texture: BaselineGpuTextureLikeV1 },
+    copySize: {
+      readonly width: number;
+      readonly height: number;
+      readonly depthOrArrayLayers: 1;
+    },
+  ): void;
   finish(): object;
 }
 
@@ -69,6 +81,16 @@ interface BaselineGpuDeviceLikeV1 extends IllustroGpuDeviceV1 {
     readonly size: number;
     readonly usage: number;
   }): BaselineGpuBufferLikeV1;
+  createTexture(descriptor: {
+    readonly label: string;
+    readonly size: {
+      readonly width: number;
+      readonly height: number;
+      readonly depthOrArrayLayers: 1;
+    };
+    readonly format: string;
+    readonly usage: number;
+  }): BaselineGpuTextureLikeV1;
   createCommandEncoder(descriptor: { readonly label: string }): BaselineGpuCommandEncoderLikeV1;
   createRenderPipeline(descriptor: {
     readonly label: string;
@@ -146,7 +168,14 @@ export interface BaselinePaintFinalizationV1 {
 
 interface ActiveBaselineStrokeV1 {
   readonly strokeId: string;
-  readonly dabs: readonly BaselineBrushDabV1[];
+  readonly dabs: BaselineBrushDabV1[];
+}
+
+interface RetainedSceneV1 {
+  readonly texture: BaselineGpuTextureLikeV1;
+  readonly width: number;
+  readonly height: number;
+  readonly format: string;
 }
 
 function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrushDabV1[] {
@@ -182,6 +211,31 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
   );
 }
 
+function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
+  return (
+    left.schema === right.schema &&
+    left.x === right.x &&
+    left.y === right.y &&
+    left.radius === right.radius &&
+    baselineDabRadiusXV1(left) === baselineDabRadiusXV1(right) &&
+    baselineDabRadiusYV1(left) === baselineDabRadiusYV1(right) &&
+    left.opacity === right.opacity
+  );
+}
+
+function isDabPrefix(
+  prefix: readonly BaselineBrushDabV1[],
+  complete: readonly BaselineBrushDabV1[],
+): boolean {
+  if (prefix.length > complete.length) return false;
+  for (let index = 0; index < prefix.length; index += 1) {
+    const left = prefix[index];
+    const right = complete[index];
+    if (left === undefined || right === undefined || !sameDab(left, right)) return false;
+  }
+  return true;
+}
+
 function requireRenderDevice(device: IllustroGpuDeviceV1): BaselineGpuDeviceLikeV1 {
   const candidate = device as Partial<BaselineGpuDeviceLikeV1>;
   if (
@@ -189,6 +243,7 @@ function requireRenderDevice(device: IllustroGpuDeviceV1): BaselineGpuDeviceLike
     typeof candidate.queue.writeBuffer !== 'function' ||
     typeof candidate.queue.submit !== 'function' ||
     typeof candidate.createBuffer !== 'function' ||
+    typeof candidate.createTexture !== 'function' ||
     typeof candidate.createCommandEncoder !== 'function' ||
     typeof candidate.createRenderPipeline !== 'function'
   ) {
@@ -232,12 +287,28 @@ function createInstanceData(
 class BaselineGpuSurfaceRasterizerV1 {
   #device: IllustroGpuDeviceV1 | null = null;
   #shaderModule: unknown = null;
+  #scene: RetainedSceneV1 | null = null;
   readonly #pipelines = new Map<string, object>();
 
   attachDevice(device: IllustroGpuDeviceV1 | null): void {
+    this.invalidateScene();
     this.#device = device;
     this.#shaderModule = null;
     this.#pipelines.clear();
+  }
+
+  invalidateScene(): void {
+    this.#scene?.texture.destroy?.();
+    this.#scene = null;
+  }
+
+  hasSceneFor(surface: RendererSurfaceLikeV1, format: string): boolean {
+    return (
+      this.#scene !== null &&
+      this.#scene.width === surface.width &&
+      this.#scene.height === surface.height &&
+      this.#scene.format === format
+    );
   }
 
   render(input: {
@@ -246,6 +317,7 @@ class BaselineGpuSurfaceRasterizerV1 {
     readonly documentWidth: number;
     readonly documentHeight: number;
     readonly dabs: readonly BaselineBrushDabV1[];
+    readonly mode: 'replace' | 'append';
   }): void {
     const rawDevice = this.#device;
     if (rawDevice === null) throw new Error('baseline brush renderer has no WebGPU device');
@@ -258,43 +330,81 @@ class BaselineGpuSurfaceRasterizerV1 {
     if (input.documentWidth < 1 || input.documentHeight < 1) {
       throw new RangeError('baseline brush document must have positive dimensions');
     }
+    if (input.dabs.some((dab) => !isRenderableDab(dab))) {
+      throw new RangeError('invalid baseline brush dab');
+    }
+
+    let scene = this.#scene;
+    if (input.mode === 'append') {
+      if (!this.hasSceneFor(input.surface, input.format) || scene === null) {
+        throw new Error('baseline retained scene is unavailable for incremental append');
+      }
+    } else if (!this.hasSceneFor(input.surface, input.format) || scene === null) {
+      this.invalidateScene();
+      scene = Object.freeze({
+        texture: device.createTexture({
+          label: 'illustro-baseline-retained-scene',
+          size: {
+            width: input.surface.width,
+            height: input.surface.height,
+            depthOrArrayLayers: 1,
+          },
+          format: input.format,
+          usage: GPU_TEXTURE_USAGE_COPY_SRC | GPU_TEXTURE_USAGE_RENDER_ATTACHMENT,
+        }),
+        width: input.surface.width,
+        height: input.surface.height,
+        format: input.format,
+      });
+      this.#scene = scene;
+    }
 
     const context = canvasContext(input.surface);
-    const texture = context.getCurrentTexture();
     const encoder = device.createCommandEncoder({ label: 'illustro-baseline-brush-surface' });
-    const pass = encoder.beginRenderPass({
-      label: 'illustro-baseline-brush-surface-pass',
-      colorAttachments: [
-        {
-          view: texture.createView(),
-          loadOp: 'clear',
-          storeOp: 'store',
-          clearValue: { r: 0, g: 0, b: 0, a: 0 },
-        },
-      ],
-    });
-
     let buffer: BaselineGpuBufferLikeV1 | null = null;
     try {
-      if (input.dabs.length > 0) {
-        const instanceData = createInstanceData(
-          input.dabs,
-          input.documentWidth,
-          input.documentHeight,
-          input.surface.width,
-          input.surface.height,
-        );
-        buffer = device.createBuffer({
-          label: 'illustro-baseline-brush-instances',
-          size: instanceData.byteLength,
-          usage: GPU_BUFFER_USAGE_COPY_DST | GPU_BUFFER_USAGE_VERTEX,
+      if (input.mode === 'replace' || input.dabs.length > 0) {
+        const pass = encoder.beginRenderPass({
+          label: 'illustro-baseline-brush-retained-pass',
+          colorAttachments: [
+            {
+              view: scene.texture.createView(),
+              loadOp: input.mode === 'replace' ? 'clear' : 'load',
+              storeOp: 'store',
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+            },
+          ],
         });
-        device.queue.writeBuffer(buffer, 0, instanceData);
-        pass.setPipeline(this.#pipeline(input.format, device));
-        pass.setVertexBuffer(0, buffer);
-        pass.draw(6, input.dabs.length, 0, 0);
+        if (input.dabs.length > 0) {
+          const instanceData = createInstanceData(
+            input.dabs,
+            input.documentWidth,
+            input.documentHeight,
+            input.surface.width,
+            input.surface.height,
+          );
+          buffer = device.createBuffer({
+            label: 'illustro-baseline-brush-instances',
+            size: instanceData.byteLength,
+            usage: GPU_BUFFER_USAGE_COPY_DST | GPU_BUFFER_USAGE_VERTEX,
+          });
+          device.queue.writeBuffer(buffer, 0, instanceData);
+          pass.setPipeline(this.#pipeline(input.format, device));
+          pass.setVertexBuffer(0, buffer);
+          pass.draw(6, input.dabs.length, 0, 0);
+        }
+        pass.end();
       }
-      pass.end();
+
+      encoder.copyTextureToTexture(
+        { texture: scene.texture },
+        { texture: context.getCurrentTexture() },
+        {
+          width: input.surface.width,
+          height: input.surface.height,
+          depthOrArrayLayers: 1,
+        },
+      );
       device.queue.submit([encoder.finish()]);
     } finally {
       buffer?.destroy?.();
@@ -365,13 +475,10 @@ export class BaselinePaintRendererV1 {
   #documentHeight: number | null = null;
   #activeStroke: ActiveBaselineStrokeV1 | null = null;
   readonly #committedStrokes = new Map<string, readonly BaselineBrushDabV1[]>();
+  #committedDabCount = 0;
   readonly #finalizations = new Map<string, BaselinePaintFinalizationV1>();
 
   snapshot(): BaselinePaintRendererSnapshotV1 {
-    const committedDabCount = [...this.#committedStrokes.values()].reduce(
-      (total, dabs) => total + dabs.length,
-      0,
-    );
     return Object.freeze({
       schema: 'illustro.baseline-paint-renderer/1' as const,
       documentWidth: this.#documentWidth,
@@ -379,7 +486,7 @@ export class BaselinePaintRendererV1 {
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeDabCount: this.#activeStroke?.dabs.length ?? 0,
       committedStrokeCount: this.#committedStrokes.size,
-      committedDabCount,
+      committedDabCount: this.#committedDabCount,
       surfaceReady: this.#surface !== null && this.#surfaceFormat !== null,
       deviceReady: this.#device !== null,
     });
@@ -388,7 +495,7 @@ export class BaselinePaintRendererV1 {
   attachDevice(device: IllustroGpuDeviceV1 | null): void {
     this.#device = device;
     this.#gpu.attachDevice(device);
-    this.#present();
+    this.#rebuildScene();
   }
 
   attachSurface(surface: RendererSurfaceLikeV1 | null, format: string | null): void {
@@ -397,7 +504,8 @@ export class BaselinePaintRendererV1 {
     }
     this.#surface = surface;
     this.#surfaceFormat = format;
-    this.#present();
+    this.#gpu.invalidateScene();
+    this.#rebuildScene();
   }
 
   configureDocument(
@@ -413,7 +521,10 @@ export class BaselinePaintRendererV1 {
     this.#documentHeight = height;
     this.#activeStroke = null;
     this.#committedStrokes.clear();
+    this.#committedDabCount = 0;
     this.#finalizations.clear();
+    this.#gpu.invalidateScene();
+    this.#rebuildScene();
     return this.snapshot();
   }
 
@@ -424,14 +535,27 @@ export class BaselinePaintRendererV1 {
     this.#requireDocument();
     if (strokeId.length === 0) throw new TypeError('baseline paint strokeId must not be empty');
     if (this.#finalizations.has(strokeId)) return this.snapshot();
-    this.#activeStroke = Object.freeze({ strokeId, dabs: freezeDabs(dabs) });
-    this.#present();
+    const delta = freezeDabs(dabs);
+    if (delta.some((dab) => !isRenderableDab(dab)))
+      throw new RangeError('invalid baseline brush dab');
+
+    if (this.#activeStroke !== null && this.#activeStroke.strokeId !== strokeId) {
+      this.#activeStroke = null;
+      this.#rebuildScene();
+    }
+    if (this.#activeStroke === null) {
+      this.#activeStroke = { strokeId, dabs: [] };
+    }
+    this.#activeStroke.dabs.push(...delta);
+    if (delta.length > 0) this.#appendDabs(delta);
     return this.snapshot();
   }
 
   cancelStroke(strokeId: string): BaselinePaintRendererSnapshotV1 {
-    if (this.#activeStroke?.strokeId === strokeId) this.#activeStroke = null;
-    this.#present();
+    if (this.#activeStroke?.strokeId === strokeId) {
+      this.#activeStroke = null;
+      this.#rebuildScene();
+    }
     return this.snapshot();
   }
 
@@ -444,14 +568,35 @@ export class BaselinePaintRendererV1 {
     const { tileState, width, height } = this.#requireDocument();
     if (strokeId.length === 0) throw new TypeError('baseline paint strokeId must not be empty');
     const frozenDabs = freezeDabs(dabs);
+    if (frozenDabs.some((dab) => !isRenderableDab(dab))) {
+      throw new RangeError('invalid baseline brush dab');
+    }
+
+    const active = this.#activeStroke;
+    if (active?.strokeId === strokeId && isDabPrefix(active.dabs, frozenDabs)) {
+      const missingTail = frozenDabs.slice(active.dabs.length);
+      if (missingTail.length > 0) {
+        active.dabs.push(...missingTail);
+        this.#appendDabs(missingTail);
+      } else if (!this.#hasCurrentScene()) {
+        this.#rebuildScene();
+      }
+    } else {
+      this.#activeStroke = { strokeId, dabs: [...frozenDabs] };
+      this.#rebuildScene();
+    }
+
     const affectedTiles = planBaselineBrushTilesV1(frozenDabs, width, height).map((plan) => {
       tileState.allocate(plan.coordinate);
       const dirty = tileState.markDirty(plan.coordinate, plan.dirtyRect);
       return Object.freeze({ coordinate: plan.coordinate, dirty });
     });
+    const previous = this.#committedStrokes.get(strokeId);
+    if (previous !== undefined) this.#committedDabCount -= previous.length;
     this.#committedStrokes.set(strokeId, frozenDabs);
+    this.#committedDabCount += frozenDabs.length;
     if (this.#activeStroke?.strokeId === strokeId) this.#activeStroke = null;
-    this.#present();
+
     const finalization = Object.freeze({
       schema: 'illustro.baseline-paint-finalization/1' as const,
       strokeId,
@@ -470,6 +615,7 @@ export class BaselinePaintRendererV1 {
     tileState.resetContent();
     this.#activeStroke = null;
     this.#committedStrokes.clear();
+    this.#committedDabCount = 0;
     this.#finalizations.clear();
     const seen = new Set<string>();
     for (const stroke of strokes) {
@@ -485,8 +631,9 @@ export class BaselinePaintRendererV1 {
         tileState.markDirty(plan.coordinate, plan.dirtyRect);
       }
       this.#committedStrokes.set(stroke.strokeId, dabs);
+      this.#committedDabCount += dabs.length;
     }
-    this.#present();
+    this.#rebuildScene();
     return this.snapshot();
   }
 
@@ -500,10 +647,19 @@ export class BaselinePaintRendererV1 {
     this.#documentHeight = null;
     this.#activeStroke = null;
     this.#committedStrokes.clear();
+    this.#committedDabCount = 0;
     this.#finalizations.clear();
   }
 
-  #present(): void {
+  #hasCurrentScene(): boolean {
+    return (
+      this.#surface !== null &&
+      this.#surfaceFormat !== null &&
+      this.#gpu.hasSceneFor(this.#surface, this.#surfaceFormat)
+    );
+  }
+
+  #appendDabs(dabs: readonly BaselineBrushDabV1[]): void {
     if (
       this.#device === null ||
       this.#surface === null ||
@@ -513,14 +669,40 @@ export class BaselinePaintRendererV1 {
     ) {
       return;
     }
-    const committed = [...this.#committedStrokes.values()].flat();
-    const active = this.#activeStroke?.dabs ?? [];
+    if (!this.#gpu.hasSceneFor(this.#surface, this.#surfaceFormat)) {
+      this.#rebuildScene();
+      return;
+    }
     this.#gpu.render({
       surface: this.#surface,
       format: this.#surfaceFormat,
       documentWidth: this.#documentWidth,
       documentHeight: this.#documentHeight,
-      dabs: [...committed, ...active],
+      dabs,
+      mode: 'append',
+    });
+  }
+
+  #rebuildScene(): void {
+    if (
+      this.#device === null ||
+      this.#surface === null ||
+      this.#surfaceFormat === null ||
+      this.#documentWidth === null ||
+      this.#documentHeight === null
+    ) {
+      return;
+    }
+    const dabs: BaselineBrushDabV1[] = [];
+    for (const committed of this.#committedStrokes.values()) dabs.push(...committed);
+    if (this.#activeStroke !== null) dabs.push(...this.#activeStroke.dabs);
+    this.#gpu.render({
+      surface: this.#surface,
+      format: this.#surfaceFormat,
+      documentWidth: this.#documentWidth,
+      documentHeight: this.#documentHeight,
+      dabs,
+      mode: 'replace',
     });
   }
 

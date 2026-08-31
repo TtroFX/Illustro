@@ -1,6 +1,11 @@
 import { bootstrapShaderSource } from '../generated/bootstrap-shader.js';
 import type { IllustroGpuDeviceV1 } from './webgpu-capability.js';
 
+const GPU_TEXTURE_USAGE_COPY_DST = 0x0002;
+const GPU_TEXTURE_USAGE_RENDER_ATTACHMENT = 0x0010;
+const ILLUSTRO_CANVAS_TEXTURE_USAGE =
+  GPU_TEXTURE_USAGE_COPY_DST | GPU_TEXTURE_USAGE_RENDER_ATTACHMENT;
+
 export interface RendererSurfaceLikeV1 {
   width: number;
   height: number;
@@ -12,6 +17,7 @@ interface WebGpuCanvasContextLikeV1 {
     readonly device: IllustroGpuDeviceV1;
     readonly format: string;
     readonly alphaMode: 'premultiplied';
+    readonly usage: number;
   }): void;
 }
 
@@ -42,7 +48,12 @@ export function configureRendererSurfaceV1(
     throw new Error('WebGPU canvas context is unavailable');
   }
   const format = browserPreferredCanvasFormat();
-  context.configure({ device, format, alphaMode: 'premultiplied' });
+  context.configure({
+    device,
+    format,
+    alphaMode: 'premultiplied',
+    usage: ILLUSTRO_CANVAS_TEXTURE_USAGE,
+  });
   return format;
 }
 

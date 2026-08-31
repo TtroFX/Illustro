@@ -29,6 +29,21 @@ describe('M4 baseline brush dab generation', () => {
     expect(builder.finish().map((dab) => dab.x)).toEqual([0, 4, 8]);
   });
 
+  it('emits only newly confirmed dabs through the incremental hot-path API', () => {
+    const builder = new BaselineBrushDabBuilderV1();
+
+    expect(builder.beginDelta({ documentX: 0, documentY: 0 }).map((dab) => dab.x)).toEqual([0]);
+    expect(builder.appendDelta([{ documentX: 8, documentY: 0 }]).map((dab) => dab.x)).toEqual([
+      4, 8,
+    ]);
+    expect(builder.appendDelta([{ documentX: 12, documentY: 0 }]).map((dab) => dab.x)).toEqual([
+      12,
+    ]);
+    expect(builder.dabCount()).toBe(4);
+    expect(builder.finishDelta()).toEqual([]);
+    expect(builder.dabs().map((dab) => dab.x)).toEqual([0, 4, 8, 12]);
+  });
+
   it('splits one dab across canonical sparse-tile boundaries with local dirty rectangles', () => {
     const builder = new BaselineBrushDabBuilderV1();
     const [dab] = builder.begin({ documentX: 255, documentY: 128 });

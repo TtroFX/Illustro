@@ -17,8 +17,10 @@ function gpuHarness() {
   let drawCalls = 0;
   let renderPasses = 0;
   let submits = 0;
-  let instanceCount = 0;
+  let textureCopies = 0;
+  const instanceCounts: number[] = [];
   const bufferWrites: number[] = [];
+  const loadOps: Array<'clear' | 'load'> = [];
   const device = {
     lost: new Promise<never>(() => undefined),
     createShaderModule() {
@@ -30,19 +32,37 @@ function gpuHarness() {
     createBuffer(descriptor: { readonly size: number }) {
       return { descriptor, destroy() {} };
     },
+    createTexture() {
+      return {
+        createView() {
+          return {};
+        },
+        destroy() {},
+      };
+    },
     createCommandEncoder() {
       return {
-        beginRenderPass() {
+        beginRenderPass(descriptor: {
+          readonly colorAttachments: readonly [
+            {
+              readonly loadOp: 'clear' | 'load';
+            },
+          ];
+        }) {
           renderPasses += 1;
+          loadOps.push(descriptor.colorAttachments[0].loadOp);
           return {
             setPipeline() {},
             setVertexBuffer() {},
             draw(_vertexCount: number, nextInstanceCount: number) {
               drawCalls += 1;
-              instanceCount = nextInstanceCount;
+              instanceCounts.push(nextInstanceCount);
             },
             end() {},
           };
+        },
+        copyTextureToTexture() {
+          textureCopies += 1;
         },
         finish() {
           return {};
@@ -70,10 +90,28 @@ function gpuHarness() {
       };
     },
   };
+  const reset = (): void => {
+    drawCalls = 0;
+    renderPasses = 0;
+    submits = 0;
+    textureCopies = 0;
+    instanceCounts.length = 0;
+    bufferWrites.length = 0;
+    loadOps.length = 0;
+  };
   return {
     device,
     surface,
-    counts: () => ({ drawCalls, renderPasses, submits, instanceCount, bufferWrites }),
+    reset,
+    counts: () => ({
+      drawCalls,
+      renderPasses,
+      submits,
+      textureCopies,
+      instanceCounts: [...instanceCounts],
+      bufferWrites: [...bufferWrites],
+      loadOps: [...loadOps],
+    }),
   };
 }
 
@@ -85,11 +123,12 @@ function configuredRenderer() {
   renderer.attachDevice(harness.device);
   renderer.attachSurface(harness.surface, 'bgra8unorm');
   renderer.configureDocument(tileState, 512, 256);
+  harness.reset();
   return { harness, tileState, renderer };
 }
 
 describe('M4 baseline WebGPU paint renderer', () => {
-  it('rasterizes provisional dabs through one instanced WebGPU render pass', () => {
+  it('rasterizes provisional dabs through one retained-scene WebGPU render pass', () => {
     const { harness, renderer } = configuredRenderer();
     const snapshot = renderer.presentStroke('stroke-a', [dab(20, 30), dab(24, 30), dab(28, 30)]);
 
@@ -100,16 +139,37 @@ describe('M4 baseline WebGPU paint renderer', () => {
       surfaceReady: true,
       deviceReady: true,
     });
-    expect(harness.counts()).toMatchObject({
+    expect(harness.counts()).toEqual({
       drawCalls: 1,
       renderPasses: 1,
       submits: 1,
-      instanceCount: 3,
+      textureCopies: 1,
+      instanceCounts: [3],
       bufferWrites: [15],
+      loadOps: ['load'],
     });
   });
 
-  it('finalizes the same dabs into sparse-tile dirty state and leaves the canvas visible', () => {
+  it('appends only the dab delta instead of replaying the stable stroke prefix', () => {
+    const { harness, renderer } = configuredRenderer();
+
+    renderer.presentStroke('stroke-long', [dab(20, 30), dab(24, 30)]);
+    renderer.presentStroke('stroke-long', [dab(28, 30)]);
+    const snapshot = renderer.presentStroke('stroke-long', [dab(32, 30)]);
+
+    expect(snapshot).toMatchObject({ activeStrokeId: 'stroke-long', activeDabCount: 4 });
+    expect(harness.counts()).toEqual({
+      drawCalls: 3,
+      renderPasses: 3,
+      submits: 3,
+      textureCopies: 3,
+      instanceCounts: [2, 1, 1],
+      bufferWrites: [10, 5, 5],
+      loadOps: ['load', 'load', 'load'],
+    });
+  });
+
+  it('finalizes already-rasterized dabs without replaying them and marks sparse-tile dirtiness', () => {
     const { harness, tileState, renderer } = configuredRenderer();
     const dabs = [dab(255, 128)];
     renderer.presentStroke('stroke-b', dabs);
@@ -136,10 +196,42 @@ describe('M4 baseline WebGPU paint renderer', () => {
       coordinate: { tx: 1, ty: 0 },
       region: { kind: 'rect', rect: { x: 0, y: 120, width: 7, height: 16 } },
     });
-    expect(harness.counts()).toMatchObject({ renderPasses: 2, submits: 2 });
+    expect(harness.counts()).toEqual({
+      drawCalls: 1,
+      renderPasses: 1,
+      submits: 1,
+      textureCopies: 1,
+      instanceCounts: [1],
+      bufferWrites: [5],
+      loadOps: ['load'],
+    });
   });
 
-  it('drops a cancelled provisional stroke without dirtying canonical sparse tiles', () => {
+  it('appends only a missing final tail when pointerup contributes the endpoint', () => {
+    const { harness, renderer } = configuredRenderer();
+    const first = dab(64, 64);
+    const endpoint = dab(68, 64);
+
+    renderer.presentStroke('stroke-tail', [first]);
+    const result = renderer.finalizeStroke('stroke-tail', [first, endpoint]);
+
+    expect(result.renderer).toMatchObject({
+      activeStrokeId: null,
+      committedStrokeCount: 1,
+      committedDabCount: 2,
+    });
+    expect(harness.counts()).toMatchObject({
+      drawCalls: 2,
+      renderPasses: 2,
+      submits: 2,
+      textureCopies: 2,
+      instanceCounts: [1, 1],
+      bufferWrites: [5, 5],
+      loadOps: ['load', 'load'],
+    });
+  });
+
+  it('rebuilds the retained scene from committed state when a provisional stroke is cancelled', () => {
     const { harness, tileState, renderer } = configuredRenderer();
     renderer.presentStroke('stroke-c', [dab(64, 64)]);
     const snapshot = renderer.cancelStroke('stroke-c');
@@ -150,7 +242,13 @@ describe('M4 baseline WebGPU paint renderer', () => {
       committedStrokeCount: 0,
     });
     expect(tileState.snapshot()).toMatchObject({ allocatedTileCount: 0, dirtyTileCount: 0 });
-    expect(harness.counts()).toMatchObject({ renderPasses: 2, submits: 2 });
+    expect(harness.counts()).toMatchObject({
+      renderPasses: 2,
+      submits: 2,
+      textureCopies: 2,
+      instanceCounts: [1],
+      loadOps: ['load', 'clear'],
+    });
   });
 
   it('restores canonical committed strokes and redraws them after a GPU rebuild', () => {
@@ -190,11 +288,14 @@ describe('M4 baseline WebGPU paint renderer', () => {
       committedDabCount: 1,
       deviceReady: true,
     });
-    expect(second.counts()).toMatchObject({
+    expect(second.counts()).toEqual({
       drawCalls: 1,
       renderPasses: 1,
       submits: 1,
-      instanceCount: 1,
+      textureCopies: 1,
+      instanceCounts: [1],
+      bufferWrites: [5],
+      loadOps: ['clear'],
     });
   });
 });

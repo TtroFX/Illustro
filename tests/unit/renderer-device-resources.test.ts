@@ -48,8 +48,8 @@ describe('M3 renderer device-dependent resource rebuild', () => {
     expect(first.labels).toEqual(['illustro-renderer-bootstrap-g1']);
     expect(second.labels).toEqual(['illustro-renderer-bootstrap-g2']);
     expect(configurations).toHaveLength(2);
-    expect(configurations[0]).toMatchObject({ device: first.device });
-    expect(configurations[1]).toMatchObject({ device: second.device });
+    expect(configurations[0]).toMatchObject({ device: first.device, usage: 0x12 });
+    expect(configurations[1]).toMatchObject({ device: second.device, usage: 0x12 });
   });
 
   it('rejects a surface without a WebGPU canvas context', () => {

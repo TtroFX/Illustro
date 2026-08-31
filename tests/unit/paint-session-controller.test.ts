@@ -133,6 +133,24 @@ describe('M4 confirmed pen/mouse stroke session', () => {
     expect(active?.samples.some((entry) => entry.sequence === predicted.sequence)).toBe(false);
   });
 
+  it('emits only newly generated dabs between input batches while retaining full stroke history', async () => {
+    const session = new PaintSessionControllerV1(new FakeRendererDocumentPort());
+    await session.createNewDocument({ width: 512, height: 512 });
+
+    session.ingestPointerBatch(batch('pointerdown', [sample(1, 'pointerdown')]));
+    expect(session.takeActiveDabDelta().map((entry) => [entry.x, entry.y])).toEqual([[31, 41]]);
+    expect(session.takeActiveDabDelta()).toEqual([]);
+
+    session.ingestPointerBatch(batch('pointermove', [sample(5, 'pointermove')]));
+    expect(session.takeActiveDabDelta()).toHaveLength(1);
+    session.ingestPointerBatch(batch('pointermove', [sample(9, 'pointermove')]));
+    expect(session.takeActiveDabDelta()).toHaveLength(1);
+
+    expect(session.snapshot()).toMatchObject({ activeStrokeSampleCount: 3, activeDabCount: 3 });
+    expect(session.activeDabs()).toHaveLength(3);
+    expect(session.activeStroke()?.samples.map((entry) => entry.sequence)).toEqual([1, 5, 9]);
+  });
+
   it('starts and completes a mouse stroke as one pending stroke unit', async () => {
     const session = new PaintSessionControllerV1(new FakeRendererDocumentPort());
     await session.createNewDocument({ width: 512, height: 512 });
