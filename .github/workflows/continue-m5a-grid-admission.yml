@@ -28,9 +28,10 @@ jobs:
           python scripts/.tmp-m5a-grid-admission.py
           python - <<'PY'
           from pathlib import Path
-          path = Path('src/app/canvas-admission-controller.ts')
-          text = path.read_text().replace('grid.tilesX * grid.tilesY', 'grid.columns * grid.rows')
-          path.write_text(text)
+          admission = Path('src/app/canvas-admission-controller.ts')
+          admission.write_text(admission.read_text().replace('grid.tilesX * grid.tilesY', 'grid.columns * grid.rows'))
+          grid = Path('src/app/grid-controller.ts')
+          grid.write_text(grid.read_text().replace("  #color = DEFAULT_GRID_COLOR_V1;", "  #color: string = DEFAULT_GRID_COLOR_V1;"))
           PY
       - name: Canonical formatting
         run: npm run format
