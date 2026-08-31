@@ -148,7 +148,11 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     await deviceManager.start();
     const device = deviceManager.currentDevice();
     if (device !== null && surface !== null) configureRendererSurfaceV1(surface, device);
-    postResponse(request.requestId, deviceManager.snapshot().state === 'ready', deviceManager.snapshot());
+    postResponse(
+      request.requestId,
+      deviceManager.snapshot().state === 'ready',
+      deviceManager.snapshot(),
+    );
   } catch (error) {
     const requestId = 'requestId' in request ? request.requestId : null;
     if (requestId !== null) {

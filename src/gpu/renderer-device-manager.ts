@@ -158,10 +158,7 @@ export class RendererDeviceManagerV1 {
     );
   }
 
-  async #handleLoss(
-    generation: number,
-    loss: WebGpuDeviceLostInfoLikeV1,
-  ): Promise<void> {
+  async #handleLoss(generation: number, loss: WebGpuDeviceLostInfoLikeV1): Promise<void> {
     if (this.#disposed || generation !== this.#generation) return;
     this.#device = null;
     this.#lastLoss = Object.freeze({ reason: loss.reason, message: loss.message });

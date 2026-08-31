@@ -24,9 +24,11 @@ export interface RendererDeviceResourcesSnapshotV1 {
 
 function browserPreferredCanvasFormat(): string {
   if (typeof navigator === 'undefined') return 'bgra8unorm';
-  const gpu = (navigator as Navigator & {
-    readonly gpu?: { readonly getPreferredCanvasFormat?: () => string };
-  }).gpu;
+  const gpu = (
+    navigator as Navigator & {
+      readonly gpu?: { readonly getPreferredCanvasFormat?: () => string };
+    }
+  ).gpu;
   const format = gpu?.getPreferredCanvasFormat?.();
   return typeof format === 'string' && format.length > 0 ? format : 'bgra8unorm';
 }

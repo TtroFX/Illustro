@@ -124,9 +124,11 @@ describe('M3 core WebGPU capability profile', () => {
         throw new Error('adapter reset');
       },
     };
-    await expect(acquireCoreWebGpuV1({ secureContext: true, gpu: surface })).resolves.toMatchObject({
-      status: 'adapter-unavailable',
-      errorMessage: 'adapter reset',
-    });
+    await expect(acquireCoreWebGpuV1({ secureContext: true, gpu: surface })).resolves.toMatchObject(
+      {
+        status: 'adapter-unavailable',
+        errorMessage: 'adapter reset',
+      },
+    );
   });
 });

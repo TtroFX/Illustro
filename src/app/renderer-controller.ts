@@ -115,7 +115,11 @@ export class RendererControllerV1 {
   #startTask: Promise<RendererControllerSnapshotV1> | null = null;
   #disposed = false;
 
-  constructor(shell: FoundationShell, worker: WorkerLikeV1, root: HTMLElement = document.documentElement) {
+  constructor(
+    shell: FoundationShell,
+    worker: WorkerLikeV1,
+    root: HTMLElement = document.documentElement,
+  ) {
     this.#shell = shell;
     this.#worker = worker;
     this.#root = root;
