@@ -1,0 +1,44 @@
+name: Record M3 admission progress
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/record-m3-admission-progress.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Record verified progress
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          items = [
+              'M3-046 canvas admission-control foundation',
+              'M3-047 maximum width/height admission check',
+              'M3-048 logical-area admission check',
+              'M3-049 scratch/storage-headroom admission estimation',
+          ]
+          for item in items:
+              old = f'{item}:未完了'
+              new = f'{item}:完了'
+              if old not in text:
+                  raise SystemExit(f'expected progress entry not found: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git rm .github/workflows/record-m3-admission-progress.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'chore: record verified M3 admission progress [skip ci]'
+          git push
