@@ -25,7 +25,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Apply M5A document implementation
         run: python scripts/.tmp-m5a-document-foundation.py
-      - name: Repair strict TypeScript narrowing
+      - name: Repair strict contracts
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -67,6 +67,39 @@ jobs:
           if old not in text:
               raise SystemExit('paint-session background narrowing target missing')
           session.write_text(text.replace(old, new, 1))
+
+          test = Path('tests/unit/paint-session-controller.test.ts')
+          text = test.read_text()
+          old = "readonly configured: Array<{ readonly width: number; readonly height: number }> = [];"
+          new = """readonly configured: Array<{
+              readonly width: number;
+              readonly height: number;
+              readonly workingSpace: 'srgb' | 'display-p3';
+              readonly precision: 'rgba8-unorm' | 'rgba16-float';
+            }> = [];"""
+          if old not in text:
+              raise SystemExit('renderer configured type target missing')
+          text = text.replace(old, new, 1)
+          old = """  async configureDocument(input: {
+              readonly width: number;
+              readonly height: number;
+            }): Promise<void> {"""
+          new = """  async configureDocument(input: {
+              readonly width: number;
+              readonly height: number;
+              readonly workingSpace: 'srgb' | 'display-p3';
+              readonly precision: 'rgba8-unorm' | 'rgba16-float';
+            }): Promise<void> {"""
+          if old not in text:
+              raise SystemExit('renderer configure input target missing')
+          text = text.replace(old, new, 1)
+          old = "expect(renderer.configured).toEqual([{ width: 640, height: 480 }]);"
+          new = """expect(renderer.configured).toEqual([
+              { width: 640, height: 480, workingSpace: 'srgb', precision: 'rgba8-unorm' },
+            ]);"""
+          if old not in text:
+              raise SystemExit('renderer configuration expectation target missing')
+          test.write_text(text.replace(old, new, 1))
           PY
       - name: Canonical formatting
         run: npm run format
