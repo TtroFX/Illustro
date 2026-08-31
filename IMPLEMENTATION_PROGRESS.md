@@ -210,11 +210,11 @@ M3-049 scratch/storage-headroom admission estimation:完了
 M3-検査 M3内部検査:完了
 
 ## M4 — Production End-to-End Paint Vertical Slice
-M4-001 New Documentからrenderer接続:未完了
-M4-002 initial Raster Layer生成:未完了
-M4-003 pen stroke開始:未完了
-M4-004 mouse stroke開始:未完了
-M4-005 stroke sample accumulation:未完了
+M4-001 New Documentからrenderer接続:完了
+M4-002 initial Raster Layer生成:完了
+M4-003 pen stroke開始:完了
+M4-004 mouse stroke開始:完了
+M4-005 stroke sample accumulation:完了
 M4-006 baseline brush dab生成:未完了
 M4-007 GPU rasterization:未完了
 M4-008 tile dirty update:未完了
