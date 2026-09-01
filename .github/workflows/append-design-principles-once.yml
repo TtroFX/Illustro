@@ -1,0 +1,68 @@
+name: Append design principles once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/append-design-principles-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  append-design-principles:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Append authoritative design principles if absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='## Algorithm/reference-app adoption and lightweight-implementation mandate — 2026-09-01'
+          if grep -Fq "$marker" ILLUSTRO_DESIGN_MEMO.md; then
+            echo 'Design principle already present; no change needed.'
+            exit 0
+          fi
+
+          cat >> ILLUSTRO_DESIGN_MEMO.md <<'EOF'
+
+## Algorithm/reference-app adoption and lightweight-implementation mandate — 2026-09-01
+
+**Status: AUTHORITATIVE / ALWAYS-ON IMPLEMENTATION PRINCIPLE.**
+
+The following rules are mandatory for GPT/AI implementation agents and human implementation work throughout Illustro. They extend the existing license-aware algorithm/reference-implementation policy and the established performance architecture; they are not a one-time optimization task.
+
+1. **Actively research and adopt proven algorithmic ideas from existing applications.** Before designing or substantially revising a non-trivial drawing, rendering, compositing, selection, transform, stabilization, fill, filter, storage, synchronization, caching, scheduling, or similar subsystem, implementation must consider how mature existing painting/creative applications and relevant open-source projects solve the same class of problem. Useful algorithms, data structures, scheduling strategies, interaction mechanics, and performance techniques should be incorporated when they materially improve Illustro.
+2. **Do not reinvent a weaker solution merely because an internal implementation already exists.** When a proven external approach is clearly better for correctness, latency, memory use, scalability, battery/power efficiency, robustness, or maintainability, prefer adapting the stronger approach to Illustro's architecture rather than preserving an inferior local algorithm for convenience.
+3. **Reference behavior and algorithms; do not clone protected implementation.** Proprietary source code, proprietary assets, or non-permitted code must not be copied. For proprietary/reference applications, use public documentation, papers, standards, published technical material, observable behavior, and independently designed clean-room equivalents. Direct source-code reuse remains subject to the license rules already defined in this memo, including attribution/notice obligations where applicable.
+4. **Lightweight implementation is a continuous design constraint, not a late cleanup phase.** Every implementation decision must actively look for ways to reduce unnecessary CPU work, GPU work, memory footprint, allocations, copies, serialization, CPU↔GPU transfers, worker messages, storage I/O, redraw area, recomputation, retained intermediate state, and main-thread blocking while preserving canonical correctness and user-visible behavior.
+5. **Prefer work proportional to the changed data.** Incremental processing, dirty-region/dirty-tile updates, sparse data structures, bounded mutable windows, cached/reused results, memoization where valid, retained raster/tile state, object/buffer reuse, pooled or ring-buffered temporary storage, Transferable ownership moves, SharedArrayBuffer/Atomics where justified, worker offloading, and WebGPU compute/rendering should be considered before full-document/full-history/full-frame work. An operation that can be O(delta) or bounded must not silently become O(total history/document size) on a frequent interaction path without a measured and documented reason.
+6. **Avoid redundant representation and movement of large data.** Do not repeatedly materialize cumulative arrays, clone large buffers, rebuild unchanged geometry, rerasterize stable stroke prefixes, recomposite unaffected tiles, or transfer data that can remain owned/retained in the appropriate worker/GPU/storage domain. Choose compact canonical representations and derive transient views only when needed.
+7. **Use adaptive quality and resource policies where exact full quality is not required during interaction.** Preview resolution, cache budgets, worker count, batch sizes, temporary precision, and similar parameters may adapt to device capability and interaction state when the canonical/final result remains correct. Final/export/canonical persistence paths must not silently inherit preview-only degradation.
+8. **Optimization must be evidence-aware.** Do not add complexity for hypothetical micro-optimizations. For material architectural choices, compare plausible approaches using profiling, benchmarks, complexity analysis, memory behavior, or existing empirical evidence. Prefer the simplest approach that satisfies correctness and measured performance targets, but do not choose simplicity when it causes avoidable hot-path replay, excessive memory growth, or poor scaling.
+9. **Preserve semantics while optimizing.** Lightweight techniques must not change brush semantics, color correctness, deterministic reconstruction requirements, Undo/Redo correctness, file integrity, recovery behavior, or required visual quality. When a faster approximation is used interactively, the system must converge to the canonical full-quality result where the specification requires it.
+10. **Treat external algorithm research as a recurring implementation step.** GPT/AI agents working on Illustro must not rely only on remembered general knowledge or the current codebase when a subsystem could materially benefit from established prior art. They should proactively inspect current authoritative/public technical sources and suitable open-source implementations when available, then record any consequential adopted algorithm, license obligation, or architectural rationale in this canonical memo or the corresponding implementation record.
+
+### Required implementation mindset
+
+For every substantial subsystem, ask both questions before considering the design complete:
+
+- **Can an existing mature application, published algorithm, or open implementation teach us a demonstrably better way to solve this?**
+- **Can the same behavior be achieved with less repeated work, less memory/data movement, smaller dirty scope, or better incremental/adaptive processing without sacrificing correctness?**
+
+A design that ignores either question is not considered fully evaluated merely because it functions.
+EOF
+
+          if git diff --quiet -- ILLUSTRO_DESIGN_MEMO.md; then
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'docs: mandate reference algorithms and lightweight implementation'
+          git push origin HEAD:main
