@@ -76,4 +76,18 @@ requireText('src/index.html', [
   'id="layer-move-up"',
   'id="layer-move-down"',
 ]);
+requireText('src/workers/storage.worker.ts', [
+  "type: 'storage.tile.put'",
+  "type: 'storage.tile.get'",
+  'persistRasterTile',
+  'readImmutableObject',
+  'decodeTile',
+]);
+requireText('src/app/paint-persistence-controller.ts', [
+  'paintRasterTilePayloadRefV1',
+  'parsePaintRasterTilePayloadRefV1',
+  'persistRasterTile(input:',
+  'readRasterTile(payloadRef:',
+  "type: 'storage.tile.get'",
+]);
 console.log('M5B layer system verification passed');
