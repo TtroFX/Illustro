@@ -1,0 +1,41 @@
+name: Record verified M5B Layer Comps progress
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Record verified progress and remove helper
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          replacements = {
+              'M5B-034 Layer Comps create/save:未完了': 'M5B-034 Layer Comps create/save:完了',
+              'M5B-035 Layer Comps switch:未完了': 'M5B-035 Layer Comps switch:完了',
+          }
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one {old!r}, found {count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/record-m5b-layer-comps-progress.yml
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m "chore: record verified M5B Layer Comps progress [skip ci]"
+          git push origin HEAD:main
