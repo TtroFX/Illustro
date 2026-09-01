@@ -11,6 +11,7 @@ export type PointerInputArbitrationReasonV1 =
   | 'mouse-hover'
   | 'touch-navigation'
   | 'touch-finger-drawing'
+  | 'touch-multitouch-navigation'
   | 'touch-during-pen-contact'
   | 'touch-recent-pen-large-contact'
   | 'unknown-source';
@@ -26,6 +27,7 @@ export interface PointerInputArbitrationDecisionV1 {
   readonly disposition: PointerInputDispositionV1;
   readonly reason: PointerInputArbitrationReasonV1;
   readonly forwardBatch: PointerInputBatchV1 | null;
+  readonly cancelToolPointerIds: readonly number[];
 }
 
 export interface PointerInputArbitrationSnapshotV1 {
@@ -54,7 +56,7 @@ function isTerminal(batch: PointerInputBatchV1): boolean {
 }
 
 export class PointerInputArbitrationV1 {
-  readonly #fingerDrawingEnabled: boolean;
+  #fingerDrawingEnabled: boolean;
   readonly #recentPenBiasMs: number;
   readonly #palmContactThresholdCssPx: number;
   readonly #activePenPointers = new Set<number>();
@@ -101,6 +103,11 @@ export class PointerInputArbitrationV1 {
     });
   }
 
+  setFingerDrawingEnabled(enabled: boolean): PointerInputArbitrationSnapshotV1 {
+    this.#fingerDrawingEnabled = enabled;
+    return this.snapshot();
+  }
+
   #routePen(
     batch: PointerInputBatchV1,
     sample: PointerInputSampleV1,
@@ -124,6 +131,7 @@ export class PointerInputArbitrationV1 {
   ): PointerInputArbitrationDecisionV1 {
     let disposition = this.#touchDisposition.get(batch.pointerId);
     let reason = this.#touchReason.get(batch.pointerId);
+    const cancelToolPointerIds: number[] = [];
 
     if (batch.eventType === 'pointerdown' || disposition === undefined || reason === undefined) {
       const penActive = this.#activePenPointers.size > 0;
@@ -143,6 +151,18 @@ export class PointerInputArbitrationV1 {
       } else if (this.#fingerDrawingEnabled && this.#activeTouchPointers.size === 0) {
         disposition = 'tool';
         reason = 'touch-finger-drawing';
+      } else if (this.#fingerDrawingEnabled && this.#activeTouchPointers.size > 0) {
+        disposition = 'navigation';
+        reason = 'touch-multitouch-navigation';
+        for (const pointerId of this.#activeTouchPointers) {
+          if (this.#touchDisposition.get(pointerId) === 'tool') {
+            cancelToolPointerIds.push(pointerId);
+          }
+          if (this.#touchDisposition.get(pointerId) !== 'rejected-palm') {
+            this.#touchDisposition.set(pointerId, 'navigation');
+            this.#touchReason.set(pointerId, 'touch-multitouch-navigation');
+          }
+        }
       } else {
         disposition = 'navigation';
         reason = 'touch-navigation';
@@ -157,7 +177,7 @@ export class PointerInputArbitrationV1 {
     }
 
     const forwardBatch = disposition === 'tool' ? batch : null;
-    const decision = this.#decision(disposition, reason, forwardBatch);
+    const decision = this.#decision(disposition, reason, forwardBatch, cancelToolPointerIds);
     if (isTerminal(batch)) {
       this.#activeTouchPointers.delete(batch.pointerId);
       this.#touchDisposition.delete(batch.pointerId);
@@ -170,12 +190,14 @@ export class PointerInputArbitrationV1 {
     disposition: PointerInputDispositionV1,
     reason: PointerInputArbitrationReasonV1,
     forwardBatch: PointerInputBatchV1 | null,
+    cancelToolPointerIds: readonly number[] = Object.freeze([]),
   ): PointerInputArbitrationDecisionV1 {
     return Object.freeze({
       schema: 'illustro.pointer-arbitration-decision/1' as const,
       disposition,
       reason,
       forwardBatch,
+      cancelToolPointerIds: Object.freeze([...cancelToolPointerIds]),
     });
   }
 }
