@@ -1,0 +1,133 @@
+name: Continue M5B Layer Creation Fixed
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify-record:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply corrected M5B layer creation production path
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          source = subprocess.check_output([
+              'git', 'show',
+              '412d21009078bea1b36567f3b30993f94535282e:.github/workflows/continue-m5b-layer-creation.yml'
+          ], text=True)
+          start_marker = '      - name: Apply M5B layer creation production path\n        run: |\n'
+          end_marker = '      - name: Canonical formatting\n'
+          if start_marker not in source or end_marker not in source:
+              raise SystemExit('original M5B apply block not found')
+          body = source.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          lines = []
+          for line in body.splitlines():
+              if line.startswith('          '):
+                  lines.append(line[10:])
+              elif line == '':
+                  lines.append('')
+              else:
+                  raise SystemExit(f'unexpected apply-block indentation: {line!r}')
+          Path('/tmp/apply-m5b.sh').write_text('\n'.join(lines) + '\n')
+          PY
+          bash /tmp/apply-m5b.sh
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/app/layer-workflow-controller.ts')
+          text = path.read_text().replace(
+              "import { parseLayerId, type LayerId } from '../domain/identity.js';",
+              "import { parseLayerId } from '../domain/identity.js';",
+              1,
+          )
+          path.write_text(text)
+
+          path = Path('src/index.html')
+          text = path.read_text().replace(
+              '<div id="layer-list" class="shell-inspector-list" aria-label="レイヤー一覧"></div>',
+              '<div id="layer-list" class="shell-inspector-list" role="group" aria-label="レイヤー一覧"></div>',
+              1,
+          )
+          path.write_text(text)
+
+          path = Path('scripts/verify-m5b-layer-foundation.mjs')
+          text = path.read_text().replace("'layer.create.${kind}',", "'layer.create.',", 1)
+          path.write_text(text)
+          PY
+      - name: Canonical formatting
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M2 persistence inspection
+        run: npm run verify:m2
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical-slice inspection
+        run: npm run verify:m4
+      - name: M5A inspection
+        run: npm run verify:m5a
+      - name: M5B layer creation inspection
+        run: npm run verify:m5b
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record verified M5B creation batch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          for item in [
+              'M5B-001 Raster Layer creation',
+              'M5B-002 Folder creation',
+              'M5B-003 Vector/Shape Layer creation',
+              'M5B-004 Adjustment Layer creation',
+              'M5B-005 Fill Layer creation',
+              'M5B-006 Gradient Layer creation',
+              'M5B-007 Layer Mask creation',
+              'M5B-008 Linked/File Object Layer creation',
+          ]:
+              old = f'{item}:未完了'
+              if old not in text:
+                  raise SystemExit(f'progress target missing: {old}')
+              text = text.replace(old, f'{item}:完了', 1)
+          path.write_text(text)
+          PY
+          rm .github/workflows/continue-m5b-layer-creation-fixed.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: add M5B layer creation workflows [skip ci]'
+          git push origin HEAD:main
