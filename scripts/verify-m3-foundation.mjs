@@ -113,8 +113,13 @@ requireText(deviceManager, 'device.lost.then', 'GPU device-loss detection missin
 requireText(deviceManager, "this.#state = 'recovering'", 'GPU device reconstruction path missing');
 requireText(
   rendererController,
-  "return input.workerDeviceReady && input.offscreenTransferAvailable ? 'worker' : 'main';",
-  'worker/main renderer ownership selection missing',
+  "if (input.workerDeviceReady && input.offscreenTransferAvailable) return 'worker';",
+  'worker renderer ownership selection missing',
+);
+requireText(
+  rendererController,
+  "return input.mainDeviceReady === false ? 'compatibility' : 'main';",
+  'main/compatibility renderer fallback selection missing',
 );
 requireText(
   rendererController,
@@ -122,6 +127,11 @@ requireText(
   'OffscreenCanvas transfer gate missing',
 );
 requireText(rendererController, '#startMainFallback', 'main-context WebGPU fallback missing');
+requireText(
+  rendererController,
+  '#startCompatibilityFallback',
+  'WebGPU-independent compatibility renderer fallback missing',
+);
 requireText(renderWorker, 'RendererDeviceManagerV1', 'Render Worker device ownership missing');
 requireText(renderWorker, 'installRenderInputIngressV1', 'Render Worker input ingress missing');
 
