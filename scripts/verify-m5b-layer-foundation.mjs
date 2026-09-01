@@ -56,6 +56,9 @@ requireText('src/app/layer-raster-merge.ts', [
   'prepareRasterMergeDownV1',
   'applyPreparedRasterMergeDownV1',
   'rasterMergeDownEligibilityV1',
+  'prepareRasterMergeVisibleCopyV1',
+  'applyPreparedRasterMergeVisibleCopyV1',
+  'rasterMergeVisibleCopyEligibilityV1',
   'bakedToRasterLayer',
   'persistRasterTile',
   'readRasterTile',
@@ -72,7 +75,9 @@ requireText('src/app/layer-workflow-controller.ts', [
   "'layer.clipping'",
   "'layer.clear'",
   "'layer.mergeDown'",
+  "'layer.mergeVisibleCopy'",
   'prepareRasterMergeDownV1',
+  'prepareRasterMergeVisibleCopyV1',
   'pointermove',
 ]);
 requireText('src/index.html', [
@@ -80,6 +85,7 @@ requireText('src/index.html', [
   'id="layer-delete"',
   'id="layer-clear"',
   'id="layer-merge-down"',
+  'id="layer-merge-visible-copy"',
   'id="layer-rename"',
   'id="layer-opacity"',
   'id="layer-lock"',

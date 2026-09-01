@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyPreparedRasterMergeDownV1,
+  applyPreparedRasterMergeVisibleCopyV1,
   prepareRasterMergeDownV1,
+  prepareRasterMergeVisibleCopyV1,
   rasterMergeDownEligibilityV1,
+  rasterMergeVisibleCopyEligibilityV1,
   type RasterMergePersistencePortV1,
 } from '../../src/app/layer-raster-merge.js';
 import type {
@@ -13,7 +16,7 @@ import type {
 import type { PaintProjectSnapshotV1 } from '../../src/app/paint-session-controller.js';
 import { createDocumentV1 } from '../../src/domain/document.js';
 import { parseRevision } from '../../src/domain/identity.js';
-import { createRasterLayer } from '../../src/domain/layers.js';
+import { createRasterLayer, createVectorLayer } from '../../src/domain/layers.js';
 
 class MemoryRasterPersistence implements RasterMergePersistencePortV1 {
   readonly tiles = new Map<string, PaintDecodedRasterTileV1>();
@@ -171,6 +174,109 @@ describe('M5B canonical raster merge down', () => {
     expect(rasterMergeDownEligibilityV1(changed, top.id)).toMatchObject({
       eligible: false,
       reason: expect.stringContaining('compositor'),
+    });
+  });
+});
+
+describe('M5B canonical merge visible copy', () => {
+  it('creates a new top raster copy while preserving every source layer and stroke', async () => {
+    const { snapshot, bottom, top } = fixture();
+    const persistence = new MemoryRasterPersistence();
+    const eligibility = rasterMergeVisibleCopyEligibilityV1(snapshot);
+    expect(eligibility).toMatchObject({
+      eligible: true,
+      visibleLayerIds: [bottom.id, top.id],
+    });
+
+    const prepared = await prepareRasterMergeVisibleCopyV1(snapshot, 'Merged Visible', persistence);
+    expect(prepared.sourceLayers.map((source) => source.layerId)).toEqual([bottom.id, top.id]);
+    expect(prepared.tiles).toHaveLength(1);
+    const firstTile = prepared.tiles[0];
+    expect(firstTile).toBeDefined();
+    const bytes =
+      firstTile === undefined ? undefined : persistence.tiles.get(firstTile.payloadRef)?.bytes;
+    const centerAlpha = bytes?.[(16 * 64 + 16) * 4 + 3];
+    expect(centerAlpha).toBeGreaterThanOrEqual(190);
+    expect(centerAlpha).toBeLessThanOrEqual(192);
+
+    const merged = applyPreparedRasterMergeVisibleCopyV1(
+      snapshot,
+      prepared,
+      parseRevision(1),
+      new Date(0),
+    );
+    expect(merged.document.layerTree.rootLayerIds).toEqual([
+      bottom.id,
+      top.id,
+      prepared.outputLayerId,
+    ]);
+    expect(merged.document.layerTree.layers[bottom.id]).toEqual(bottom);
+    expect(merged.document.layerTree.layers[top.id]).toEqual(top);
+    expect(merged.document.layerTree.layers[prepared.outputLayerId]).toMatchObject({
+      id: prepared.outputLayerId,
+      type: 'raster',
+      name: 'Merged Visible',
+      revision: 1,
+      visible: true,
+      tiles: [{ x: 0, y: 0, revision: 1, payloadRef: firstTile?.payloadRef }],
+    });
+    expect(merged.committedStrokes).toEqual(snapshot.committedStrokes);
+    expect(
+      merged.committedStrokes.some((entry) => entry.stroke.layerId === prepared.outputLayerId),
+    ).toBe(false);
+  });
+
+  it('preserves RGBA16F precision for merged-visible canonical tiles', async () => {
+    const { snapshot } = fixture('rgba16-float');
+    const persistence = new MemoryRasterPersistence();
+    await prepareRasterMergeVisibleCopyV1(snapshot, 'Merged Visible', persistence);
+    expect(persistence.writes[0]?.pixelFormat).toBe('rgba16-float');
+    const firstWrite = persistence.writes[0];
+    const bytes =
+      firstWrite === undefined ? undefined : persistence.tiles.get(firstWrite.payloadRef)?.bytes;
+    expect(bytes?.byteLength).toBe(64 * 64 * 8);
+  });
+
+  it('ignores hidden unsupported layers but refuses visible semantics not yet owned by M5B', () => {
+    const { snapshot, bottom, top } = fixture();
+    const vector = createVectorLayer({ name: 'Vector', visible: false });
+    const hiddenVectorSnapshot: PaintProjectSnapshotV1 = Object.freeze({
+      ...snapshot,
+      document: Object.freeze({
+        ...snapshot.document,
+        layerTree: Object.freeze({
+          rootLayerIds: Object.freeze([bottom.id, vector.id, top.id]),
+          layers: Object.freeze({
+            [bottom.id]: bottom,
+            [vector.id]: vector,
+            [top.id]: top,
+          }),
+        }),
+      }),
+    });
+    expect(rasterMergeVisibleCopyEligibilityV1(hiddenVectorSnapshot)).toMatchObject({
+      eligible: true,
+      visibleLayerIds: [bottom.id, top.id],
+    });
+
+    const visibleVector = Object.freeze({ ...vector, visible: true });
+    const visibleVectorSnapshot: PaintProjectSnapshotV1 = Object.freeze({
+      ...hiddenVectorSnapshot,
+      document: Object.freeze({
+        ...hiddenVectorSnapshot.document,
+        layerTree: Object.freeze({
+          rootLayerIds: hiddenVectorSnapshot.document.layerTree.rootLayerIds,
+          layers: Object.freeze({
+            [bottom.id]: bottom,
+            [vector.id]: visibleVector,
+            [top.id]: top,
+          }),
+        }),
+      }),
+    });
+    expect(rasterMergeVisibleCopyEligibilityV1(visibleVectorSnapshot)).toMatchObject({
+      eligible: false,
+      reason: expect.stringContaining('raster'),
     });
   });
 });

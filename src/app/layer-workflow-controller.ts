@@ -22,8 +22,11 @@ import {
 } from './layer-operations.js';
 import {
   applyPreparedRasterMergeDownV1,
+  applyPreparedRasterMergeVisibleCopyV1,
   prepareRasterMergeDownV1,
+  prepareRasterMergeVisibleCopyV1,
   rasterMergeDownEligibilityV1,
+  rasterMergeVisibleCopyEligibilityV1,
 } from './layer-raster-merge.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
@@ -99,6 +102,17 @@ function nextName(
   throw new RangeError('layer name sequence is exhausted');
 }
 
+function nextMergedVisibleName(layers: Readonly<Record<string, LayerBaseV1>>): string {
+  const base = 'Merged Visible';
+  const used = new Set(Object.values(layers).map((layer) => layer.name));
+  if (!used.has(base)) return base;
+  for (let suffix = 2; suffix < Number.MAX_SAFE_INTEGER; suffix += 1) {
+    const candidate = `${base} ${suffix}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  throw new RangeError('merged visible layer name sequence is exhausted');
+}
+
 function iconButton(
   action: string,
   label: string,
@@ -122,6 +136,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const maskButton = required<HTMLButtonElement>('#layer-add-mask');
   const duplicateButton = required<HTMLButtonElement>('#layer-duplicate');
   const mergeDownButton = required<HTMLButtonElement>('#layer-merge-down');
+  const mergeVisibleCopyButton = required<HTMLButtonElement>('#layer-merge-visible-copy');
   const deleteButton = required<HTMLButtonElement>('#layer-delete');
   const clearButton = required<HTMLButtonElement>('#layer-clear');
   const renameButton = required<HTMLButtonElement>('#layer-rename');
@@ -228,13 +243,19 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     const disabled = active === null;
     maskButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     duplicateButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
+    const projectSnapshot = options.paintSession.projectSnapshot();
     const mergeEligibility =
-      active === null
+      active === null || projectSnapshot === null
         ? null
-        : rasterMergeDownEligibilityV1(options.paintSession.projectSnapshot()!, active.id);
+        : rasterMergeDownEligibilityV1(projectSnapshot, active.id);
     mergeDownButton.disabled =
       mergeEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
     mergeDownButton.title = mergeEligibility?.reason ?? '下のレイヤーと結合';
+    const mergeVisibleEligibility =
+      projectSnapshot === null ? null : rasterMergeVisibleCopyEligibilityV1(projectSnapshot);
+    mergeVisibleCopyButton.disabled =
+      mergeVisibleEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
+    mergeVisibleCopyButton.title = mergeVisibleEligibility?.reason ?? '表示レイヤーを結合コピー';
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -380,6 +401,35 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
           (before, revision) => applyPreparedRasterMergeDownV1(before, prepared, revision),
         );
         options.paintSession.setActiveLayer(prepared.targetLayerId);
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
+  };
+
+  const onMergeVisibleCopy = (): void => {
+    options.schedule(async () => {
+      try {
+        if (options.paintSession.activeStrokeId() !== null) {
+          throw new Error('merge visible copy is unavailable while a stroke is active');
+        }
+        const current = options.paintSession.projectSnapshot();
+        if (current === null) return;
+        const prepared = await prepareRasterMergeVisibleCopyV1(
+          current,
+          nextMergedVisibleName(current.document.layerTree.layers),
+          options.paintPersistence,
+        );
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          'layer.mergeVisibleCopy',
+          (before, revision) => applyPreparedRasterMergeVisibleCopyV1(before, prepared, revision),
+        );
+        options.paintSession.setActiveLayer(prepared.outputLayerId);
         await options.paintPersistence.markDirty(transaction.transactionId);
         root.dataset.illustroLayerTransaction = transaction.transactionId;
         clearError();
@@ -640,6 +690,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   maskButton.addEventListener('click', onMask);
   duplicateButton.addEventListener('click', onDuplicate);
   mergeDownButton.addEventListener('click', onMergeDown);
+  mergeVisibleCopyButton.addEventListener('click', onMergeVisibleCopy);
   deleteButton.addEventListener('click', onDelete);
   clearButton.addEventListener('click', onClear);
   renameButton.addEventListener('click', onRename);
@@ -668,6 +719,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       maskButton.removeEventListener('click', onMask);
       duplicateButton.removeEventListener('click', onDuplicate);
       mergeDownButton.removeEventListener('click', onMergeDown);
+      mergeVisibleCopyButton.removeEventListener('click', onMergeVisibleCopy);
       deleteButton.removeEventListener('click', onDelete);
       clearButton.removeEventListener('click', onClear);
       renameButton.removeEventListener('click', onRename);

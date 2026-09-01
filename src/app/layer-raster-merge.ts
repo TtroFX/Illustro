@@ -1,5 +1,9 @@
 import { parseRevision, type LayerId, type Revision } from '../domain/identity.js';
-import type { RasterLayerV1, RasterTileReferenceV1 } from '../domain/layers.js';
+import {
+  createRasterLayer,
+  type RasterLayerV1,
+  type RasterTileReferenceV1,
+} from '../domain/layers.js';
 import {
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
@@ -44,6 +48,26 @@ export interface PreparedRasterMergeDownV1 {
   readonly sourceLayerRevision: Revision;
   readonly targetLayerRevision: Revision;
   readonly documentRevision: Revision;
+  readonly tiles: readonly PreparedRasterMergeTileV1[];
+}
+
+export interface RasterMergeVisibleCopyEligibilityV1 {
+  readonly eligible: boolean;
+  readonly visibleLayerIds: readonly LayerId[];
+  readonly reason: string | null;
+}
+
+export interface PreparedRasterMergeVisibleCopySourceV1 {
+  readonly layerId: LayerId;
+  readonly revision: Revision;
+}
+
+export interface PreparedRasterMergeVisibleCopyV1 {
+  readonly schema: 'illustro.prepared-raster-merge-visible-copy/1';
+  readonly outputLayerId: LayerId;
+  readonly outputLayerName: string;
+  readonly documentRevision: Revision;
+  readonly sourceLayers: readonly PreparedRasterMergeVisibleCopySourceV1[];
   readonly tiles: readonly PreparedRasterMergeTileV1[];
 }
 
@@ -112,6 +136,67 @@ export function rasterMergeDownEligibilityV1(
     sourceLayerId,
     targetLayerId,
     reason,
+  });
+}
+
+function visibleCopyRasterReason(layer: RasterLayerV1): string | null {
+  if (layer.opacity !== 1)
+    return 'merge visible copy opacity baking requires the compositor milestone';
+  if (layer.blendMode !== 'normal')
+    return 'merge visible copy blend baking requires the compositor milestone';
+  if (layer.clipping !== null)
+    return 'merge visible copy clipping baking requires compositor integration';
+  if (layer.masks.length > 0)
+    return 'merge visible copy mask baking requires mask compositor integration';
+  if (layer.transformStack.length > 0)
+    return 'merge visible copy transform baking requires rasterize integration';
+  if (layer.effectStack.length > 0)
+    return 'merge visible copy effect baking requires effect compositor integration';
+  return null;
+}
+
+export function rasterMergeVisibleCopyEligibilityV1(
+  snapshot: PaintProjectSnapshotV1,
+): RasterMergeVisibleCopyEligibilityV1 {
+  const visibleLayerIds: LayerId[] = [];
+  for (const layerId of snapshot.document.layerTree.rootLayerIds) {
+    const layer = snapshot.document.layerTree.layers[layerId];
+    if (layer === undefined) {
+      return Object.freeze({
+        eligible: false,
+        visibleLayerIds: Object.freeze([...visibleLayerIds]),
+        reason: 'merge visible copy found a missing root layer',
+      });
+    }
+    if (!layer.visible || layer.type === 'lineartBoundary') continue;
+    visibleLayerIds.push(layerId);
+    if (layer.type !== 'raster') {
+      return Object.freeze({
+        eligible: false,
+        visibleLayerIds: Object.freeze([...visibleLayerIds]),
+        reason: 'baseline merge visible copy currently requires visible raster artwork layers',
+      });
+    }
+    const reason = visibleCopyRasterReason(layer as RasterLayerV1);
+    if (reason !== null) {
+      return Object.freeze({
+        eligible: false,
+        visibleLayerIds: Object.freeze([...visibleLayerIds]),
+        reason,
+      });
+    }
+  }
+  if (visibleLayerIds.length === 0) {
+    return Object.freeze({
+      eligible: false,
+      visibleLayerIds: Object.freeze([]),
+      reason: 'merge visible copy requires at least one visible artwork layer',
+    });
+  }
+  return Object.freeze({
+    eligible: true,
+    visibleLayerIds: Object.freeze([...visibleLayerIds]),
+    reason: null,
   });
 }
 
@@ -508,5 +593,146 @@ export function applyPreparedRasterMergeDownV1(
       }),
     }),
     committedStrokes: Object.freeze(committedStrokes),
+  });
+}
+
+export async function prepareRasterMergeVisibleCopyV1(
+  snapshot: PaintProjectSnapshotV1,
+  outputLayerName: string,
+  persistence: RasterMergePersistencePortV1,
+): Promise<PreparedRasterMergeVisibleCopyV1> {
+  const eligibility = rasterMergeVisibleCopyEligibilityV1(snapshot);
+  if (!eligibility.eligible) {
+    throw new Error(eligibility.reason ?? 'merge visible copy is unavailable');
+  }
+  const outputTemplate = createRasterLayer({ name: outputLayerName });
+  const width = snapshot.document.canvas.width;
+  const height = snapshot.document.canvas.height;
+  const format = snapshot.document.color.precision;
+  const sourceStates = eligibility.visibleLayerIds.map((layerId) => {
+    const layer = snapshot.document.layerTree.layers[layerId];
+    if (layer?.type !== 'raster') throw new Error('merge visible copy source changed');
+    const raster = layer as RasterLayerV1;
+    return Object.freeze({
+      layer: raster,
+      strokes: unbakedLayerStrokes(snapshot, layerId),
+      refs: indexTileReferences(raster),
+    });
+  });
+  const coordinates = new Map<string, TileCoordinateV1>();
+  for (const state of sourceStates) {
+    for (const [key, coordinate] of touchedCoordinates(state.layer, state.strokes, width, height)) {
+      coordinates.set(key, coordinate);
+    }
+  }
+  const tiles: PreparedRasterMergeTileV1[] = [];
+  for (const [key, coordinate] of [...coordinates.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const bounds = tileBoundsForDocumentV1(width, height, coordinate);
+    let composite = new Float32Array(bounds.validWidth * bounds.validHeight * 4);
+    for (const state of sourceStates) {
+      const layerPixels = await loadLayerTile(
+        persistence,
+        state.refs.get(key),
+        format,
+        bounds.validWidth,
+        bounds.validHeight,
+      );
+      rasterizeStrokes(
+        layerPixels,
+        state.strokes,
+        bounds.x,
+        bounds.y,
+        bounds.validWidth,
+        bounds.validHeight,
+      );
+      composite = sourceOver(composite, layerPixels);
+    }
+    if (!hasCoverage(composite)) continue;
+    const persisted = await persistence.persistRasterTile({
+      width: bounds.validWidth,
+      height: bounds.validHeight,
+      pixelFormat: format,
+      bytes: encodePremultipliedToStraight(composite, format),
+    });
+    tiles.push(
+      Object.freeze({ x: coordinate.tx, y: coordinate.ty, payloadRef: persisted.payloadRef }),
+    );
+  }
+  return Object.freeze({
+    schema: 'illustro.prepared-raster-merge-visible-copy/1' as const,
+    outputLayerId: outputTemplate.id,
+    outputLayerName: outputTemplate.name,
+    documentRevision: snapshot.document.revision,
+    sourceLayers: Object.freeze(
+      sourceStates.map((state) =>
+        Object.freeze({ layerId: state.layer.id, revision: state.layer.revision }),
+      ),
+    ),
+    tiles: Object.freeze(tiles),
+  });
+}
+
+export function applyPreparedRasterMergeVisibleCopyV1(
+  snapshot: PaintProjectSnapshotV1,
+  prepared: PreparedRasterMergeVisibleCopyV1,
+  revisionValue: Revision | number,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  const revision = parseRevision(revisionValue);
+  if (snapshot.document.revision !== prepared.documentRevision) {
+    throw new Error('merge visible copy document changed before commit');
+  }
+  if (prepared.outputLayerId in snapshot.document.layerTree.layers) {
+    throw new Error('merge visible copy output layer identity already exists');
+  }
+  const eligibility = rasterMergeVisibleCopyEligibilityV1(snapshot);
+  if (!eligibility.eligible) {
+    throw new Error(eligibility.reason ?? 'merge visible copy is unavailable');
+  }
+  if (
+    eligibility.visibleLayerIds.length !== prepared.sourceLayers.length ||
+    eligibility.visibleLayerIds.some(
+      (layerId, index) => layerId !== prepared.sourceLayers[index]?.layerId,
+    )
+  ) {
+    throw new Error('merge visible copy source set changed before commit');
+  }
+  for (const source of prepared.sourceLayers) {
+    const layer = snapshot.document.layerTree.layers[source.layerId];
+    if (layer?.type !== 'raster' || layer.revision !== source.revision) {
+      throw new Error('merge visible copy source changed before commit');
+    }
+  }
+  const outputLayer = Object.freeze({
+    ...createRasterLayer({ id: prepared.outputLayerId, name: prepared.outputLayerName }),
+    revision,
+    tiles: Object.freeze(
+      prepared.tiles.map(
+        (tile): RasterTileReferenceV1 =>
+          Object.freeze({ x: tile.x, y: tile.y, revision, payloadRef: tile.payloadRef }),
+      ),
+    ),
+    boundsHint: null,
+  }) as RasterLayerV1;
+  return Object.freeze({
+    schema: 'illustro.paint-project-snapshot/1' as const,
+    document: Object.freeze({
+      ...snapshot.document,
+      revision,
+      modifiedAt: now.toISOString(),
+      layerTree: Object.freeze({
+        rootLayerIds: Object.freeze([
+          ...snapshot.document.layerTree.rootLayerIds,
+          prepared.outputLayerId,
+        ]),
+        layers: Object.freeze({
+          ...snapshot.document.layerTree.layers,
+          [prepared.outputLayerId]: outputLayer,
+        }),
+      }),
+    }),
+    committedStrokes: snapshot.committedStrokes,
   });
 }
