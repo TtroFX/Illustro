@@ -283,7 +283,7 @@ M5B-014 layer opacity:完了
 M5B-015 layer lock:完了
 M5B-016 alpha lock:完了
 M5B-017 clipping:完了
-M5B-018 layer clear:未完了
+M5B-018 layer clear:完了
 M5B-019 merge down:未完了
 M5B-020 merge visible copy:未完了
 M5B-021 rasterize:未完了

@@ -538,3 +538,60 @@ export function setLayerClippingSnapshotV1(
     });
   });
 }
+
+export function clearLayerSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  layerId: LayerId,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  const layer = requireLayerV1(snapshot, layerId);
+  if (layer.locks.all || layer.locks.pixels) {
+    throw new Error('layer clear is blocked by the layer pixel lock');
+  }
+
+  if (layer.type === 'raster') {
+    const raster = layer as RasterLayerV1;
+    const hasCommittedPaint = snapshot.committedStrokes.some(
+      (entry) => entry.stroke.layerId === layerId,
+    );
+    if (raster.tiles.length === 0 && !hasCommittedPaint) {
+      throw new Error('raster layer clear has no changes');
+    }
+    const cleared = Object.freeze({
+      ...raster,
+      revision,
+      tiles: Object.freeze([]),
+      boundsHint: null,
+    }) as RasterLayerV1;
+    return documentWithStateV1(
+      snapshot,
+      revision,
+      snapshot.document.layerTree.rootLayerIds,
+      { ...snapshot.document.layerTree.layers, [layerId]: cleared },
+      snapshot.committedStrokes.filter((entry) => entry.stroke.layerId !== layerId),
+      now,
+    );
+  }
+
+  if (layer.type === 'vector') {
+    const vector = layer as VectorLayerV1;
+    if (vector.objects.length === 0) throw new Error('vector layer clear has no changes');
+    const cleared = Object.freeze({
+      ...vector,
+      revision,
+      objects: Object.freeze([]),
+      boundsHint: null,
+    }) as VectorLayerV1;
+    return documentWithStateV1(
+      snapshot,
+      revision,
+      snapshot.document.layerTree.rootLayerIds,
+      { ...snapshot.document.layerTree.layers, [layerId]: cleared },
+      snapshot.committedStrokes,
+      now,
+    );
+  }
+
+  throw new Error(`layer clear is not applicable to ${layer.type} layers`);
+}

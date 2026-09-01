@@ -9,6 +9,7 @@ import {
   type CreatableLayerKindV1,
 } from './layer-creation.js';
 import {
+  clearLayerSnapshotV1,
   deleteRootLayerSnapshotV1,
   duplicateRootLayerSnapshotV1,
   renameLayerSnapshotV1,
@@ -116,6 +117,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const maskButton = required<HTMLButtonElement>('#layer-add-mask');
   const duplicateButton = required<HTMLButtonElement>('#layer-duplicate');
   const deleteButton = required<HTMLButtonElement>('#layer-delete');
+  const clearButton = required<HTMLButtonElement>('#layer-clear');
   const renameButton = required<HTMLButtonElement>('#layer-rename');
   const moveUpButton = required<HTMLButtonElement>('#layer-move-up');
   const moveDownButton = required<HTMLButtonElement>('#layer-move-down');
@@ -221,6 +223,11 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     maskButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     duplicateButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     deleteButton.disabled = disabled;
+    clearButton.disabled =
+      disabled ||
+      (active?.layer.type !== 'raster' && active?.layer.type !== 'vector') ||
+      active.layer.locks.all ||
+      active.layer.locks.pixels;
     renameButton.disabled = disabled;
     lockButton.disabled = disabled;
     alphaLockButton.disabled = disabled;
@@ -352,6 +359,16 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       'layer.delete',
       (before, revision) => deleteRootLayerSnapshotV1(before, layerId, revision),
       () => fallback,
+    );
+  };
+
+  const onClear = (): void => {
+    const layerId = options.paintSession.activeLayerId();
+    if (layerId === null) return;
+    commitMutation(
+      'layer.clear',
+      (before, revision) => clearLayerSnapshotV1(before, layerId, revision),
+      () => layerId,
     );
   };
 
@@ -579,6 +596,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   maskButton.addEventListener('click', onMask);
   duplicateButton.addEventListener('click', onDuplicate);
   deleteButton.addEventListener('click', onDelete);
+  clearButton.addEventListener('click', onClear);
   renameButton.addEventListener('click', onRename);
   renameForm.addEventListener('submit', onRenameSubmit);
   renameCancel.addEventListener('click', onRenameCancel);
@@ -605,6 +623,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       maskButton.removeEventListener('click', onMask);
       duplicateButton.removeEventListener('click', onDuplicate);
       deleteButton.removeEventListener('click', onDelete);
+      clearButton.removeEventListener('click', onClear);
       renameButton.removeEventListener('click', onRename);
       renameForm.removeEventListener('submit', onRenameSubmit);
       renameCancel.removeEventListener('click', onRenameCancel);
