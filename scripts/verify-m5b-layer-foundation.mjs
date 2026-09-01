@@ -193,4 +193,17 @@ requireText('src/app/layer-workflow-controller.ts', [
   'folderLayerTransformEligibilityV1',
   'applyFolderAffineTransformSnapshotV1',
 ]);
+requireText('src/app/layer-search.ts', [
+  'normalizeLayerSearchQueryV1',
+  'layerSearchTokensV1',
+  'matchesLayerSearchV1',
+  "normalize('NFKC')",
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#layer-search'",
+  "'#layer-search-count'",
+  'matchesLayerSearchV1',
+  'illustroLayerSearchMatches',
+]);
+requireText('src/index.html', ['id="layer-search"', 'id="layer-search-count"']);
 console.log('M5B layer system verification passed');

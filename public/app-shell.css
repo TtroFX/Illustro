@@ -322,6 +322,46 @@ body {
   width: 42%;
 }
 
+.shell-layer-search {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 8px 0;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 1px solid #e2e7f0;
+  border-radius: 9px;
+  background: #f8faff;
+  color: #7b879d;
+}
+
+.shell-layer-search input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #1f2942;
+  font: inherit;
+  font-size: 11px;
+}
+
+.shell-layer-search input::placeholder {
+  color: #98a3b6;
+}
+
+.shell-layer-search:focus-within {
+  border-color: #a9c8ff;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 10%);
+}
+
+.shell-layer-search output {
+  min-width: 18px;
+  color: #8a96aa;
+  font-size: 9px;
+  text-align: right;
+}
+
 .shell-inspector-list {
   display: grid;
   min-inline-size: 0;
