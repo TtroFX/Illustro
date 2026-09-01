@@ -31,6 +31,18 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Apply layer filtering implementation
         run: python scripts/.tmp-implement-m5b-layer-filtering.py
+      - name: Repair filter exhaustiveness
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/layer-filter.ts')
+          text = path.read_text()
+          old = "    case 'state:masked':\n      return layer.masks.length > 0;\n  }\n}"
+          new = "    case 'state:masked':\n      return layer.masks.length > 0;\n  }\n  return false;\n}"
+          if text.count(old) != 1:
+              raise SystemExit('filter exhaustiveness anchor mismatch')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Canonical formatting
         run: npm run format
       - name: Formatting check
