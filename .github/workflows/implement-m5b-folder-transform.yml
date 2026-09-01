@@ -31,6 +31,18 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Apply folder transform implementation
         run: python scripts/.tmp-implement-m5b-folder-transform.py
+      - name: Repair folder type narrowing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/layer-folder-transform.ts')
+          text = path.read_text()
+          old = "  if (layer.role !== 'normal') {"
+          new = "  const folder = layer as FolderLayerV1;\n  if (folder.role !== 'normal') {"
+          if text.count(old) != 1:
+              raise SystemExit('folder narrowing anchor mismatch')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Canonical formatting
         run: npm run format
       - name: Formatting check
