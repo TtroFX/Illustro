@@ -1,0 +1,754 @@
+name: Implement M5B Layer Horizontal Flip
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Capture checked out identity
+        run: echo "ILLUSTRO_BUILD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Verify deployment branches
+        run: |
+          git fetch origin preview:refs/remotes/origin/preview
+          git show-ref --verify refs/remotes/origin/preview
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply layer horizontal flip implementation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one anchor in {path}; found {count}: {old[:140]!r}')
+              file.write_text(text.replace(old, new, 1))
+
+          Path('src/app/layer-raster-flip.ts').write_text(r'''import { parseRevision, type LayerId, type Revision } from '../domain/identity.js';
+          import type { RasterLayerV1, RasterTileReferenceV1 } from '../domain/layers.js';
+          import {
+            CANONICAL_TILE_SIZE_PX,
+            tileBoundsForDocumentV1,
+          } from '../gpu/sparse-tile-model.js';
+          import type {
+            PaintDecodedRasterTileV1,
+            PaintRasterTilePixelFormatV1,
+          } from './paint-persistence-controller.js';
+          import type { PaintProjectSnapshotV1 } from './paint-session-controller.js';
+          import type {
+            PreparedRasterMergeTileV1,
+            RasterMergePersistencePortV1,
+          } from './layer-raster-merge.js';
+          import { prepareLayerRasterizeV1 } from './layer-rasterize.js';
+
+          export type LayerRasterFlipAxisV1 = 'horizontal' | 'vertical';
+
+          export interface LayerRasterFlipEligibilityV1 {
+            readonly eligible: boolean;
+            readonly layerId: LayerId;
+            readonly reason: string | null;
+          }
+
+          export interface PreparedLayerRasterFlipV1 {
+            readonly schema: 'illustro.prepared-layer-raster-flip/1';
+            readonly layerId: LayerId;
+            readonly axis: LayerRasterFlipAxisV1;
+            readonly sourceRevision: Revision;
+            readonly documentRevision: Revision;
+            readonly tiles: readonly PreparedRasterMergeTileV1[];
+          }
+
+          interface MutableDestinationTileV1 {
+            readonly x: number;
+            readonly y: number;
+            readonly width: number;
+            readonly height: number;
+            readonly bytes: Uint8Array<ArrayBuffer>;
+          }
+
+          function unavailable(layerId: LayerId, reason: string): LayerRasterFlipEligibilityV1 {
+            return Object.freeze({ eligible: false, layerId, reason });
+          }
+
+          function hasUnbakedLayerStrokeV1(snapshot: PaintProjectSnapshotV1, layerId: LayerId): boolean {
+            return snapshot.committedStrokes.some(
+              (entry) => entry.stroke.layerId === layerId && entry.bakedToRasterLayer !== true,
+            );
+          }
+
+          export function layerRasterFlipEligibilityV1(
+            snapshot: PaintProjectSnapshotV1,
+            layerId: LayerId,
+          ): LayerRasterFlipEligibilityV1 {
+            const layer = snapshot.document.layerTree.layers[layerId];
+            if (layer === undefined) return unavailable(layerId, 'layer flip target is missing');
+            if (layer.type !== 'raster') {
+              return unavailable(layerId, 'layer flip currently requires a Raster Layer');
+            }
+            if (layer.locks.all || layer.locks.pixels || layer.locks.position) {
+              return unavailable(layerId, 'layer flip is blocked by the layer pixel/position lock');
+            }
+            if (layer.transformStack.length > 0) {
+              return unavailable(
+                layerId,
+                'layer flip under a live transform requires transform renderer integration',
+              );
+            }
+            if (layer.effectStack.length > 0) {
+              return unavailable(
+                layerId,
+                'layer flip with live effects requires effect compositor integration',
+              );
+            }
+            const hasUnbakedStroke = hasUnbakedLayerStrokeV1(snapshot, layerId);
+            if ((layer as RasterLayerV1).tiles.length === 0 && !hasUnbakedStroke) {
+              return unavailable(layerId, 'layer flip requires raster content');
+            }
+            return Object.freeze({ eligible: true, layerId, reason: null });
+          }
+
+          function assertTileContract(
+            tile: PaintDecodedRasterTileV1,
+            format: PaintRasterTilePixelFormatV1,
+            width: number,
+            height: number,
+          ): void {
+            if (tile.pixelFormat !== format || tile.width !== width || tile.height !== height) {
+              throw new Error('canonical layer flip tile does not match the document tile contract');
+            }
+            const expectedLength = width * height * (format === 'rgba8-unorm' ? 4 : 8);
+            if (tile.bytes.byteLength !== expectedLength) {
+              throw new Error('canonical layer flip tile byte length is invalid');
+            }
+          }
+
+          async function sourceTilesV1(
+            snapshot: PaintProjectSnapshotV1,
+            layer: RasterLayerV1,
+            persistence: RasterMergePersistencePortV1,
+          ): Promise<readonly PreparedRasterMergeTileV1[]> {
+            if (hasUnbakedLayerStrokeV1(snapshot, layer.id)) {
+              return (await prepareLayerRasterizeV1(snapshot, layer.id, persistence)).tiles;
+            }
+            return Object.freeze(
+              layer.tiles.map((tile) =>
+                Object.freeze({ x: tile.x, y: tile.y, payloadRef: tile.payloadRef }),
+              ),
+            );
+          }
+
+          function destinationCoordinateV1(
+            axis: LayerRasterFlipAxisV1,
+            width: number,
+            height: number,
+            sourceX: number,
+            sourceY: number,
+          ): readonly [number, number] {
+            if (axis === 'horizontal') return [width - 1 - sourceX, sourceY];
+            if (axis === 'vertical') return [sourceX, height - 1 - sourceY];
+            throw new TypeError(`unsupported layer flip axis: ${String(axis)}`);
+          }
+
+          function destinationTileV1(
+            staged: Map<string, MutableDestinationTileV1>,
+            width: number,
+            height: number,
+            pixelFormat: PaintRasterTilePixelFormatV1,
+            documentX: number,
+            documentY: number,
+          ): MutableDestinationTileV1 {
+            const tx = Math.floor(documentX / CANONICAL_TILE_SIZE_PX);
+            const ty = Math.floor(documentY / CANONICAL_TILE_SIZE_PX);
+            const key = `${tx}:${ty}`;
+            const existing = staged.get(key);
+            if (existing !== undefined) return existing;
+            const bounds = tileBoundsForDocumentV1(width, height, { tx, ty });
+            const bytesPerPixel = pixelFormat === 'rgba8-unorm' ? 4 : 8;
+            const created: MutableDestinationTileV1 = {
+              x: tx,
+              y: ty,
+              width: bounds.validWidth,
+              height: bounds.validHeight,
+              bytes: new Uint8Array(bounds.validWidth * bounds.validHeight * bytesPerPixel),
+            };
+            staged.set(key, created);
+            return created;
+          }
+
+          export async function prepareLayerRasterFlipV1(
+            snapshot: PaintProjectSnapshotV1,
+            layerId: LayerId,
+            axis: LayerRasterFlipAxisV1,
+            persistence: RasterMergePersistencePortV1,
+          ): Promise<PreparedLayerRasterFlipV1> {
+            const eligibility = layerRasterFlipEligibilityV1(snapshot, layerId);
+            if (!eligibility.eligible) {
+              throw new Error(eligibility.reason ?? 'layer flip is unavailable');
+            }
+            const source = snapshot.document.layerTree.layers[layerId];
+            if (source?.type !== 'raster') throw new Error('layer flip source changed');
+            const width = snapshot.document.canvas.width;
+            const height = snapshot.document.canvas.height;
+            const pixelFormat = snapshot.document.color.precision;
+            const bytesPerPixel = pixelFormat === 'rgba8-unorm' ? 4 : 8;
+            const staged = new Map<string, MutableDestinationTileV1>();
+            const materialized = await sourceTilesV1(
+              snapshot,
+              source as RasterLayerV1,
+              persistence,
+            );
+            for (const tile of [...materialized].sort(
+              (left, right) => left.y - right.y || left.x - right.x,
+            )) {
+              const bounds = tileBoundsForDocumentV1(width, height, { tx: tile.x, ty: tile.y });
+              const decoded = await persistence.readRasterTile(tile.payloadRef);
+              assertTileContract(decoded, pixelFormat, bounds.validWidth, bounds.validHeight);
+              for (let localY = 0; localY < bounds.validHeight; localY += 1) {
+                for (let localX = 0; localX < bounds.validWidth; localX += 1) {
+                  const sourceX = bounds.x + localX;
+                  const sourceY = bounds.y + localY;
+                  const [destinationX, destinationY] = destinationCoordinateV1(
+                    axis,
+                    width,
+                    height,
+                    sourceX,
+                    sourceY,
+                  );
+                  const target = destinationTileV1(
+                    staged,
+                    width,
+                    height,
+                    pixelFormat,
+                    destinationX,
+                    destinationY,
+                  );
+                  const targetBounds = tileBoundsForDocumentV1(width, height, {
+                    tx: target.x,
+                    ty: target.y,
+                  });
+                  const sourceOffset =
+                    (localY * bounds.validWidth + localX) * bytesPerPixel;
+                  const targetOffset =
+                    ((destinationY - targetBounds.y) * target.width +
+                      (destinationX - targetBounds.x)) *
+                    bytesPerPixel;
+                  target.bytes.set(
+                    decoded.bytes.subarray(sourceOffset, sourceOffset + bytesPerPixel),
+                    targetOffset,
+                  );
+                }
+              }
+            }
+            const tiles: PreparedRasterMergeTileV1[] = [];
+            for (const tile of [...staged.values()].sort(
+              (left, right) => left.y - right.y || left.x - right.x,
+            )) {
+              const persisted = await persistence.persistRasterTile({
+                width: tile.width,
+                height: tile.height,
+                pixelFormat,
+                bytes: tile.bytes,
+              });
+              tiles.push(Object.freeze({ x: tile.x, y: tile.y, payloadRef: persisted.payloadRef }));
+            }
+            return Object.freeze({
+              schema: 'illustro.prepared-layer-raster-flip/1' as const,
+              layerId,
+              axis,
+              sourceRevision: source.revision,
+              documentRevision: snapshot.document.revision,
+              tiles: Object.freeze(tiles),
+            });
+          }
+
+          export function applyPreparedLayerRasterFlipV1(
+            snapshot: PaintProjectSnapshotV1,
+            prepared: PreparedLayerRasterFlipV1,
+            revisionValue: Revision | number,
+            now: Date = new Date(),
+          ): PaintProjectSnapshotV1 {
+            const revision = parseRevision(revisionValue);
+            if (snapshot.document.revision !== prepared.documentRevision) {
+              throw new Error('layer flip document changed before commit');
+            }
+            const source = snapshot.document.layerTree.layers[prepared.layerId];
+            if (source?.type !== 'raster' || source.revision !== prepared.sourceRevision) {
+              throw new Error('layer flip source changed before commit');
+            }
+            const eligibility = layerRasterFlipEligibilityV1(snapshot, prepared.layerId);
+            if (!eligibility.eligible) {
+              throw new Error(eligibility.reason ?? 'layer flip is unavailable');
+            }
+            const flipped = Object.freeze({
+              ...source,
+              revision,
+              boundsHint: null,
+              tiles: Object.freeze(
+                prepared.tiles.map(
+                  (tile): RasterTileReferenceV1 =>
+                    Object.freeze({
+                      x: tile.x,
+                      y: tile.y,
+                      revision,
+                      payloadRef: tile.payloadRef,
+                    }),
+                ),
+              ),
+            }) as RasterLayerV1;
+            const committedStrokes = snapshot.committedStrokes.map((entry) =>
+              entry.stroke.layerId === prepared.layerId
+                ? Object.freeze({ ...entry, bakedToRasterLayer: true })
+                : entry,
+            );
+            return Object.freeze({
+              schema: 'illustro.paint-project-snapshot/1' as const,
+              document: Object.freeze({
+                ...snapshot.document,
+                revision,
+                modifiedAt: now.toISOString(),
+                layerTree: Object.freeze({
+                  rootLayerIds: snapshot.document.layerTree.rootLayerIds,
+                  layers: Object.freeze({
+                    ...snapshot.document.layerTree.layers,
+                    [prepared.layerId]: flipped,
+                  }),
+                }),
+              }),
+              committedStrokes: Object.freeze(committedStrokes),
+            });
+          }
+          ''')
+
+          Path('tests/unit/layer-raster-flip.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import {
+            applyPreparedLayerRasterFlipV1,
+            layerRasterFlipEligibilityV1,
+            prepareLayerRasterFlipV1,
+          } from '../../src/app/layer-raster-flip.js';
+          import type { RasterMergePersistencePortV1 } from '../../src/app/layer-raster-merge.js';
+          import type {
+            PaintDecodedRasterTileV1,
+            PaintPersistedRasterTileV1,
+            PaintRasterTilePixelFormatV1,
+          } from '../../src/app/paint-persistence-controller.js';
+          import type { PaintProjectSnapshotV1 } from '../../src/app/paint-session-controller.js';
+          import { createDocumentV1 } from '../../src/domain/document.js';
+          import { parseRevision } from '../../src/domain/identity.js';
+          import {
+            createRasterLayer,
+            createRasterTileReference,
+            createVectorLayer,
+          } from '../../src/domain/layers.js';
+
+          class MemoryRasterPersistence implements RasterMergePersistencePortV1 {
+            readonly tiles = new Map<string, PaintDecodedRasterTileV1>();
+            readonly writes: PaintPersistedRasterTileV1[] = [];
+
+            seed(input: {
+              readonly payloadRef: string;
+              readonly width: number;
+              readonly height: number;
+              readonly pixelFormat: PaintRasterTilePixelFormatV1;
+              readonly bytes: Uint8Array;
+            }): void {
+              this.tiles.set(
+                input.payloadRef,
+                Object.freeze({
+                  schema: 'illustro.paint-decoded-raster-tile/1' as const,
+                  payloadRef: input.payloadRef,
+                  objectHash: input.payloadRef.replace('sha256:', ''),
+                  codec: 'raw' as const,
+                  pixelFormat: input.pixelFormat,
+                  width: input.width,
+                  height: input.height,
+                  bytes: new Uint8Array(input.bytes),
+                }),
+              );
+            }
+
+            async readRasterTile(payloadRef: string): Promise<PaintDecodedRasterTileV1> {
+              const tile = this.tiles.get(payloadRef);
+              if (tile === undefined) throw new Error(`missing tile ${payloadRef}`);
+              return tile;
+            }
+
+            async persistRasterTile(input: {
+              readonly width: number;
+              readonly height: number;
+              readonly pixelFormat: PaintRasterTilePixelFormatV1;
+              readonly bytes: Uint8Array | ArrayBuffer;
+            }): Promise<PaintPersistedRasterTileV1> {
+              const index = this.writes.length + 1;
+              const objectHash = index.toString(16).padStart(64, '0');
+              const payloadRef = `sha256:${objectHash}`;
+              const bytes =
+                input.bytes instanceof Uint8Array
+                  ? new Uint8Array(input.bytes)
+                  : new Uint8Array(input.bytes.slice(0));
+              this.tiles.set(
+                payloadRef,
+                Object.freeze({
+                  schema: 'illustro.paint-decoded-raster-tile/1' as const,
+                  payloadRef,
+                  objectHash,
+                  codec: 'raw' as const,
+                  pixelFormat: input.pixelFormat,
+                  width: input.width,
+                  height: input.height,
+                  bytes,
+                }),
+              );
+              const persisted = Object.freeze({
+                schema: 'illustro.paint-persisted-raster-tile/1' as const,
+                payloadRef,
+                objectHash,
+                codec: 'raw' as const,
+                pixelFormat: input.pixelFormat,
+                width: input.width,
+                height: input.height,
+                rawByteLength: bytes.byteLength,
+                encodedByteLength: bytes.byteLength,
+              });
+              this.writes.push(persisted);
+              return persisted;
+            }
+          }
+
+          function snapshotWith(
+            layer: ReturnType<typeof createRasterLayer> | ReturnType<typeof createVectorLayer>,
+            input: {
+              readonly width?: number;
+              readonly height?: number;
+              readonly precision?: 'rgba8-unorm' | 'rgba16-float';
+              readonly committedStrokes?: PaintProjectSnapshotV1['committedStrokes'];
+            } = {},
+          ): PaintProjectSnapshotV1 {
+            const document = createDocumentV1({
+              width: input.width ?? 2,
+              height: input.height ?? 1,
+              precision: input.precision ?? 'rgba8-unorm',
+            });
+            return Object.freeze({
+              schema: 'illustro.paint-project-snapshot/1' as const,
+              document: Object.freeze({
+                ...document,
+                layerTree: Object.freeze({
+                  rootLayerIds: Object.freeze([layer.id]),
+                  layers: Object.freeze({ [layer.id]: layer }),
+                }),
+              }),
+              committedStrokes: input.committedStrokes ?? Object.freeze([]),
+            });
+          }
+
+          function unbakedStroke(layerId: string): PaintProjectSnapshotV1['committedStrokes'][number] {
+            return Object.freeze({
+              stroke: Object.freeze({
+                schema: 'illustro.paint-stroke/1' as const,
+                strokeId: '22222222-2222-4222-8222-222222222222',
+                pointerId: 1,
+                source: 'pen' as const,
+                layerId: layerId as never,
+                samples: Object.freeze([]),
+              }),
+              dabs: Object.freeze([
+                Object.freeze({
+                  schema: 'illustro.baseline-brush-dab/1' as const,
+                  x: 20,
+                  y: 20,
+                  radius: 5,
+                  radiusX: 5,
+                  radiusY: 5,
+                  opacity: 1,
+                }),
+              ]),
+              bakedToRasterLayer: false,
+            });
+          }
+
+          function pixel(bytes: Uint8Array, width: number, x: number, y = 0): number[] {
+            const offset = (y * width + x) * 4;
+            return [...bytes.slice(offset, offset + 4)];
+          }
+
+          describe('M5B layer horizontal flip', () => {
+            it('requires editable Raster Layer content and respects position lock', () => {
+              const emptyRaster = createRasterLayer({ name: 'Empty' });
+              expect(layerRasterFlipEligibilityV1(snapshotWith(emptyRaster), emptyRaster.id)).toMatchObject({
+                eligible: false,
+                reason: expect.stringContaining('requires raster content'),
+              });
+
+              const vector = createVectorLayer({ name: 'Vector' });
+              expect(layerRasterFlipEligibilityV1(snapshotWith(vector), vector.id)).toMatchObject({
+                eligible: false,
+                reason: expect.stringContaining('Raster Layer'),
+              });
+
+              const locked = createRasterLayer({
+                name: 'Locked',
+                locks: { position: true },
+                tiles: [
+                  createRasterTileReference({
+                    x: 0,
+                    y: 0,
+                    payloadRef: `sha256:${'a'.repeat(64)}`,
+                  }),
+                ],
+              });
+              expect(layerRasterFlipEligibilityV1(snapshotWith(locked), locked.id)).toMatchObject({
+                eligible: false,
+                reason: expect.stringContaining('position lock'),
+              });
+            });
+
+            it('mirrors selected RGBA8 layer across document width through partial sparse-tile edges', async () => {
+              const leftRef = `sha256:${'b'.repeat(64)}`;
+              const rightRef = `sha256:${'c'.repeat(64)}`;
+              const raster = createRasterLayer({
+                name: 'Paint',
+                opacity: 0.75,
+                locks: { alpha: true },
+                roleFlags: { reference: true },
+                tiles: [
+                  createRasterTileReference({ x: 0, y: 0, payloadRef: leftRef }),
+                  createRasterTileReference({ x: 1, y: 0, payloadRef: rightRef }),
+                ],
+              });
+              const snapshot = snapshotWith(raster, { width: 300, height: 1 });
+              const persistence = new MemoryRasterPersistence();
+              const left = new Uint8Array(256 * 4);
+              left.set([10, 20, 30, 40], 0);
+              left.set([50, 60, 70, 80], 255 * 4);
+              const right = new Uint8Array(44 * 4);
+              right.set([90, 100, 110, 120], 43 * 4);
+              persistence.seed({
+                payloadRef: leftRef,
+                width: 256,
+                height: 1,
+                pixelFormat: 'rgba8-unorm',
+                bytes: left,
+              });
+              persistence.seed({
+                payloadRef: rightRef,
+                width: 44,
+                height: 1,
+                pixelFormat: 'rgba8-unorm',
+                bytes: right,
+              });
+
+              const prepared = await prepareLayerRasterFlipV1(
+                snapshot,
+                raster.id,
+                'horizontal',
+                persistence,
+              );
+              expect(prepared.tiles.map(({ x, y }) => [x, y])).toEqual([
+                [0, 0],
+                [1, 0],
+              ]);
+              const output0 = persistence.tiles.get(prepared.tiles[0]?.payloadRef ?? '');
+              const output1 = persistence.tiles.get(prepared.tiles[1]?.payloadRef ?? '');
+              expect(output0).toBeDefined();
+              expect(output1).toBeDefined();
+              if (output0 === undefined || output1 === undefined) return;
+              expect(pixel(output0.bytes, 256, 0)).toEqual([90, 100, 110, 120]);
+              expect(pixel(output0.bytes, 256, 44)).toEqual([50, 60, 70, 80]);
+              expect(pixel(output1.bytes, 44, 43)).toEqual([10, 20, 30, 40]);
+
+              const after = applyPreparedLayerRasterFlipV1(
+                snapshot,
+                prepared,
+                parseRevision(1),
+                new Date(0),
+              );
+              expect(after.document.layerTree.layers[raster.id]).toMatchObject({
+                id: raster.id,
+                type: 'raster',
+                revision: 1,
+                opacity: 0.75,
+                locks: { alpha: true },
+                roleFlags: { reference: true },
+              });
+            });
+
+            it('moves RGBA16F pixels byte-exactly without color conversion', async () => {
+              const payloadRef = `sha256:${'d'.repeat(64)}`;
+              const raster = createRasterLayer({
+                name: '16F',
+                tiles: [createRasterTileReference({ x: 0, y: 0, payloadRef })],
+              });
+              const snapshot = snapshotWith(raster, {
+                width: 2,
+                height: 1,
+                precision: 'rgba16-float',
+              });
+              const persistence = new MemoryRasterPersistence();
+              const first = [1, 2, 3, 4, 5, 6, 7, 8];
+              const second = [9, 10, 11, 12, 13, 14, 15, 16];
+              persistence.seed({
+                payloadRef,
+                width: 2,
+                height: 1,
+                pixelFormat: 'rgba16-float',
+                bytes: new Uint8Array([...first, ...second]),
+              });
+              const prepared = await prepareLayerRasterFlipV1(
+                snapshot,
+                raster.id,
+                'horizontal',
+                persistence,
+              );
+              const output = persistence.tiles.get(prepared.tiles[0]?.payloadRef ?? '');
+              expect(output === undefined ? [] : [...output.bytes]).toEqual([...second, ...first]);
+            });
+
+            it('materializes pending stroke pixels before the flip and marks history as baked', async () => {
+              const raster = createRasterLayer({ name: 'Stroke' });
+              const snapshot = snapshotWith(raster, {
+                width: 64,
+                height: 64,
+                committedStrokes: Object.freeze([unbakedStroke(raster.id)]),
+              });
+              const persistence = new MemoryRasterPersistence();
+              const prepared = await prepareLayerRasterFlipV1(
+                snapshot,
+                raster.id,
+                'horizontal',
+                persistence,
+              );
+              expect(prepared.tiles).toHaveLength(1);
+              const output = persistence.tiles.get(prepared.tiles[0]?.payloadRef ?? '');
+              expect(output).toBeDefined();
+              if (output === undefined) return;
+              const mirroredCenter = pixel(output.bytes, 64, 43, 20);
+              expect(mirroredCenter[3]).toBeGreaterThan(0);
+              const after = applyPreparedLayerRasterFlipV1(snapshot, prepared, parseRevision(1));
+              expect(after.committedStrokes[0]?.bakedToRasterLayer).toBe(true);
+            });
+          });
+          ''')
+
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "} from './layer-raster-invert.js';\nimport type { PaintHistoryControllerV1 }",
+              "} from './layer-raster-invert.js';\nimport {\n  applyPreparedLayerRasterFlipV1,\n  layerRasterFlipEligibilityV1,\n  prepareLayerRasterFlipV1,\n} from './layer-raster-flip.js';\nimport type { PaintHistoryControllerV1 }",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  const invertButton = required<HTMLButtonElement>('#layer-invert');\n  const deleteButton",
+              "  const invertButton = required<HTMLButtonElement>('#layer-invert');\n  const horizontalFlipButton = required<HTMLButtonElement>('#layer-flip-horizontal');\n  const deleteButton",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    invertButton.title = invertEligibility?.reason ?? '色反転';\n    deleteButton.disabled",
+              "    invertButton.title = invertEligibility?.reason ?? '色反転';\n    const flipEligibility =\n      active === null || projectSnapshot === null\n        ? null\n        : layerRasterFlipEligibilityV1(projectSnapshot, active.id);\n    horizontalFlipButton.disabled =\n      flipEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;\n    horizontalFlipButton.title = flipEligibility?.reason ?? 'レイヤーを左右反転';\n    deleteButton.disabled",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  const onDelete = (): void => {",
+              "  const onHorizontalFlip = (): void => {\n    const layerId = options.paintSession.activeLayerId();\n    if (layerId === null) return;\n    options.schedule(async () => {\n      try {\n        if (options.paintSession.activeStrokeId() !== null) {\n          throw new Error('layer horizontal flip is unavailable while a stroke is active');\n        }\n        const current = options.paintSession.projectSnapshot();\n        if (current === null) return;\n        const prepared = await prepareLayerRasterFlipV1(\n          current,\n          layerId,\n          'horizontal',\n          options.paintPersistence,\n        );\n        const transaction = await options.paintHistory.commitSnapshotTransform(\n          'layer.flip.horizontal',\n          (before, revision) => applyPreparedLayerRasterFlipV1(before, prepared, revision),\n        );\n        options.paintSession.setActiveLayer(layerId);\n        await options.paintPersistence.markDirty(transaction.transactionId);\n        root.dataset.illustroLayerTransaction = transaction.transactionId;\n        clearError();\n        refresh();\n        options.onHistoryChanged();\n      } catch (error) {\n        publishError(error);\n      }\n    });\n  };\n\n  const onDelete = (): void => {",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  invertButton.addEventListener('click', onInvert);\n  deleteButton.addEventListener",
+              "  invertButton.addEventListener('click', onInvert);\n  horizontalFlipButton.addEventListener('click', onHorizontalFlip);\n  deleteButton.addEventListener",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "      invertButton.removeEventListener('click', onInvert);\n      deleteButton.removeEventListener",
+              "      invertButton.removeEventListener('click', onInvert);\n      horizontalFlipButton.removeEventListener('click', onHorizontalFlip);\n      deleteButton.removeEventListener",
+          )
+
+          replace_once(
+              'src/index.html',
+              '              <button id="layer-invert" type="button" aria-label="選択レイヤーの色を反転" title="色反転">◑</button>\n',
+              '              <button id="layer-invert" type="button" aria-label="選択レイヤーの色を反転" title="色反転">◑</button>\n              <button id="layer-flip-horizontal" type="button" aria-label="選択レイヤーを左右反転" title="左右反転">⇆</button>\n',
+          )
+
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "requireText('src/app/layer-workflow-controller.ts', [\n  \"'layer.duplicate'\"",
+              "requireText('src/app/layer-raster-flip.ts', [\n  'prepareLayerRasterFlipV1',\n  'applyPreparedLayerRasterFlipV1',\n  'layerRasterFlipEligibilityV1',\n  \"'illustro.prepared-layer-raster-flip/1'\",\n  'CANONICAL_TILE_SIZE_PX',\n  'bakedToRasterLayer',\n  'persistRasterTile',\n  'readRasterTile',\n]);\nrequireText('src/app/layer-workflow-controller.ts', [\n  \"'layer.duplicate'\"",
+          )
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "  \"'layer.invert'\",\n  'prepareRasterMergeDownV1'",
+              "  \"'layer.invert'\",\n  \"'layer.flip.horizontal'\",\n  'prepareRasterMergeDownV1'",
+          )
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "  'prepareLayerInvertV1',\n  'pointermove'",
+              "  'prepareLayerInvertV1',\n  'prepareLayerRasterFlipV1',\n  'pointermove'",
+          )
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "  'id=\"layer-invert\"',\n  'id=\"layer-rename\"'",
+              "  'id=\"layer-invert\"',\n  'id=\"layer-flip-horizontal\"',\n  'id=\"layer-rename\"'",
+          )
+          PY
+      - name: Canonical formatting
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M2 persistence inspection
+        run: npm run verify:m2
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical-slice inspection
+        run: npm run verify:m4
+      - name: M5A document foundation inspection
+        run: npm run verify:m5a
+      - name: M5B layer system inspection
+        run: npm run verify:m5b
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record verified progress and commit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          old = 'M5B-023 layer horizontal flip:未完了'
+          new = 'M5B-023 layer horizontal flip:完了'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one progress marker, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/layer-raster-flip.ts src/app/layer-workflow-controller.ts src/index.html tests/unit/layer-raster-flip.test.ts scripts/verify-m5b-layer-foundation.mjs IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: implement M5B layer horizontal flip [skip ci]'
+          git push origin HEAD:main
