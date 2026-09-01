@@ -5055,3 +5055,30 @@ New-stroke presentation/finalization is **O(new dabs + affected tiles)**. Undo/R
 ## Change-control impact
 
 This correction reopens only implementation verification for M3-012 tile geometry, M4-010 through M4-016 paint/history/persistence recovery, M6A-PERF-001 through M6A-PERF-004, and the related M10 device-loss/performance gates. Existing persisted stroke snapshots are not invalidated, but migration and compatibility tests are required before the corrected path is considered integrated. USER-01 remains incomplete until a newly published preview receives an explicit physical-device PASS from the user.
+
+## Mobile full-editor target supersession — 2026-09-02
+
+**Status: AUTHORITATIVE / SUPERSEDES THE PREVIOUS NARROW-SHELL RESTRICTION.**
+
+This decision supersedes the earlier `Narrow shell — viewport width < 600 CSS px` rule that classified narrow phone-sized viewports as not being a full-production-editor target. It also supersedes any earlier wording that excludes Android phones, iPhones, or other phone-class devices from the normal single-illustration editing workflow solely because of viewport width or lack of the preferred GPU acceleration path.
+
+1. **Phone-class devices are full editor targets.** Android smartphones and other supported phone-class mobile browsers are part of the full-production-editor target together with tablets and desktop-class devices. A phone-sized viewport must not be classified as editor-ineligible merely because it is narrower than 600 CSS px.
+2. **Viewport width controls presentation, not functional eligibility.** The 600 CSS px boundary, if retained at all, is only a responsive-layout breakpoint. Narrow layouts may collapse, overlay, stack, temporarily hide, or progressively disclose tool groups and inspectors, but the adopted editing capability set must remain reachable.
+3. **The ibisPaint-relevant single-illustration baseline applies on phones as well.** Required drawing, layer, selection, transform, history, persistence, import/export, correction, finishing, and related single-illustration capabilities are not optional merely because the device is a smartphone. Device-specific UI may differ while command semantics and document behavior remain shared.
+4. **WebGPU remains preferred, not mandatory for editor availability.** WebGPU Worker and main-thread WebGPU remain the primary acceleration paths when usable, but failure to expose a usable adapter/device must not make the entire editor unavailable. Renderer capability must degrade through compatible backends while preserving canonical document correctness.
+5. **Renderer choice is capability-based and replaceable.** Canonical Raster Tile state, command/history state, persistence, recovery, and file/export semantics are backend-independent. Render backends are acceleration/presentation implementations and may be selected or replaced at runtime according to device capability.
+6. **Lower-capability devices may receive adaptive resource policies, not silent feature removal.** Cache sizes, batch sizes, worker use, preview quality, temporary resolution, memory budgets, and admission limits may adapt to measured device capability. Final/canonical results and required editor semantics remain correct; any unavoidable hard platform limit must be explicit and narrowly scoped rather than represented as a blanket phone exclusion.
+7. **GPU/API failure must have a functional compatibility path.** A device where `navigator.gpu` exists but `requestAdapter()` returns no adapter is a supported compatibility case, not an application-fatal state. The production renderer architecture must provide an appropriate fallback rather than exposing `renderer ... unavailable` as the normal outcome.
+8. **Responsive UX remains Canvas First.** Narrow screens should protect drawing space through contextual UI, progressive disclosure, sheets/overlays, and direct manipulation rather than by creating a separate reduced-capability phone product.
+
+### Supersession note
+
+The previous statement:
+
+> `Narrow shell — viewport width < 600 CSS px` is not a full-production-editor target for the initial release.
+
+is **SUPERSEDED** by this section. Existing implementation/tests that still encode `<600 CSS px => full editor ineligible` are legacy constraints and must be updated in the dedicated compatibility remediation steps; this design decision by itself does not falsely mark those implementation changes complete.
+
+### Evidence motivating the supersession
+
+The USER-01 phone diagnostics on build `da2a9c5fd42582c8131ea4694877c8920d075c8f` showed WebGPU API exposure on both main and worker contexts while adapter acquisition returned `adapter-unavailable`; the Render Worker consequently reported device state `unavailable`. This confirms that phone support cannot be defined as "WebGPU adapter available or no editor" and must use capability-based renderer fallback.
