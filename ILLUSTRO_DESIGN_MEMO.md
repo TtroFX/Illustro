@@ -5018,3 +5018,40 @@ Ordinary active-stroke work must be **O(new dabs + bounded presentation cost)** 
 ## Implementation note
 
 The baseline implementation therefore uses **Committed Prefix + Incremental Append** now. Future smoothing/stabilization may replace the final few points with a bounded mutable tail, but it must preserve the same invariant: once a prefix is stable, normal pointer updates never recalculate or rerasterize that stable prefix.
+
+# Post-freeze Performance Correction — Raster Tile Canonical Paint State — 2026-09-01
+
+**Status: AUTHORITATIVE / DESIGN CHANGE / SUPERSESSION.**
+
+USER-01 physical-device verification found that retained GPU presentation removed ordinary full-history redraw, but stroke finalization, persistence and Undo/Redo still depended on the total committed stroke/dab log. This section corrects that architectural defect without changing brush appearance, editor UI, document dimensions, layer semantics or export behavior.
+
+## Superseded rules
+
+1. The Phase 4 **256px canonical tile edge** is superseded by a **128×128px canonical sparse Raster Tile** for the production paint state. The 2048px atlas-page contract remains unchanged; it therefore contains 16×16 canonical slots per page.
+2. A committed stroke/dab list is no longer the canonical current image. Earlier M4 wording that permitted ordinary Undo/Redo or retained-scene recovery to replay all committed strokes is superseded.
+3. The immediately preceding Incremental Baseline Paint correction remains authoritative for active-stroke GPU append, except that whole-history replay is no longer an allowed Undo/Redo path and GPU-device/surface recovery must prefer canonical Raster Tiles.
+
+## Canonical state separation
+
+- **Raster Tile State:** canonical current pixels, partitioned by raster layer and 128×128 tile coordinate; CPU/storage state is authoritative and GPU resources are derived.
+- **Tile History:** one bounded transaction per edit, containing only affected tile identities and before/after tile states or content-addressed references.
+- **Stroke/Event Log:** optional replay, timelapse, diagnostics and statistics data. Its absence must not prevent current-image reconstruction, Undo/Redo or device-loss recovery.
+
+## Production invariants
+
+1. Active brush input is rasterized incrementally into only the affected canonical tiles while the existing retained GPU scene receives only new dabs.
+2. Finalization captures before state once per first-touched tile and emits after state only for the affected tiles. It must not scan, copy, clone or replay unrelated committed strokes.
+3. Undo restores transaction before tiles; Redo restores transaction after tiles. Cost is proportional to affected tile count and bytes, not total stroke/dab count.
+4. GPU retained textures, atlas pages and canvas surfaces are caches/presentation resources. Device loss reconstructs them from canonical tiles without requiring the Stroke/Event Log.
+5. Autosave journals only changed tile content/references plus bounded metadata/history changes. Full-project checkpoints may be coalesced and asynchronous, but ordinary stroke finalization must not synchronously structured-clone the accumulated stroke log.
+6. Tile-history memory is bounded. Content-addressed deduplication, compression and the existing OPFS history-spill mechanism are used for cold states; unlimited per-edit image duplication is prohibited.
+7. Legacy stroke-based snapshots remain readable through a one-time replay-to-tiles migration. Once migrated, normal open, save, render and history operations use tile state rather than repeating legacy replay.
+8. PNG/export flattening consumes canonical raster tiles for migrated/current data and retains the legacy replay path only as compatibility fallback.
+
+## Complexity and verification target
+
+New-stroke presentation/finalization is **O(new dabs + affected tiles)**. Undo/Redo is **O(affected tiles)**. Regression verification compares at least 100 and 1,000 pre-existing strokes and, where the development environment permits, 10,000; increasing unrelated history must not produce proportional finalize, Undo, Redo or autosave-scheduling growth.
+
+## Change-control impact
+
+This correction reopens only implementation verification for M3-012 tile geometry, M4-010 through M4-016 paint/history/persistence recovery, M6A-PERF-001 through M6A-PERF-004, and the related M10 device-loss/performance gates. Existing persisted stroke snapshots are not invalidated, but migration and compatibility tests are required before the corrected path is considered integrated. USER-01 remains incomplete until a newly published preview receives an explicit physical-device PASS from the user.

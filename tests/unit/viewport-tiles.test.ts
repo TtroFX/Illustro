@@ -10,10 +10,10 @@ describe('M3 viewport tile visibility resolver', () => {
       height: 20,
     });
     expect(result.visible).toEqual([
-      { tx: 0, ty: 0 },
-      { tx: 1, ty: 0 },
-      { tx: 0, ty: 1 },
       { tx: 1, ty: 1 },
+      { tx: 2, ty: 1 },
+      { tx: 1, ty: 2 },
+      { tx: 2, ty: 2 },
     ]);
   });
 
@@ -24,7 +24,7 @@ describe('M3 viewport tile visibility resolver', () => {
       width: 20,
       height: 100,
     });
-    expect(result.visible).toEqual([{ tx: 2, ty: 1 }]);
+    expect(result.visible).toEqual([{ tx: 4, ty: 2 }]);
     expect(result.bounds[0]).toMatchObject({
       x: 512,
       y: 256,
@@ -37,10 +37,10 @@ describe('M3 viewport tile visibility resolver', () => {
     const result = resolveViewportTilesV1(768, 256, {
       x: 256,
       y: 0,
-      width: 256,
-      height: 256,
+      width: 128,
+      height: 128,
     });
-    expect(result.visible).toEqual([{ tx: 1, ty: 0 }]);
+    expect(result.visible).toEqual([{ tx: 2, ty: 0 }]);
   });
 
   it('returns no tiles for a viewport entirely outside the document', () => {

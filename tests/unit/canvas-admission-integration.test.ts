@@ -49,7 +49,7 @@ describe('M5A canvas admission operation integration', () => {
       decodedSourceBytes: 1024 * 768 * 4,
     });
     expect(result.allowed).toBe(true);
-    expect(result.projectedTouchedTiles).toBe(12);
+    expect(result.projectedTouchedTiles).toBe(48);
     expect(result.operationScratchBytes).toBe(1024 * 768 * 4);
   });
 });

@@ -8,13 +8,13 @@ import {
 import { MEBIBYTE } from '../../src/gpu/tile-cache.js';
 
 describe('M3 GPU atlas page management', () => {
-  it('uses the frozen 2048px page with an 8x8 grid of 256px slots', () => {
+  it('uses the frozen 2048px page with a 16x16 grid of 128px slots', () => {
     expect(GPU_ATLAS_PAGE_SIZE_PX).toBe(2_048);
-    expect(GPU_ATLAS_SLOTS_PER_AXIS).toBe(8);
-    expect(GPU_ATLAS_SLOTS_PER_PAGE).toBe(64);
+    expect(GPU_ATLAS_SLOTS_PER_AXIS).toBe(16);
+    expect(GPU_ATLAS_SLOTS_PER_PAGE).toBe(256);
   });
 
-  it('allocates slots incrementally and opens a second page only after 64 residents', () => {
+  it('allocates slots incrementally and opens a second page only after 256 residents', () => {
     const created: string[] = [];
     const destroyed: string[] = [];
     const atlas = new GpuAtlasPageManagerV1({
@@ -27,24 +27,24 @@ describe('M3 GPU atlas page management', () => {
       },
     });
 
-    const slots = Array.from({ length: 65 }, (_, index) =>
+    const slots = Array.from({ length: 257 }, (_, index) =>
       atlas.allocate(`tile-${index}`, 'rgba8-unorm'),
     );
     expect(created).toEqual(['atlas-1', 'atlas-2']);
     expect(slots[0]).toMatchObject({ pageId: 'atlas-1', slotIndex: 0, x: 0, y: 0 });
-    expect(slots[63]).toMatchObject({
+    expect(slots[255]).toMatchObject({
       pageId: 'atlas-1',
-      slotIndex: 63,
-      x: 1_792,
-      y: 1_792,
+      slotIndex: 255,
+      x: 1_920,
+      y: 1_920,
     });
-    expect(slots[64]).toMatchObject({ pageId: 'atlas-2', slotIndex: 0, x: 0, y: 0 });
+    expect(slots[256]).toMatchObject({ pageId: 'atlas-2', slotIndex: 0, x: 0, y: 0 });
     expect(atlas.snapshot()).toMatchObject({
       pageCount: 2,
       residentBytes: 32 * MEBIBYTE,
     });
 
-    for (let index = 0; index < 64; index += 1) atlas.release(`tile-${index}`);
+    for (let index = 0; index < 256; index += 1) atlas.release(`tile-${index}`);
     expect(destroyed).toEqual(['atlas-1']);
     expect(atlas.snapshot()).toMatchObject({ pageCount: 1, residentBytes: 16 * MEBIBYTE });
   });

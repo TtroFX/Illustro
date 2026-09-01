@@ -91,7 +91,7 @@ describe('M3 canvas admission resource estimation', () => {
     expect(rgba8.projectedAdditionalStorageBytes).toBe(
       2 * CANONICAL_TILE_AREA_PX * 4 + 1024 + 2048,
     );
-    expect(rgba8.totalTileCapacity).toBe(256);
+    expect(rgba8.totalTileCapacity).toBe(1024);
   });
 
   it('rejects impossible touched-tile projections and unavailable quota evidence', () => {
@@ -99,7 +99,7 @@ describe('M3 canvas admission resource estimation', () => {
       width: 256,
       height: 256,
       precision: 'rgba8-unorm',
-      projectedTouchedTiles: 2,
+      projectedTouchedTiles: 5,
       checkpointJournalHeadroomBytes: 0,
       operationScratchBytes: 0,
       storage: healthyStorage(),

@@ -42,7 +42,7 @@ describe('M3 production renderer sparse tile state', () => {
       schema: 'illustro.renderer-tile-state/1',
       documentWidth: 513,
       documentHeight: 300,
-      grid: { columns: 3, rows: 2 },
+      grid: { columns: 5, rows: 3 },
       allocatedTileCount: 0,
       dirtyTileCount: 0,
       cacheProfile: 'conservative',
@@ -51,7 +51,7 @@ describe('M3 production renderer sparse tile state', () => {
       atlas: { pageCount: 0, residentBytes: 0 },
     });
 
-    const tile = state.allocate({ tx: 2, ty: 1 });
+    const tile = state.allocate({ tx: 4, ty: 2 });
     expect(tile.bounds).toMatchObject({ validWidth: 1, validHeight: 44 });
     expect(tile.value).toEqual({ schema: 'illustro.renderer-logical-tile/1', revision: 0 });
     expect(state.snapshot().allocatedTileCount).toBe(1);
@@ -64,7 +64,7 @@ describe('M3 production renderer sparse tile state', () => {
     );
 
     state.allocate({ tx: 0, ty: 0 });
-    expect(state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 128, height: 256 })).toEqual({
+    expect(state.markDirty({ tx: 0, ty: 0 }, { x: 0, y: 0, width: 64, height: 128 })).toEqual({
       coordinate: { tx: 0, ty: 0 },
       region: { kind: 'whole' },
     });
@@ -87,7 +87,7 @@ describe('M3 production renderer sparse tile state', () => {
       },
     ]);
     expect(state.snapshot()).toMatchObject({
-      gpuCache: { residentBytes: 256 * 256 * 4, entryCount: 1 },
+      gpuCache: { residentBytes: 128 * 128 * 4, entryCount: 1 },
       atlas: { pageCount: 1, residentBytes: 16 * MEBIBYTE },
     });
   });
@@ -139,8 +139,8 @@ describe('M3 production renderer sparse tile state', () => {
   it('resolves fractional viewport movement to visible tile coordinates only', () => {
     const state = new RendererTileStateV1(768, 512);
     expect(state.resolveViewport({ x: 255.5, y: 10.25, width: 2, height: 20 }).visible).toEqual([
-      { tx: 0, ty: 0 },
       { tx: 1, ty: 0 },
+      { tx: 2, ty: 0 },
     ]);
   });
 });

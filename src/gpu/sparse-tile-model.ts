@@ -1,4 +1,4 @@
-export const CANONICAL_TILE_SIZE_PX = 256 as const;
+export const CANONICAL_TILE_SIZE_PX = 128 as const;
 export const CANONICAL_TILE_AREA_PX = CANONICAL_TILE_SIZE_PX * CANONICAL_TILE_SIZE_PX;
 export const WHOLE_TILE_DIRTY_PROMOTION_RATIO = 0.5 as const;
 

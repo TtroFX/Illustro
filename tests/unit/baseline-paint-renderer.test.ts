@@ -18,6 +18,7 @@ function gpuHarness() {
   let renderPasses = 0;
   let submits = 0;
   let textureCopies = 0;
+  let textureWrites = 0;
   const instanceCounts: number[] = [];
   const bufferWrites: number[] = [];
   const loadOps: Array<'clear' | 'load'> = [];
@@ -73,6 +74,9 @@ function gpuHarness() {
       writeBuffer(_buffer: object, _offset: number, values: Float32Array) {
         bufferWrites.push(values.length);
       },
+      writeTexture() {
+        textureWrites += 1;
+      },
       submit() {
         submits += 1;
       },
@@ -95,6 +99,7 @@ function gpuHarness() {
     renderPasses = 0;
     submits = 0;
     textureCopies = 0;
+    textureWrites = 0;
     instanceCounts.length = 0;
     bufferWrites.length = 0;
     loadOps.length = 0;
@@ -108,6 +113,7 @@ function gpuHarness() {
       renderPasses,
       submits,
       textureCopies,
+      textureWrites,
       instanceCounts: [...instanceCounts],
       bufferWrites: [...bufferWrites],
       loadOps: [...loadOps],
@@ -144,6 +150,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       renderPasses: 1,
       submits: 1,
       textureCopies: 1,
+      textureWrites: 0,
       instanceCounts: [3],
       bufferWrites: [15],
       loadOps: ['load'],
@@ -163,6 +170,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       renderPasses: 3,
       submits: 3,
       textureCopies: 3,
+      textureWrites: 0,
       instanceCounts: [2, 1, 1],
       bufferWrites: [10, 5, 5],
       loadOps: ['load', 'load', 'load'],
@@ -171,7 +179,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
 
   it('finalizes already-rasterized dabs without replaying them and marks sparse-tile dirtiness', () => {
     const { harness, tileState, renderer } = configuredRenderer();
-    const dabs = [dab(255, 128)];
+    const dabs = [dab(127, 64)];
     renderer.presentStroke('stroke-b', dabs);
     const result = renderer.finalizeStroke('stroke-b', dabs);
 
@@ -190,17 +198,18 @@ describe('M4 baseline WebGPU paint renderer', () => {
     expect(tileState.snapshot()).toMatchObject({ allocatedTileCount: 2, dirtyTileCount: 2 });
     expect(tileState.getDirty({ tx: 0, ty: 0 })).toMatchObject({
       coordinate: { tx: 0, ty: 0 },
-      region: { kind: 'rect', rect: { x: 247, y: 120, width: 9, height: 16 } },
+      region: { kind: 'rect', rect: { x: 119, y: 56, width: 9, height: 16 } },
     });
     expect(tileState.getDirty({ tx: 1, ty: 0 })).toMatchObject({
       coordinate: { tx: 1, ty: 0 },
-      region: { kind: 'rect', rect: { x: 0, y: 120, width: 7, height: 16 } },
+      region: { kind: 'rect', rect: { x: 0, y: 56, width: 7, height: 16 } },
     });
     expect(harness.counts()).toEqual({
       drawCalls: 1,
       renderPasses: 1,
       submits: 1,
       textureCopies: 1,
+      textureWrites: 0,
       instanceCounts: [1],
       bufferWrites: [5],
       loadOps: ['load'],
@@ -225,6 +234,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       renderPasses: 2,
       submits: 2,
       textureCopies: 2,
+      textureWrites: 0,
       instanceCounts: [1, 1],
       bufferWrites: [5, 5],
       loadOps: ['load', 'load'],
@@ -243,18 +253,19 @@ describe('M4 baseline WebGPU paint renderer', () => {
     });
     expect(tileState.snapshot()).toMatchObject({ allocatedTileCount: 0, dirtyTileCount: 0 });
     expect(harness.counts()).toMatchObject({
-      renderPasses: 2,
+      renderPasses: 1,
       submits: 2,
       textureCopies: 2,
+      textureWrites: 1,
       instanceCounts: [1],
-      loadOps: ['load', 'clear'],
+      loadOps: ['load'],
     });
   });
 
   it('restores canonical committed strokes and redraws them after a GPU rebuild', () => {
     const { harness, tileState, renderer } = configuredRenderer();
     renderer.restoreCommittedStrokes([
-      { strokeId: 'stroke-restored', dabs: [dab(64, 64), dab(260, 64)] },
+      { strokeId: 'stroke-restored', dabs: [dab(64, 64), dab(192, 64)] },
     ]);
     expect(renderer.snapshot()).toMatchObject({ committedStrokeCount: 1, committedDabCount: 2 });
     expect(tileState.snapshot().dirtyTileCount).toBe(2);
@@ -289,12 +300,13 @@ describe('M4 baseline WebGPU paint renderer', () => {
       deviceReady: true,
     });
     expect(second.counts()).toEqual({
-      drawCalls: 1,
+      drawCalls: 0,
       renderPasses: 1,
-      submits: 1,
-      textureCopies: 1,
-      instanceCounts: [1],
-      bufferWrites: [5],
+      submits: 2,
+      textureCopies: 2,
+      textureWrites: 1,
+      instanceCounts: [],
+      bufferWrites: [],
       loadOps: ['clear'],
     });
   });

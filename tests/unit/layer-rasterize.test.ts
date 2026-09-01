@@ -142,8 +142,8 @@ describe('M5B layer rasterize', () => {
     const persistence = new MemoryRasterPersistence();
     expect(layerRasterizeEligibilityV1(snapshot, fill.id).eligible).toBe(true);
     const prepared = await prepareLayerRasterizeV1(snapshot, fill.id, persistence);
-    expect(prepared.tiles).toHaveLength(4);
-    expect(persistence.writes).toHaveLength(4);
+    expect(prepared.tiles).toHaveLength(9);
+    expect(persistence.writes).toHaveLength(9);
     const first = persistence.tiles.get(prepared.tiles[0]!.payloadRef)!;
     expect(first.pixelFormat).toBe('rgba8-unorm');
     expect([...first.bytes.slice(0, 4)]).toEqual([64, 128, 191, 128]);
@@ -156,7 +156,7 @@ describe('M5B layer rasterize', () => {
       opacity: 0.75,
       roleFlags: { reference: true },
     });
-    expect(raster?.type === 'raster' ? raster.tiles : []).toHaveLength(4);
+    expect(raster?.type === 'raster' ? raster.tiles : []).toHaveLength(9);
   });
 
   it('preserves RGBA16F precision for solid fill rasterization', async () => {
@@ -182,7 +182,7 @@ describe('M5B layer rasterize', () => {
     const persistence = new MemoryRasterPersistence();
     await prepareLayerRasterizeV1(snapshot, fill.id, persistence);
     expect(persistence.writes.every((write) => write.pixelFormat === 'rgba16-float')).toBe(true);
-    expect(persistence.writes[0]?.rawByteLength).toBe(256 * 256 * 8);
+    expect(persistence.writes[0]?.rawByteLength).toBe(128 * 128 * 8);
   });
 
   it('materializes unbaked Raster Layer strokes and marks their canonical history as baked', async () => {

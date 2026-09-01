@@ -1,4 +1,5 @@
 import { baselineBrushShaderSource } from '../generated/baseline-brush-shader.js';
+import type { DocumentPrecision } from '../domain/document.js';
 import {
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
@@ -7,12 +8,24 @@ import {
 } from './baseline-brush.js';
 import type { RendererSurfaceLikeV1 } from './renderer-device-resources.js';
 import type { RendererTileStateV1 } from './renderer-tile-state.js';
-import type { DirtyTileStateV1, TileCoordinateV1 } from './sparse-tile-model.js';
+import {
+  tileBoundsForDocumentV1,
+  type DirtyTileStateV1,
+  type TileCoordinateV1,
+} from './sparse-tile-model.js';
 import type { IllustroGpuDeviceV1 } from './webgpu-capability.js';
+import {
+  BaselineRasterTileStoreV1,
+  type BaselineRasterLayerDescriptorV1,
+  type BaselineRasterTileImageV1,
+  type BaselineRasterTilePatchDirectionV1,
+  type BaselineRasterTilePatchV1,
+} from './baseline-raster-tile-store.js';
 
 const GPU_BUFFER_USAGE_COPY_DST = 0x0008;
 const GPU_BUFFER_USAGE_VERTEX = 0x0020;
 const GPU_TEXTURE_USAGE_COPY_SRC = 0x0001;
+const GPU_TEXTURE_USAGE_COPY_DST = 0x0002;
 const GPU_TEXTURE_USAGE_RENDER_ATTACHMENT = 0x0010;
 const INSTANCE_FLOATS = 5;
 const INSTANCE_STRIDE_BYTES = INSTANCE_FLOATS * Float32Array.BYTES_PER_ELEMENT;
@@ -74,6 +87,15 @@ interface BaselineGpuCommandEncoderLikeV1 {
 interface BaselineGpuDeviceLikeV1 extends IllustroGpuDeviceV1 {
   readonly queue: {
     writeBuffer(buffer: BaselineGpuBufferLikeV1, bufferOffset: number, data: Float32Array): void;
+    writeTexture?(
+      destination: {
+        readonly texture: BaselineGpuTextureLikeV1;
+        readonly origin: { readonly x: number; readonly y: number; readonly z: 0 };
+      },
+      data: Uint8Array,
+      layout: { readonly offset: 0; readonly bytesPerRow: number; readonly rowsPerImage: number },
+      size: { readonly width: number; readonly height: number; readonly depthOrArrayLayers: 1 },
+    ): void;
     submit(commandBuffers: readonly object[]): void;
   };
   createBuffer(descriptor: {
@@ -150,6 +172,7 @@ export interface BaselinePaintRendererSnapshotV1 {
 
 export interface BaselinePaintCommittedStrokeV1 {
   readonly strokeId: string;
+  readonly layerId?: string;
   readonly dabs: readonly BaselineBrushDabV1[];
 }
 
@@ -163,6 +186,7 @@ export interface BaselinePaintFinalizationV1 {
   readonly strokeId: string;
   readonly dabCount: number;
   readonly affectedTiles: readonly BaselinePaintAffectedTileV1[];
+  readonly tilePatches: readonly BaselineRasterTilePatchV1[];
   readonly renderer: BaselinePaintRendererSnapshotV1;
 }
 
@@ -284,6 +308,70 @@ function createInstanceData(
   return values;
 }
 
+function halfToFloat(value: number): number {
+  const sign = (value & 0x8000) !== 0 ? -1 : 1;
+  const exponent = (value >>> 10) & 0x1f;
+  const fraction = value & 0x03ff;
+  if (exponent === 0) return sign * 2 ** -14 * (fraction / 1024);
+  if (exponent === 0x1f) return fraction === 0 ? sign * Number.POSITIVE_INFINITY : Number.NaN;
+  return sign * 2 ** (exponent - 15) * (1 + fraction / 1024);
+}
+
+function surfaceTileBytes(
+  tile: BaselineRasterTileImageV1,
+  targetWidth: number,
+  targetHeight: number,
+  canvasFormat: string,
+): Uint8Array<ArrayBuffer> {
+  const result = new Uint8Array(targetWidth * targetHeight * 4);
+  const bgra = canvasFormat.startsWith('bgra8');
+  if (!bgra && !canvasFormat.startsWith('rgba8')) {
+    throw new Error(`baseline tile patch does not support canvas format: ${canvasFormat}`);
+  }
+  const halfView =
+    tile.pixelFormat === 'rgba16-float'
+      ? new DataView(tile.bytes.buffer, tile.bytes.byteOffset, tile.bytes.byteLength)
+      : null;
+  for (let targetY = 0; targetY < targetHeight; targetY += 1) {
+    const sourceY = Math.min(tile.height - 1, Math.floor((targetY * tile.height) / targetHeight));
+    for (let targetX = 0; targetX < targetWidth; targetX += 1) {
+      const sourceX = Math.min(tile.width - 1, Math.floor((targetX * tile.width) / targetWidth));
+      const sourcePixel = sourceY * tile.width + sourceX;
+      let red: number;
+      let green: number;
+      let blue: number;
+      let alpha: number;
+      if (halfView === null) {
+        const sourceOffset = sourcePixel * 4;
+        red = tile.bytes[sourceOffset] ?? 0;
+        green = tile.bytes[sourceOffset + 1] ?? 0;
+        blue = tile.bytes[sourceOffset + 2] ?? 0;
+        alpha = tile.bytes[sourceOffset + 3] ?? 0;
+      } else {
+        const sourceOffset = sourcePixel * 8;
+        red = Math.round(
+          Math.min(1, Math.max(0, halfToFloat(halfView.getUint16(sourceOffset, true)))) * 255,
+        );
+        green = Math.round(
+          Math.min(1, Math.max(0, halfToFloat(halfView.getUint16(sourceOffset + 2, true)))) * 255,
+        );
+        blue = Math.round(
+          Math.min(1, Math.max(0, halfToFloat(halfView.getUint16(sourceOffset + 4, true)))) * 255,
+        );
+        alpha = Math.round(
+          Math.min(1, Math.max(0, halfToFloat(halfView.getUint16(sourceOffset + 6, true)))) * 255,
+        );
+      }
+      const targetOffset = (targetY * targetWidth + targetX) * 4;
+      result[targetOffset] = bgra ? blue : red;
+      result[targetOffset + 1] = green;
+      result[targetOffset + 2] = bgra ? red : blue;
+      result[targetOffset + 3] = alpha;
+    }
+  }
+  return result;
+}
+
 class BaselineGpuSurfaceRasterizerV1 {
   #device: IllustroGpuDeviceV1 | null = null;
   #shaderModule: unknown = null;
@@ -350,7 +438,10 @@ class BaselineGpuSurfaceRasterizerV1 {
             depthOrArrayLayers: 1,
           },
           format: input.format,
-          usage: GPU_TEXTURE_USAGE_COPY_SRC | GPU_TEXTURE_USAGE_RENDER_ATTACHMENT,
+          usage:
+            GPU_TEXTURE_USAGE_COPY_SRC |
+            GPU_TEXTURE_USAGE_COPY_DST |
+            GPU_TEXTURE_USAGE_RENDER_ATTACHMENT,
         }),
         width: input.surface.width,
         height: input.surface.height,
@@ -409,6 +500,57 @@ class BaselineGpuSurfaceRasterizerV1 {
     } finally {
       buffer?.destroy?.();
     }
+  }
+
+  patchTiles(input: {
+    readonly surface: RendererSurfaceLikeV1;
+    readonly format: string;
+    readonly documentWidth: number;
+    readonly documentHeight: number;
+    readonly tiles: readonly BaselineRasterTileImageV1[];
+  }): void {
+    const rawDevice = this.#device;
+    if (rawDevice === null) throw new Error('baseline brush renderer has no WebGPU device');
+    const device = requireRenderDevice(rawDevice);
+    const scene = this.#scene;
+    if (!this.hasSceneFor(input.surface, input.format) || scene === null) {
+      throw new Error('baseline retained scene is unavailable for tile patching');
+    }
+    if (typeof device.queue.writeTexture !== 'function') {
+      throw new Error('WebGPU queue.writeTexture is unavailable for tile restoration');
+    }
+    for (const tile of input.tiles) {
+      const bounds = tileBoundsForDocumentV1(
+        input.documentWidth,
+        input.documentHeight,
+        tile.coordinate,
+      );
+      const targetX = Math.floor((bounds.x * input.surface.width) / input.documentWidth);
+      const targetY = Math.floor((bounds.y * input.surface.height) / input.documentHeight);
+      const targetRight = Math.ceil(
+        ((bounds.x + bounds.validWidth) * input.surface.width) / input.documentWidth,
+      );
+      const targetBottom = Math.ceil(
+        ((bounds.y + bounds.validHeight) * input.surface.height) / input.documentHeight,
+      );
+      const width = Math.max(1, Math.min(input.surface.width - targetX, targetRight - targetX));
+      const height = Math.max(1, Math.min(input.surface.height - targetY, targetBottom - targetY));
+      const bytes = surfaceTileBytes(tile, width, height, input.format);
+      device.queue.writeTexture(
+        { texture: scene.texture, origin: { x: targetX, y: targetY, z: 0 } },
+        bytes,
+        { offset: 0, bytesPerRow: width * 4, rowsPerImage: height },
+        { width, height, depthOrArrayLayers: 1 },
+      );
+    }
+    const context = canvasContext(input.surface);
+    const encoder = device.createCommandEncoder({ label: 'illustro-baseline-tile-patch-present' });
+    encoder.copyTextureToTexture(
+      { texture: scene.texture },
+      { texture: context.getCurrentTexture() },
+      { width: input.surface.width, height: input.surface.height, depthOrArrayLayers: 1 },
+    );
+    device.queue.submit([encoder.finish()]);
   }
 
   #pipeline(format: string, device: BaselineGpuDeviceLikeV1): object {
@@ -471,10 +613,12 @@ export class BaselinePaintRendererV1 {
   #surface: RendererSurfaceLikeV1 | null = null;
   #surfaceFormat: string | null = null;
   #tileState: RendererTileStateV1 | null = null;
+  #canonicalTiles: BaselineRasterTileStoreV1 | null = null;
+  #layers: readonly BaselineRasterLayerDescriptorV1[] = Object.freeze([]);
   #documentWidth: number | null = null;
   #documentHeight: number | null = null;
   #activeStroke: ActiveBaselineStrokeV1 | null = null;
-  readonly #committedStrokes = new Map<string, readonly BaselineBrushDabV1[]>();
+  #committedStrokeCount = 0;
   #committedDabCount = 0;
   readonly #finalizations = new Map<string, BaselinePaintFinalizationV1>();
 
@@ -485,7 +629,7 @@ export class BaselinePaintRendererV1 {
       documentHeight: this.#documentHeight,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeDabCount: this.#activeStroke?.dabs.length ?? 0,
-      committedStrokeCount: this.#committedStrokes.size,
+      committedStrokeCount: this.#committedStrokeCount,
       committedDabCount: this.#committedDabCount,
       surfaceReady: this.#surface !== null && this.#surfaceFormat !== null,
       deviceReady: this.#device !== null,
@@ -512,6 +656,8 @@ export class BaselinePaintRendererV1 {
     tileState: RendererTileStateV1,
     width: number,
     height: number,
+    precision: DocumentPrecision = 'rgba8-unorm',
+    layers: readonly BaselineRasterLayerDescriptorV1[] = Object.freeze([]),
   ): BaselinePaintRendererSnapshotV1 {
     if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) {
       throw new RangeError('baseline paint document dimensions must be positive safe integers');
@@ -519,8 +665,13 @@ export class BaselinePaintRendererV1 {
     this.#tileState = tileState;
     this.#documentWidth = width;
     this.#documentHeight = height;
+    this.#layers =
+      layers.length > 0
+        ? Object.freeze([...layers])
+        : Object.freeze([Object.freeze({ layerId: '__baseline__', visible: true, opacity: 1 })]);
+    this.#canonicalTiles = new BaselineRasterTileStoreV1(width, height, precision, this.#layers);
     this.#activeStroke = null;
-    this.#committedStrokes.clear();
+    this.#committedStrokeCount = 0;
     this.#committedDabCount = 0;
     this.#finalizations.clear();
     this.#gpu.invalidateScene();
@@ -531,8 +682,9 @@ export class BaselinePaintRendererV1 {
   presentStroke(
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
+    layerId?: string,
   ): BaselinePaintRendererSnapshotV1 {
-    this.#requireDocument();
+    const { canonicalTiles } = this.#requireDocument();
     if (strokeId.length === 0) throw new TypeError('baseline paint strokeId must not be empty');
     if (this.#finalizations.has(strokeId)) return this.snapshot();
     const delta = freezeDabs(dabs);
@@ -540,12 +692,12 @@ export class BaselinePaintRendererV1 {
       throw new RangeError('invalid baseline brush dab');
 
     if (this.#activeStroke !== null && this.#activeStroke.strokeId !== strokeId) {
-      this.#activeStroke = null;
-      this.#rebuildScene();
+      throw new Error('another baseline paint stroke is already active');
     }
     if (this.#activeStroke === null) {
       this.#activeStroke = { strokeId, dabs: [] };
     }
+    canonicalTiles.applyDabs(this.#resolveLayerId(layerId), strokeId, delta);
     this.#activeStroke.dabs.push(...delta);
     if (delta.length > 0) this.#appendDabs(delta);
     return this.snapshot();
@@ -553,8 +705,10 @@ export class BaselinePaintRendererV1 {
 
   cancelStroke(strokeId: string): BaselinePaintRendererSnapshotV1 {
     if (this.#activeStroke?.strokeId === strokeId) {
+      const canonicalTiles = this.#canonicalTiles;
+      const patches = canonicalTiles?.cancel(strokeId) ?? Object.freeze([]);
       this.#activeStroke = null;
-      this.#rebuildScene();
+      this.#patchCompositeTiles(patches.map((patch) => patch.coordinate));
     }
     return this.snapshot();
   }
@@ -562,10 +716,11 @@ export class BaselinePaintRendererV1 {
   finalizeStroke(
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
+    layerId?: string,
   ): BaselinePaintFinalizationV1 {
     const existing = this.#finalizations.get(strokeId);
     if (existing !== undefined) return existing;
-    const { tileState, width, height } = this.#requireDocument();
+    const { tileState, canonicalTiles, width, height } = this.#requireDocument();
     if (strokeId.length === 0) throw new TypeError('baseline paint strokeId must not be empty');
     const frozenDabs = freezeDabs(dabs);
     if (frozenDabs.some((dab) => !isRenderableDab(dab))) {
@@ -573,17 +728,22 @@ export class BaselinePaintRendererV1 {
     }
 
     const active = this.#activeStroke;
+    const resolvedLayerId = this.#resolveLayerId(layerId);
     if (active?.strokeId === strokeId && isDabPrefix(active.dabs, frozenDabs)) {
       const missingTail = frozenDabs.slice(active.dabs.length);
       if (missingTail.length > 0) {
+        canonicalTiles.applyDabs(resolvedLayerId, strokeId, missingTail);
         active.dabs.push(...missingTail);
         this.#appendDabs(missingTail);
       } else if (!this.#hasCurrentScene()) {
         this.#rebuildScene();
       }
-    } else {
+    } else if (active === null) {
       this.#activeStroke = { strokeId, dabs: [...frozenDabs] };
-      this.#rebuildScene();
+      canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs);
+      if (frozenDabs.length > 0) this.#appendDabs(frozenDabs);
+    } else {
+      throw new Error('baseline finalized dabs do not extend the active retained prefix');
     }
 
     const affectedTiles = planBaselineBrushTilesV1(frozenDabs, width, height).map((plan) => {
@@ -591,9 +751,8 @@ export class BaselinePaintRendererV1 {
       const dirty = tileState.markDirty(plan.coordinate, plan.dirtyRect);
       return Object.freeze({ coordinate: plan.coordinate, dirty });
     });
-    const previous = this.#committedStrokes.get(strokeId);
-    if (previous !== undefined) this.#committedDabCount -= previous.length;
-    this.#committedStrokes.set(strokeId, frozenDabs);
+    const tilePatches = canonicalTiles.finalize(strokeId);
+    this.#committedStrokeCount += 1;
     this.#committedDabCount += frozenDabs.length;
     if (this.#activeStroke?.strokeId === strokeId) this.#activeStroke = null;
 
@@ -602,9 +761,15 @@ export class BaselinePaintRendererV1 {
       strokeId,
       dabCount: frozenDabs.length,
       affectedTiles: Object.freeze(affectedTiles),
+      tilePatches,
       renderer: this.snapshot(),
     });
     this.#finalizations.set(strokeId, finalization);
+    while (this.#finalizations.size > 8) {
+      const oldest = this.#finalizations.keys().next().value as string | undefined;
+      if (oldest === undefined) break;
+      this.#finalizations.delete(oldest);
+    }
     return finalization;
   }
 
@@ -613,8 +778,10 @@ export class BaselinePaintRendererV1 {
   ): BaselinePaintRendererSnapshotV1 {
     const { tileState, width, height } = this.#requireDocument();
     tileState.resetContent();
+    const precision = this.#canonicalTiles?.pixelFormat ?? 'rgba8-unorm';
+    this.#canonicalTiles = new BaselineRasterTileStoreV1(width, height, precision, this.#layers);
     this.#activeStroke = null;
-    this.#committedStrokes.clear();
+    this.#committedStrokeCount = 0;
     this.#committedDabCount = 0;
     this.#finalizations.clear();
     const seen = new Set<string>();
@@ -630,11 +797,65 @@ export class BaselinePaintRendererV1 {
         tileState.allocate(plan.coordinate);
         tileState.markDirty(plan.coordinate, plan.dirtyRect);
       }
-      this.#committedStrokes.set(stroke.strokeId, dabs);
+      const layerId = this.#resolveLayerId(stroke.layerId);
+      this.#canonicalTiles.applyDabs(layerId, stroke.strokeId, dabs);
+      this.#canonicalTiles.finalize(stroke.strokeId);
+      this.#committedStrokeCount += 1;
       this.#committedDabCount += dabs.length;
     }
     this.#rebuildScene();
     return this.snapshot();
+  }
+
+  restoreCanonicalTiles(
+    tiles: readonly BaselineRasterTileImageV1[],
+    layers: readonly BaselineRasterLayerDescriptorV1[] = this.#layers,
+  ): BaselinePaintRendererSnapshotV1 {
+    const { tileState, canonicalTiles } = this.#requireDocument();
+    tileState.resetContent();
+    this.#layers = Object.freeze([...layers]);
+    canonicalTiles.setLayers(this.#layers);
+    canonicalTiles.restore(tiles);
+    this.#activeStroke = null;
+    this.#committedStrokeCount = 0;
+    this.#committedDabCount = 0;
+    this.#finalizations.clear();
+    for (const tile of tiles) {
+      tileState.allocate(tile.coordinate);
+      tileState.markDirty(tile.coordinate, {
+        x: 0,
+        y: 0,
+        width: tile.width,
+        height: tile.height,
+      });
+    }
+    this.#rebuildScene();
+    return this.snapshot();
+  }
+
+  applyTilePatches(
+    patches: readonly BaselineRasterTilePatchV1[],
+    direction: BaselineRasterTilePatchDirectionV1,
+  ): BaselinePaintRendererSnapshotV1 {
+    const { tileState, canonicalTiles, width, height } = this.#requireDocument();
+    const affected = canonicalTiles.applyPatches(patches, direction);
+    for (const coordinate of affected) {
+      const bounds = tileBoundsForDocumentV1(width, height, coordinate);
+      tileState.allocate(coordinate);
+      tileState.markDirty(coordinate, {
+        x: 0,
+        y: 0,
+        width: bounds.validWidth,
+        height: bounds.validHeight,
+      });
+    }
+    this.#activeStroke = null;
+    this.#patchCompositeTiles(affected);
+    return this.snapshot();
+  }
+
+  exportCanonicalTiles(): readonly BaselineRasterTileImageV1[] {
+    return this.#requireDocument().canonicalTiles.exportTiles();
   }
 
   dispose(): void {
@@ -643,10 +864,12 @@ export class BaselinePaintRendererV1 {
     this.#surface = null;
     this.#surfaceFormat = null;
     this.#tileState = null;
+    this.#canonicalTiles = null;
+    this.#layers = Object.freeze([]);
     this.#documentWidth = null;
     this.#documentHeight = null;
     this.#activeStroke = null;
-    this.#committedStrokes.clear();
+    this.#committedStrokeCount = 0;
     this.#committedDabCount = 0;
     this.#finalizations.clear();
   }
@@ -693,29 +916,76 @@ export class BaselinePaintRendererV1 {
     ) {
       return;
     }
-    const dabs: BaselineBrushDabV1[] = [];
-    for (const committed of this.#committedStrokes.values()) dabs.push(...committed);
-    if (this.#activeStroke !== null) dabs.push(...this.#activeStroke.dabs);
     this.#gpu.render({
       surface: this.#surface,
       format: this.#surfaceFormat,
       documentWidth: this.#documentWidth,
       documentHeight: this.#documentHeight,
-      dabs,
+      dabs: Object.freeze([]),
       mode: 'replace',
     });
+    const tiles = this.#canonicalTiles?.compositeTiles() ?? Object.freeze([]);
+    if (tiles.length > 0) {
+      this.#gpu.patchTiles({
+        surface: this.#surface,
+        format: this.#surfaceFormat,
+        documentWidth: this.#documentWidth,
+        documentHeight: this.#documentHeight,
+        tiles,
+      });
+    }
+  }
+
+  #patchCompositeTiles(coordinates: readonly TileCoordinateV1[]): void {
+    if (coordinates.length === 0) return;
+    if (
+      this.#device === null ||
+      this.#surface === null ||
+      this.#surfaceFormat === null ||
+      this.#documentWidth === null ||
+      this.#documentHeight === null ||
+      this.#canonicalTiles === null
+    ) {
+      return;
+    }
+    if (!this.#gpu.hasSceneFor(this.#surface, this.#surfaceFormat)) {
+      this.#rebuildScene();
+      return;
+    }
+    this.#gpu.patchTiles({
+      surface: this.#surface,
+      format: this.#surfaceFormat,
+      documentWidth: this.#documentWidth,
+      documentHeight: this.#documentHeight,
+      tiles: this.#canonicalTiles.compositeTiles(coordinates),
+    });
+  }
+
+  #resolveLayerId(layerId?: string): string {
+    const resolved = layerId ?? this.#layers[0]?.layerId;
+    if (resolved === undefined || resolved.length === 0) {
+      throw new Error('baseline paint has no raster layer');
+    }
+    return resolved;
   }
 
   #requireDocument(): {
     readonly tileState: RendererTileStateV1;
+    readonly canonicalTiles: BaselineRasterTileStoreV1;
     readonly width: number;
     readonly height: number;
   } {
-    if (this.#tileState === null || this.#documentWidth === null || this.#documentHeight === null) {
+    if (
+      this.#tileState === null ||
+      this.#canonicalTiles === null ||
+      this.#documentWidth === null ||
+      this.#documentHeight === null
+    ) {
       throw new Error('baseline paint document is not configured');
     }
     return {
       tileState: this.#tileState,
+      canonicalTiles: this.#canonicalTiles,
       width: this.#documentWidth,
       height: this.#documentHeight,
     };

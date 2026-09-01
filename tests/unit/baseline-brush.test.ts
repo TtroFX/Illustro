@@ -46,30 +46,30 @@ describe('M4 baseline brush dab generation', () => {
 
   it('splits one dab across canonical sparse-tile boundaries with local dirty rectangles', () => {
     const builder = new BaselineBrushDabBuilderV1();
-    const [dab] = builder.begin({ documentX: 255, documentY: 128 });
+    const [dab] = builder.begin({ documentX: 127, documentY: 64 });
     expect(dab).toBeDefined();
 
-    const plans = planBaselineBrushTilesV1([dab!], 512, 256);
+    const plans = planBaselineBrushTilesV1([dab!], 256, 128);
     expect(plans).toHaveLength(2);
     expect(plans[0]).toMatchObject({
       coordinate: { tx: 0, ty: 0 },
-      dirtyRect: { x: 247, y: 120, width: 9, height: 16 },
+      dirtyRect: { x: 119, y: 56, width: 9, height: 16 },
     });
     expect(plans[1]).toMatchObject({
       coordinate: { tx: 1, ty: 0 },
-      dirtyRect: { x: 0, y: 120, width: 7, height: 16 },
+      dirtyRect: { x: 0, y: 56, width: 7, height: 16 },
     });
   });
 
   it('clips off-canvas brush coverage before producing tile dirtiness', () => {
     const builder = new BaselineBrushDabBuilderV1();
-    const [dab] = builder.begin({ documentX: 2, documentY: 128 });
+    const [dab] = builder.begin({ documentX: 2, documentY: 64 });
     expect(dab).toBeDefined();
 
     expect(planBaselineBrushTilesV1([dab!], 256, 256)).toMatchObject([
       {
         coordinate: { tx: 0, ty: 0 },
-        dirtyRect: { x: 0, y: 120, width: 10, height: 16 },
+        dirtyRect: { x: 0, y: 56, width: 10, height: 16 },
       },
     ]);
   });

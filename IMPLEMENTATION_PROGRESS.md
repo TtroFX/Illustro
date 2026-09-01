@@ -169,7 +169,7 @@ M3-008 OffscreenCanvas transfer path:完了
 M3-009 main-context WebGPU fallback:完了
 M3-010 GPU device-loss detection:完了
 M3-011 GPU device-loss reconstruction:完了
-M3-012 canonical 256px sparse tile model:完了
+M3-012 canonical 128px sparse tile model:完了
 M3-013 edge-tile valid bounds:完了
 M3-014 tile addressing:完了
 M3-015 dirty-tile tracking:完了
@@ -231,6 +231,18 @@ M4-018 PNG export:完了
 M4-検査 M4内部検査:完了
 PUB-01 ユーザー確認1用Preview公開:完了
 USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了
+
+### USER-01 performance remediation — Raster Tile canonical state
+USER-01-PERF-001 128×128 Raster Tile canonical state基盤（affected-tile before/after capture・CPU復元・GPU dirty-tile patch）:完了
+USER-01-PERF-002 production renderer/sessionをlayer別canonical Raster Tileへ接続:未完了
+USER-01-PERF-003 Tile差分Undo/Redo（全stroke replay除去）:未完了
+USER-01-PERF-004 dirty Tile journal・bounded history spill・Autosave差分化:未完了
+USER-01-PERF-005 旧stroke snapshot一回限りmigration・Tile復元・Export互換:未完了
+USER-01-PERF-006 100/1,000/10,000 stroke scaling回帰確認・typecheck/test/build:未完了
+USER-01-PERF-007 main統合・GitHub Pages preview更新:未完了
+再開メモ: `perf/raster-tile-canonical` branch上の最新push済みcommitから再開し、PERF-002 renderer/session/worker接続へ進む。
+
+USER-01は上記内部修正の完了後も、ユーザー実機で明示的にPASSされるまで未完了のままとする。
 
 ## M5A — Document / Canvas / Navigation
 M5A-001 custom canvas width/height:完了

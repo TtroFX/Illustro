@@ -97,7 +97,7 @@ describe('M5B layer vertical flip', () => {
       name: 'Vertical',
       tiles: [
         createRasterTileReference({ x: 0, y: 0, payloadRef: topRef }),
-        createRasterTileReference({ x: 0, y: 1, payloadRef: bottomRef }),
+        createRasterTileReference({ x: 0, y: 2, payloadRef: bottomRef }),
       ],
     });
     const document = createDocumentV1({ width: 1, height: 300 });
@@ -113,15 +113,15 @@ describe('M5B layer vertical flip', () => {
       committedStrokes: Object.freeze([]),
     });
     const persistence = new MemoryRasterPersistence();
-    const top = new Uint8Array(256 * 4);
+    const top = new Uint8Array(128 * 4);
     top.set([10, 20, 30, 40], 0);
-    top.set([50, 60, 70, 80], 255 * 4);
+    top.set([50, 60, 70, 80], 127 * 4);
     const bottom = new Uint8Array(44 * 4);
     bottom.set([90, 100, 110, 120], 43 * 4);
     persistence.seed({
       payloadRef: topRef,
       width: 1,
-      height: 256,
+      height: 128,
       pixelFormat: 'rgba8-unorm',
       bytes: top,
     });
@@ -137,14 +137,17 @@ describe('M5B layer vertical flip', () => {
     expect(prepared.tiles.map(({ x, y }) => [x, y])).toEqual([
       [0, 0],
       [0, 1],
+      [0, 2],
     ]);
     const output0 = persistence.tiles.get(prepared.tiles[0]?.payloadRef ?? '');
     const output1 = persistence.tiles.get(prepared.tiles[1]?.payloadRef ?? '');
+    const output2 = persistence.tiles.get(prepared.tiles[2]?.payloadRef ?? '');
     expect(output0).toBeDefined();
     expect(output1).toBeDefined();
-    if (output0 === undefined || output1 === undefined) return;
+    expect(output2).toBeDefined();
+    if (output0 === undefined || output1 === undefined || output2 === undefined) return;
     expect(pixel(output0.bytes, 1, 0, 0)).toEqual([90, 100, 110, 120]);
-    expect(pixel(output0.bytes, 1, 0, 44)).toEqual([50, 60, 70, 80]);
-    expect(pixel(output1.bytes, 1, 0, 43)).toEqual([10, 20, 30, 40]);
+    expect(pixel(output1.bytes, 1, 0, 44)).toEqual([50, 60, 70, 80]);
+    expect(pixel(output2.bytes, 1, 0, 43)).toEqual([10, 20, 30, 40]);
   });
 });

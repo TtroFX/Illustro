@@ -191,19 +191,19 @@ describe('M5B layer horizontal flip', () => {
       roleFlags: { reference: true },
       tiles: [
         createRasterTileReference({ x: 0, y: 0, payloadRef: leftRef }),
-        createRasterTileReference({ x: 1, y: 0, payloadRef: rightRef }),
+        createRasterTileReference({ x: 2, y: 0, payloadRef: rightRef }),
       ],
     });
     const snapshot = snapshotWith(raster, { width: 300, height: 1 });
     const persistence = new MemoryRasterPersistence();
-    const left = new Uint8Array(256 * 4);
+    const left = new Uint8Array(128 * 4);
     left.set([10, 20, 30, 40], 0);
-    left.set([50, 60, 70, 80], 255 * 4);
+    left.set([50, 60, 70, 80], 127 * 4);
     const right = new Uint8Array(44 * 4);
     right.set([90, 100, 110, 120], 43 * 4);
     persistence.seed({
       payloadRef: leftRef,
-      width: 256,
+      width: 128,
       height: 1,
       pixelFormat: 'rgba8-unorm',
       bytes: left,
@@ -220,15 +220,18 @@ describe('M5B layer horizontal flip', () => {
     expect(prepared.tiles.map(({ x, y }) => [x, y])).toEqual([
       [0, 0],
       [1, 0],
+      [2, 0],
     ]);
     const output0 = persistence.tiles.get(prepared.tiles[0]?.payloadRef ?? '');
     const output1 = persistence.tiles.get(prepared.tiles[1]?.payloadRef ?? '');
+    const output2 = persistence.tiles.get(prepared.tiles[2]?.payloadRef ?? '');
     expect(output0).toBeDefined();
     expect(output1).toBeDefined();
-    if (output0 === undefined || output1 === undefined) return;
-    expect(pixel(output0.bytes, 256, 0)).toEqual([90, 100, 110, 120]);
-    expect(pixel(output0.bytes, 256, 44)).toEqual([50, 60, 70, 80]);
-    expect(pixel(output1.bytes, 44, 43)).toEqual([10, 20, 30, 40]);
+    expect(output2).toBeDefined();
+    if (output0 === undefined || output1 === undefined || output2 === undefined) return;
+    expect(pixel(output0.bytes, 128, 0)).toEqual([90, 100, 110, 120]);
+    expect(pixel(output1.bytes, 128, 44)).toEqual([50, 60, 70, 80]);
+    expect(pixel(output2.bytes, 44, 43)).toEqual([10, 20, 30, 40]);
 
     const after = applyPreparedLayerRasterFlipV1(snapshot, prepared, parseRevision(1), new Date(0));
     expect(after.document.layerTree.layers[raster.id]).toMatchObject({
