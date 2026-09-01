@@ -154,7 +154,14 @@
               <button id="layer-alpha-lock" type="button" aria-label="透明ピクセルをロック" title="Alpha Lock" aria-pressed="false">α</button>
               <label class="shell-layer-opacity" title="不透明度"><span aria-hidden="true">◐</span><input id="layer-opacity" type="number" min="0" max="100" step="1" value="100" aria-label="レイヤー不透明度 パーセント" /></label>
             </div>
-            <form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>
+            <div class="shell-layer-comps">
+  <input id="layer-comp-name" type="text" maxlength="120" placeholder="Layer Comp名" aria-label="保存するLayer Comp名" />
+  <button id="layer-comp-save" type="button">保存</button>
+  <select id="layer-comp-select" aria-label="Layer Compを選択"><option value="">Layer Comp</option></select>
+  <button id="layer-comp-apply" type="button" disabled>切替</button>
+</div>
+<output id="layer-comp-status" class="shell-layer-comp-status" aria-live="polite"></output>
+<form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>
               <input id="layer-rename-input" type="text" maxlength="120" aria-label="レイヤー名" />
               <button type="submit" aria-label="名前変更を適用">✓</button>
               <button id="layer-rename-cancel" type="button" aria-label="名前変更をキャンセル">×</button>

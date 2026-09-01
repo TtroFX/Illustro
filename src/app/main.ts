@@ -18,6 +18,7 @@ import { installDocumentWorkflowControllerV1 } from './document-workflow-control
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
 import { installGridControllerV1 } from './grid-controller.js';
 import { installLayerWorkflowControllerV1 } from './layer-workflow-controller.js';
+import { installLayerCompsControllerV1 } from './layer-comps-controller.js';
 import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
 import { installDiagnosticsHook } from './diagnostics.js';
 import { PaintHistoryControllerV1 } from './paint-history-controller.js';
@@ -143,7 +144,22 @@ const layerWorkflow = installLayerWorkflowControllerV1({
   schedule: enqueuePaintRender,
   onHistoryChanged: publishPaintHistory,
 });
-refreshLayerUi = (): void => layerWorkflow.refresh();
+const layerComps = installLayerCompsControllerV1({
+  root,
+  paintSession,
+  paintHistory,
+  paintPersistence,
+  schedule: enqueuePaintRender,
+  onHistoryChanged: publishPaintHistory,
+  onLayerStateChanged() {
+    const documentValue = paintSession.currentDocument();
+    if (documentValue !== null) publishDocumentState(documentValue);
+  },
+});
+refreshLayerUi = (): void => {
+  layerWorkflow.refresh();
+  layerComps.refresh();
+};
 
 const pointerTransport = createPointerInputTransportV1(workers.render, {
   sharedMemoryFastPath:
@@ -355,6 +371,7 @@ globalThis.addEventListener(
     window.removeEventListener('keydown', onPaintHistoryKeyDown);
     exportPngButton?.removeEventListener('click', onExportPngClick);
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
+    layerComps.dispose();
     layerWorkflow.dispose();
     documentGeometryWorkflow.dispose();
     documentWorkflow.dispose();

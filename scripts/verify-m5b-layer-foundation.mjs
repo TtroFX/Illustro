@@ -249,4 +249,26 @@ requireText('src/app/layer-workflow-controller.ts', [
   'buildLayerCompositeStructureV1',
 ]);
 requireText('src/index.html', ['id="layer-folder-pass-through"']);
+requireText('src/app/layer-comps.ts', [
+  'saveLayerCompSnapshotV1',
+  'applyLayerCompSnapshotV1',
+  'layerCompHasChangesV1',
+  "'illustro.layer-comps/1'",
+  'visible: layer.visible',
+  'opacity: layer.opacity',
+  'blendMode: layer.blendMode',
+]);
+requireText('src/app/layer-comps-controller.ts', [
+  'installLayerCompsControllerV1',
+  "'layer.comp.save'",
+  "'layer.comp.switch'",
+  'paintPersistence.markDirty',
+]);
+requireText('src/app/main.ts', ['installLayerCompsControllerV1', 'layerComps.dispose()']);
+requireText('src/index.html', [
+  'id="layer-comp-name"',
+  'id="layer-comp-save"',
+  'id="layer-comp-select"',
+  'id="layer-comp-apply"',
+]);
 console.log('M5B layer system verification passed');

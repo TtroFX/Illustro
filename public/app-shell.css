@@ -912,3 +912,56 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+.shell-layer-comps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr) 42px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.shell-layer-comps input,
+.shell-layer-comps select,
+.shell-layer-comps button {
+  min-width: 0;
+  height: 27px;
+  border: 1px solid #e2e7ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #46536b;
+  font: 600 9px/1 system-ui, sans-serif;
+}
+
+.shell-layer-comps input,
+.shell-layer-comps select {
+  padding: 0 6px;
+}
+
+.shell-layer-comps button {
+  padding: 0 5px;
+  background: #f8faff;
+  cursor: pointer;
+}
+
+.shell-layer-comps button:hover:not(:disabled),
+.shell-layer-comps button:focus-visible {
+  border-color: #ffd1e3;
+  background: #fff0f6;
+  color: #c72b6d;
+  outline: none;
+}
+
+.shell-layer-comps button:disabled {
+  cursor: default;
+  opacity: 0.38;
+}
+
+.shell-layer-comp-status {
+  min-height: 11px;
+  overflow: hidden;
+  color: #6f7c93;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
