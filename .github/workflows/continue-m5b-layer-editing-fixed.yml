@@ -70,6 +70,32 @@ jobs:
           if old not in text:
               raise SystemExit('layer-actions CSS target missing')
           path.write_text(text.replace(old, new, 1))
+
+          path = Path('src/app/layer-workflow-controller.ts')
+          text = path.read_text()
+          old = """      const documentValue = options.paintSession.currentDocument();
+      const layer = documentValue?.layerTree.layers[layerId];
+      if (layer === undefined) return;
+"""
+          new = """      const documentValue = options.paintSession.currentDocument();
+      if (documentValue === null) return;
+      const layer = documentValue.layerTree.layers[layerId];
+      if (layer === undefined) return;
+"""
+          if old not in text:
+              raise SystemExit('layer document narrowing target missing')
+          text = text.replace(old, new, 1)
+          old = """    for (const row of list.querySelectorAll<HTMLElement>('[data-layer-id]')) {
+      delete row.dataset.dropPosition;
+    }
+"""
+          new = """    list.querySelectorAll<HTMLElement>('[data-layer-id]').forEach((row) => {
+      delete row.dataset.dropPosition;
+    });
+"""
+          if old not in text:
+              raise SystemExit('layer drop-indicator iteration target missing')
+          path.write_text(text.replace(old, new, 1))
           PY
       - name: Canonical formatting
         run: npm run format
