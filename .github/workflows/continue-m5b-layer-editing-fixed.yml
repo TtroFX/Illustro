@@ -73,26 +73,13 @@ jobs:
 
           path = Path('src/app/layer-workflow-controller.ts')
           text = path.read_text()
-          old = """      const documentValue = options.paintSession.currentDocument();
-      const layer = documentValue?.layerTree.layers[layerId];
-      if (layer === undefined) return;
-"""
-          new = """      const documentValue = options.paintSession.currentDocument();
-      if (documentValue === null) return;
-      const layer = documentValue.layerTree.layers[layerId];
-      if (layer === undefined) return;
-"""
+          old = "      const documentValue = options.paintSession.currentDocument();\n      const layer = documentValue?.layerTree.layers[layerId];\n      if (layer === undefined) return;\n"
+          new = "      const documentValue = options.paintSession.currentDocument();\n      if (documentValue === null) return;\n      const layer = documentValue.layerTree.layers[layerId];\n      if (layer === undefined) return;\n"
           if old not in text:
               raise SystemExit('layer document narrowing target missing')
           text = text.replace(old, new, 1)
-          old = """    for (const row of list.querySelectorAll<HTMLElement>('[data-layer-id]')) {
-      delete row.dataset.dropPosition;
-    }
-"""
-          new = """    list.querySelectorAll<HTMLElement>('[data-layer-id]').forEach((row) => {
-      delete row.dataset.dropPosition;
-    });
-"""
+          old = "    for (const row of list.querySelectorAll<HTMLElement>('[data-layer-id]')) {\n      delete row.dataset.dropPosition;\n    }\n"
+          new = "    list.querySelectorAll<HTMLElement>('[data-layer-id]').forEach((row) => {\n      delete row.dataset.dropPosition;\n    });\n"
           if old not in text:
               raise SystemExit('layer drop-indicator iteration target missing')
           path.write_text(text.replace(old, new, 1))
