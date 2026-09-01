@@ -155,6 +155,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const rasterizeButton = required<HTMLButtonElement>('#layer-rasterize');
   const invertButton = required<HTMLButtonElement>('#layer-invert');
   const horizontalFlipButton = required<HTMLButtonElement>('#layer-flip-horizontal');
+  const verticalFlipButton = required<HTMLButtonElement>('#layer-flip-vertical');
   const deleteButton = required<HTMLButtonElement>('#layer-delete');
   const clearButton = required<HTMLButtonElement>('#layer-clear');
   const renameButton = required<HTMLButtonElement>('#layer-rename');
@@ -295,6 +296,9 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     horizontalFlipButton.disabled =
       flipEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
     horizontalFlipButton.title = flipEligibility?.reason ?? 'レイヤーを左右反転';
+    verticalFlipButton.disabled =
+      flipEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
+    verticalFlipButton.title = flipEligibility?.reason ?? 'レイヤーを上下反転';
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -566,6 +570,38 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     });
   };
 
+  const onVerticalFlip = (): void => {
+    const layerId = options.paintSession.activeLayerId();
+    if (layerId === null) return;
+    options.schedule(async () => {
+      try {
+        if (options.paintSession.activeStrokeId() !== null) {
+          throw new Error('layer vertical flip is unavailable while a stroke is active');
+        }
+        const current = options.paintSession.projectSnapshot();
+        if (current === null) return;
+        const prepared = await prepareLayerRasterFlipV1(
+          current,
+          layerId,
+          'vertical',
+          options.paintPersistence,
+        );
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          'layer.flip.vertical',
+          (before, revision) => applyPreparedLayerRasterFlipV1(before, prepared, revision),
+        );
+        options.paintSession.setActiveLayer(layerId);
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
+  };
+
   const onDelete = (): void => {
     const current = options.paintSession.projectSnapshot();
     const layerId = options.paintSession.activeLayerId();
@@ -819,6 +855,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   rasterizeButton.addEventListener('click', onRasterize);
   invertButton.addEventListener('click', onInvert);
   horizontalFlipButton.addEventListener('click', onHorizontalFlip);
+  verticalFlipButton.addEventListener('click', onVerticalFlip);
   deleteButton.addEventListener('click', onDelete);
   clearButton.addEventListener('click', onClear);
   renameButton.addEventListener('click', onRename);
@@ -851,6 +888,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       rasterizeButton.removeEventListener('click', onRasterize);
       invertButton.removeEventListener('click', onInvert);
       horizontalFlipButton.removeEventListener('click', onHorizontalFlip);
+      verticalFlipButton.removeEventListener('click', onVerticalFlip);
       deleteButton.removeEventListener('click', onDelete);
       clearButton.removeEventListener('click', onClear);
       renameButton.removeEventListener('click', onRename);
