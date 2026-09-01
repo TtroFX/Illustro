@@ -59,16 +59,22 @@ describe('runtime capability profile', () => {
     expect(profile.blockingReasonCodes).toEqual([]);
   });
 
-  it('keeps renderer capability failures independent from viewport width', () => {
-    const profile = createRuntimeCapabilityProfile(BASE_CAPABILITIES, {
-      coreWebGpuDeviceReady: false,
-      transferableArrayBuffer: true,
-      storageWriteViable: true,
-      viewportWidthCssPx: NARROW_LAYOUT_BREAKPOINT_CSS_PX - 1,
-    });
+  it('uses the compatibility renderer when WebGPU API/device acceleration is unavailable', () => {
+    const profile = createRuntimeCapabilityProfile(
+      { ...BASE_CAPABILITIES, webGpu: false },
+      {
+        coreWebGpuDeviceReady: false,
+        transferableArrayBuffer: true,
+        storageWriteViable: true,
+        viewportWidthCssPx: NARROW_LAYOUT_BREAKPOINT_CSS_PX - 1,
+      },
+    );
 
-    expect(profile.fullEditorEligibility).toBe('ineligible');
+    expect(profile.fullEditorEligibility).toBe('eligible');
+    expect(profile.required.webGpuApi).toBe(false);
+    expect(profile.required.coreWebGpuDeviceReady).toBe(false);
     expect(profile.optional.narrowViewport).toBe(true);
-    expect(profile.blockingReasonCodes).toEqual(['capability.coreWebGpuDevice']);
+    expect(profile.blockingReasonCodes).toEqual([]);
+    expect(profile.pendingReasonCodes).toEqual([]);
   });
 });
