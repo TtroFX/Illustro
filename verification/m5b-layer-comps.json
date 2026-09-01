@@ -1,0 +1,20 @@
+{
+  "schema": "illustro.verification-record/1",
+  "milestones": ["M5B-034", "M5B-035"],
+  "implementationSha": "0a86409b7a80e440831f9b473a56b9de1624410d",
+  "implementationWorkflowRun": 33494369965,
+  "checks": [
+    "format",
+    "lint",
+    "typecheck",
+    "unit",
+    "verify:m5b",
+    "verify:m1",
+    "verify:m3",
+    "verify:m4",
+    "verify:m5a",
+    "build",
+    "integration",
+    "verify:m0.5"
+  ]
+}
