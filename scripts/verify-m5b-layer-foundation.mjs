@@ -156,4 +156,28 @@ requireText('src/app/paint-persistence-controller.ts', [
   'readRasterTile(payloadRef:',
   "type: 'storage.tile.get'",
 ]);
+requireText('src/app/layer-group-transform.ts', [
+  'groupedLayerTransformEligibilityV1',
+  'applyGroupedAffineLayerTransformSnapshotV1',
+  "'illustro.grouped-affine-transform/1'",
+  "kind: 'affine'",
+  'transformStack',
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'layer.transform.grouped'",
+  'groupedLayerTransformEligibilityV1',
+  'applyGroupedAffineLayerTransformSnapshotV1',
+  'layer-group-transform-dialog',
+]);
+requireText('src/index.html', [
+  'id="layer-group-transform"',
+  'id="layer-group-transform-dialog"',
+  'id="layer-group-transform-x"',
+  'id="layer-group-transform-y"',
+  'id="layer-group-transform-scale-x"',
+  'id="layer-group-transform-scale-y"',
+  'id="layer-group-transform-rotation"',
+  'id="layer-group-transform-pivot-x"',
+  'id="layer-group-transform-pivot-y"',
+]);
 console.log('M5B layer system verification passed');

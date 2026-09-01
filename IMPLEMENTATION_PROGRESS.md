@@ -292,7 +292,7 @@ M5B-023 layer horizontal flip:完了
 M5B-024 layer vertical flip:完了
 M5B-025 multi-layer selection:完了
 M5B-026 multi-layer move:完了
-M5B-027 grouped transform:未完了
+M5B-027 grouped transform:完了
 M5B-028 folder-level transform:未完了
 M5B-029 layer search:未完了
 M5B-030 layer filtering:未完了

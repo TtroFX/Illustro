@@ -9,6 +9,10 @@ import {
   type CreatableLayerKindV1,
 } from './layer-creation.js';
 import {
+  applyGroupedAffineLayerTransformSnapshotV1,
+  groupedLayerTransformEligibilityV1,
+} from './layer-group-transform.js';
+import {
   canMoveRootLayerSelectionStepV1,
   clearLayerSnapshotV1,
   deleteRootLayerSnapshotV1,
@@ -159,6 +163,18 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const invertButton = required<HTMLButtonElement>('#layer-invert');
   const horizontalFlipButton = required<HTMLButtonElement>('#layer-flip-horizontal');
   const verticalFlipButton = required<HTMLButtonElement>('#layer-flip-vertical');
+  const groupedTransformButton = required<HTMLButtonElement>('#layer-group-transform');
+  const groupedTransformDialog = required<HTMLDialogElement>('#layer-group-transform-dialog');
+  const groupedTransformForm = required<HTMLFormElement>('#layer-group-transform-form');
+  const groupedTransformCancel = required<HTMLButtonElement>('#layer-group-transform-cancel');
+  const groupedTransformX = required<HTMLInputElement>('#layer-group-transform-x');
+  const groupedTransformY = required<HTMLInputElement>('#layer-group-transform-y');
+  const groupedTransformScaleX = required<HTMLInputElement>('#layer-group-transform-scale-x');
+  const groupedTransformScaleY = required<HTMLInputElement>('#layer-group-transform-scale-y');
+  const groupedTransformRotation = required<HTMLInputElement>('#layer-group-transform-rotation');
+  const groupedTransformPivotX = required<HTMLInputElement>('#layer-group-transform-pivot-x');
+  const groupedTransformPivotY = required<HTMLInputElement>('#layer-group-transform-pivot-y');
+  const groupedTransformStatus = required<HTMLOutputElement>('#layer-group-transform-status');
   const deleteButton = required<HTMLButtonElement>('#layer-delete');
   const clearButton = required<HTMLButtonElement>('#layer-clear');
   const renameButton = required<HTMLButtonElement>('#layer-rename');
@@ -180,11 +196,13 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     const message = error instanceof Error ? error.message : String(error);
     root.dataset.illustroLayerError = message;
     status.value = message;
+    groupedTransformStatus.value = message;
   };
 
   const clearError = (): void => {
     root.dataset.illustroLayerError = '';
     status.value = '';
+    groupedTransformStatus.value = '';
   };
 
   const currentActive = (): { id: LayerId; layer: LayerBaseV1 } | null => {
@@ -305,6 +323,18 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     verticalFlipButton.disabled =
       flipEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
     verticalFlipButton.title = flipEligibility?.reason ?? 'レイヤーを上下反転';
+    const groupedTransformLayerIds = options.paintSession
+      .selectedLayerIds()
+      .filter((id) => documentValue.layerTree.rootLayerIds.includes(id));
+    const groupedTransformEligibility =
+      projectSnapshot === null
+        ? null
+        : groupedLayerTransformEligibilityV1(projectSnapshot, groupedTransformLayerIds);
+    groupedTransformButton.disabled =
+      groupedTransformEligibility?.eligible !== true ||
+      options.paintSession.activeStrokeId() !== null;
+    groupedTransformButton.title =
+      groupedTransformEligibility?.reason ?? '選択中の複数レイヤーをまとめて変形';
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -615,6 +645,81 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     });
   };
 
+  const numericTransformValue = (input: HTMLInputElement, label: string): number => {
+    const value = Number(input.value);
+    if (!Number.isFinite(value)) throw new RangeError(`${label} must be finite`);
+    return value;
+  };
+
+  const onGroupedTransform = (): void => {
+    const current = options.paintSession.projectSnapshot();
+    if (current === null) return;
+    const layerIds = options.paintSession
+      .selectedLayerIds()
+      .filter((id) => current.document.layerTree.rootLayerIds.includes(id));
+    const eligibility = groupedLayerTransformEligibilityV1(current, layerIds);
+    if (!eligibility.eligible) {
+      publishError(new Error(eligibility.reason ?? 'grouped transform is unavailable'));
+      return;
+    }
+    groupedTransformX.value = '0';
+    groupedTransformY.value = '0';
+    groupedTransformScaleX.value = '100';
+    groupedTransformScaleY.value = '100';
+    groupedTransformRotation.value = '0';
+    groupedTransformPivotX.value = String(current.document.canvas.width / 2);
+    groupedTransformPivotY.value = String(current.document.canvas.height / 2);
+    clearError();
+    groupedTransformDialog.showModal();
+  };
+
+  const onGroupedTransformCancel = (): void => {
+    groupedTransformDialog.close();
+    clearError();
+  };
+
+  const onGroupedTransformSubmit = (event: SubmitEvent): void => {
+    event.preventDefault();
+    const current = options.paintSession.projectSnapshot();
+    if (current === null) return;
+    const layerIds = options.paintSession
+      .selectedLayerIds()
+      .filter((id) => current.document.layerTree.rootLayerIds.includes(id));
+    try {
+      const input = Object.freeze({
+        translateX: numericTransformValue(groupedTransformX, 'translateX'),
+        translateY: numericTransformValue(groupedTransformY, 'translateY'),
+        scaleX: numericTransformValue(groupedTransformScaleX, 'scaleX') / 100,
+        scaleY: numericTransformValue(groupedTransformScaleY, 'scaleY') / 100,
+        rotationDeg: numericTransformValue(groupedTransformRotation, 'rotationDeg'),
+        pivotX: numericTransformValue(groupedTransformPivotX, 'pivotX'),
+        pivotY: numericTransformValue(groupedTransformPivotY, 'pivotY'),
+      });
+      options.schedule(async () => {
+        try {
+          if (options.paintSession.activeStrokeId() !== null) {
+            throw new Error('grouped transform is unavailable while a stroke is active');
+          }
+          const transaction = await options.paintHistory.commitSnapshotTransform(
+            'layer.transform.grouped',
+            (before, revision) =>
+              applyGroupedAffineLayerTransformSnapshotV1(before, layerIds, input, revision),
+          );
+          await options.paintPersistence.markDirty(transaction.transactionId);
+          root.dataset.illustroLayerTransaction = transaction.transactionId;
+          groupedTransformDialog.close();
+          clearError();
+          refresh();
+          options.onHistoryChanged();
+        } catch (error) {
+          publishError(error);
+        }
+      });
+    } catch (error) {
+      publishError(error);
+    }
+  };
+
   const onDelete = (): void => {
     const current = options.paintSession.projectSnapshot();
     const layerId = options.paintSession.activeLayerId();
@@ -920,6 +1025,9 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   invertButton.addEventListener('click', onInvert);
   horizontalFlipButton.addEventListener('click', onHorizontalFlip);
   verticalFlipButton.addEventListener('click', onVerticalFlip);
+  groupedTransformButton.addEventListener('click', onGroupedTransform);
+  groupedTransformForm.addEventListener('submit', onGroupedTransformSubmit);
+  groupedTransformCancel.addEventListener('click', onGroupedTransformCancel);
   deleteButton.addEventListener('click', onDelete);
   clearButton.addEventListener('click', onClear);
   renameButton.addEventListener('click', onRename);
@@ -953,6 +1061,9 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       invertButton.removeEventListener('click', onInvert);
       horizontalFlipButton.removeEventListener('click', onHorizontalFlip);
       verticalFlipButton.removeEventListener('click', onVerticalFlip);
+      groupedTransformButton.removeEventListener('click', onGroupedTransform);
+      groupedTransformForm.removeEventListener('submit', onGroupedTransformSubmit);
+      groupedTransformCancel.removeEventListener('click', onGroupedTransformCancel);
       deleteButton.removeEventListener('click', onDelete);
       clearButton.removeEventListener('click', onClear);
       renameButton.removeEventListener('click', onRename);

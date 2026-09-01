@@ -114,6 +114,7 @@
               <button id="layer-invert" type="button" aria-label="選択レイヤーの色を反転" title="色反転">◑</button>
               <button id="layer-flip-horizontal" type="button" aria-label="選択レイヤーを左右反転" title="左右反転">⇆</button>
               <button id="layer-flip-vertical" type="button" aria-label="選択レイヤーを上下反転" title="上下反転">⇅</button>
+              <button id="layer-group-transform" type="button" aria-label="選択中の複数レイヤーをまとめて変形" title="複数レイヤー変形">⤢</button>
               <button id="layer-rename" type="button" aria-label="レイヤー名を変更" title="名前を変更">✎</button>
               <button id="layer-delete" type="button" aria-label="レイヤーを削除" title="削除">×</button>
               <button id="layer-clear" type="button" aria-label="レイヤー内容をクリア" title="内容をクリア">⌫</button>
@@ -137,6 +138,27 @@
         </aside>
       </div>
     </div>
+    <dialog id="layer-group-transform-dialog" class="document-dialog" aria-labelledby="layer-group-transform-title">
+      <form id="layer-group-transform-form" method="dialog" class="document-dialog-form">
+        <header><h2 id="layer-group-transform-title">複数レイヤー変形</h2></header>
+        <p class="document-dialog-help">選択中の複数レイヤーへ同じ非破壊Affine変形を適用します。</p>
+        <div class="document-dialog-grid">
+          <label>移動 X (px)<input id="layer-group-transform-x" type="number" step="0.1" value="0" /></label>
+          <label>移動 Y (px)<input id="layer-group-transform-y" type="number" step="0.1" value="0" /></label>
+          <label>回転 (°)<input id="layer-group-transform-rotation" type="number" step="0.1" value="0" /></label>
+          <label>拡大率 X (%)<input id="layer-group-transform-scale-x" type="number" min="0.01" step="0.1" value="100" /></label>
+          <label>拡大率 Y (%)<input id="layer-group-transform-scale-y" type="number" min="0.01" step="0.1" value="100" /></label>
+          <span></span>
+          <label>基準点 X<input id="layer-group-transform-pivot-x" type="number" step="0.1" value="0" /></label>
+          <label>基準点 Y<input id="layer-group-transform-pivot-y" type="number" step="0.1" value="0" /></label>
+        </div>
+        <output id="layer-group-transform-status" class="document-dialog-status" aria-live="polite"></output>
+        <footer>
+          <button id="layer-group-transform-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+          <button type="submit" class="document-dialog-primary">適用</button>
+        </footer>
+      </form>
+    </dialog>
     <dialog id="document-dialog" class="document-dialog" aria-labelledby="document-dialog-title">
       <form id="document-form" method="dialog" class="document-dialog-form">
         <header><h2 id="document-dialog-title">新規ドキュメント</h2></header>
