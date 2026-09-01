@@ -55,6 +55,44 @@ function isTerminal(batch: PointerInputBatchV1): boolean {
   return batch.eventType === 'pointerup' || batch.eventType === 'pointercancel';
 }
 
+function defaultFingerDrawingEnabledV1(): boolean {
+  if (typeof globalThis.matchMedia !== 'function') return false;
+  return globalThis.matchMedia('(max-width: 799px) and (pointer: coarse)').matches;
+}
+
+function mapTouchSampleToToolV1(sample: PointerInputSampleV1): PointerInputSampleV1 {
+  if (sample.source !== 'touch') return sample;
+  return Object.freeze({ ...sample, source: 'mouse' as const });
+}
+
+function mapTouchBatchToToolV1(batch: PointerInputBatchV1): PointerInputBatchV1 {
+  return Object.freeze({
+    ...batch,
+    confirmed: Object.freeze(batch.confirmed.map(mapTouchSampleToToolV1)),
+    predicted: Object.freeze(batch.predicted.map(mapTouchSampleToToolV1)),
+  });
+}
+
+function cancellationBatchV1(sample: PointerInputSampleV1): PointerInputBatchV1 {
+  const cancelled = mapTouchSampleToToolV1(
+    Object.freeze({
+      ...sample,
+      eventType: 'pointercancel' as const,
+      origin: 'direct' as const,
+      pressure: 0,
+      buttons: 0,
+      button: -1,
+    }),
+  );
+  return Object.freeze({
+    schema: 'illustro.pointer-batch/1' as const,
+    eventType: 'pointercancel' as const,
+    pointerId: sample.pointerId,
+    confirmed: Object.freeze([cancelled]),
+    predicted: Object.freeze([]),
+  });
+}
+
 export class PointerInputArbitrationV1 {
   #fingerDrawingEnabled: boolean;
   readonly #recentPenBiasMs: number;
@@ -63,11 +101,12 @@ export class PointerInputArbitrationV1 {
   readonly #activeTouchPointers = new Set<number>();
   readonly #touchDisposition = new Map<number, PointerInputDispositionV1>();
   readonly #touchReason = new Map<number, PointerInputArbitrationReasonV1>();
+  readonly #latestTouchSample = new Map<number, PointerInputSampleV1>();
   #lastPenTimestampMs: number | null = null;
   #rejectedPalmContacts = 0;
 
   constructor(options: PointerInputArbitrationOptionsV1 = {}) {
-    this.#fingerDrawingEnabled = options.fingerDrawingEnabled ?? false;
+    this.#fingerDrawingEnabled = options.fingerDrawingEnabled ?? defaultFingerDrawingEnabledV1();
     this.#recentPenBiasMs = options.recentPenBiasMs ?? DEFAULT_RECENT_PEN_BIAS_MS_V1;
     this.#palmContactThresholdCssPx =
       options.palmContactThresholdCssPx ?? DEFAULT_PALM_CONTACT_THRESHOLD_CSS_PX_V1;
@@ -132,6 +171,7 @@ export class PointerInputArbitrationV1 {
     let disposition = this.#touchDisposition.get(batch.pointerId);
     let reason = this.#touchReason.get(batch.pointerId);
     const cancelToolPointerIds: number[] = [];
+    let transitionCancelBatch: PointerInputBatchV1 | null = null;
 
     if (batch.eventType === 'pointerdown' || disposition === undefined || reason === undefined) {
       const penActive = this.#activePenPointers.size > 0;
@@ -157,6 +197,10 @@ export class PointerInputArbitrationV1 {
         for (const pointerId of this.#activeTouchPointers) {
           if (this.#touchDisposition.get(pointerId) === 'tool') {
             cancelToolPointerIds.push(pointerId);
+            const previous = this.#latestTouchSample.get(pointerId);
+            if (transitionCancelBatch === null && previous !== undefined) {
+              transitionCancelBatch = cancellationBatchV1(previous);
+            }
           }
           if (this.#touchDisposition.get(pointerId) !== 'rejected-palm') {
             this.#touchDisposition.set(pointerId, 'navigation');
@@ -176,12 +220,20 @@ export class PointerInputArbitrationV1 {
       }
     }
 
-    const forwardBatch = disposition === 'tool' ? batch : null;
-    const decision = this.#decision(disposition, reason, forwardBatch, cancelToolPointerIds);
+    this.#latestTouchSample.set(batch.pointerId, sample);
+    const forwardBatch =
+      transitionCancelBatch ?? (disposition === 'tool' ? mapTouchBatchToToolV1(batch) : null);
+    const decision = this.#decision(
+      transitionCancelBatch === null ? disposition : 'tool',
+      reason,
+      forwardBatch,
+      cancelToolPointerIds,
+    );
     if (isTerminal(batch)) {
       this.#activeTouchPointers.delete(batch.pointerId);
       this.#touchDisposition.delete(batch.pointerId);
       this.#touchReason.delete(batch.pointerId);
+      this.#latestTouchSample.delete(batch.pointerId);
     }
     return decision;
   }
