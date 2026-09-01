@@ -63,6 +63,14 @@ requireText('src/app/layer-raster-merge.ts', [
   'persistRasterTile',
   'readRasterTile',
 ]);
+requireText('src/app/layer-rasterize.ts', [
+  'prepareLayerRasterizeV1',
+  'applyPreparedLayerRasterizeV1',
+  'layerRasterizeEligibilityV1',
+  "'illustro.prepared-layer-rasterize/1'",
+  'persistRasterTile',
+  'solidFillBytes',
+]);
 requireText('src/app/layer-workflow-controller.ts', [
   "'layer.duplicate'",
   "'layer.delete'",
@@ -76,8 +84,10 @@ requireText('src/app/layer-workflow-controller.ts', [
   "'layer.clear'",
   "'layer.mergeDown'",
   "'layer.mergeVisibleCopy'",
+  "'layer.rasterize'",
   'prepareRasterMergeDownV1',
   'prepareRasterMergeVisibleCopyV1',
+  'prepareLayerRasterizeV1',
   'pointermove',
 ]);
 requireText('src/index.html', [
@@ -86,6 +96,7 @@ requireText('src/index.html', [
   'id="layer-clear"',
   'id="layer-merge-down"',
   'id="layer-merge-visible-copy"',
+  'id="layer-rasterize"',
   'id="layer-rename"',
   'id="layer-opacity"',
   'id="layer-lock"',

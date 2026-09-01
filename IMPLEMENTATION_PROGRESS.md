@@ -286,7 +286,7 @@ M5B-017 clipping:完了
 M5B-018 layer clear:完了
 M5B-019 merge down:完了
 M5B-020 merge visible copy:完了
-M5B-021 rasterize:未完了
+M5B-021 rasterize:完了
 M5B-022 layer invert:未完了
 M5B-023 layer horizontal flip:未完了
 M5B-024 layer vertical flip:未完了

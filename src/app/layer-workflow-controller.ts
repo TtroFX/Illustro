@@ -28,6 +28,11 @@ import {
   rasterMergeDownEligibilityV1,
   rasterMergeVisibleCopyEligibilityV1,
 } from './layer-raster-merge.js';
+import {
+  applyPreparedLayerRasterizeV1,
+  layerRasterizeEligibilityV1,
+  prepareLayerRasterizeV1,
+} from './layer-rasterize.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
@@ -137,6 +142,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const duplicateButton = required<HTMLButtonElement>('#layer-duplicate');
   const mergeDownButton = required<HTMLButtonElement>('#layer-merge-down');
   const mergeVisibleCopyButton = required<HTMLButtonElement>('#layer-merge-visible-copy');
+  const rasterizeButton = required<HTMLButtonElement>('#layer-rasterize');
   const deleteButton = required<HTMLButtonElement>('#layer-delete');
   const clearButton = required<HTMLButtonElement>('#layer-clear');
   const renameButton = required<HTMLButtonElement>('#layer-rename');
@@ -256,6 +262,13 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     mergeVisibleCopyButton.disabled =
       mergeVisibleEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
     mergeVisibleCopyButton.title = mergeVisibleEligibility?.reason ?? '表示レイヤーを結合コピー';
+    const rasterizeEligibility =
+      active === null || projectSnapshot === null
+        ? null
+        : layerRasterizeEligibilityV1(projectSnapshot, active.id);
+    rasterizeButton.disabled =
+      rasterizeEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
+    rasterizeButton.title = rasterizeEligibility?.reason ?? 'ラスタライズ';
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -430,6 +443,33 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
           (before, revision) => applyPreparedRasterMergeVisibleCopyV1(before, prepared, revision),
         );
         options.paintSession.setActiveLayer(prepared.outputLayerId);
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
+  };
+
+  const onRasterize = (): void => {
+    const layerId = options.paintSession.activeLayerId();
+    if (layerId === null) return;
+    options.schedule(async () => {
+      try {
+        if (options.paintSession.activeStrokeId() !== null) {
+          throw new Error('rasterize is unavailable while a stroke is active');
+        }
+        const current = options.paintSession.projectSnapshot();
+        if (current === null) return;
+        const prepared = await prepareLayerRasterizeV1(current, layerId, options.paintPersistence);
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          'layer.rasterize',
+          (before, revision) => applyPreparedLayerRasterizeV1(before, prepared, revision),
+        );
+        options.paintSession.setActiveLayer(layerId);
         await options.paintPersistence.markDirty(transaction.transactionId);
         root.dataset.illustroLayerTransaction = transaction.transactionId;
         clearError();
@@ -691,6 +731,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   duplicateButton.addEventListener('click', onDuplicate);
   mergeDownButton.addEventListener('click', onMergeDown);
   mergeVisibleCopyButton.addEventListener('click', onMergeVisibleCopy);
+  rasterizeButton.addEventListener('click', onRasterize);
   deleteButton.addEventListener('click', onDelete);
   clearButton.addEventListener('click', onClear);
   renameButton.addEventListener('click', onRename);
@@ -720,6 +761,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       duplicateButton.removeEventListener('click', onDuplicate);
       mergeDownButton.removeEventListener('click', onMergeDown);
       mergeVisibleCopyButton.removeEventListener('click', onMergeVisibleCopy);
+      rasterizeButton.removeEventListener('click', onRasterize);
       deleteButton.removeEventListener('click', onDelete);
       clearButton.removeEventListener('click', onClear);
       renameButton.removeEventListener('click', onRename);

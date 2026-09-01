@@ -593,11 +593,11 @@ replace_once(
 )
 replace_once(
     'scripts/verify-m5b-layer-foundation.mjs',
-    "  \"'layer.mergeDown'\",\n  'prepareRasterMergeDownV1',",
-    "  \"'layer.mergeDown'\",\n  \"'layer.rasterize'\",\n  'prepareRasterMergeDownV1',\n  'prepareLayerRasterizeV1',",
+    "  \"'layer.mergeVisibleCopy'\",\n  'prepareRasterMergeDownV1',\n  'prepareRasterMergeVisibleCopyV1',",
+    "  \"'layer.mergeVisibleCopy'\",\n  \"'layer.rasterize'\",\n  'prepareRasterMergeDownV1',\n  'prepareRasterMergeVisibleCopyV1',\n  'prepareLayerRasterizeV1',",
 )
 replace_once(
     'scripts/verify-m5b-layer-foundation.mjs',
-    "  'id=\"layer-merge-down\"',\n  'id=\"layer-rename\"',",
-    "  'id=\"layer-merge-down\"',\n  'id=\"layer-rasterize\"',\n  'id=\"layer-rename\"',",
+    "  'id=\"layer-merge-visible-copy\"',\n  'id=\"layer-rename\"',",
+    "  'id=\"layer-merge-visible-copy\"',\n  'id=\"layer-rasterize\"',\n  'id=\"layer-rename\"',",
 )
