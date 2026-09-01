@@ -76,6 +76,7 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
       disposition: 'navigation',
       reason: 'touch-navigation',
       forwardBatch: null,
+      cancelToolPointerIds: [],
     });
     expect(arbitration.snapshot().activeTouchContacts).toBe(1);
     arbitration.route(batch(sample('touch', 'pointerup')));
@@ -142,8 +143,43 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
     expect(decision).toMatchObject({
       disposition: 'tool',
       reason: 'touch-finger-drawing',
+      cancelToolPointerIds: [],
     });
     expect(decision.forwardBatch).not.toBeNull();
+  });
+
+  it('cancels the one-finger tool transaction and promotes both touches to navigation', () => {
+    const arbitration = new PointerInputArbitrationV1({ fingerDrawingEnabled: true });
+    const first = arbitration.route(
+      batch(sample('touch', 'pointerdown', { pointerId: 2, timestampMs: 1000 })),
+    );
+    expect(first).toMatchObject({ disposition: 'tool', reason: 'touch-finger-drawing' });
+
+    const second = arbitration.route(
+      batch(sample('touch', 'pointerdown', { pointerId: 3, timestampMs: 1010 })),
+    );
+    expect(second).toMatchObject({
+      disposition: 'navigation',
+      reason: 'touch-multitouch-navigation',
+      forwardBatch: null,
+      cancelToolPointerIds: [2],
+    });
+
+    const firstMove = arbitration.route(
+      batch(
+        sample('touch', 'pointermove', {
+          pointerId: 2,
+          timestampMs: 1020,
+          buttons: 1,
+          pressure: 0.5,
+        }),
+      ),
+    );
+    expect(firstMove).toMatchObject({
+      disposition: 'navigation',
+      reason: 'touch-multitouch-navigation',
+      forwardBatch: null,
+    });
   });
 
   it('keeps a rejected touch rejected for its complete pointer transaction', () => {
