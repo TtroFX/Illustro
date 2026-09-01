@@ -302,7 +302,7 @@ M5B-033 Folder Pass Through:完了
 M5B-034 Layer Comps create/save:完了
 M5B-035 Layer Comps switch:完了
 M5B-036 Mask painting:完了
-M5B-037 Mask invert:未完了
+M5B-037 Mask invert:完了
 M5B-038 Mask link/unlink:未完了
 M5B-039 Mask independent move:未完了
 M5B-040 Mask independent transform:未完了

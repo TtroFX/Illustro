@@ -298,4 +298,15 @@ requireText('src/index.html', [
   'id="mask-paint-hide"',
   'id="mask-paint-reveal"',
 ]);
+requireText('src/app/layer-mask-operations.ts', [
+  'setMaskInvertedSnapshotV1',
+  'inverted',
+  'mask invert has no changes',
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#mask-invert'",
+  "'mask.invert'",
+  'setMaskInvertedSnapshotV1',
+]);
+requireText('src/index.html', ['id="mask-invert"']);
 console.log('M5B layer system verification passed');

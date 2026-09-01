@@ -66,6 +66,7 @@ import {
   type LayerFilterIdV1,
 } from './layer-filter.js';
 import { matchesLayerSearchV1, normalizeLayerSearchQueryV1 } from './layer-search.js';
+import { setMaskInvertedSnapshotV1 } from './layer-mask-operations.js';
 import type { MaskPaintControllerV1 } from './layer-mask-paint.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
@@ -191,6 +192,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const maskPaintTarget = required<HTMLSelectElement>('#mask-paint-target');
   const maskPaintHideButton = required<HTMLButtonElement>('#mask-paint-hide');
   const maskPaintRevealButton = required<HTMLButtonElement>('#mask-paint-reveal');
+  const maskInvertButton = required<HTMLButtonElement>('#mask-invert');
   const groupedTransformDialog = required<HTMLDialogElement>('#layer-group-transform-dialog');
   const groupedTransformForm = required<HTMLFormElement>('#layer-group-transform-form');
   const groupedTransformCancel = required<HTMLButtonElement>('#layer-group-transform-cancel');
@@ -363,6 +365,16 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       'aria-pressed',
       activeMaskBelongsToLayer && maskPaintSnapshot.paintValue === 1 ? 'true' : 'false',
     );
+    const selectedRasterMask = activeMaskBelongsToLayer
+      ? rasterMasks.find((mask) => mask.id === maskPaintSnapshot.maskId)
+      : undefined;
+    maskInvertButton.disabled = selectedRasterMask === undefined;
+    maskInvertButton.setAttribute(
+      'aria-pressed',
+      selectedRasterMask?.inverted === true ? 'true' : 'false',
+    );
+    maskInvertButton.title =
+      selectedRasterMask?.inverted === true ? 'マスク反転を解除' : 'マスクを反転';
     root.dataset.illustroMaskPaintLayerId = maskPaintSnapshot.layerId ?? '';
     root.dataset.illustroMaskPaintMaskId = maskPaintSnapshot.maskId ?? '';
     root.dataset.illustroMaskPaintValue = String(maskPaintSnapshot.paintValue);
@@ -1056,6 +1068,23 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     refresh();
   };
 
+  const onMaskInvert = (): void => {
+    const target = options.maskPaint.snapshot();
+    const layerId = target.layerId;
+    const maskId = target.maskId;
+    if (layerId === null || maskId === null) return;
+    const current = options.paintSession.projectSnapshot();
+    const layer = current?.document.layerTree.layers[layerId];
+    const mask = layer?.masks.find((entry) => entry.id === maskId);
+    if (current === null || mask?.kind !== 'raster-mask') return;
+    commitMutation(
+      'mask.invert',
+      (before, revision) =>
+        setMaskInvertedSnapshotV1(before, layerId, maskId, !mask.inverted, revision),
+      () => layerId,
+    );
+  };
+
   const onLayerSearchInput = (): void => {
     layerSearchQuery = normalizeLayerSearchQueryV1(searchInput.value);
     refresh();
@@ -1276,6 +1305,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   maskPaintTarget.addEventListener('change', onMaskPaintTargetChange);
   maskPaintHideButton.addEventListener('click', onMaskPaintHide);
   maskPaintRevealButton.addEventListener('click', onMaskPaintReveal);
+  maskInvertButton.addEventListener('click', onMaskInvert);
   list.addEventListener('click', onListClick);
   list.addEventListener('pointerdown', onPointerDown);
   list.addEventListener('pointermove', onPointerMove);
@@ -1321,6 +1351,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       maskPaintTarget.removeEventListener('change', onMaskPaintTargetChange);
       maskPaintHideButton.removeEventListener('click', onMaskPaintHide);
       maskPaintRevealButton.removeEventListener('click', onMaskPaintReveal);
+      maskInvertButton.removeEventListener('click', onMaskInvert);
       list.removeEventListener('click', onListClick);
       list.removeEventListener('pointerdown', onPointerDown);
       list.removeEventListener('pointermove', onPointerMove);
