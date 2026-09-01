@@ -52,21 +52,15 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          # Keep ARIA semantics valid without changing the fixed-footer interaction model.
           path = Path('src/index.html')
           text = path.read_text()
-          text = text.replace(
-              '<div id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">',
-              '<fieldset id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">',
-              1,
-          )
-          start = text.find('<fieldset id="layer-actions"')
-          if start < 0:
-              raise SystemExit('layer-actions fieldset start missing')
-          end = text.find('</div>', start)
-          if end < 0:
-              raise SystemExit('layer-actions closing div missing')
-          text = text[:end] + '</fieldset>' + text[end + len('</div>'):]
+          old_start = '<div id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">'
+          new_start = '<fieldset id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">'
+          old_end = '            <output id="layer-action-status" class="shell-layer-action-status" aria-live="polite"></output>\n          </div>'
+          new_end = '            <output id="layer-action-status" class="shell-layer-action-status" aria-live="polite"></output>\n          </fieldset>'
+          if old_start not in text or old_end not in text:
+              raise SystemExit('layer-actions semantic targets missing')
+          text = text.replace(old_start, new_start, 1).replace(old_end, new_end, 1)
           path.write_text(text)
 
           path = Path('public/app-shell.css')
