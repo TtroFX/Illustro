@@ -1,4 +1,4 @@
-name: Mark mobile step 004 complete once
+name: Mark mobile step 005 complete once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  mark-mobile-step-004:
+  mark-mobile-step-005:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,32 +18,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mark MOBILE-004 complete
+      - name: Mark MOBILE-005 complete
         shell: bash
         run: |
           set -euo pipefail
-          before='MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:未完了'
-          after='MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:完了'
+          before='MOBILE-005 Renderer fallback chain（WebGPU Worker/Main → compatibility backend）を実装:未完了'
+          after='MOBILE-005 Renderer fallback chain（WebGPU Worker/Main → compatibility backend）を実装:完了'
           if ! grep -Fq "$before" IMPLEMENTATION_PROGRESS.md; then
             if grep -Fq "$after" IMPLEMENTATION_PROGRESS.md; then
-              echo 'MOBILE-004 already complete.'
+              echo 'MOBILE-005 already complete.'
               exit 0
             fi
-            echo 'Expected MOBILE-004 progress line not found.' >&2
+            echo 'Expected MOBILE-005 progress line not found.' >&2
             exit 1
           fi
           python - <<'PY'
           from pathlib import Path
           path = Path('IMPLEMENTATION_PROGRESS.md')
           text = path.read_text()
-          before = 'MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:未完了'
-          after = 'MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:完了'
+          before = 'MOBILE-005 Renderer fallback chain（WebGPU Worker/Main → compatibility backend）を実装:未完了'
+          after = 'MOBILE-005 Renderer fallback chain（WebGPU Worker/Main → compatibility backend）を実装:完了'
           if text.count(before) != 1:
-              raise SystemExit(f'expected exactly one MOBILE-004 line, found {text.count(before)}')
+              raise SystemExit(f'expected exactly one MOBILE-005 line, found {text.count(before)}')
           path.write_text(text.replace(before, after))
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add IMPLEMENTATION_PROGRESS.md
-          git commit -m 'chore: mark mobile viewport gate complete'
+          git commit -m 'chore: mark mobile renderer fallback complete'
           git push origin HEAD:main
