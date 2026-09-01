@@ -1,0 +1,459 @@
+name: Implement M5B Multi Layer Move
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Capture checked out identity
+        run: echo "ILLUSTRO_BUILD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Verify deployment branches
+        run: |
+          git fetch origin preview:refs/remotes/origin/preview
+          git show-ref --verify refs/remotes/origin/preview
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply multi-layer move implementation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one anchor in {path}; found {count}: {old[:160]!r}')
+              file.write_text(text.replace(old, new, 1))
+
+          # Canonical root-layer multi-move operations.
+          replace_once(
+              'src/app/layer-operations.ts',
+              "export function reorderRootLayerSnapshotV1(\n  snapshot: PaintProjectSnapshotV1,",
+              r'''function orderedRootSelectionV1(
+              snapshot: PaintProjectSnapshotV1,
+              layerIds: readonly LayerId[],
+            ): readonly LayerId[] {
+              if (layerIds.length === 0) throw new Error('root layer selection cannot be empty');
+              const selected = new Set<LayerId>();
+              for (const layerId of layerIds) {
+                requireRootLayerV1(snapshot, layerId);
+                selected.add(layerId);
+              }
+              const ordered = snapshot.document.layerTree.rootLayerIds.filter((id) => selected.has(id));
+              if (ordered.length !== selected.size) throw new Error('root layer selection is inconsistent');
+              return Object.freeze(ordered);
+            }
+
+            export function canMoveRootLayerSelectionStepV1(
+              snapshot: PaintProjectSnapshotV1,
+              layerIds: readonly LayerId[],
+              delta: -1 | 1,
+            ): boolean {
+              const selected = new Set(orderedRootSelectionV1(snapshot, layerIds));
+              const roots = snapshot.document.layerTree.rootLayerIds;
+              if (delta === 1) {
+                return roots.some(
+                  (id, index) =>
+                    selected.has(id) &&
+                    index < roots.length - 1 &&
+                    !selected.has(roots[index + 1] as LayerId),
+                );
+              }
+              return roots.some(
+                (id, index) =>
+                  selected.has(id) && index > 0 && !selected.has(roots[index - 1] as LayerId),
+              );
+            }
+
+            export function moveRootLayerSelectionStepSnapshotV1(
+              snapshot: PaintProjectSnapshotV1,
+              layerIds: readonly LayerId[],
+              delta: -1 | 1,
+              revision: Revision,
+              now: Date = new Date(),
+            ): PaintProjectSnapshotV1 {
+              const ordered = orderedRootSelectionV1(snapshot, layerIds);
+              const selected = new Set(ordered);
+              const roots = [...snapshot.document.layerTree.rootLayerIds];
+              if (delta === 1) {
+                for (let index = roots.length - 2; index >= 0; index -= 1) {
+                  const current = roots[index];
+                  const next = roots[index + 1];
+                  if (
+                    current !== undefined &&
+                    next !== undefined &&
+                    selected.has(current) &&
+                    !selected.has(next)
+                  ) {
+                    roots[index] = next;
+                    roots[index + 1] = current;
+                  }
+                }
+              } else {
+                for (let index = 1; index < roots.length; index += 1) {
+                  const current = roots[index];
+                  const previous = roots[index - 1];
+                  if (
+                    current !== undefined &&
+                    previous !== undefined &&
+                    selected.has(current) &&
+                    !selected.has(previous)
+                  ) {
+                    roots[index] = previous;
+                    roots[index - 1] = current;
+                  }
+                }
+              }
+              if (roots.every((id, index) => id === snapshot.document.layerTree.rootLayerIds[index])) {
+                throw new Error('multi-layer move has no changes');
+              }
+              return documentWithStateV1(
+                snapshot,
+                revision,
+                roots,
+                snapshot.document.layerTree.layers,
+                snapshot.committedStrokes,
+                now,
+              );
+            }
+
+            export function reorderRootLayerSelectionSnapshotV1(
+              snapshot: PaintProjectSnapshotV1,
+              layerIds: readonly LayerId[],
+              targetIndex: number,
+              revision: Revision,
+              now: Date = new Date(),
+            ): PaintProjectSnapshotV1 {
+              const ordered = orderedRootSelectionV1(snapshot, layerIds);
+              const selected = new Set(ordered);
+              const remaining = snapshot.document.layerTree.rootLayerIds.filter(
+                (id) => !selected.has(id),
+              );
+              if (
+                !Number.isSafeInteger(targetIndex) ||
+                targetIndex < 0 ||
+                targetIndex > remaining.length
+              ) {
+                throw new RangeError('multi-layer reorder targetIndex is outside the remaining stack');
+              }
+              const roots = [
+                ...remaining.slice(0, targetIndex),
+                ...ordered,
+                ...remaining.slice(targetIndex),
+              ];
+              if (roots.every((id, index) => id === snapshot.document.layerTree.rootLayerIds[index])) {
+                throw new Error('multi-layer reorder has no changes');
+              }
+              return documentWithStateV1(
+                snapshot,
+                revision,
+                roots,
+                snapshot.document.layerTree.layers,
+                snapshot.committedStrokes,
+                now,
+              );
+            }
+
+            export function reorderRootLayerSnapshotV1(
+              snapshot: PaintProjectSnapshotV1,''',
+          )
+
+          # Controller imports and movement capability.
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  clearLayerSnapshotV1,\n  deleteRootLayerSnapshotV1,",
+              "  canMoveRootLayerSelectionStepV1,\n  clearLayerSnapshotV1,\n  deleteRootLayerSnapshotV1,",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  renameLayerSnapshotV1,\n  reorderRootLayerSnapshotV1,",
+              "  moveRootLayerSelectionStepSnapshotV1,\n  renameLayerSnapshotV1,\n  reorderRootLayerSelectionSnapshotV1,\n  reorderRootLayerSnapshotV1,",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    const roots = documentValue.layerTree.rootLayerIds;\n    const activeIndex = active === null ? -1 : roots.indexOf(active.id);\n    moveUpButton.disabled = activeIndex < 0 || activeIndex >= roots.length - 1;\n    moveDownButton.disabled = activeIndex <= 0;",
+              "    const roots = documentValue.layerTree.rootLayerIds;\n    const selectedRoots = options.paintSession\n      .selectedLayerIds()\n      .filter((id) => roots.includes(id));\n    moveUpButton.disabled =\n      selectedRoots.length === 0 ||\n      !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, 1);\n    moveDownButton.disabled =\n      selectedRoots.length === 0 ||\n      !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, -1);",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  const runMove = (delta: -1 | 1): void => {\n    const current = options.paintSession.projectSnapshot();\n    const layerId = options.paintSession.activeLayerId();\n    if (current === null || layerId === null) return;\n    const index = current.document.layerTree.rootLayerIds.indexOf(layerId);\n    const target = index + delta;\n    if (index < 0 || target < 0 || target >= current.document.layerTree.rootLayerIds.length) return;\n    commitMutation(\n      'layer.reorder',\n      (before, revision) => reorderRootLayerSnapshotV1(before, layerId, target, revision),\n      () => layerId,\n    );\n  };",
+              r'''  const runMove = (delta: -1 | 1): void => {
+                const current = options.paintSession.projectSnapshot();
+                const layerId = options.paintSession.activeLayerId();
+                if (current === null || layerId === null) return;
+                const roots = current.document.layerTree.rootLayerIds;
+                const selectedRoots = options.paintSession
+                  .selectedLayerIds()
+                  .filter((id) => roots.includes(id));
+                if (selectedRoots.length <= 1) {
+                  const index = roots.indexOf(layerId);
+                  const target = index + delta;
+                  if (index < 0 || target < 0 || target >= roots.length) return;
+                  commitMutation(
+                    'layer.reorder',
+                    (before, revision) => reorderRootLayerSnapshotV1(before, layerId, target, revision),
+                    () => layerId,
+                  );
+                  return;
+                }
+                if (!canMoveRootLayerSelectionStepV1(current, selectedRoots, delta)) return;
+                options.schedule(async () => {
+                  try {
+                    const transaction = await options.paintHistory.commitSnapshotTransform(
+                      'layer.reorder.multi',
+                      (before, revision) =>
+                        moveRootLayerSelectionStepSnapshotV1(
+                          before,
+                          selectedRoots,
+                          delta,
+                          revision,
+                        ),
+                    );
+                    await options.paintPersistence.markDirty(transaction.transactionId);
+                    root.dataset.illustroLayerTransaction = transaction.transactionId;
+                    clearError();
+                    refresh();
+                    options.onHistoryChanged();
+                  } catch (error) {
+                    publishError(error);
+                  }
+                });
+              };''',
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    if (targetLayerId === drag.sourceLayerId) {\n      drag.targetLayerId = null;\n      return;\n    }",
+              "    if (\n      targetLayerId === drag.sourceLayerId ||\n      (options.paintSession.isLayerSelected(drag.sourceLayerId) &&\n        options.paintSession.isLayerSelected(targetLayerId))\n    ) {\n      drag.targetLayerId = null;\n      return;\n    }",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    const rootsWithoutSource = current.document.layerTree.rootLayerIds.filter(\n      (id) => id !== finished.sourceLayerId,\n    );\n    const targetIndex = rootsWithoutSource.indexOf(finished.targetLayerId);\n    if (targetIndex < 0) return;\n    const finalIndex = finished.beforeOnScreen ? targetIndex + 1 : targetIndex;\n    commitMutation(\n      'layer.reorder',\n      (before, revision) =>\n        reorderRootLayerSnapshotV1(before, finished.sourceLayerId, finalIndex, revision),\n      () => finished.sourceLayerId,\n    );",
+              r'''    const roots = current.document.layerTree.rootLayerIds;
+                const selectedRoots = options.paintSession.isLayerSelected(finished.sourceLayerId)
+                  ? options.paintSession.selectedLayerIds().filter((id) => roots.includes(id))
+                  : [finished.sourceLayerId];
+                const selectedSet = new Set(selectedRoots);
+                if (selectedSet.has(finished.targetLayerId)) return;
+                const rootsWithoutSelection = roots.filter((id) => !selectedSet.has(id));
+                const targetIndex = rootsWithoutSelection.indexOf(finished.targetLayerId);
+                if (targetIndex < 0) return;
+                const finalIndex = finished.beforeOnScreen ? targetIndex + 1 : targetIndex;
+                options.schedule(async () => {
+                  try {
+                    const transaction = await options.paintHistory.commitSnapshotTransform(
+                      selectedRoots.length > 1 ? 'layer.reorder.multi' : 'layer.reorder',
+                      (before, revision) =>
+                        reorderRootLayerSelectionSnapshotV1(
+                          before,
+                          selectedRoots,
+                          finalIndex,
+                          revision,
+                        ),
+                    );
+                    await options.paintPersistence.markDirty(transaction.transactionId);
+                    root.dataset.illustroLayerTransaction = transaction.transactionId;
+                    clearError();
+                    refresh();
+                    options.onHistoryChanged();
+                  } catch (error) {
+                    publishError(error);
+                  }
+                });''',
+          )
+
+          Path('tests/unit/layer-multi-move.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import {
+            canMoveRootLayerSelectionStepV1,
+            moveRootLayerSelectionStepSnapshotV1,
+            reorderRootLayerSelectionSnapshotV1,
+          } from '../../src/app/layer-operations.js';
+          import type { PaintProjectSnapshotV1 } from '../../src/app/paint-session-controller.js';
+          import { createDocumentV1 } from '../../src/domain/document.js';
+          import { parseRevision } from '../../src/domain/identity.js';
+          import { createRasterLayer } from '../../src/domain/layers.js';
+
+          function fixture(): {
+            readonly snapshot: PaintProjectSnapshotV1;
+            readonly ids: readonly string[];
+          } {
+            const layers = [0, 1, 2, 3, 4].map((index) => createRasterLayer({ name: `L${index}` }));
+            const document = createDocumentV1({ width: 64, height: 64 });
+            return {
+              snapshot: Object.freeze({
+                schema: 'illustro.paint-project-snapshot/1' as const,
+                document: Object.freeze({
+                  ...document,
+                  layerTree: Object.freeze({
+                    rootLayerIds: Object.freeze(layers.map((layer) => layer.id)),
+                    layers: Object.freeze(
+                      Object.fromEntries(layers.map((layer) => [layer.id, layer])),
+                    ),
+                  }),
+                }),
+                committedStrokes: Object.freeze([]),
+              }),
+              ids: layers.map((layer) => layer.id),
+            };
+          }
+
+          describe('M5B multi-layer move', () => {
+            it('moves a non-contiguous selected set one stack step without changing relative order', () => {
+              const { snapshot, ids } = fixture();
+              const selected = [ids[1], ids[2]] as never[];
+              expect(canMoveRootLayerSelectionStepV1(snapshot, selected, 1)).toBe(true);
+              const moved = moveRootLayerSelectionStepSnapshotV1(
+                snapshot,
+                selected,
+                1,
+                parseRevision(1),
+                new Date(0),
+              );
+              expect(moved.document.layerTree.rootLayerIds).toEqual([
+                ids[0],
+                ids[3],
+                ids[1],
+                ids[2],
+                ids[4],
+              ]);
+              const movedBack = moveRootLayerSelectionStepSnapshotV1(
+                moved,
+                selected,
+                -1,
+                parseRevision(2),
+                new Date(1),
+              );
+              expect(movedBack.document.layerTree.rootLayerIds).toEqual(ids);
+            });
+
+            it('moves separated selected layers stably by one step', () => {
+              const { snapshot, ids } = fixture();
+              const moved = moveRootLayerSelectionStepSnapshotV1(
+                snapshot,
+                [ids[1], ids[3]] as never[],
+                1,
+                parseRevision(1),
+              );
+              expect(moved.document.layerTree.rootLayerIds).toEqual([
+                ids[0],
+                ids[2],
+                ids[1],
+                ids[4],
+                ids[3],
+              ]);
+            });
+
+            it('drag-reorders the selected layers as one block at the requested remaining-stack index', () => {
+              const { snapshot, ids } = fixture();
+              const moved = reorderRootLayerSelectionSnapshotV1(
+                snapshot,
+                [ids[1], ids[3]] as never[],
+                3,
+                parseRevision(1),
+              );
+              expect(moved.document.layerTree.rootLayerIds).toEqual([
+                ids[0],
+                ids[2],
+                ids[4],
+                ids[1],
+                ids[3],
+              ]);
+            });
+
+            it('rejects empty selection and no-op boundary movement', () => {
+              const { snapshot, ids } = fixture();
+              expect(() =>
+                moveRootLayerSelectionStepSnapshotV1(
+                  snapshot,
+                  [] as never[],
+                  1,
+                  parseRevision(1),
+                ),
+              ).toThrow('cannot be empty');
+              expect(canMoveRootLayerSelectionStepV1(snapshot, [ids[4]] as never[], 1)).toBe(false);
+              expect(() =>
+                moveRootLayerSelectionStepSnapshotV1(
+                  snapshot,
+                  [ids[4]] as never[],
+                  1,
+                  parseRevision(1),
+                ),
+              ).toThrow('no changes');
+            });
+          });
+          ''')
+
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "  'reorderRootLayerSnapshotV1',\n  'renameLayerSnapshotV1',",
+              "  'reorderRootLayerSnapshotV1',\n  'reorderRootLayerSelectionSnapshotV1',\n  'moveRootLayerSelectionStepSnapshotV1',\n  'canMoveRootLayerSelectionStepV1',\n  'renameLayerSnapshotV1',",
+          )
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "  \"'layer.flip.vertical'\",\n  'prepareRasterMergeDownV1',",
+              "  \"'layer.flip.vertical'\",\n  \"'layer.reorder.multi'\",\n  'prepareRasterMergeDownV1',",
+          )
+          PY
+      - name: Canonical formatting
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M2 persistence inspection
+        run: npm run verify:m2
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical-slice inspection
+        run: npm run verify:m4
+      - name: M5A document foundation inspection
+        run: npm run verify:m5a
+      - name: M5B layer system inspection
+        run: npm run verify:m5b
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record verified progress and commit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          old = 'M5B-026 multi-layer move:未完了'
+          new = 'M5B-026 multi-layer move:完了'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one progress marker, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/layer-operations.ts src/app/layer-workflow-controller.ts tests/unit/layer-multi-move.test.ts scripts/verify-m5b-layer-foundation.mjs IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: implement M5B multi-layer move [skip ci]'
+          git push origin HEAD:main
