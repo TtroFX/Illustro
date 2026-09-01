@@ -24,7 +24,11 @@ for (let index = 1; index <= 49; index += 1) {
 }
 
 const design = await read('ILLUSTRO_DESIGN_MEMO.md');
-requireText(design, '256 × 256 logical pixels', 'canonical 256px tile contract missing');
+requireText(
+  design,
+  'superseded by a **128×128px canonical sparse Raster Tile**',
+  'canonical 128px tile supersession missing',
+);
 requireText(design, '2048 × 2048 pixels', '2048px atlas-page contract missing');
 requireText(design, '>= 50% of a tile core', '50% dirty promotion contract missing');
 requireText(design, '4096 samples per active pointer stream', '4096-sample input bound missing');
@@ -121,7 +125,7 @@ requireText(rendererController, '#startMainFallback', 'main-context WebGPU fallb
 requireText(renderWorker, 'RendererDeviceManagerV1', 'Render Worker device ownership missing');
 requireText(renderWorker, 'installRenderInputIngressV1', 'Render Worker input ingress missing');
 
-requireText(sparseTiles, 'CANONICAL_TILE_SIZE_PX = 256', '256px sparse tile constant missing');
+requireText(sparseTiles, 'CANONICAL_TILE_SIZE_PX = 128', '128px sparse tile constant missing');
 requireText(sparseTiles, 'validWidth', 'edge-tile valid bounds missing');
 requireText(sparseTiles, 'addressDocumentPixelV1', 'tile addressing missing');
 requireText(sparseTiles, 'DirtyTileTrackerV1', 'dirty-tile tracker missing');
