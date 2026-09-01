@@ -1,0 +1,814 @@
+name: Implement M5B Layer Comps
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Implement Layer Comps
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          Path('src/app/layer-comps.ts').write_text(r'''import { isUuid, parseLayerId, type LayerId, type Revision } from '../domain/identity.js';
+          import {
+            BLEND_MODE_IDS,
+            type BlendModeId,
+            type LayerBaseV1,
+          } from '../domain/layers.js';
+          import type { PaintProjectSnapshotV1 } from './paint-session-controller.js';
+
+          export const LAYER_COMPS_EXTENSION_KEY_V1 = 'illustro.layerComps' as const;
+          export const LAYER_COMP_NAME_MAX_LENGTH_V1 = 120 as const;
+
+          export interface LayerCompLayerStateV1 {
+            readonly schema: 'illustro.layer-comp-layer-state/1';
+            readonly layerId: LayerId;
+            readonly visible: boolean;
+            readonly opacity: number;
+            readonly blendMode: BlendModeId;
+          }
+
+          export interface LayerCompV1 {
+            readonly schema: 'illustro.layer-comp/1';
+            readonly compId: string;
+            readonly name: string;
+            readonly updatedAt: string;
+            readonly layerStates: readonly LayerCompLayerStateV1[];
+          }
+
+          export interface LayerCompStoreV1 {
+            readonly schema: 'illustro.layer-comps/1';
+            readonly comps: readonly LayerCompV1[];
+          }
+
+          const EMPTY_LAYER_COMP_STORE_V1: LayerCompStoreV1 = Object.freeze({
+            schema: 'illustro.layer-comps/1' as const,
+            comps: Object.freeze([]),
+          });
+
+          function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+            return typeof value === 'object' && value !== null && !Array.isArray(value);
+          }
+
+          function parseTimestamp(value: unknown): string {
+            if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+              throw new TypeError('Layer Comp updatedAt must be an ISO-like timestamp');
+            }
+            return value;
+          }
+
+          export function normalizeLayerCompNameV1(value: unknown): string {
+            if (typeof value !== 'string') throw new TypeError('Layer Comp name must be a string');
+            const normalized = value.normalize('NFKC').trim();
+            if (normalized.length === 0) throw new TypeError('Layer Comp name must not be empty');
+            if (normalized.length > LAYER_COMP_NAME_MAX_LENGTH_V1) {
+              throw new RangeError(`Layer Comp name must be at most ${LAYER_COMP_NAME_MAX_LENGTH_V1} characters`);
+            }
+            return normalized;
+          }
+
+          function parseLayerCompLayerStateV1(value: unknown): LayerCompLayerStateV1 {
+            if (!isRecord(value) || value.schema !== 'illustro.layer-comp-layer-state/1') {
+              throw new TypeError('invalid Layer Comp layer state schema');
+            }
+            if (typeof value.visible !== 'boolean') throw new TypeError('invalid Layer Comp visibility');
+            if (typeof value.opacity !== 'number' || !Number.isFinite(value.opacity) || value.opacity < 0 || value.opacity > 1) {
+              throw new RangeError('invalid Layer Comp opacity');
+            }
+            if (typeof value.blendMode !== 'string' || !BLEND_MODE_IDS.includes(value.blendMode as BlendModeId)) {
+              throw new TypeError('invalid Layer Comp blend mode');
+            }
+            return Object.freeze({
+              schema: 'illustro.layer-comp-layer-state/1' as const,
+              layerId: parseLayerId(value.layerId),
+              visible: value.visible,
+              opacity: value.opacity,
+              blendMode: value.blendMode as BlendModeId,
+            });
+          }
+
+          function parseLayerCompV1(value: unknown): LayerCompV1 {
+            if (!isRecord(value) || value.schema !== 'illustro.layer-comp/1') {
+              throw new TypeError('invalid Layer Comp schema');
+            }
+            if (!isUuid(value.compId)) throw new TypeError('Layer Comp compId must be a UUID');
+            if (!Array.isArray(value.layerStates)) throw new TypeError('Layer Comp layerStates must be an array');
+            const layerStates = Object.freeze(value.layerStates.map(parseLayerCompLayerStateV1));
+            const layerIds = new Set<string>();
+            for (const state of layerStates) {
+              if (layerIds.has(state.layerId)) throw new Error('Layer Comp contains duplicate layer state');
+              layerIds.add(state.layerId);
+            }
+            return Object.freeze({
+              schema: 'illustro.layer-comp/1' as const,
+              compId: value.compId,
+              name: normalizeLayerCompNameV1(value.name),
+              updatedAt: parseTimestamp(value.updatedAt),
+              layerStates,
+            });
+          }
+
+          function parseLayerCompStoreV1(value: unknown): LayerCompStoreV1 {
+            if (!isRecord(value) || value.schema !== 'illustro.layer-comps/1' || !Array.isArray(value.comps)) {
+              throw new TypeError('invalid Layer Comps extension');
+            }
+            const comps = Object.freeze(value.comps.map(parseLayerCompV1));
+            const ids = new Set<string>();
+            const names = new Set<string>();
+            for (const comp of comps) {
+              if (ids.has(comp.compId)) throw new Error('duplicate Layer Comp ID');
+              if (names.has(comp.name)) throw new Error('duplicate Layer Comp name');
+              ids.add(comp.compId);
+              names.add(comp.name);
+            }
+            return Object.freeze({ schema: 'illustro.layer-comps/1' as const, comps });
+          }
+
+          export function readLayerCompStoreV1(snapshot: PaintProjectSnapshotV1): LayerCompStoreV1 {
+            const value = snapshot.document.extensions[LAYER_COMPS_EXTENSION_KEY_V1];
+            return value === undefined ? EMPTY_LAYER_COMP_STORE_V1 : parseLayerCompStoreV1(value);
+          }
+
+          export function listLayerCompsV1(snapshot: PaintProjectSnapshotV1): readonly LayerCompV1[] {
+            return readLayerCompStoreV1(snapshot).comps;
+          }
+
+          export function findLayerCompV1(snapshot: PaintProjectSnapshotV1, compId: string): LayerCompV1 | null {
+            if (!isUuid(compId)) return null;
+            return readLayerCompStoreV1(snapshot).comps.find((comp) => comp.compId === compId) ?? null;
+          }
+
+          export function captureLayerCompStatesV1(snapshot: PaintProjectSnapshotV1): readonly LayerCompLayerStateV1[] {
+            return Object.freeze(
+              Object.values(snapshot.document.layerTree.layers)
+                .sort((left, right) => left.id.localeCompare(right.id))
+                .map((layer) =>
+                  Object.freeze({
+                    schema: 'illustro.layer-comp-layer-state/1' as const,
+                    layerId: layer.id,
+                    visible: layer.visible,
+                    opacity: layer.opacity,
+                    blendMode: layer.blendMode,
+                  }),
+                ),
+            );
+          }
+
+          export function saveLayerCompSnapshotV1(
+            snapshot: PaintProjectSnapshotV1,
+            nameValue: string,
+            revision: Revision,
+            now: Date = new Date(),
+          ): PaintProjectSnapshotV1 {
+            const name = normalizeLayerCompNameV1(nameValue);
+            const store = readLayerCompStoreV1(snapshot);
+            const existingIndex = store.comps.findIndex((comp) => comp.name === name);
+            const existing = existingIndex < 0 ? null : store.comps[existingIndex] ?? null;
+            const comp: LayerCompV1 = Object.freeze({
+              schema: 'illustro.layer-comp/1' as const,
+              compId: existing?.compId ?? crypto.randomUUID(),
+              name,
+              updatedAt: now.toISOString(),
+              layerStates: captureLayerCompStatesV1(snapshot),
+            });
+            const comps = [...store.comps];
+            if (existingIndex < 0) comps.push(comp);
+            else comps[existingIndex] = comp;
+            const nextStore: LayerCompStoreV1 = Object.freeze({
+              schema: 'illustro.layer-comps/1' as const,
+              comps: Object.freeze(comps),
+            });
+            return Object.freeze({
+              ...snapshot,
+              document: Object.freeze({
+                ...snapshot.document,
+                revision,
+                modifiedAt: now.toISOString(),
+                extensions: Object.freeze({
+                  ...snapshot.document.extensions,
+                  [LAYER_COMPS_EXTENSION_KEY_V1]: nextStore,
+                }),
+              }),
+              committedStrokes: snapshot.committedStrokes,
+            });
+          }
+
+          export function layerCompHasChangesV1(snapshot: PaintProjectSnapshotV1, compId: string): boolean {
+            const comp = findLayerCompV1(snapshot, compId);
+            if (comp === null) return false;
+            for (const state of comp.layerStates) {
+              const layer = snapshot.document.layerTree.layers[state.layerId];
+              if (layer === undefined) continue;
+              if (
+                layer.visible !== state.visible ||
+                layer.opacity !== state.opacity ||
+                layer.blendMode !== state.blendMode
+              ) {
+                return true;
+              }
+            }
+            return false;
+          }
+
+          export function applyLayerCompSnapshotV1(
+            snapshot: PaintProjectSnapshotV1,
+            compId: string,
+            revision: Revision,
+            now: Date = new Date(),
+          ): PaintProjectSnapshotV1 {
+            const comp = findLayerCompV1(snapshot, compId);
+            if (comp === null) throw new Error('Layer Comp not found');
+            if (!layerCompHasChangesV1(snapshot, compId)) throw new Error('Layer Comp has no changes');
+            const states = new Map(comp.layerStates.map((state) => [state.layerId, state] as const));
+            const layers: Record<string, LayerBaseV1> = { ...snapshot.document.layerTree.layers };
+            for (const [layerId, layer] of Object.entries(snapshot.document.layerTree.layers)) {
+              const state = states.get(layerId as LayerId);
+              if (state === undefined) continue;
+              if (
+                layer.visible === state.visible &&
+                layer.opacity === state.opacity &&
+                layer.blendMode === state.blendMode
+              ) {
+                continue;
+              }
+              layers[layerId] = Object.freeze({
+                ...layer,
+                revision,
+                visible: state.visible,
+                opacity: state.opacity,
+                blendMode: state.blendMode,
+              });
+            }
+            return Object.freeze({
+              ...snapshot,
+              document: Object.freeze({
+                ...snapshot.document,
+                revision,
+                modifiedAt: now.toISOString(),
+                layerTree: Object.freeze({
+                  rootLayerIds: snapshot.document.layerTree.rootLayerIds,
+                  layers: Object.freeze(layers),
+                }),
+              }),
+              committedStrokes: snapshot.committedStrokes,
+            });
+          }
+          ''', encoding='utf-8')
+
+          Path('src/app/layer-comps-controller.ts').write_text(r'''import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
+          import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
+          import type { PaintSessionControllerV1 } from './paint-session-controller.js';
+          import {
+            applyLayerCompSnapshotV1,
+            findLayerCompV1,
+            layerCompHasChangesV1,
+            listLayerCompsV1,
+            normalizeLayerCompNameV1,
+            saveLayerCompSnapshotV1,
+          } from './layer-comps.js';
+
+          interface LayerCompsControllerOptionsV1 {
+            readonly root?: HTMLElement;
+            readonly paintSession: PaintSessionControllerV1;
+            readonly paintHistory: PaintHistoryControllerV1;
+            readonly paintPersistence: PaintPersistenceControllerV1;
+            readonly schedule: (operation: () => Promise<void>) => void;
+            readonly onHistoryChanged: () => void;
+            readonly onLayerStateChanged: () => void;
+          }
+
+          export interface LayerCompsControllerV1 {
+            refresh(): void;
+            dispose(): void;
+          }
+
+          function requireElement<T extends Element>(root: ParentNode, selector: string): T {
+            const element = root.querySelector<T>(selector);
+            if (element === null) throw new Error(`Layer Comps UI is missing ${selector}`);
+            return element;
+          }
+
+          function errorMessage(error: unknown): string {
+            return error instanceof Error ? error.message : String(error);
+          }
+
+          export function installLayerCompsControllerV1(
+            options: LayerCompsControllerOptionsV1,
+          ): LayerCompsControllerV1 {
+            const root = options.root ?? document.documentElement;
+            const nameInput = requireElement<HTMLInputElement>(root, '#layer-comp-name');
+            const saveButton = requireElement<HTMLButtonElement>(root, '#layer-comp-save');
+            const select = requireElement<HTMLSelectElement>(root, '#layer-comp-select');
+            const applyButton = requireElement<HTMLButtonElement>(root, '#layer-comp-apply');
+            const status = requireElement<HTMLOutputElement>(root, '#layer-comp-status');
+            let disposed = false;
+
+            const publishError = (error: unknown): void => {
+              const message = errorMessage(error);
+              status.value = message;
+              root.dataset.illustroLayerComps = 'error';
+              root.dataset.illustroLayerCompError = message;
+            };
+
+            const publishReady = (): void => {
+              root.dataset.illustroLayerComps = 'ready';
+              root.dataset.illustroLayerCompError = '';
+            };
+
+            const refresh = (): void => {
+              if (disposed) return;
+              try {
+                const snapshot = options.paintSession.projectSnapshot();
+                const comps = snapshot === null ? [] : listLayerCompsV1(snapshot);
+                const selected = select.value;
+                select.replaceChildren(new Option('Layer Comp', ''));
+                for (const comp of comps) select.add(new Option(comp.name, comp.compId));
+                if (comps.some((comp) => comp.compId === selected)) select.value = selected;
+                const strokeActive = options.paintSession.activeStrokeId() !== null;
+                let hasName = false;
+                try {
+                  normalizeLayerCompNameV1(nameInput.value);
+                  hasName = true;
+                } catch {
+                  hasName = false;
+                }
+                saveButton.disabled = snapshot === null || strokeActive || !hasName;
+                applyButton.disabled = snapshot === null || strokeActive || select.value.length === 0;
+                root.dataset.illustroLayerCompCount = String(comps.length);
+                root.dataset.illustroLayerCompSelected = select.value;
+                publishReady();
+              } catch (error) {
+                saveButton.disabled = true;
+                applyButton.disabled = true;
+                publishError(error);
+              }
+            };
+
+            const onNameInput = (): void => refresh();
+            const onSelect = (): void => {
+              root.dataset.illustroLayerCompSelected = select.value;
+              refresh();
+            };
+
+            const onSave = (): void => {
+              options.schedule(async () => {
+                try {
+                  if (options.paintSession.activeStrokeId() !== null) {
+                    throw new Error('Layer Comp save is unavailable while a stroke is active');
+                  }
+                  const name = normalizeLayerCompNameV1(nameInput.value);
+                  let savedCompId = '';
+                  const transaction = await options.paintHistory.commitSnapshotTransform(
+                    'layer.comp.save',
+                    (before, revision) => {
+                      const after = saveLayerCompSnapshotV1(before, name, revision);
+                      savedCompId =
+                        listLayerCompsV1(after).find((comp) => comp.name === name)?.compId ?? '';
+                      return after;
+                    },
+                  );
+                  await options.paintPersistence.markDirty(transaction.transactionId);
+                  root.dataset.illustroLayerCompTransaction = transaction.transactionId;
+                  nameInput.value = name;
+                  status.value = 'Layer Compを保存しました';
+                  options.onHistoryChanged();
+                  refresh();
+                  if (savedCompId.length > 0) {
+                    select.value = savedCompId;
+                    root.dataset.illustroLayerCompSelected = savedCompId;
+                    applyButton.disabled = false;
+                  }
+                } catch (error) {
+                  publishError(error);
+                }
+              });
+            };
+
+            const onApply = (): void => {
+              options.schedule(async () => {
+                try {
+                  if (options.paintSession.activeStrokeId() !== null) {
+                    throw new Error('Layer Comp switch is unavailable while a stroke is active');
+                  }
+                  const snapshot = options.paintSession.projectSnapshot();
+                  if (snapshot === null) throw new Error('Layer Comp switch requires an active document');
+                  const compId = select.value;
+                  const comp = findLayerCompV1(snapshot, compId);
+                  if (comp === null) throw new Error('Layer Comp not found');
+                  if (!layerCompHasChangesV1(snapshot, compId)) {
+                    status.value = 'このLayer Compは既に適用されています';
+                    publishReady();
+                    return;
+                  }
+                  const transaction = await options.paintHistory.commitSnapshotTransform(
+                    'layer.comp.switch',
+                    (before, revision) => applyLayerCompSnapshotV1(before, compId, revision),
+                  );
+                  await options.paintPersistence.markDirty(transaction.transactionId);
+                  root.dataset.illustroLayerCompTransaction = transaction.transactionId;
+                  status.value = `${comp.name} に切り替えました`;
+                  options.onLayerStateChanged();
+                  options.onHistoryChanged();
+                  refresh();
+                  select.value = compId;
+                  root.dataset.illustroLayerCompSelected = compId;
+                } catch (error) {
+                  publishError(error);
+                }
+              });
+            };
+
+            nameInput.addEventListener('input', onNameInput);
+            select.addEventListener('change', onSelect);
+            saveButton.addEventListener('click', onSave);
+            applyButton.addEventListener('click', onApply);
+            refresh();
+
+            return Object.freeze({
+              refresh,
+              dispose() {
+                if (disposed) return;
+                disposed = true;
+                nameInput.removeEventListener('input', onNameInput);
+                select.removeEventListener('change', onSelect);
+                saveButton.removeEventListener('click', onSave);
+                applyButton.removeEventListener('click', onApply);
+                root.dataset.illustroLayerComps = 'disposed';
+              },
+            });
+          }
+          ''', encoding='utf-8')
+
+          Path('tests/unit/layer-comps.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import {
+            applyLayerCompSnapshotV1,
+            findLayerCompV1,
+            layerCompHasChangesV1,
+            listLayerCompsV1,
+            normalizeLayerCompNameV1,
+            saveLayerCompSnapshotV1,
+          } from '../../src/app/layer-comps.js';
+          import type { PaintProjectSnapshotV1 } from '../../src/app/paint-session-controller.js';
+          import { createDocumentV1 } from '../../src/domain/document.js';
+          import { parseRevision } from '../../src/domain/identity.js';
+          import { createRasterLayer } from '../../src/domain/layers.js';
+
+          function fixture(): {
+            readonly snapshot: PaintProjectSnapshotV1;
+            readonly firstId: ReturnType<typeof createRasterLayer>['id'];
+            readonly secondId: ReturnType<typeof createRasterLayer>['id'];
+          } {
+            const firstBase = createRasterLayer({ name: 'Ink' });
+            const secondBase = createRasterLayer({ name: 'Color' });
+            const first = Object.freeze({
+              ...firstBase,
+              visible: true,
+              opacity: 0.75,
+              blendMode: 'multiply' as const,
+            });
+            const second = Object.freeze({
+              ...secondBase,
+              visible: false,
+              opacity: 0.4,
+              blendMode: 'screen' as const,
+            });
+            const document = createDocumentV1({ width: 320, height: 240 });
+            const snapshot: PaintProjectSnapshotV1 = Object.freeze({
+              schema: 'illustro.paint-project-snapshot/1' as const,
+              document: Object.freeze({
+                ...document,
+                extensions: Object.freeze({ 'example.keep': Object.freeze({ value: 7 }) }),
+                layerTree: Object.freeze({
+                  rootLayerIds: Object.freeze([first.id, second.id]),
+                  layers: Object.freeze({ [first.id]: first, [second.id]: second }),
+                }),
+              }),
+              committedStrokes: Object.freeze([]),
+            });
+            return { snapshot, firstId: first.id, secondId: second.id };
+          }
+
+          describe('M5B Layer Comps', () => {
+            it('creates and updates a named canonical presentation-state snapshot without dropping other extensions', () => {
+              const { snapshot, firstId, secondId } = fixture();
+              const saved = saveLayerCompSnapshotV1(
+                snapshot,
+                '  Hero View  ',
+                parseRevision(1),
+                new Date(0),
+              );
+              const comps = listLayerCompsV1(saved);
+              expect(comps).toHaveLength(1);
+              expect(comps[0]?.name).toBe('Hero View');
+              expect(comps[0]?.updatedAt).toBe(new Date(0).toISOString());
+              expect(comps[0]?.layerStates).toEqual(
+                expect.arrayContaining([
+                  expect.objectContaining({
+                    layerId: firstId,
+                    visible: true,
+                    opacity: 0.75,
+                    blendMode: 'multiply',
+                  }),
+                  expect.objectContaining({
+                    layerId: secondId,
+                    visible: false,
+                    opacity: 0.4,
+                    blendMode: 'screen',
+                  }),
+                ]),
+              );
+              expect(saved.document.extensions['example.keep']).toEqual({ value: 7 });
+              expect(saved.document.revision).toBe(1);
+
+              const originalId = comps[0]?.compId;
+              const updated = saveLayerCompSnapshotV1(
+                saved,
+                'Hero View',
+                parseRevision(2),
+                new Date(1_000),
+              );
+              expect(listLayerCompsV1(updated)).toHaveLength(1);
+              expect(listLayerCompsV1(updated)[0]?.compId).toBe(originalId);
+              expect(listLayerCompsV1(updated)[0]?.updatedAt).toBe(new Date(1_000).toISOString());
+            });
+
+            it('switches only extant saved layers and leaves later layers untouched', () => {
+              const { snapshot, firstId, secondId } = fixture();
+              const saved = saveLayerCompSnapshotV1(snapshot, 'A', parseRevision(1), new Date(0));
+              const compId = listLayerCompsV1(saved)[0]?.compId;
+              if (compId === undefined) throw new Error('fixture Layer Comp missing');
+              const newLayer = createRasterLayer({ name: 'Later' });
+              const first = saved.document.layerTree.layers[firstId];
+              if (first === undefined) throw new Error('fixture layer missing');
+              const mutated: PaintProjectSnapshotV1 = Object.freeze({
+                ...saved,
+                document: Object.freeze({
+                  ...saved.document,
+                  revision: parseRevision(2),
+                  layerTree: Object.freeze({
+                    rootLayerIds: Object.freeze([firstId, newLayer.id]),
+                    layers: Object.freeze({
+                      [firstId]: Object.freeze({
+                        ...first,
+                        revision: parseRevision(2),
+                        visible: false,
+                        opacity: 1,
+                        blendMode: 'normal' as const,
+                      }),
+                      [newLayer.id]: newLayer,
+                    }),
+                  }),
+                }),
+              });
+              expect(mutated.document.layerTree.layers[secondId]).toBeUndefined();
+              expect(layerCompHasChangesV1(mutated, compId)).toBe(true);
+
+              const applied = applyLayerCompSnapshotV1(
+                mutated,
+                compId,
+                parseRevision(3),
+                new Date(2_000),
+              );
+              expect(applied.document.layerTree.layers[firstId]).toMatchObject({
+                visible: true,
+                opacity: 0.75,
+                blendMode: 'multiply',
+                revision: 3,
+              });
+              expect(applied.document.layerTree.layers[newLayer.id]).toEqual(newLayer);
+              expect(applied.document.layerTree.layers[secondId]).toBeUndefined();
+              expect(layerCompHasChangesV1(applied, compId)).toBe(false);
+              expect(findLayerCompV1(applied, compId)?.name).toBe('A');
+              expect(applied.document.revision).toBe(3);
+              expect(applied.document.modifiedAt).toBe(new Date(2_000).toISOString());
+            });
+
+            it('rejects unusable names and no-op switching', () => {
+              const { snapshot } = fixture();
+              expect(() => normalizeLayerCompNameV1('   ')).toThrow(/must not be empty/);
+              expect(() => normalizeLayerCompNameV1('x'.repeat(121))).toThrow(/at most 120/);
+              const saved = saveLayerCompSnapshotV1(snapshot, 'Same', parseRevision(1));
+              const compId = listLayerCompsV1(saved)[0]?.compId;
+              if (compId === undefined) throw new Error('fixture Layer Comp missing');
+              expect(layerCompHasChangesV1(saved, compId)).toBe(false);
+              expect(() => applyLayerCompSnapshotV1(saved, compId, parseRevision(2))).toThrow(
+                /no changes/,
+              );
+            });
+          });
+          ''', encoding='utf-8')
+
+          main = Path('src/app/main.ts')
+          text = main.read_text(encoding='utf-8')
+          text = text.replace(
+              "import { installLayerWorkflowControllerV1 } from './layer-workflow-controller.js';\n",
+              "import { installLayerWorkflowControllerV1 } from './layer-workflow-controller.js';\nimport { installLayerCompsControllerV1 } from './layer-comps-controller.js';\n",
+          )
+          old = """const layerWorkflow = installLayerWorkflowControllerV1({
+            root,
+            paintSession,
+            paintHistory,
+            paintPersistence,
+            schedule: enqueuePaintRender,
+            onHistoryChanged: publishPaintHistory,
+          });
+          refreshLayerUi = (): void => layerWorkflow.refresh();
+          """
+          new = """const layerWorkflow = installLayerWorkflowControllerV1({
+            root,
+            paintSession,
+            paintHistory,
+            paintPersistence,
+            schedule: enqueuePaintRender,
+            onHistoryChanged: publishPaintHistory,
+          });
+          const layerComps = installLayerCompsControllerV1({
+            root,
+            paintSession,
+            paintHistory,
+            paintPersistence,
+            schedule: enqueuePaintRender,
+            onHistoryChanged: publishPaintHistory,
+            onLayerStateChanged() {
+              const documentValue = paintSession.currentDocument();
+              if (documentValue !== null) publishDocumentState(documentValue);
+            },
+          });
+          refreshLayerUi = (): void => {
+            layerWorkflow.refresh();
+            layerComps.refresh();
+          };
+          """
+          if old not in text:
+              raise SystemExit('main layer workflow insertion point not found')
+          text = text.replace(old, new)
+          text = text.replace(
+              "    layerWorkflow.dispose();\n",
+              "    layerComps.dispose();\n    layerWorkflow.dispose();\n",
+          )
+          main.write_text(text, encoding='utf-8')
+
+          index = Path('src/index.html')
+          text = index.read_text(encoding='utf-8')
+          marker = """              <label class="shell-layer-opacity" title="不透明度"><span aria-hidden="true">◐</span><input id="layer-opacity" type="number" min="0" max="100" step="1" value="100" aria-label="レイヤー不透明度 パーセント" /></label>
+            </div>
+            <form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>
+          """
+          replacement = """              <label class="shell-layer-opacity" title="不透明度"><span aria-hidden="true">◐</span><input id="layer-opacity" type="number" min="0" max="100" step="1" value="100" aria-label="レイヤー不透明度 パーセント" /></label>
+            </div>
+            <div class="shell-layer-comps" role="group" aria-label="Layer Comps">
+              <input id="layer-comp-name" type="text" maxlength="120" placeholder="Layer Comp名" aria-label="保存するLayer Comp名" />
+              <button id="layer-comp-save" type="button">保存</button>
+              <select id="layer-comp-select" aria-label="Layer Compを選択"><option value="">Layer Comp</option></select>
+              <button id="layer-comp-apply" type="button" disabled>切替</button>
+            </div>
+            <output id="layer-comp-status" class="shell-layer-comp-status" aria-live="polite"></output>
+            <form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>
+          """
+          if marker not in text:
+              raise SystemExit('index Layer Comp insertion point not found')
+          index.write_text(text.replace(marker, replacement), encoding='utf-8')
+
+          css = Path('public/app-shell.css')
+          text = css.read_text(encoding='utf-8')
+          if '.shell-layer-comps {' not in text:
+              text += r'''
+
+          .shell-layer-comps {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr) 42px;
+            gap: 4px;
+            min-width: 0;
+          }
+
+          .shell-layer-comps input,
+          .shell-layer-comps select,
+          .shell-layer-comps button {
+            min-width: 0;
+            height: 27px;
+            border: 1px solid #e2e7ef;
+            border-radius: 7px;
+            background: #fff;
+            color: #46536b;
+            font: 600 9px/1 system-ui, sans-serif;
+          }
+
+          .shell-layer-comps input,
+          .shell-layer-comps select {
+            padding: 0 6px;
+          }
+
+          .shell-layer-comps button {
+            padding: 0 5px;
+            background: #f8faff;
+            cursor: pointer;
+          }
+
+          .shell-layer-comps button:hover:not(:disabled),
+          .shell-layer-comps button:focus-visible {
+            border-color: #ffd1e3;
+            background: #fff0f6;
+            color: #c72b6d;
+            outline: none;
+          }
+
+          .shell-layer-comps button:disabled {
+            cursor: default;
+            opacity: 0.38;
+          }
+
+          .shell-layer-comp-status {
+            min-height: 11px;
+            overflow: hidden;
+            color: #6f7c93;
+            font-size: 9px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          '''
+          css.write_text(text, encoding='utf-8')
+
+          verify = Path('scripts/verify-m5b-layer-foundation.mjs')
+          text = verify.read_text(encoding='utf-8')
+          marker = "console.log('M5B layer system verification passed');"
+          addition = r'''requireText('src/app/layer-comps.ts', [
+            'saveLayerCompSnapshotV1',
+            'applyLayerCompSnapshotV1',
+            'layerCompHasChangesV1',
+            "'illustro.layer-comps/1'",
+            'visible: layer.visible',
+            'opacity: layer.opacity',
+            'blendMode: layer.blendMode',
+          ]);
+          requireText('src/app/layer-comps-controller.ts', [
+            'installLayerCompsControllerV1',
+            "'layer.comp.save'",
+            "'layer.comp.switch'",
+            'paintPersistence.markDirty',
+          ]);
+          requireText('src/app/main.ts', ['installLayerCompsControllerV1', 'layerComps.dispose()']);
+          requireText('src/index.html', [
+            'id="layer-comp-name"',
+            'id="layer-comp-save"',
+            'id="layer-comp-select"',
+            'id="layer-comp-apply"',
+          ]);
+          '''
+          if marker not in text:
+              raise SystemExit('M5B verifier insertion point not found')
+          verify.write_text(text.replace(marker, addition + marker), encoding='utf-8')
+          PY
+      - name: Format
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M5B contract inspection
+        run: npm run verify:m5b
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical slice inspection
+        run: npm run verify:m4
+      - name: M5A document inspection
+        run: npm run verify:m5a
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Commit implementation and remove helper
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/implement-m5b-layer-comps.yml
+          git add src/app/layer-comps.ts src/app/layer-comps-controller.ts src/app/main.ts src/index.html public/app-shell.css tests/unit/layer-comps.test.ts scripts/verify-m5b-layer-foundation.mjs
+          git commit -m "feat: add M5B Layer Comps"
+          git push origin HEAD:main
