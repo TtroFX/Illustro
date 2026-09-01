@@ -7,6 +7,7 @@ import {
 } from '../storage/storage-growth-guard.js';
 import { getProjectWriteCoordinator } from '../storage/project-coordination.js';
 import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
+import { isSha256Hex } from '../domain/resources.js';
 import {
   parseProjectId,
   parseRevision,
@@ -19,7 +20,7 @@ import {
   persistEntityRevision,
   type EntityKind,
 } from '../storage/entity-revision-store.js';
-import { putImmutableObject } from '../storage/immutable-object-store.js';
+import { readImmutableObject, putImmutableObject } from '../storage/immutable-object-store.js';
 import {
   ensureProjectDirectoryLayout,
   openIllustroOpfsRoot,
@@ -32,6 +33,7 @@ import {
 } from '../storage/persistence-scheduler.js';
 import { probeSyncAccessHandle } from '../storage/sync-access.js';
 import {
+  decodeTile,
   persistMaskTile,
   persistRasterTile,
   type TilePixelFormatV1,
@@ -44,7 +46,7 @@ import {
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
   addEventListener(type: 'message', listener: (event: WorkerMessageEvent<unknown>) => void): void;
-  postMessage(message: unknown): void;
+  postMessage(message: unknown, transfer?: readonly Transferable[]): void;
 };
 
 interface ScheduledCommitV1 {
@@ -76,6 +78,11 @@ type StorageRequest =
       readonly height: number;
       readonly pixelFormat: TilePixelFormatV1;
       readonly bytes: ArrayBuffer;
+    }
+  | {
+      readonly type: 'storage.tile.get';
+      readonly requestId: string;
+      readonly objectHash: string;
     }
   | {
       readonly type: 'storage.entity.persist';
@@ -196,6 +203,17 @@ function parseRequest(value: unknown): StorageRequest | null {
       height: value.height,
       pixelFormat: value.pixelFormat,
       bytes: value.bytes,
+    };
+  }
+  if (
+    value.type === 'storage.tile.get' &&
+    typeof value.objectHash === 'string' &&
+    isSha256Hex(value.objectHash)
+  ) {
+    return {
+      type: value.type,
+      requestId: value.requestId,
+      objectHash: value.objectHash,
     };
   }
   if (
@@ -430,6 +448,29 @@ async function handleRequest(request: StorageRequest): Promise<void> {
         ok: true,
         result,
       });
+      return;
+    }
+
+    if (request.type === 'storage.tile.get') {
+      const root = await rootPromise;
+      const encoded = await readImmutableObject(root.sha256Objects, request.objectHash);
+      const decoded = decodeTile(encoded);
+      const bytes = decoded.bytes.buffer;
+      scope.postMessage(
+        {
+          type: 'storage.response',
+          requestId: request.requestId,
+          ok: true,
+          result: {
+            codec: decoded.codec,
+            pixelFormat: decoded.pixelFormat,
+            width: decoded.width,
+            height: decoded.height,
+            bytes,
+          },
+        },
+        [bytes],
+      );
       return;
     }
 

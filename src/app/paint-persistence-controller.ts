@@ -6,7 +6,9 @@ import {
   type ProjectId,
   type Revision,
 } from '../domain/identity.js';
+import { isSha256Hex } from '../domain/resources.js';
 import { parseHistorySpineStateV1, type HistorySpineStateV1 } from '../history/history.js';
+import type { TileCodecIdV1 } from '../storage/tile-codec.js';
 import { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import {
   PaintSessionControllerV1,
@@ -60,12 +62,51 @@ export interface PaintResumeStoreV1 {
 }
 
 export interface PaintStorageWorkerLikeV1 {
-  postMessage(message: unknown): void;
+  postMessage(message: unknown, transfer?: readonly Transferable[]): void;
   addEventListener(type: 'message', listener: (event: MessageEvent<unknown>) => void): void;
   removeEventListener(type: 'message', listener: (event: MessageEvent<unknown>) => void): void;
 }
 
 export type PaintPersistenceNewDocumentInputV1 = Omit<PaintDocumentCreationInputV1, 'projectId'>;
+
+export type PaintRasterTilePixelFormatV1 = 'rgba8-unorm' | 'rgba16-float';
+
+export interface PaintPersistedRasterTileV1 {
+  readonly schema: 'illustro.paint-persisted-raster-tile/1';
+  readonly payloadRef: string;
+  readonly objectHash: string;
+  readonly codec: TileCodecIdV1;
+  readonly pixelFormat: PaintRasterTilePixelFormatV1;
+  readonly width: number;
+  readonly height: number;
+  readonly rawByteLength: number;
+  readonly encodedByteLength: number;
+}
+
+export interface PaintDecodedRasterTileV1 {
+  readonly schema: 'illustro.paint-decoded-raster-tile/1';
+  readonly payloadRef: string;
+  readonly objectHash: string;
+  readonly codec: TileCodecIdV1;
+  readonly pixelFormat: PaintRasterTilePixelFormatV1;
+  readonly width: number;
+  readonly height: number;
+  readonly bytes: Uint8Array<ArrayBuffer>;
+}
+
+export function paintRasterTilePayloadRefV1(objectHash: string): string {
+  if (!isSha256Hex(objectHash))
+    throw new TypeError('raster tile object hash must be lowercase SHA-256');
+  return `sha256:${objectHash}`;
+}
+
+export function parsePaintRasterTilePayloadRefV1(payloadRef: string): string {
+  if (!payloadRef.startsWith('sha256:'))
+    throw new TypeError('raster tile payloadRef must use sha256');
+  const objectHash = payloadRef.slice('sha256:'.length);
+  if (!isSha256Hex(objectHash)) throw new TypeError('raster tile payloadRef hash is invalid');
+  return objectHash;
+}
 
 type PendingStorageRequestV1 = {
   readonly resolve: (result: unknown) => void;
@@ -110,6 +151,33 @@ function parseStorageProjectState(value: unknown): StorageProjectStateV1 {
     sequence: positiveSequence(value.sequence, 'project sequence'),
     recoveryGeneration: recoveryGeneration(value.recoveryGeneration),
   });
+}
+
+function ownedArrayBuffer(value: Uint8Array | ArrayBuffer): ArrayBuffer {
+  if (value instanceof ArrayBuffer) return value.slice(0);
+  const copy = new Uint8Array(value.byteLength);
+  copy.set(value);
+  return copy.buffer;
+}
+
+function rasterPixelFormat(value: unknown): PaintRasterTilePixelFormatV1 {
+  if (value !== 'rgba8-unorm' && value !== 'rgba16-float') {
+    throw new TypeError('storage returned a non-raster tile pixel format');
+  }
+  return value;
+}
+
+function tileCodec(value: unknown): TileCodecIdV1 {
+  if (value !== 'raw' && value !== 'lz4-block')
+    throw new TypeError('storage returned invalid tile codec');
+  return value;
+}
+
+function positiveTileDimension(value: unknown, label: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 1) {
+    throw new TypeError(`${label} must be a positive safe integer`);
+  }
+  return value as number;
 }
 
 function storageErrorMessage(value: unknown): string {
@@ -325,6 +393,77 @@ export class PaintPersistenceControllerV1 {
     }
   }
 
+  async persistRasterTile(input: {
+    readonly width: number;
+    readonly height: number;
+    readonly pixelFormat: PaintRasterTilePixelFormatV1;
+    readonly bytes: Uint8Array | ArrayBuffer;
+  }): Promise<PaintPersistedRasterTileV1> {
+    this.#assertNotDisposed();
+    this.#requireProject();
+    const bytes = ownedArrayBuffer(input.bytes);
+    const result = await this.#request(
+      {
+        type: 'storage.tile.put',
+        kind: 'raster',
+        width: input.width,
+        height: input.height,
+        pixelFormat: input.pixelFormat,
+        bytes,
+      },
+      [bytes],
+    );
+    if (!isRecord(result) || !isRecord(result.object) || typeof result.object.hash !== 'string') {
+      throw new TypeError('invalid persisted raster tile response');
+    }
+    const objectHash = result.object.hash;
+    if (!isSha256Hex(objectHash)) throw new TypeError('persisted raster tile hash is invalid');
+    if (!Number.isSafeInteger(result.rawByteLength) || (result.rawByteLength as number) < 1) {
+      throw new TypeError('persisted raster tile raw length is invalid');
+    }
+    if (
+      !Number.isSafeInteger(result.encodedByteLength) ||
+      (result.encodedByteLength as number) < 1
+    ) {
+      throw new TypeError('persisted raster tile encoded length is invalid');
+    }
+    return Object.freeze({
+      schema: 'illustro.paint-persisted-raster-tile/1' as const,
+      payloadRef: paintRasterTilePayloadRefV1(objectHash),
+      objectHash,
+      codec: tileCodec(result.codec),
+      pixelFormat: rasterPixelFormat(result.pixelFormat),
+      width: positiveTileDimension(result.width, 'persisted raster tile width'),
+      height: positiveTileDimension(result.height, 'persisted raster tile height'),
+      rawByteLength: result.rawByteLength as number,
+      encodedByteLength: result.encodedByteLength as number,
+    });
+  }
+
+  async readRasterTile(payloadRef: string): Promise<PaintDecodedRasterTileV1> {
+    this.#assertNotDisposed();
+    this.#requireProject();
+    const objectHash = parsePaintRasterTilePayloadRefV1(payloadRef);
+    const result = await this.#request({
+      type: 'storage.tile.get',
+      objectHash,
+    });
+    if (!isRecord(result) || !(result.bytes instanceof ArrayBuffer)) {
+      throw new TypeError('invalid decoded raster tile response');
+    }
+    const bytes = new Uint8Array(result.bytes);
+    return Object.freeze({
+      schema: 'illustro.paint-decoded-raster-tile/1' as const,
+      payloadRef,
+      objectHash,
+      codec: tileCodec(result.codec),
+      pixelFormat: rasterPixelFormat(result.pixelFormat),
+      width: positiveTileDimension(result.width, 'decoded raster tile width'),
+      height: positiveTileDimension(result.height, 'decoded raster tile height'),
+      bytes,
+    });
+  }
+
   async markDirty(
     transactionIdValue: CommandTransactionId | string = crypto.randomUUID(),
   ): Promise<void> {
@@ -406,7 +545,10 @@ export class PaintPersistenceControllerV1 {
     }
   }
 
-  #request(message: Readonly<Record<string, unknown>>): Promise<unknown> {
+  #request(
+    message: Readonly<Record<string, unknown>>,
+    transfer: readonly Transferable[] = [],
+  ): Promise<unknown> {
     this.#assertNotDisposed();
     const requestId = crypto.randomUUID();
     return new Promise((resolve, reject) => {
@@ -416,7 +558,7 @@ export class PaintPersistenceControllerV1 {
       }, PAINT_STORAGE_REQUEST_TIMEOUT_MS);
       this.#pending.set(requestId, { resolve, reject, timeout });
       try {
-        this.#worker.postMessage({ ...message, requestId });
+        this.#worker.postMessage({ ...message, requestId }, transfer);
       } catch (error) {
         globalThis.clearTimeout(timeout);
         this.#pending.delete(requestId);
