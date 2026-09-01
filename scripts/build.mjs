@@ -15,7 +15,9 @@ async function collectDistFiles(directory, prefix = '') {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const relativePath = `${prefix}${entry.name}`;
     if (entry.isDirectory()) {
-      files.push(...(await collectDistFiles(new URL(`${entry.name}/`, directory), `${relativePath}/`)));
+      files.push(
+        ...(await collectDistFiles(new URL(`${entry.name}/`, directory), `${relativePath}/`)),
+      );
     } else if (relativePath !== 'service-worker.js') {
       files.push(`./${relativePath}`);
     }
