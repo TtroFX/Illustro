@@ -50,6 +50,7 @@ requireText('src/app/layer-operations.ts', [
   'setLayerAllLockSnapshotV1',
   'setLayerAlphaLockSnapshotV1',
   'setLayerClippingSnapshotV1',
+  'clearLayerSnapshotV1',
 ]);
 requireText('src/app/layer-workflow-controller.ts', [
   "'layer.duplicate'",
@@ -61,11 +62,13 @@ requireText('src/app/layer-workflow-controller.ts', [
   "'layer.lock'",
   "'layer.alpha-lock'",
   "'layer.clipping'",
+  "'layer.clear'",
   'pointermove',
 ]);
 requireText('src/index.html', [
   'id="layer-duplicate"',
   'id="layer-delete"',
+  'id="layer-clear"',
   'id="layer-rename"',
   'id="layer-opacity"',
   'id="layer-lock"',
