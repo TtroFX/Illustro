@@ -670,24 +670,18 @@ jobs:
 
           index = Path('src/index.html')
           text = index.read_text(encoding='utf-8')
-          marker = """              <label class="shell-layer-opacity" title="不透明度"><span aria-hidden="true">◐</span><input id="layer-opacity" type="number" min="0" max="100" step="1" value="100" aria-label="レイヤー不透明度 パーセント" /></label>
-            </div>
-            <form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>
-          """
-          replacement = """              <label class="shell-layer-opacity" title="不透明度"><span aria-hidden="true">◐</span><input id="layer-opacity" type="number" min="0" max="100" step="1" value="100" aria-label="レイヤー不透明度 パーセント" /></label>
-            </div>
-            <div class="shell-layer-comps" role="group" aria-label="Layer Comps">
-              <input id="layer-comp-name" type="text" maxlength="120" placeholder="Layer Comp名" aria-label="保存するLayer Comp名" />
-              <button id="layer-comp-save" type="button">保存</button>
-              <select id="layer-comp-select" aria-label="Layer Compを選択"><option value="">Layer Comp</option></select>
-              <button id="layer-comp-apply" type="button" disabled>切替</button>
-            </div>
-            <output id="layer-comp-status" class="shell-layer-comp-status" aria-live="polite"></output>
-            <form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>
-          """
-          if marker not in text:
-              raise SystemExit('index Layer Comp insertion point not found')
-          index.write_text(text.replace(marker, replacement), encoding='utf-8')
+          marker = '<form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>'
+          insertion = '''<div class="shell-layer-comps" role="group" aria-label="Layer Comps">
+            <input id="layer-comp-name" type="text" maxlength="120" placeholder="Layer Comp名" aria-label="保存するLayer Comp名" />
+            <button id="layer-comp-save" type="button">保存</button>
+            <select id="layer-comp-select" aria-label="Layer Compを選択"><option value="">Layer Comp</option></select>
+            <button id="layer-comp-apply" type="button" disabled>切替</button>
+          </div>
+          <output id="layer-comp-status" class="shell-layer-comp-status" aria-live="polite"></output>
+          '''
+          if text.count(marker) != 1:
+              raise SystemExit(f'index Layer Comp anchor count was {text.count(marker)}')
+          index.write_text(text.replace(marker, insertion + marker, 1), encoding='utf-8')
 
           css = Path('public/app-shell.css')
           text = css.read_text(encoding='utf-8')
