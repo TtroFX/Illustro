@@ -220,4 +220,19 @@ requireText('src/app/layer-workflow-controller.ts', [
   'illustroLayerFilter',
 ]);
 requireText('src/index.html', ['id="layer-filter"', 'value="state:hidden"', 'value="type:raster"']);
+requireText('src/app/layer-cleanup.ts', [
+  'layerCleanupCandidatesV1',
+  'applyLayerCleanupSnapshotV1',
+  "LayerCleanupModeV1 = 'empty' | 'hidden'",
+  'lineart-group',
+  'committedStrokes.filter',
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#layer-cleanup-empty'",
+  "'#layer-cleanup-hidden'",
+  "'layer.cleanup.empty'",
+  "'layer.cleanup.hidden'",
+  'applyLayerCleanupSnapshotV1',
+]);
+requireText('src/index.html', ['id="layer-cleanup-empty"', 'id="layer-cleanup-hidden"']);
 console.log('M5B layer system verification passed');

@@ -296,8 +296,8 @@ M5B-027 grouped transform:完了
 M5B-028 folder-level transform:完了
 M5B-029 layer search:完了
 M5B-030 layer filtering:完了
-M5B-031 empty-layer cleanup:未完了
-M5B-032 hidden-layer cleanup:未完了
+M5B-031 empty-layer cleanup:完了
+M5B-032 hidden-layer cleanup:完了
 M5B-033 Folder Pass Through:未完了
 M5B-034 Layer Comps create/save:未完了
 M5B-035 Layer Comps switch:未完了

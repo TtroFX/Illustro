@@ -1,5 +1,6 @@
 import { parseLayerId, type LayerId } from '../domain/identity.js';
 import type { LayerBaseV1 } from '../domain/layers.js';
+import { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from './layer-cleanup.js';
 import {
   CREATABLE_LAYER_KINDS_V1,
   attachRasterMaskSnapshotV1,
@@ -169,6 +170,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const filterSelect = required<HTMLSelectElement>('#layer-filter');
   const searchCount = required<HTMLOutputElement>('#layer-search-count');
   const maskButton = required<HTMLButtonElement>('#layer-add-mask');
+  const cleanupEmptyButton = required<HTMLButtonElement>('#layer-cleanup-empty');
+  const cleanupHiddenButton = required<HTMLButtonElement>('#layer-cleanup-hidden');
   const duplicateButton = required<HTMLButtonElement>('#layer-duplicate');
   const mergeDownButton = required<HTMLButtonElement>('#layer-merge-down');
   const mergeVisibleCopyButton = required<HTMLButtonElement>('#layer-merge-visible-copy');
@@ -316,6 +319,15 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     maskButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     duplicateButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     const projectSnapshot = options.paintSession.projectSnapshot();
+    const activeStroke = options.paintSession.activeStrokeId() !== null;
+    const emptyCleanupCount =
+      projectSnapshot === null ? 0 : layerCleanupCandidatesV1(projectSnapshot, 'empty').length;
+    const hiddenCleanupCount =
+      projectSnapshot === null ? 0 : layerCleanupCandidatesV1(projectSnapshot, 'hidden').length;
+    cleanupEmptyButton.disabled = emptyCleanupCount === 0 || activeStroke;
+    cleanupHiddenButton.disabled = hiddenCleanupCount === 0 || activeStroke;
+    cleanupEmptyButton.title = `空レイヤーを削除 (${emptyCleanupCount})`;
+    cleanupHiddenButton.title = `非表示レイヤーを削除 (${hiddenCleanupCount})`;
     const mergeEligibility =
       active === null || projectSnapshot === null
         ? null
@@ -477,6 +489,20 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     createHandlers.set(kind, handler);
     button.addEventListener('click', handler);
   }
+
+  const onCleanupEmpty = (): void => {
+    closeMenu(cleanupEmptyButton);
+    commitMutation('layer.cleanup.empty', (before, revision) =>
+      applyLayerCleanupSnapshotV1(before, 'empty', revision),
+    );
+  };
+
+  const onCleanupHidden = (): void => {
+    closeMenu(cleanupHiddenButton);
+    commitMutation('layer.cleanup.hidden', (before, revision) =>
+      applyLayerCleanupSnapshotV1(before, 'hidden', revision),
+    );
+  };
 
   const onMask = (): void => {
     closeMenu(maskButton);
@@ -1110,6 +1136,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   };
 
   maskButton.addEventListener('click', onMask);
+  cleanupEmptyButton.addEventListener('click', onCleanupEmpty);
+  cleanupHiddenButton.addEventListener('click', onCleanupHidden);
   duplicateButton.addEventListener('click', onDuplicate);
   mergeDownButton.addEventListener('click', onMergeDown);
   mergeVisibleCopyButton.addEventListener('click', onMergeVisibleCopy);
@@ -1149,6 +1177,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       for (const [kind, handler] of createHandlers)
         buttons.get(kind)?.removeEventListener('click', handler);
       maskButton.removeEventListener('click', onMask);
+      cleanupEmptyButton.removeEventListener('click', onCleanupEmpty);
+      cleanupHiddenButton.removeEventListener('click', onCleanupHidden);
       duplicateButton.removeEventListener('click', onDuplicate);
       mergeDownButton.removeEventListener('click', onMergeDown);
       mergeVisibleCopyButton.removeEventListener('click', onMergeVisibleCopy);
