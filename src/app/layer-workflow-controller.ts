@@ -20,6 +20,11 @@ import {
   setLayerOpacitySnapshotV1,
   setLayerVisibilitySnapshotV1,
 } from './layer-operations.js';
+import {
+  applyPreparedRasterMergeDownV1,
+  prepareRasterMergeDownV1,
+  rasterMergeDownEligibilityV1,
+} from './layer-raster-merge.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
@@ -116,6 +121,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const list = required<HTMLElement>('#layer-list');
   const maskButton = required<HTMLButtonElement>('#layer-add-mask');
   const duplicateButton = required<HTMLButtonElement>('#layer-duplicate');
+  const mergeDownButton = required<HTMLButtonElement>('#layer-merge-down');
   const deleteButton = required<HTMLButtonElement>('#layer-delete');
   const clearButton = required<HTMLButtonElement>('#layer-clear');
   const renameButton = required<HTMLButtonElement>('#layer-rename');
@@ -222,6 +228,13 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     const disabled = active === null;
     maskButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     duplicateButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
+    const mergeEligibility =
+      active === null
+        ? null
+        : rasterMergeDownEligibilityV1(options.paintSession.projectSnapshot()!, active.id);
+    mergeDownButton.disabled =
+      mergeEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
+    mergeDownButton.title = mergeEligibility?.reason ?? '下のレイヤーと結合';
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -345,6 +358,37 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       },
       () => duplicatedLayerId,
     );
+  };
+
+  const onMergeDown = (): void => {
+    const sourceLayerId = options.paintSession.activeLayerId();
+    if (sourceLayerId === null) return;
+    options.schedule(async () => {
+      try {
+        if (options.paintSession.activeStrokeId() !== null) {
+          throw new Error('merge down is unavailable while a stroke is active');
+        }
+        const current = options.paintSession.projectSnapshot();
+        if (current === null) return;
+        const prepared = await prepareRasterMergeDownV1(
+          current,
+          sourceLayerId,
+          options.paintPersistence,
+        );
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          'layer.mergeDown',
+          (before, revision) => applyPreparedRasterMergeDownV1(before, prepared, revision),
+        );
+        options.paintSession.setActiveLayer(prepared.targetLayerId);
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
   };
 
   const onDelete = (): void => {
@@ -595,6 +639,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
 
   maskButton.addEventListener('click', onMask);
   duplicateButton.addEventListener('click', onDuplicate);
+  mergeDownButton.addEventListener('click', onMergeDown);
   deleteButton.addEventListener('click', onDelete);
   clearButton.addEventListener('click', onClear);
   renameButton.addEventListener('click', onRename);
@@ -622,6 +667,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
         buttons.get(kind)?.removeEventListener('click', handler);
       maskButton.removeEventListener('click', onMask);
       duplicateButton.removeEventListener('click', onDuplicate);
+      mergeDownButton.removeEventListener('click', onMergeDown);
       deleteButton.removeEventListener('click', onDelete);
       clearButton.removeEventListener('click', onClear);
       renameButton.removeEventListener('click', onRename);

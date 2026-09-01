@@ -52,6 +52,14 @@ requireText('src/app/layer-operations.ts', [
   'setLayerClippingSnapshotV1',
   'clearLayerSnapshotV1',
 ]);
+requireText('src/app/layer-raster-merge.ts', [
+  'prepareRasterMergeDownV1',
+  'applyPreparedRasterMergeDownV1',
+  'rasterMergeDownEligibilityV1',
+  'bakedToRasterLayer',
+  'persistRasterTile',
+  'readRasterTile',
+]);
 requireText('src/app/layer-workflow-controller.ts', [
   "'layer.duplicate'",
   "'layer.delete'",
@@ -63,12 +71,15 @@ requireText('src/app/layer-workflow-controller.ts', [
   "'layer.alpha-lock'",
   "'layer.clipping'",
   "'layer.clear'",
+  "'layer.mergeDown'",
+  'prepareRasterMergeDownV1',
   'pointermove',
 ]);
 requireText('src/index.html', [
   'id="layer-duplicate"',
   'id="layer-delete"',
   'id="layer-clear"',
+  'id="layer-merge-down"',
   'id="layer-rename"',
   'id="layer-opacity"',
   'id="layer-lock"',

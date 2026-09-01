@@ -72,6 +72,7 @@ export interface PaintStrokeV1 {
 export interface CompletedPaintStrokeV1 {
   readonly stroke: PaintStrokeV1;
   readonly dabs: readonly BaselineBrushDabV1[];
+  readonly bakedToRasterLayer?: boolean;
 }
 
 export interface PaintProjectSnapshotV1 {
@@ -191,7 +192,14 @@ function parseStoredCompletedStroke(value: unknown): CompletedPaintStrokeV1 {
     layerId: parseLayerId(stroke.layerId),
     samples: Object.freeze(stroke.samples.map(parseStoredStrokeSample)),
   });
-  return freezeCompletedStroke(normalizedStroke, value.dabs.map(parseStoredDab));
+  if (value.bakedToRasterLayer !== undefined && typeof value.bakedToRasterLayer !== 'boolean') {
+    throw new TypeError('paint stroke baked raster state must be boolean');
+  }
+  return freezeCompletedStroke(
+    normalizedStroke,
+    value.dabs.map(parseStoredDab),
+    value.bakedToRasterLayer === true,
+  );
 }
 
 export function parsePaintProjectSnapshotV1(value: unknown): PaintProjectSnapshotV1 {
@@ -305,8 +313,13 @@ function withInitialRasterLayer(document: DocumentV1): {
 function freezeCompletedStroke(
   stroke: PaintStrokeV1,
   dabs: readonly BaselineBrushDabV1[],
+  bakedToRasterLayer = false,
 ): CompletedPaintStrokeV1 {
-  return Object.freeze({ stroke, dabs: Object.freeze([...dabs]) });
+  return Object.freeze({
+    stroke,
+    dabs: Object.freeze([...dabs]),
+    bakedToRasterLayer,
+  });
 }
 
 export class PaintSessionControllerV1 {

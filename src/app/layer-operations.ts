@@ -314,6 +314,7 @@ function cloneCommittedStrokeV1(
       samples: Object.freeze([...entry.stroke.samples]),
     }),
     dabs: Object.freeze([...entry.dabs]),
+    bakedToRasterLayer: entry.bakedToRasterLayer ?? false,
   });
 }
 

@@ -6,19 +6,13 @@ import {
   planBaselineBrushTilesV1,
   type BaselineBrushDabV1,
 } from '../gpu/baseline-brush.js';
-import {
-  tileBoundsForDocumentV1,
-  type TileCoordinateV1,
-} from '../gpu/sparse-tile-model.js';
+import { tileBoundsForDocumentV1, type TileCoordinateV1 } from '../gpu/sparse-tile-model.js';
 import type {
   PaintDecodedRasterTileV1,
   PaintPersistedRasterTileV1,
   PaintRasterTilePixelFormatV1,
 } from './paint-persistence-controller.js';
-import type {
-  CompletedPaintStrokeV1,
-  PaintProjectSnapshotV1,
-} from './paint-session-controller.js';
+import type { CompletedPaintStrokeV1, PaintProjectSnapshotV1 } from './paint-session-controller.js';
 
 export interface RasterMergePersistencePortV1 {
   readRasterTile(payloadRef: string): Promise<PaintDecodedRasterTileV1>;
@@ -53,8 +47,6 @@ export interface PreparedRasterMergeDownV1 {
   readonly tiles: readonly PreparedRasterMergeTileV1[];
 }
 
-const NO_REASON = null;
-
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
@@ -67,11 +59,14 @@ function smoothstep(edge0: number, edge1: number, value: number): number {
 function compatibleRasterLayer(layer: RasterLayerV1): string | null {
   if (!layer.visible) return 'merge down requires visible raster layers';
   if (layer.opacity !== 1) return 'merge down opacity baking requires the compositor milestone';
-  if (layer.blendMode !== 'normal') return 'merge down blend baking requires the compositor milestone';
+  if (layer.blendMode !== 'normal')
+    return 'merge down blend baking requires the compositor milestone';
   if (layer.clipping !== null) return 'merge down clipping baking requires compositor integration';
   if (layer.masks.length > 0) return 'merge down mask baking requires mask compositor integration';
-  if (layer.transformStack.length > 0) return 'merge down transform baking requires rasterize integration';
-  if (layer.effectStack.length > 0) return 'merge down effect baking requires effect compositor integration';
+  if (layer.transformStack.length > 0)
+    return 'merge down transform baking requires rasterize integration';
+  if (layer.effectStack.length > 0)
+    return 'merge down effect baking requires effect compositor integration';
   if (layer.locks.all || layer.locks.pixels) return 'merge down is blocked by the layer pixel lock';
   return null;
 }
@@ -109,7 +104,9 @@ export function rasterMergeDownEligibilityV1(
       reason: 'baseline merge down currently requires two raster layers',
     });
   }
-  const reason = compatibleRasterLayer(source) ?? compatibleRasterLayer(target);
+  const sourceRaster = source as RasterLayerV1;
+  const targetRaster = target as RasterLayerV1;
+  const reason = compatibleRasterLayer(sourceRaster) ?? compatibleRasterLayer(targetRaster);
   return Object.freeze({
     eligible: reason === null,
     sourceLayerId,
@@ -286,8 +283,10 @@ function sourceOver(
     const sourceAlpha = clamp01(source[offset + 3] ?? 0);
     const destinationScale = 1 - sourceAlpha;
     output[offset] = (source[offset] ?? 0) + (destination[offset] ?? 0) * destinationScale;
-    output[offset + 1] = (source[offset + 1] ?? 0) + (destination[offset + 1] ?? 0) * destinationScale;
-    output[offset + 2] = (source[offset + 2] ?? 0) + (destination[offset + 2] ?? 0) * destinationScale;
+    output[offset + 1] =
+      (source[offset + 1] ?? 0) + (destination[offset + 1] ?? 0) * destinationScale;
+    output[offset + 2] =
+      (source[offset + 2] ?? 0) + (destination[offset + 2] ?? 0) * destinationScale;
     output[offset + 3] = sourceAlpha + (destination[offset + 3] ?? 0) * destinationScale;
   }
   return output;
@@ -381,7 +380,9 @@ export async function prepareRasterMergeDownV1(
     ...touchedCoordinates(source, sourceStrokes, width, height),
   ]);
   const tiles: PreparedRasterMergeTileV1[] = [];
-  for (const [key, coordinate] of [...coordinates.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [key, coordinate] of [...coordinates.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
     const bounds = tileBoundsForDocumentV1(width, height, coordinate);
     const targetPixels = await loadLayerTile(
       persistence,
@@ -390,7 +391,14 @@ export async function prepareRasterMergeDownV1(
       bounds.validWidth,
       bounds.validHeight,
     );
-    rasterizeStrokes(targetPixels, targetStrokes, bounds.x, bounds.y, bounds.validWidth, bounds.validHeight);
+    rasterizeStrokes(
+      targetPixels,
+      targetStrokes,
+      bounds.x,
+      bounds.y,
+      bounds.validWidth,
+      bounds.validHeight,
+    );
     const sourcePixels = await loadLayerTile(
       persistence,
       sourceRefs.get(key),
@@ -398,7 +406,14 @@ export async function prepareRasterMergeDownV1(
       bounds.validWidth,
       bounds.validHeight,
     );
-    rasterizeStrokes(sourcePixels, sourceStrokes, bounds.x, bounds.y, bounds.validWidth, bounds.validHeight);
+    rasterizeStrokes(
+      sourcePixels,
+      sourceStrokes,
+      bounds.x,
+      bounds.y,
+      bounds.validWidth,
+      bounds.validHeight,
+    );
     const merged = sourceOver(targetPixels, sourcePixels);
     if (!hasCoverage(merged)) continue;
     const persisted = await persistence.persistRasterTile({
@@ -407,7 +422,9 @@ export async function prepareRasterMergeDownV1(
       pixelFormat: format,
       bytes: encodePremultipliedToStraight(merged, format),
     });
-    tiles.push(Object.freeze({ x: coordinate.tx, y: coordinate.ty, payloadRef: persisted.payloadRef }));
+    tiles.push(
+      Object.freeze({ x: coordinate.tx, y: coordinate.ty, payloadRef: persisted.payloadRef }),
+    );
   }
   return Object.freeze({
     schema: 'illustro.prepared-raster-merge-down/1' as const,
