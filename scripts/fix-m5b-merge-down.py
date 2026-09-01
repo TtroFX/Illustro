@@ -15,6 +15,16 @@ replace_once(
     '  readonly bakedToRasterLayer?: boolean;\n}',
 )
 replace_once(
+    'src/app/layer-operations.ts',
+    '    bakedToRasterLayer: entry.bakedToRasterLayer,',
+    '    bakedToRasterLayer: entry.bakedToRasterLayer ?? false,',
+)
+replace_once(
+    'src/app/layer-raster-merge.ts',
+    'const NO_REASON = null;\n\n',
+    '',
+)
+replace_once(
     'src/app/layer-raster-merge.ts',
     '  const reason = compatibleRasterLayer(source) ?? compatibleRasterLayer(target);',
     '  const sourceRaster = source as RasterLayerV1;\n  const targetRaster = target as RasterLayerV1;\n  const reason = compatibleRasterLayer(sourceRaster) ?? compatibleRasterLayer(targetRaster);',
