@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/workflows/append-design-principles-once.yml'
+      - '.github/design-principles-trigger'
 
 permissions:
   contents: write
