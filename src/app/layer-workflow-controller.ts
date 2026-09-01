@@ -33,6 +33,11 @@ import {
   layerRasterizeEligibilityV1,
   prepareLayerRasterizeV1,
 } from './layer-rasterize.js';
+import {
+  applyPreparedLayerInvertV1,
+  layerInvertEligibilityV1,
+  prepareLayerInvertV1,
+} from './layer-raster-invert.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
@@ -143,6 +148,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const mergeDownButton = required<HTMLButtonElement>('#layer-merge-down');
   const mergeVisibleCopyButton = required<HTMLButtonElement>('#layer-merge-visible-copy');
   const rasterizeButton = required<HTMLButtonElement>('#layer-rasterize');
+  const invertButton = required<HTMLButtonElement>('#layer-invert');
   const deleteButton = required<HTMLButtonElement>('#layer-delete');
   const clearButton = required<HTMLButtonElement>('#layer-clear');
   const renameButton = required<HTMLButtonElement>('#layer-rename');
@@ -269,6 +275,13 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     rasterizeButton.disabled =
       rasterizeEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
     rasterizeButton.title = rasterizeEligibility?.reason ?? 'ラスタライズ';
+    const invertEligibility =
+      active === null || projectSnapshot === null
+        ? null
+        : layerInvertEligibilityV1(projectSnapshot, active.id);
+    invertButton.disabled =
+      invertEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
+    invertButton.title = invertEligibility?.reason ?? '色反転';
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -468,6 +481,33 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
         const transaction = await options.paintHistory.commitSnapshotTransform(
           'layer.rasterize',
           (before, revision) => applyPreparedLayerRasterizeV1(before, prepared, revision),
+        );
+        options.paintSession.setActiveLayer(layerId);
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
+  };
+
+  const onInvert = (): void => {
+    const layerId = options.paintSession.activeLayerId();
+    if (layerId === null) return;
+    options.schedule(async () => {
+      try {
+        if (options.paintSession.activeStrokeId() !== null) {
+          throw new Error('layer invert is unavailable while a stroke is active');
+        }
+        const current = options.paintSession.projectSnapshot();
+        if (current === null) return;
+        const prepared = await prepareLayerInvertV1(current, layerId, options.paintPersistence);
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          'layer.invert',
+          (before, revision) => applyPreparedLayerInvertV1(before, prepared, revision),
         );
         options.paintSession.setActiveLayer(layerId);
         await options.paintPersistence.markDirty(transaction.transactionId);
@@ -732,6 +772,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   mergeDownButton.addEventListener('click', onMergeDown);
   mergeVisibleCopyButton.addEventListener('click', onMergeVisibleCopy);
   rasterizeButton.addEventListener('click', onRasterize);
+  invertButton.addEventListener('click', onInvert);
   deleteButton.addEventListener('click', onDelete);
   clearButton.addEventListener('click', onClear);
   renameButton.addEventListener('click', onRename);
@@ -762,6 +803,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       mergeDownButton.removeEventListener('click', onMergeDown);
       mergeVisibleCopyButton.removeEventListener('click', onMergeVisibleCopy);
       rasterizeButton.removeEventListener('click', onRasterize);
+      invertButton.removeEventListener('click', onInvert);
       deleteButton.removeEventListener('click', onDelete);
       clearButton.removeEventListener('click', onClear);
       renameButton.removeEventListener('click', onRename);
