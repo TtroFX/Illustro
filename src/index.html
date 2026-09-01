@@ -190,7 +190,7 @@
       </div>
       <button class="shell-mobile-inspector-backdrop" type="button" aria-label="レイヤーを閉じる" tabindex="-1" onclick="document.getElementById('app')?.classList.remove('is-mobile-inspector-open'); document.getElementById('mobile-layers')?.setAttribute('aria-expanded', 'false')"></button>
       <nav class="shell-mobile-toolbar" aria-label="スマートフォン描画操作">
-        <span class="shell-mobile-draw-mode" aria-label="1本指で描画、2本指でキャンバス操作" title="1本指: 描画 / 2本指: 移動・拡大・回転"><span aria-hidden="true">✎</span><small>描く</small></span>
+        <span class="shell-mobile-draw-mode" title="1本指: 描画 / 2本指: 移動・拡大・回転"><span aria-hidden="true">✎</span><small>描く</small></span>
         <button id="mobile-history-undo" type="button" aria-label="元に戻す" onclick="document.getElementById('history-undo')?.click()"><span aria-hidden="true">↶</span><small>戻す</small></button>
         <button id="mobile-history-redo" type="button" aria-label="やり直す" onclick="document.getElementById('history-redo')?.click()"><span aria-hidden="true">↷</span><small>進む</small></button>
         <button id="mobile-layers" type="button" aria-label="レイヤー" aria-controls="mobile-layer-inspector" aria-expanded="false" onclick="const app=document.getElementById('app'); const open=app?.classList.toggle('is-mobile-inspector-open') ?? false; this.setAttribute('aria-expanded', String(open))"><span aria-hidden="true">▱</span><small>レイヤー</small></button>
