@@ -858,6 +858,10 @@ export class BaselinePaintRendererV1 {
     return this.#requireDocument().canonicalTiles.exportTiles();
   }
 
+  exportCompositeTiles(): readonly BaselineRasterTileImageV1[] {
+    return this.#requireDocument().canonicalTiles.compositeTiles();
+  }
+
   dispose(): void {
     this.#gpu.attachDevice(null);
     this.#device = null;

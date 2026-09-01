@@ -31,7 +31,7 @@ import { installRenderInputIngressV1 } from './input-ingress-extension.js';
 type WorkerMessageEvent<T> = { readonly data: T };
 type WorkerScope = {
   addEventListener(type: 'message', listener: (event: WorkerMessageEvent<unknown>) => void): void;
-  postMessage(message: unknown): void;
+  postMessage(message: unknown, transfer?: readonly Transferable[]): void;
 };
 
 type RenderWorkerRequestV1 =
@@ -112,6 +112,17 @@ type RenderWorkerRequestV1 =
       readonly type: 'renderer.paint.restore';
       readonly requestId: string;
       readonly strokes: readonly BaselinePaintCommittedStrokeV1[];
+    }
+  | {
+      readonly type: 'renderer.paint.restoreTiles';
+      readonly requestId: string;
+      readonly tiles: readonly BaselineRasterTileImageV1[];
+      readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
+    }
+  | {
+      readonly type: 'renderer.paint.exportTiles';
+      readonly requestId: string;
+      readonly composite: boolean;
     }
   | {
       readonly type: 'renderer.paint.applyPatches';
@@ -282,6 +293,17 @@ function parseRasterTilePatches(value: unknown): readonly BaselineRasterTilePatc
     );
   }
   return patches.length === 0 ? null : Object.freeze(patches);
+}
+
+function parseRasterTileImages(value: unknown): readonly BaselineRasterTileImageV1[] | null {
+  if (!Array.isArray(value)) return null;
+  const tiles: BaselineRasterTileImageV1[] = [];
+  for (const candidate of value) {
+    const tile = parseRasterTileImage(candidate);
+    if (tile === null) return null;
+    tiles.push(tile);
+  }
+  return Object.freeze(tiles);
 }
 
 function parseCoordinate(value: Readonly<Record<string, unknown>>): TileCoordinateV1 | null {
@@ -473,6 +495,24 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     const strokes = parseBaselineCommittedStrokes(value.strokes);
     return strokes === null ? null : { type: value.type, requestId: value.requestId, strokes };
   }
+  if (value.type === 'renderer.paint.restoreTiles' && typeof value.requestId === 'string') {
+    const tiles = parseRasterTileImages(value.tiles);
+    const rasterLayers = parseRasterLayers(value.rasterLayers);
+    return tiles === null || rasterLayers === null
+      ? null
+      : { type: value.type, requestId: value.requestId, tiles, rasterLayers };
+  }
+  if (
+    value.type === 'renderer.paint.exportTiles' &&
+    typeof value.requestId === 'string' &&
+    typeof value.composite === 'boolean'
+  ) {
+    return {
+      type: value.type,
+      requestId: value.requestId,
+      composite: value.composite,
+    };
+  }
   if (
     value.type === 'renderer.paint.applyPatches' &&
     typeof value.requestId === 'string' &&
@@ -551,8 +591,13 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
   return null;
 }
 
-function postResponse(requestId: string, ok: boolean, result: unknown): void {
-  scope.postMessage({ type: 'renderer.response', requestId, ok, result });
+function postResponse(
+  requestId: string,
+  ok: boolean,
+  result: unknown,
+  transfer: readonly Transferable[] = [],
+): void {
+  scope.postMessage({ type: 'renderer.response', requestId, ok, result }, transfer);
 }
 
 function requireTileState(): RendererTileStateV1 {
@@ -610,6 +655,26 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     }
     if (request.type === 'renderer.paint.restore') {
       postResponse(request.requestId, true, baselinePaint.restoreCommittedStrokes(request.strokes));
+      return;
+    }
+    if (request.type === 'renderer.paint.restoreTiles') {
+      postResponse(
+        request.requestId,
+        true,
+        baselinePaint.restoreCanonicalTiles(request.tiles, request.rasterLayers),
+      );
+      return;
+    }
+    if (request.type === 'renderer.paint.exportTiles') {
+      const tiles = request.composite
+        ? baselinePaint.exportCompositeTiles()
+        : baselinePaint.exportCanonicalTiles();
+      postResponse(
+        request.requestId,
+        true,
+        tiles,
+        tiles.map((tile) => tile.bytes.buffer),
+      );
       return;
     }
     if (request.type === 'renderer.paint.applyPatches') {

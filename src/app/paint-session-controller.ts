@@ -13,10 +13,15 @@ import {
   type LayerId,
   type Revision,
 } from '../domain/identity.js';
-import { createRasterLayer, type RasterLayerV1 } from '../domain/layers.js';
+import {
+  createRasterLayer,
+  type RasterLayerV1,
+  type RasterTileReferenceV1,
+} from '../domain/layers.js';
 import { BaselineBrushDabBuilderV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
 import type { BaselineRasterLayerDescriptorV1 } from '../gpu/baseline-raster-tile-store.js';
 import type {
+  BaselineRasterTileImageV1,
   BaselineRasterTilePatchDirectionV1,
   BaselineRasterTilePatchV1,
 } from '../gpu/baseline-raster-tile-store.js';
@@ -45,6 +50,12 @@ export interface PaintRendererDocumentPortV1 {
     patches: readonly BaselineRasterTilePatchV1[],
     direction: BaselineRasterTilePatchDirectionV1,
   ): Promise<unknown>;
+  restoreBaselineCanonicalTiles(
+    tiles: readonly BaselineRasterTileImageV1[],
+    rasterLayers: readonly BaselineRasterLayerDescriptorV1[],
+  ): Promise<unknown>;
+  exportBaselineCanonicalTiles(): Promise<readonly BaselineRasterTileImageV1[]>;
+  exportBaselineCompositeTiles(): Promise<readonly BaselineRasterTileImageV1[]>;
 }
 
 export interface PaintDocumentPointV1 {
@@ -124,6 +135,13 @@ export interface PaintTileHistoryStateV1 {
     readonly tx: number;
     readonly ty: number;
   }[];
+}
+
+export interface PaintRasterTileReferenceUpdateV1 {
+  readonly layerId: string;
+  readonly coordinate: { readonly tx: number; readonly ty: number };
+  readonly revision: Revision;
+  readonly payloadRef: string | null;
 }
 
 export interface PaintDocumentSettingsUpdateV1 {
@@ -462,8 +480,11 @@ export class PaintSessionControllerV1 {
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
   readonly #committedStrokes: CompletedPaintStrokeV1[] = [];
   readonly #committedStrokeById = new Map<string, CompletedPaintStrokeV1>();
+  readonly #committedStrokeIndexById = new Map<string, number>();
   readonly #hiddenCommittedStrokeIds = new Set<string>();
   readonly #presentCommittedStrokeIds = new Set<string>();
+  readonly #unbakedCommittedStrokeIds = new Set<string>();
+  readonly #canonicalRasterTileRefs = new Map<LayerId, Map<string, RasterTileReferenceV1>>();
   #disposed = false;
 
   constructor(
@@ -597,8 +618,24 @@ export class PaintSessionControllerV1 {
     if (document === null) return null;
     return Object.freeze({
       schema: 'illustro.paint-project-snapshot/1' as const,
-      document,
+      document: this.#documentWithCanonicalRasterTiles(document),
       committedStrokes: this.committedStrokes(),
+    });
+  }
+
+  persistenceProjectSnapshot(): PaintProjectSnapshotV1 | null {
+    const document = this.#document;
+    if (document === null) return null;
+    const committedStrokes: CompletedPaintStrokeV1[] = [];
+    for (const strokeId of this.#unbakedCommittedStrokeIds) {
+      if (this.#hiddenCommittedStrokeIds.has(strokeId)) continue;
+      const entry = this.#committedStrokeById.get(strokeId);
+      if (entry !== undefined) committedStrokes.push(entry);
+    }
+    return Object.freeze({
+      schema: 'illustro.paint-project-snapshot/1' as const,
+      document: this.#documentWithCanonicalRasterTiles(document),
+      committedStrokes: Object.freeze(committedStrokes),
     });
   }
 
@@ -636,11 +673,13 @@ export class PaintSessionControllerV1 {
     const strokeIndex = this.#committedStrokes.length;
     const [committed] = this.#completedStrokes.splice(index, 1);
     if (committed === undefined) return null;
-    const baked = freezeCompletedStroke(committed.stroke, committed.dabs, true);
-    this.#committedStrokes.push(baked);
-    this.#committedStrokeById.set(baked.stroke.strokeId, baked);
-    this.#hiddenCommittedStrokeIds.delete(baked.stroke.strokeId);
-    this.#presentCommittedStrokeIds.add(baked.stroke.strokeId);
+    const pendingBake = freezeCompletedStroke(committed.stroke, committed.dabs, false);
+    this.#committedStrokes.push(pendingBake);
+    this.#committedStrokeById.set(pendingBake.stroke.strokeId, pendingBake);
+    this.#committedStrokeIndexById.set(pendingBake.stroke.strokeId, strokeIndex);
+    this.#hiddenCommittedStrokeIds.delete(pendingBake.stroke.strokeId);
+    this.#presentCommittedStrokeIds.add(pendingBake.stroke.strokeId);
+    this.#unbakedCommittedStrokeIds.add(pendingBake.stroke.strokeId);
     this.#document = Object.freeze({ ...document, revision, modifiedAt: afterModifiedAt });
     return Object.freeze({
       beforeRevision,
@@ -648,8 +687,68 @@ export class PaintSessionControllerV1 {
       beforeModifiedAt,
       afterModifiedAt,
       strokeIndex,
-      committed: baked,
+      committed: pendingBake,
     });
+  }
+
+  markCommittedStrokeBaked(strokeId: string): void {
+    const entry = this.#committedStrokeById.get(strokeId);
+    const index = this.#committedStrokeIndexById.get(strokeId);
+    if (entry === undefined || index === undefined) return;
+    if (entry.bakedToRasterLayer === true) {
+      this.#unbakedCommittedStrokeIds.delete(strokeId);
+      return;
+    }
+    const baked = freezeCompletedStroke(entry.stroke, entry.dabs, true);
+    this.#committedStrokes[index] = baked;
+    this.#committedStrokeById.set(strokeId, baked);
+    this.#unbakedCommittedStrokeIds.delete(strokeId);
+  }
+
+  markAllCommittedStrokesBaked(): void {
+    for (const strokeId of [...this.#unbakedCommittedStrokeIds]) {
+      this.markCommittedStrokeBaked(strokeId);
+    }
+  }
+
+  applyCanonicalRasterTileReferences(updates: readonly PaintRasterTileReferenceUpdateV1[]): void {
+    const document = this.#document;
+    if (document === null) throw new Error('raster tile references require an active document');
+    for (const update of updates) {
+      const layerId = parseLayerId(update.layerId);
+      const layer = document.layerTree.layers[layerId];
+      if (layer?.type !== 'raster') {
+        throw new Error(`raster tile reference targets a missing raster layer: ${layerId}`);
+      }
+      if (
+        !Number.isSafeInteger(update.coordinate.tx) ||
+        update.coordinate.tx < 0 ||
+        !Number.isSafeInteger(update.coordinate.ty) ||
+        update.coordinate.ty < 0
+      ) {
+        throw new RangeError('raster tile reference coordinate must be non-negative');
+      }
+      const revision = parseRevision(update.revision);
+      const refs = this.#canonicalRasterTileRefs.get(layerId) ?? new Map();
+      this.#canonicalRasterTileRefs.set(layerId, refs);
+      const key = `${update.coordinate.tx}:${update.coordinate.ty}`;
+      if (update.payloadRef === null) {
+        refs.delete(key);
+      } else {
+        if (update.payloadRef.length === 0) {
+          throw new TypeError('raster tile payloadRef must not be empty');
+        }
+        refs.set(
+          key,
+          Object.freeze({
+            x: update.coordinate.tx,
+            y: update.coordinate.ty,
+            revision,
+            payloadRef: update.payloadRef,
+          }),
+        );
+      }
+    }
   }
 
   commitDocumentSettings(
@@ -714,37 +813,35 @@ export class PaintSessionControllerV1 {
         dabs: entry.dabs,
       })),
     );
-    const previousActiveLayerId = this.#activeLayerId;
-    const previousSelectedLayerIds = [...this.#selectedLayerIds];
-    const previousAnchorLayerId = this.#selectionAnchorLayerId;
-    this.#document = normalized.document;
-    this.#activeLayerId =
-      previousActiveLayerId !== null &&
-      previousActiveLayerId in normalized.document.layerTree.layers
-        ? previousActiveLayerId
-        : (normalized.document.layerTree.rootLayerIds[0] ?? null);
-    this.#selectedLayerIds.clear();
-    for (const layerId of previousSelectedLayerIds) {
-      if (layerId in normalized.document.layerTree.layers) this.#selectedLayerIds.add(layerId);
-    }
-    if (this.#activeLayerId !== null) this.#selectedLayerIds.add(this.#activeLayerId);
-    this.#selectionAnchorLayerId =
-      previousAnchorLayerId !== null &&
-      previousAnchorLayerId in normalized.document.layerTree.layers
-        ? previousAnchorLayerId
-        : this.#activeLayerId;
-    this.#clearActiveStroke();
-    this.#completedStrokes.length = 0;
-    this.#committedStrokes.length = 0;
-    this.#committedStrokes.push(...normalized.committedStrokes);
-    this.#committedStrokeById.clear();
-    this.#hiddenCommittedStrokeIds.clear();
-    this.#presentCommittedStrokeIds.clear();
-    for (const entry of normalized.committedStrokes) {
-      this.#committedStrokeById.set(entry.stroke.strokeId, entry);
-      this.#presentCommittedStrokeIds.add(entry.stroke.strokeId);
-    }
-    return this.projectSnapshot()!;
+    return this.#adoptRestoredProjectSnapshot(normalized);
+  }
+
+  async restoreCanonicalProjectSnapshot(
+    snapshot: PaintProjectSnapshotV1,
+    tiles: readonly BaselineRasterTileImageV1[],
+  ): Promise<PaintProjectSnapshotV1> {
+    if (this.#disposed) throw new Error('paint session is disposed');
+    const normalized = parsePaintProjectSnapshotV1(snapshot);
+    const rasterLayers = paintRasterLayerDescriptorsV1(normalized.document);
+    await this.#renderer.configureDocument({
+      width: normalized.document.canvas.width,
+      height: normalized.document.canvas.height,
+      workingSpace: normalized.document.color.workingSpace,
+      precision: normalized.document.color.precision,
+      rasterLayers,
+    });
+    await this.#renderer.restoreBaselineCanonicalTiles(tiles, rasterLayers);
+    return this.#adoptRestoredProjectSnapshot(normalized);
+  }
+
+  exportCanonicalRasterTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    if (this.#disposed) throw new Error('paint session is disposed');
+    return this.#renderer.exportBaselineCanonicalTiles();
+  }
+
+  exportCompositeRasterTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    if (this.#disposed) throw new Error('paint session is disposed');
+    return this.#renderer.exportBaselineCompositeTiles();
   }
 
   async restoreStrokeHistoryState(
@@ -771,12 +868,18 @@ export class PaintSessionControllerV1 {
     }
 
     this.#committedStrokeById.clear();
+    this.#committedStrokeIndexById.clear();
     this.#hiddenCommittedStrokeIds.clear();
     this.#presentCommittedStrokeIds.clear();
-    for (const entry of this.#committedStrokes) {
+    this.#unbakedCommittedStrokeIds.clear();
+    this.#committedStrokes.forEach((entry, index) => {
       this.#committedStrokeById.set(entry.stroke.strokeId, entry);
+      this.#committedStrokeIndexById.set(entry.stroke.strokeId, index);
       this.#presentCommittedStrokeIds.add(entry.stroke.strokeId);
-    }
+      if (entry.bakedToRasterLayer !== true) {
+        this.#unbakedCommittedStrokeIds.add(entry.stroke.strokeId);
+      }
+    });
 
     this.#document = Object.freeze({
       ...document,
@@ -869,8 +972,11 @@ export class PaintSessionControllerV1 {
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
     this.#committedStrokeById.clear();
+    this.#committedStrokeIndexById.clear();
     this.#hiddenCommittedStrokeIds.clear();
     this.#presentCommittedStrokeIds.clear();
+    this.#unbakedCommittedStrokeIds.clear();
+    this.#resetCanonicalRasterTileReferences(initial.document);
     return initial.document;
   }
 
@@ -937,8 +1043,91 @@ export class PaintSessionControllerV1 {
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
     this.#committedStrokeById.clear();
+    this.#committedStrokeIndexById.clear();
     this.#hiddenCommittedStrokeIds.clear();
     this.#presentCommittedStrokeIds.clear();
+    this.#unbakedCommittedStrokeIds.clear();
+    this.#canonicalRasterTileRefs.clear();
+  }
+
+  #adoptRestoredProjectSnapshot(normalized: PaintProjectSnapshotV1): PaintProjectSnapshotV1 {
+    const previousActiveLayerId = this.#activeLayerId;
+    const previousSelectedLayerIds = [...this.#selectedLayerIds];
+    const previousAnchorLayerId = this.#selectionAnchorLayerId;
+    this.#document = normalized.document;
+    this.#activeLayerId =
+      previousActiveLayerId !== null &&
+      previousActiveLayerId in normalized.document.layerTree.layers
+        ? previousActiveLayerId
+        : (normalized.document.layerTree.rootLayerIds[0] ?? null);
+    this.#selectedLayerIds.clear();
+    for (const layerId of previousSelectedLayerIds) {
+      if (layerId in normalized.document.layerTree.layers) this.#selectedLayerIds.add(layerId);
+    }
+    if (this.#activeLayerId !== null) this.#selectedLayerIds.add(this.#activeLayerId);
+    this.#selectionAnchorLayerId =
+      previousAnchorLayerId !== null &&
+      previousAnchorLayerId in normalized.document.layerTree.layers
+        ? previousAnchorLayerId
+        : this.#activeLayerId;
+    this.#clearActiveStroke();
+    this.#completedStrokes.length = 0;
+    this.#committedStrokes.length = 0;
+    this.#committedStrokes.push(...normalized.committedStrokes);
+    this.#committedStrokeById.clear();
+    this.#committedStrokeIndexById.clear();
+    this.#hiddenCommittedStrokeIds.clear();
+    this.#presentCommittedStrokeIds.clear();
+    this.#unbakedCommittedStrokeIds.clear();
+    normalized.committedStrokes.forEach((entry, index) => {
+      const strokeId = entry.stroke.strokeId;
+      this.#committedStrokeById.set(strokeId, entry);
+      this.#committedStrokeIndexById.set(strokeId, index);
+      this.#presentCommittedStrokeIds.add(strokeId);
+      if (entry.bakedToRasterLayer !== true) this.#unbakedCommittedStrokeIds.add(strokeId);
+    });
+    this.#resetCanonicalRasterTileReferences(normalized.document);
+    const restored = this.projectSnapshot();
+    if (restored === null) throw new Error('paint project restore lost the active document');
+    return restored;
+  }
+
+  #resetCanonicalRasterTileReferences(document: DocumentV1): void {
+    this.#canonicalRasterTileRefs.clear();
+    for (const layer of Object.values(document.layerTree.layers)) {
+      if (layer.type !== 'raster') continue;
+      const refs = new Map<string, RasterTileReferenceV1>();
+      for (const tile of (layer as RasterLayerV1).tiles) {
+        refs.set(`${tile.x}:${tile.y}`, tile);
+      }
+      this.#canonicalRasterTileRefs.set(layer.id, refs);
+    }
+  }
+
+  #documentWithCanonicalRasterTiles(document: DocumentV1): DocumentV1 {
+    let changed = false;
+    const layers = { ...document.layerTree.layers };
+    for (const [layerId, refs] of this.#canonicalRasterTileRefs) {
+      const layer = layers[layerId];
+      if (layer?.type !== 'raster') continue;
+      const tiles = Object.freeze(
+        [...refs.values()].sort((left, right) => left.y - right.y || left.x - right.x),
+      );
+      const revision = tiles.reduce<number>(
+        (maximum, tile) => Math.max(maximum, tile.revision),
+        layer.revision,
+      );
+      layers[layerId] = Object.freeze({ ...layer, revision: parseRevision(revision), tiles });
+      changed = true;
+    }
+    if (!changed) return document;
+    return Object.freeze({
+      ...document,
+      layerTree: Object.freeze({
+        rootLayerIds: document.layerTree.rootLayerIds,
+        layers: Object.freeze(layers),
+      }),
+    });
   }
 
   #startStroke(batch: PointerInputBatchV1, source: PaintStrokeSourceV1): void {

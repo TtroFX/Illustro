@@ -1,13 +1,21 @@
 import { isCommandTransactionId, type CommandTransactionId } from '../domain/command-registry.js';
 import {
   createProjectId,
+  parseLayerId,
   parseProjectId,
   parseRevision,
   type ProjectId,
   type Revision,
 } from '../domain/identity.js';
+import type { RasterLayerV1 } from '../domain/layers.js';
 import { isSha256Hex } from '../domain/resources.js';
 import { parseHistorySpineStateV1, type HistorySpineStateV1 } from '../history/history.js';
+import type {
+  BaselineRasterTileImageV1,
+  BaselineRasterTilePatchDirectionV1,
+  BaselineRasterTilePatchV1,
+} from '../gpu/baseline-raster-tile-store.js';
+import { CANONICAL_TILE_SIZE_PX, tileBoundsForDocumentV1 } from '../gpu/sparse-tile-model.js';
 import type { TileCodecIdV1 } from '../storage/tile-codec.js';
 import { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import {
@@ -45,6 +53,33 @@ export interface PaintPersistenceProjectSnapshotV1 {
   readonly paint: PaintProjectSnapshotV1;
   readonly history: HistorySpineStateV1;
   readonly revisionHighWater: number;
+  readonly raster?: PaintPersistenceRasterStateV1;
+}
+
+export interface PaintRasterTileVersionReferenceV1 {
+  readonly schema: 'illustro.paint-raster-tile-version-ref/1';
+  readonly payloadRef: string;
+  readonly revision: Revision;
+}
+
+export interface PaintRasterTilePatchReferenceV1 {
+  readonly schema: 'illustro.paint-raster-tile-patch-ref/1';
+  readonly layerId: string;
+  readonly coordinate: { readonly tx: number; readonly ty: number };
+  readonly before: PaintRasterTileVersionReferenceV1 | null;
+  readonly after: PaintRasterTileVersionReferenceV1 | null;
+}
+
+export interface PaintRasterTileHistoryReferenceV1 {
+  readonly schema: 'illustro.paint-raster-tile-history-ref/1';
+  readonly transactionId: CommandTransactionId;
+  readonly patches: readonly PaintRasterTilePatchReferenceV1[];
+}
+
+export interface PaintPersistenceRasterStateV1 {
+  readonly schema: 'illustro.paint-raster-state/1';
+  readonly tileSize: typeof CANONICAL_TILE_SIZE_PX;
+  readonly history: readonly PaintRasterTileHistoryReferenceV1[];
 }
 
 export interface PaintPersistenceInitializeResultV1 {
@@ -123,6 +158,37 @@ interface StorageProjectStateV1 {
   readonly recoveryGeneration: number;
 }
 
+interface CurrentRasterTileReferenceV1 {
+  readonly layerId: string;
+  readonly coordinate: { readonly tx: number; readonly ty: number };
+  readonly version: PaintRasterTileVersionReferenceV1;
+}
+
+function rasterTileKey(layerId: string, tx: number, ty: number): string {
+  return `${layerId}/${tx}:${ty}`;
+}
+
+async function mapWithConcurrency<Input, Output>(
+  values: readonly Input[],
+  concurrency: number,
+  mapper: (value: Input, index: number) => Promise<Output>,
+): Promise<readonly Output[]> {
+  const results = new Array<Output>(values.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    for (;;) {
+      const index = nextIndex;
+      nextIndex += 1;
+      if (index >= values.length) return;
+      const value = values[index];
+      if (value === undefined) throw new Error('concurrent raster tile input is missing');
+      results[index] = await mapper(value, index);
+    }
+  });
+  await Promise.all(workers);
+  return Object.freeze(results);
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -190,6 +256,88 @@ function storageErrorMessage(value: unknown): string {
   return 'storage request failed';
 }
 
+function parseRasterTileVersionReference(value: unknown): PaintRasterTileVersionReferenceV1 | null {
+  if (value === null) return null;
+  if (
+    !isRecord(value) ||
+    value.schema !== 'illustro.paint-raster-tile-version-ref/1' ||
+    typeof value.payloadRef !== 'string'
+  ) {
+    throw new TypeError('invalid raster tile version reference');
+  }
+  parsePaintRasterTilePayloadRefV1(value.payloadRef);
+  return Object.freeze({
+    schema: 'illustro.paint-raster-tile-version-ref/1' as const,
+    payloadRef: value.payloadRef,
+    revision: parseRevision(value.revision),
+  });
+}
+
+function parseRasterTilePatchReference(value: unknown): PaintRasterTilePatchReferenceV1 {
+  if (
+    !isRecord(value) ||
+    value.schema !== 'illustro.paint-raster-tile-patch-ref/1' ||
+    !isRecord(value.coordinate) ||
+    !Number.isSafeInteger(value.coordinate.tx) ||
+    (value.coordinate.tx as number) < 0 ||
+    !Number.isSafeInteger(value.coordinate.ty) ||
+    (value.coordinate.ty as number) < 0
+  ) {
+    throw new TypeError('invalid raster tile patch reference');
+  }
+  const layerId = parseLayerId(value.layerId);
+  const before = parseRasterTileVersionReference(value.before);
+  const after = parseRasterTileVersionReference(value.after);
+  if (before === null && after === null) {
+    throw new Error('raster tile patch reference cannot be empty');
+  }
+  return Object.freeze({
+    schema: 'illustro.paint-raster-tile-patch-ref/1' as const,
+    layerId,
+    coordinate: Object.freeze({
+      tx: value.coordinate.tx as number,
+      ty: value.coordinate.ty as number,
+    }),
+    before,
+    after,
+  });
+}
+
+function parsePersistenceRasterState(value: unknown): PaintPersistenceRasterStateV1 {
+  if (
+    !isRecord(value) ||
+    value.schema !== 'illustro.paint-raster-state/1' ||
+    value.tileSize !== CANONICAL_TILE_SIZE_PX ||
+    !Array.isArray(value.history)
+  ) {
+    throw new TypeError('invalid paint raster persistence state');
+  }
+  const seen = new Set<string>();
+  const history = value.history.map((entry) => {
+    if (
+      !isRecord(entry) ||
+      entry.schema !== 'illustro.paint-raster-tile-history-ref/1' ||
+      !isCommandTransactionId(entry.transactionId) ||
+      seen.has(entry.transactionId) ||
+      !Array.isArray(entry.patches) ||
+      entry.patches.length === 0
+    ) {
+      throw new TypeError('invalid raster tile history reference');
+    }
+    seen.add(entry.transactionId);
+    return Object.freeze({
+      schema: 'illustro.paint-raster-tile-history-ref/1' as const,
+      transactionId: entry.transactionId,
+      patches: Object.freeze(entry.patches.map(parseRasterTilePatchReference)),
+    });
+  });
+  return Object.freeze({
+    schema: 'illustro.paint-raster-state/1' as const,
+    tileSize: CANONICAL_TILE_SIZE_PX,
+    history: Object.freeze(history),
+  });
+}
+
 export function parsePaintPersistenceProjectSnapshotV1(
   value: unknown,
 ): PaintPersistenceProjectSnapshotV1 {
@@ -205,11 +353,13 @@ export function parsePaintPersistenceProjectSnapshotV1(
   if (revisionHighWater < paint.document.revision) {
     throw new Error('paint persistence revision high-water trails the document revision');
   }
+  const raster = value.raster === undefined ? undefined : parsePersistenceRasterState(value.raster);
   return Object.freeze({
     schema: 'illustro.paint-persistence-snapshot/1' as const,
     paint,
     history,
     revisionHighWater,
+    ...(raster === undefined ? {} : { raster }),
   });
 }
 
@@ -231,6 +381,10 @@ export class PaintPersistenceControllerV1 {
   #scheduledDirtyTransactionId: CommandTransactionId | null = null;
   #scheduledDirtyTimer: number | null = null;
   #dirtyTail: Promise<void> = Promise.resolve();
+  #tileTail: Promise<void> = Promise.resolve();
+  readonly #currentTileRefs = new Map<string, CurrentRasterTileReferenceV1>();
+  readonly #historyTileRefs = new Map<string, PaintRasterTileHistoryReferenceV1>();
+  #rasterStateEnabled = false;
   #disposed = false;
 
   constructor(
@@ -249,6 +403,7 @@ export class PaintPersistenceControllerV1 {
     this.#onState = options.onState ?? (() => undefined);
     this.#messageListener = (event) => this.#handleWorkerMessage(event.data);
     this.#worker.addEventListener('message', this.#messageListener);
+    this.#history.setTilePatchLoader((transactionId) => this.#loadTilePatches(transactionId));
     this.#publish();
   }
 
@@ -265,14 +420,34 @@ export class PaintPersistenceControllerV1 {
   }
 
   projectSnapshot(): PaintPersistenceProjectSnapshotV1 {
-    const paint = this.#session.projectSnapshot();
+    const paint = this.#session.persistenceProjectSnapshot();
     if (paint === null) throw new Error('paint persistence requires an active document');
     const history = this.#history.snapshot();
+    const historyState = this.#history.exportState();
+    const retainedTransactionIds = new Set(
+      historyState.entries.map((entry) =>
+        entry.storage === 'resident'
+          ? entry.transaction.transactionId
+          : entry.reference.transactionId,
+      ),
+    );
+    const rasterHistory = [...this.#historyTileRefs.values()].filter((entry) =>
+      retainedTransactionIds.has(entry.transactionId),
+    );
     return Object.freeze({
       schema: 'illustro.paint-persistence-snapshot/1' as const,
       paint,
-      history: this.#history.exportState(),
+      history: historyState,
       revisionHighWater: history.revisionHighWater,
+      ...(this.#rasterStateEnabled
+        ? {
+            raster: Object.freeze({
+              schema: 'illustro.paint-raster-state/1' as const,
+              tileSize: CANONICAL_TILE_SIZE_PX,
+              history: Object.freeze(rasterHistory),
+            }),
+          }
+        : {}),
     });
   }
 
@@ -300,24 +475,39 @@ export class PaintPersistenceControllerV1 {
         if (durable.paint.document.revision !== opened.documentRevision) {
           throw new Error('recovered paint revision disagrees with checkpoint metadata');
         }
-        await this.#session.restoreProjectSnapshot(durable.paint);
-        this.#history.hydrate(durable.history, durable.revisionHighWater);
         this.#adoptProject(opened);
+        this.#resetRasterPersistenceState();
+        if (durable.raster === undefined) {
+          await this.#session.restoreProjectSnapshot(durable.paint);
+          this.#history.reset();
+          this.#rasterStateEnabled = true;
+          await this.#migrateLegacyRasterSnapshot();
+          await this.markDirty(crypto.randomUUID());
+          await this.#flush('autosave');
+        } else {
+          this.#rasterStateEnabled = true;
+          this.#indexDurableRasterState(durable);
+          const tiles = await this.#loadCurrentRasterTiles(durable.paint);
+          await this.#session.restoreCanonicalProjectSnapshot(durable.paint, tiles);
+          this.#history.hydrate(durable.history, durable.revisionHighWater);
+        }
         this.#rememberProject(opened.projectId);
         this.#setStatus('ready');
         return Object.freeze({
           schema: 'illustro.paint-persistence-initialize/1' as const,
           mode: 'recovered' as const,
           projectId: opened.projectId,
-          sequence: opened.sequence,
-          recoveryGeneration: opened.recoveryGeneration,
-          documentRevision: opened.documentRevision,
+          sequence: this.#sequence,
+          recoveryGeneration: this.#recoveryGeneration,
+          documentRevision: this.#session.currentDocument()?.revision ?? opened.documentRevision,
         });
       }
 
       const projectId = createProjectId();
       const document = await this.#session.createNewDocument({ ...input.document, projectId });
       this.#history.reset();
+      this.#resetRasterPersistenceState();
+      this.#rasterStateEnabled = true;
       const created = parseStorageProjectState(
         await this.#request({
           type: 'storage.project.create',
@@ -358,16 +548,14 @@ export class PaintPersistenceControllerV1 {
     this.#setStatus('initializing');
     try {
       if (previousProjectId !== null) {
-        await this.#request({
-          type: 'storage.persistence.flush',
-          projectId: previousProjectId,
-          reason: 'autosave',
-        });
+        await this.#flush('autosave');
         await this.#request({ type: 'storage.project.close', projectId: previousProjectId });
       }
       const projectId = createProjectId();
       const document = await this.#session.createNewDocument({ ...input.document, projectId });
       this.#history.reset();
+      this.#resetRasterPersistenceState();
+      this.#rasterStateEnabled = true;
       const created = parseStorageProjectState(
         await this.#request({
           type: 'storage.project.create',
@@ -468,6 +656,57 @@ export class PaintPersistenceControllerV1 {
     });
   }
 
+  scheduleRasterTileTransaction(input: {
+    readonly transactionId: CommandTransactionId | string;
+    readonly strokeId: string;
+    readonly beforeRevision: Revision | number;
+    readonly afterRevision: Revision | number;
+    readonly patches: readonly BaselineRasterTilePatchV1[];
+  }): void {
+    this.#assertNotDisposed();
+    this.#requireProject();
+    const transactionId = input.transactionId;
+    if (!isCommandTransactionId(transactionId) || input.strokeId.length === 0) {
+      throw new TypeError('raster tile transaction requires valid transaction/stroke identities');
+    }
+    if (input.patches.length === 0) {
+      throw new TypeError('raster tile transaction requires affected patches');
+    }
+    const beforeRevision = parseRevision(input.beforeRevision);
+    const afterRevision = parseRevision(input.afterRevision);
+    if (afterRevision <= beforeRevision) {
+      throw new RangeError('raster tile transaction revision must advance');
+    }
+    const patches = Object.freeze([...input.patches]);
+    this.#enqueueTileTask(() =>
+      this.#persistRasterTileTransaction({
+        transactionId,
+        strokeId: input.strokeId,
+        beforeRevision,
+        afterRevision,
+        patches,
+      }),
+    );
+  }
+
+  scheduleRasterTileRestore(
+    transactionId: string,
+    direction: BaselineRasterTilePatchDirectionV1,
+  ): void {
+    this.#assertNotDisposed();
+    this.#requireProject();
+    if (!isCommandTransactionId(transactionId)) {
+      throw new TypeError('raster tile restore transactionId must be a UUID');
+    }
+    const validatedTransactionId = transactionId;
+    this.#enqueueTileTask(() => this.#persistRasterTileRestore(validatedTransactionId, direction));
+  }
+
+  async flushPendingRasterTiles(): Promise<void> {
+    this.#assertNotDisposed();
+    await this.#tileTail;
+  }
+
   scheduleDirty(transactionIdValue: CommandTransactionId | string = crypto.randomUUID()): void {
     this.#assertNotDisposed();
     this.#requireProject();
@@ -489,8 +728,273 @@ export class PaintPersistenceControllerV1 {
     if (!isCommandTransactionId(transactionIdValue)) {
       throw new TypeError('paint persistence transactionId must be a UUID');
     }
+    await this.#tileTail;
     await this.#flushScheduledDirty();
     await this.#enqueueDirtyNow(transactionIdValue);
+  }
+
+  #enqueueTileTask(operation: () => Promise<void>): void {
+    const task = this.#tileTail.then(operation, operation);
+    this.#tileTail = task;
+    void task.catch((error: unknown) => this.#fail(error));
+  }
+
+  async #persistRasterTileTransaction(input: {
+    readonly transactionId: CommandTransactionId;
+    readonly strokeId: string;
+    readonly beforeRevision: Revision;
+    readonly afterRevision: Revision;
+    readonly patches: readonly BaselineRasterTilePatchV1[];
+  }): Promise<void> {
+    const seen = new Set<string>();
+    const references = await mapWithConcurrency(input.patches, 8, async (patch) => {
+      const layerId = parseLayerId(patch.layerId);
+      const key = rasterTileKey(layerId, patch.coordinate.tx, patch.coordinate.ty);
+      if (seen.has(key)) throw new Error(`duplicate raster tile patch: ${key}`);
+      seen.add(key);
+      const current = this.#currentTileRefs.get(key);
+      if (patch.before === null && current !== undefined) {
+        throw new Error(`raster tile transaction before-state disagrees with storage: ${key}`);
+      }
+      const before =
+        patch.before === null
+          ? null
+          : (current?.version ??
+            (await this.#persistRasterTileVersion(patch.before, input.beforeRevision)));
+      const after =
+        patch.after === null
+          ? null
+          : await this.#persistRasterTileVersion(patch.after, input.afterRevision);
+      return Object.freeze({
+        schema: 'illustro.paint-raster-tile-patch-ref/1' as const,
+        layerId,
+        coordinate: Object.freeze({
+          tx: patch.coordinate.tx,
+          ty: patch.coordinate.ty,
+        }),
+        before,
+        after,
+      });
+    });
+
+    const historyReference = Object.freeze({
+      schema: 'illustro.paint-raster-tile-history-ref/1' as const,
+      transactionId: input.transactionId,
+      patches: Object.freeze(references),
+    });
+    this.#historyTileRefs.set(input.transactionId, historyReference);
+    this.#applyCurrentTileReferences(references, 'after');
+    this.#session.markCommittedStrokeBaked(input.strokeId);
+    this.#history.markTilePatchesDurable(input.transactionId);
+    this.#pruneHistoryTileReferences();
+    this.#rasterStateEnabled = true;
+    this.scheduleDirty(input.transactionId);
+  }
+
+  async #persistRasterTileRestore(
+    transactionId: string,
+    direction: BaselineRasterTilePatchDirectionV1,
+  ): Promise<void> {
+    const reference = this.#historyTileRefs.get(transactionId);
+    if (reference === undefined) {
+      throw new Error(`persisted raster tile history is missing: ${transactionId}`);
+    }
+    this.#applyCurrentTileReferences(reference.patches, direction);
+    this.scheduleDirty(crypto.randomUUID());
+  }
+
+  #applyCurrentTileReferences(
+    patches: readonly PaintRasterTilePatchReferenceV1[],
+    direction: BaselineRasterTilePatchDirectionV1,
+  ): void {
+    const updates = patches.map((patch) => {
+      const selected = direction === 'before' ? patch.before : patch.after;
+      const key = rasterTileKey(patch.layerId, patch.coordinate.tx, patch.coordinate.ty);
+      if (selected === null) this.#currentTileRefs.delete(key);
+      else {
+        this.#currentTileRefs.set(
+          key,
+          Object.freeze({
+            layerId: patch.layerId,
+            coordinate: patch.coordinate,
+            version: selected,
+          }),
+        );
+      }
+      return Object.freeze({
+        layerId: patch.layerId,
+        coordinate: patch.coordinate,
+        revision: selected?.revision ?? parseRevision(0),
+        payloadRef: selected?.payloadRef ?? null,
+      });
+    });
+    this.#session.applyCanonicalRasterTileReferences(Object.freeze(updates));
+  }
+
+  async #persistRasterTileVersion(
+    image: BaselineRasterTileImageV1,
+    revision: Revision,
+  ): Promise<PaintRasterTileVersionReferenceV1> {
+    const persisted = await this.persistRasterTile({
+      width: image.width,
+      height: image.height,
+      pixelFormat: image.pixelFormat,
+      bytes: image.bytes,
+    });
+    if (
+      persisted.width !== image.width ||
+      persisted.height !== image.height ||
+      persisted.pixelFormat !== image.pixelFormat
+    ) {
+      throw new Error('persisted raster tile metadata changed during encoding');
+    }
+    return Object.freeze({
+      schema: 'illustro.paint-raster-tile-version-ref/1' as const,
+      payloadRef: persisted.payloadRef,
+      revision,
+    });
+  }
+
+  #pruneHistoryTileReferences(): void {
+    const retained = new Set<string>(
+      this.#history
+        .exportState()
+        .entries.map((entry) =>
+          entry.storage === 'resident'
+            ? entry.transaction.transactionId
+            : entry.reference.transactionId,
+        ),
+    );
+    for (const transactionId of this.#historyTileRefs.keys()) {
+      if (!retained.has(transactionId)) this.#historyTileRefs.delete(transactionId);
+    }
+  }
+
+  #resetRasterPersistenceState(): void {
+    this.#currentTileRefs.clear();
+    this.#historyTileRefs.clear();
+    this.#rasterStateEnabled = false;
+  }
+
+  #indexDurableRasterState(snapshot: PaintPersistenceProjectSnapshotV1): void {
+    const raster = snapshot.raster;
+    if (raster === undefined) throw new Error('durable raster state is missing');
+    for (const layer of Object.values(snapshot.paint.document.layerTree.layers)) {
+      if (layer.type !== 'raster') continue;
+      for (const tile of (layer as RasterLayerV1).tiles) {
+        parsePaintRasterTilePayloadRefV1(tile.payloadRef);
+        const version = Object.freeze({
+          schema: 'illustro.paint-raster-tile-version-ref/1' as const,
+          payloadRef: tile.payloadRef,
+          revision: parseRevision(tile.revision),
+        });
+        this.#currentTileRefs.set(
+          rasterTileKey(layer.id, tile.x, tile.y),
+          Object.freeze({
+            layerId: layer.id,
+            coordinate: Object.freeze({ tx: tile.x, ty: tile.y }),
+            version,
+          }),
+        );
+      }
+    }
+    for (const entry of raster.history) this.#historyTileRefs.set(entry.transactionId, entry);
+  }
+
+  async #migrateLegacyRasterSnapshot(): Promise<void> {
+    const document = this.#session.currentDocument();
+    if (document === null) throw new Error('legacy raster migration requires an active document');
+    const tiles = await this.#session.exportCanonicalRasterTiles();
+    const references = await mapWithConcurrency(tiles, 8, async (tile) => {
+      const version = await this.#persistRasterTileVersion(tile, document.revision);
+      return Object.freeze({
+        layerId: tile.layerId,
+        coordinate: tile.coordinate,
+        version,
+      });
+    });
+    this.#currentTileRefs.clear();
+    const updates = references.map((entry) => {
+      this.#currentTileRefs.set(
+        rasterTileKey(entry.layerId, entry.coordinate.tx, entry.coordinate.ty),
+        entry,
+      );
+      return Object.freeze({
+        layerId: entry.layerId,
+        coordinate: entry.coordinate,
+        revision: entry.version.revision,
+        payloadRef: entry.version.payloadRef,
+      });
+    });
+    this.#session.applyCanonicalRasterTileReferences(Object.freeze(updates));
+    this.#session.markAllCommittedStrokesBaked();
+  }
+
+  async #loadCurrentRasterTiles(
+    paint: PaintProjectSnapshotV1,
+  ): Promise<readonly BaselineRasterTileImageV1[]> {
+    return mapWithConcurrency([...this.#currentTileRefs.values()], 8, (entry) =>
+      this.#loadRasterTileImage(paint, entry.layerId, entry.coordinate, entry.version),
+    );
+  }
+
+  async #loadTilePatches(
+    transactionId: string,
+  ): Promise<readonly BaselineRasterTilePatchV1[] | null> {
+    const reference = this.#historyTileRefs.get(transactionId);
+    const paint = this.#session.persistenceProjectSnapshot();
+    if (reference === undefined || paint === null) return null;
+    return mapWithConcurrency(reference.patches, 8, async (patch) => {
+      const [before, after] = await Promise.all([
+        patch.before === null
+          ? null
+          : this.#loadRasterTileImage(paint, patch.layerId, patch.coordinate, patch.before),
+        patch.after === null
+          ? null
+          : this.#loadRasterTileImage(paint, patch.layerId, patch.coordinate, patch.after),
+      ]);
+      return Object.freeze({
+        schema: 'illustro.baseline-raster-tile-patch/1' as const,
+        layerId: patch.layerId,
+        coordinate: patch.coordinate,
+        before,
+        after,
+      });
+    });
+  }
+
+  async #loadRasterTileImage(
+    paint: PaintProjectSnapshotV1,
+    layerIdValue: string,
+    coordinate: { readonly tx: number; readonly ty: number },
+    version: PaintRasterTileVersionReferenceV1,
+  ): Promise<BaselineRasterTileImageV1> {
+    const layerId = parseLayerId(layerIdValue);
+    if (paint.document.layerTree.layers[layerId]?.type !== 'raster') {
+      throw new Error(`persisted raster tile targets a missing layer: ${layerId}`);
+    }
+    const bounds = tileBoundsForDocumentV1(
+      paint.document.canvas.width,
+      paint.document.canvas.height,
+      coordinate,
+    );
+    const decoded = await this.readRasterTile(version.payloadRef);
+    if (
+      decoded.width !== bounds.validWidth ||
+      decoded.height !== bounds.validHeight ||
+      decoded.pixelFormat !== paint.document.color.precision
+    ) {
+      throw new Error('decoded raster tile violates the document tile contract');
+    }
+    return Object.freeze({
+      schema: 'illustro.baseline-raster-tile/1' as const,
+      layerId,
+      coordinate: Object.freeze({ tx: coordinate.tx, ty: coordinate.ty }),
+      width: decoded.width,
+      height: decoded.height,
+      pixelFormat: decoded.pixelFormat,
+      bytes: decoded.bytes,
+    });
   }
 
   async #flushScheduledDirty(): Promise<void> {
@@ -564,18 +1068,22 @@ export class PaintPersistenceControllerV1 {
       this.#scheduledDirtyTimer = null;
     }
     this.#scheduledDirtyTransactionId = null;
+    this.#history.setTilePatchLoader(null);
     this.#worker.removeEventListener('message', this.#messageListener);
     for (const pending of this.#pending.values()) {
       globalThis.clearTimeout(pending.timeout);
       pending.reject(new Error('paint persistence controller disposed'));
     }
     this.#pending.clear();
+    this.#currentTileRefs.clear();
+    this.#historyTileRefs.clear();
     this.#status = 'disposed';
     this.#publish();
   }
 
   async #flush(reason: 'recovery' | 'autosave'): Promise<void> {
     this.#assertNotDisposed();
+    await this.#tileTail;
     await this.#flushScheduledDirty();
     await this.#dirtyTail;
     const projectId = this.#requireProject();

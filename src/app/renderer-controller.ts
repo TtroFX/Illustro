@@ -8,6 +8,7 @@ import {
 } from '../gpu/baseline-paint-renderer.js';
 import type {
   BaselineRasterLayerDescriptorV1,
+  BaselineRasterTileImageV1,
   BaselineRasterTilePatchDirectionV1,
   BaselineRasterTilePatchV1,
 } from '../gpu/baseline-raster-tile-store.js';
@@ -99,6 +100,54 @@ function parsePaintFinalization(value: unknown): BaselinePaintFinalizationV1 | n
     return null;
   }
   return value as unknown as BaselinePaintFinalizationV1;
+}
+
+function parseRasterTileImages(value: unknown): readonly BaselineRasterTileImageV1[] | null {
+  if (!Array.isArray(value)) return null;
+  const tiles: BaselineRasterTileImageV1[] = [];
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      candidate.schema !== 'illustro.baseline-raster-tile/1' ||
+      typeof candidate.layerId !== 'string' ||
+      candidate.layerId.length === 0 ||
+      !isRecord(candidate.coordinate) ||
+      !Number.isSafeInteger(candidate.coordinate.tx) ||
+      (candidate.coordinate.tx as number) < 0 ||
+      !Number.isSafeInteger(candidate.coordinate.ty) ||
+      (candidate.coordinate.ty as number) < 0 ||
+      !Number.isSafeInteger(candidate.width) ||
+      (candidate.width as number) < 1 ||
+      !Number.isSafeInteger(candidate.height) ||
+      (candidate.height as number) < 1 ||
+      (candidate.pixelFormat !== 'rgba8-unorm' && candidate.pixelFormat !== 'rgba16-float') ||
+      !(candidate.bytes instanceof Uint8Array)
+    ) {
+      return null;
+    }
+    const bytesPerPixel = candidate.pixelFormat === 'rgba8-unorm' ? 4 : 8;
+    if (
+      candidate.bytes.byteLength !==
+      (candidate.width as number) * (candidate.height as number) * bytesPerPixel
+    ) {
+      return null;
+    }
+    tiles.push(
+      Object.freeze({
+        schema: 'illustro.baseline-raster-tile/1' as const,
+        layerId: candidate.layerId,
+        coordinate: Object.freeze({
+          tx: candidate.coordinate.tx as number,
+          ty: candidate.coordinate.ty as number,
+        }),
+        width: candidate.width as number,
+        height: candidate.height as number,
+        pixelFormat: candidate.pixelFormat,
+        bytes: candidate.bytes as Uint8Array<ArrayBuffer>,
+      }),
+    );
+  }
+  return Object.freeze(tiles);
 }
 
 function parseWorkerResponse(value: unknown, requestId: string): RendererWorkerResponseV1 | null {
@@ -350,6 +399,63 @@ export class RendererControllerV1 {
       return paint;
     }
     return this.#mainBaselinePaint.restoreCommittedStrokes(strokes);
+  }
+
+  async restoreBaselineCanonicalTiles(
+    tiles: readonly BaselineRasterTileImageV1[],
+    rasterLayers: readonly BaselineRasterLayerDescriptorV1[],
+  ): Promise<BaselinePaintRendererSnapshotV1> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const transfer = tiles.map((tile) => tile.bytes.buffer);
+      const response = await requestWorker(
+        this.#worker,
+        {
+          type: 'renderer.paint.restoreTiles',
+          requestId,
+          tiles,
+          rasterLayers,
+        },
+        transfer,
+      );
+      const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
+      if (paint === null) throw new Error('Render Worker failed to restore canonical raster tiles');
+      return paint;
+    }
+    return this.#mainBaselinePaint.restoreCanonicalTiles(tiles, rasterLayers);
+  }
+
+  async exportBaselineCanonicalTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.paint.exportTiles',
+        requestId,
+        composite: false,
+      });
+      const tiles = response?.ok === true ? parseRasterTileImages(response.result) : null;
+      if (tiles === null) throw new Error('Render Worker failed to export canonical raster tiles');
+      return tiles;
+    }
+    return this.#mainBaselinePaint.exportCanonicalTiles();
+  }
+
+  async exportBaselineCompositeTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.paint.exportTiles',
+        requestId,
+        composite: true,
+      });
+      const tiles = response?.ok === true ? parseRasterTileImages(response.result) : null;
+      if (tiles === null) throw new Error('Render Worker failed to export composite raster tiles');
+      return tiles;
+    }
+    return this.#mainBaselinePaint.exportCompositeTiles();
   }
 
   async applyBaselineTilePatches(

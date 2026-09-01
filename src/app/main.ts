@@ -270,7 +270,13 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
               strokeId,
               finalization.tilePatches,
             );
-            paintPersistence.scheduleDirty(transaction.transactionId);
+            paintPersistence.scheduleRasterTileTransaction({
+              transactionId: transaction.transactionId,
+              strokeId,
+              beforeRevision: transaction.beforeRevision,
+              afterRevision: transaction.afterRevision,
+              patches: finalization.tilePatches,
+            });
             root.dataset.illustroHistoryTransaction = transaction.transactionId;
             publishPaintHistory();
             root.dataset.illustroPaintVisible = 'committed';
@@ -307,7 +313,11 @@ function requestPaintHistoryAction(direction: 'undo' | 'redo'): void {
       publishPaintHistory();
       return;
     }
-    paintPersistence.scheduleDirty();
+    const tileRestore = paintHistory.takeLastTileRestore();
+    if (tileRestore === null) paintPersistence.scheduleDirty();
+    else {
+      paintPersistence.scheduleRasterTileRestore(tileRestore.transactionId, tileRestore.direction);
+    }
     root.dataset.illustroPaintVisible = 'committed';
     const documentValue = paintSession.currentDocument();
     if (documentValue !== null) publishDocumentState(documentValue);

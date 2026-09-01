@@ -1,4 +1,5 @@
 import {
+  CONSERVATIVE_HISTORY_HOT_BUDGET_BYTES,
   createHistoryPayloadV1,
   createHistoryTransactionV1,
   HistorySpineV1,
@@ -6,8 +7,12 @@ import {
   type HistorySpineStateV1,
   type HistoryTransactionV1,
 } from '../history/history.js';
+import { isCommandTransactionId } from '../domain/command-registry.js';
 import { parseRevision, type Revision } from '../domain/identity.js';
-import type { BaselineRasterTilePatchV1 } from '../gpu/baseline-raster-tile-store.js';
+import type {
+  BaselineRasterTilePatchDirectionV1,
+  BaselineRasterTilePatchV1,
+} from '../gpu/baseline-raster-tile-store.js';
 import {
   PaintSessionControllerV1,
   parsePaintProjectSnapshotV1,
@@ -25,11 +30,34 @@ export interface PaintHistorySnapshotV1 {
   readonly revisionHighWater: number;
 }
 
+export interface PaintTileHistoryRestoreV1 {
+  readonly transactionId: string;
+  readonly direction: BaselineRasterTilePatchDirectionV1;
+}
+
+export type PaintTilePatchLoaderV1 = (
+  transactionId: string,
+) => Promise<readonly BaselineRasterTilePatchV1[] | null>;
+
+function tilePatchByteLength(patches: readonly BaselineRasterTilePatchV1[]): number {
+  let total = 0;
+  for (const patch of patches) {
+    total += patch.before?.bytes.byteLength ?? 0;
+    total += patch.after?.bytes.byteLength ?? 0;
+  }
+  return total;
+}
+
 export class PaintHistoryControllerV1 {
   readonly #session: PaintSessionControllerV1;
   #spine = new HistorySpineV1();
   #revisionHighWater = 0;
   readonly #tilePatches = new Map<string, readonly BaselineRasterTilePatchV1[]>();
+  readonly #tilePatchBytes = new Map<string, number>();
+  readonly #durableTilePatchIds = new Set<string>();
+  #residentTilePatchBytes = 0;
+  #tilePatchLoader: PaintTilePatchLoaderV1 | null = null;
+  #lastTileRestore: PaintTileHistoryRestoreV1 | null = null;
 
   constructor(session: PaintSessionControllerV1) {
     this.#session = session;
@@ -48,14 +76,16 @@ export class PaintHistoryControllerV1 {
 
   reset(): PaintHistorySnapshotV1 {
     this.#spine = new HistorySpineV1();
-    this.#tilePatches.clear();
+    this.#clearTilePatches();
+    this.#lastTileRestore = null;
     this.#revisionHighWater = this.#session.currentDocument()?.revision ?? 0;
     return this.snapshot();
   }
 
   hydrate(state: HistorySpineStateV1, revisionHighWater = 0): PaintHistorySnapshotV1 {
     this.#spine = HistorySpineV1.hydrate(state);
-    this.#tilePatches.clear();
+    this.#clearTilePatches();
+    this.#lastTileRestore = null;
     this.#revisionHighWater = Math.max(
       revisionHighWater,
       this.#session.currentDocument()?.revision ?? 0,
@@ -118,28 +148,50 @@ export class PaintHistoryControllerV1 {
     });
     const previousState = this.#spine.exportState();
     for (const entry of previousState.entries.slice(previousState.cursor)) {
-      this.#tilePatches.delete(
+      this.#deleteTilePatches(
         entry.storage === 'resident'
           ? entry.transaction.transactionId
           : entry.reference.transactionId,
       );
     }
     this.#spine.commit(transaction);
-    this.#tilePatches.set(transactionId, Object.freeze([...tilePatches]));
-    for (const removedId of this.#spine.prune()) this.#tilePatches.delete(removedId);
+    this.#storeTilePatches(transactionId, tilePatches, false);
+    for (const removedId of this.#spine.prune()) this.#deleteTilePatches(removedId);
     this.#revisionHighWater = Math.max(this.#revisionHighWater, committed.afterRevision);
     return transaction;
   }
 
   bindTilePatches(transactionId: string, patches: readonly BaselineRasterTilePatchV1[]): void {
-    if (transactionId.length === 0 || patches.length === 0) {
+    if (!isCommandTransactionId(transactionId) || patches.length === 0) {
       throw new TypeError('tile history binding requires an identity and patches');
     }
-    this.#tilePatches.set(transactionId, Object.freeze([...patches]));
+    this.#storeTilePatches(transactionId, patches, true);
   }
 
   tilePatches(transactionId: string): readonly BaselineRasterTilePatchV1[] | null {
     return this.#tilePatches.get(transactionId) ?? null;
+  }
+
+  setTilePatchLoader(loader: PaintTilePatchLoaderV1 | null): void {
+    this.#tilePatchLoader = loader;
+  }
+
+  markTilePatchesDurable(transactionId: string): void {
+    if (!isCommandTransactionId(transactionId)) {
+      throw new TypeError('durable tile history transactionId must be a UUID');
+    }
+    this.#durableTilePatchIds.add(transactionId);
+    this.#enforceTilePatchBudget();
+  }
+
+  residentTilePatchByteLength(): number {
+    return this.#residentTilePatchBytes;
+  }
+
+  takeLastTileRestore(): PaintTileHistoryRestoreV1 | null {
+    const restore = this.#lastTileRestore;
+    this.#lastTileRestore = null;
+    return restore;
   }
 
   async commitSnapshotTransform(
@@ -211,23 +263,23 @@ export class PaintHistoryControllerV1 {
   }
 
   async undo(spillAdapter?: HistorySpillAdapterV1): Promise<boolean> {
+    this.#lastTileRestore = null;
     return this.#spine.undo(async (transaction, direction) => {
       const value = direction === 'undo' ? transaction.payload.before : transaction.payload.after;
       if (
         transaction.commandId === 'brush.stroke' &&
         transaction.payload.strategy === 'tile-patch-set'
       ) {
-        const patches = this.#tilePatches.get(transaction.transactionId);
-        if (patches === undefined) {
-          throw new Error(
-            `paint tile history payload is not resident: ${transaction.transactionId}`,
-          );
-        }
+        const patches = await this.#resolveTilePatches(transaction.transactionId);
         await this.#session.restoreTileHistoryState(
           parsePaintTileHistoryStateV1(value),
           patches,
           'before',
         );
+        this.#lastTileRestore = Object.freeze({
+          transactionId: transaction.transactionId,
+          direction: 'before',
+        });
         return;
       }
       if (
@@ -242,23 +294,23 @@ export class PaintHistoryControllerV1 {
   }
 
   async redo(spillAdapter?: HistorySpillAdapterV1): Promise<boolean> {
+    this.#lastTileRestore = null;
     return this.#spine.redo(async (transaction, direction) => {
       const value = direction === 'undo' ? transaction.payload.before : transaction.payload.after;
       if (
         transaction.commandId === 'brush.stroke' &&
         transaction.payload.strategy === 'tile-patch-set'
       ) {
-        const patches = this.#tilePatches.get(transaction.transactionId);
-        if (patches === undefined) {
-          throw new Error(
-            `paint tile history payload is not resident: ${transaction.transactionId}`,
-          );
-        }
+        const patches = await this.#resolveTilePatches(transaction.transactionId);
         await this.#session.restoreTileHistoryState(
           parsePaintTileHistoryStateV1(value),
           patches,
           'after',
         );
+        this.#lastTileRestore = Object.freeze({
+          transactionId: transaction.transactionId,
+          direction: 'after',
+        });
         return;
       }
       if (
@@ -270,5 +322,54 @@ export class PaintHistoryControllerV1 {
       }
       await this.#session.restoreProjectSnapshot(parsePaintProjectSnapshotV1(value));
     }, spillAdapter);
+  }
+
+  #storeTilePatches(
+    transactionId: string,
+    patches: readonly BaselineRasterTilePatchV1[],
+    durable: boolean,
+  ): void {
+    this.#deleteTilePatches(transactionId);
+    const frozen = Object.freeze([...patches]);
+    const byteLength = tilePatchByteLength(frozen);
+    this.#tilePatches.set(transactionId, frozen);
+    this.#tilePatchBytes.set(transactionId, byteLength);
+    this.#residentTilePatchBytes += byteLength;
+    if (durable) this.#durableTilePatchIds.add(transactionId);
+    this.#enforceTilePatchBudget();
+  }
+
+  #deleteTilePatches(transactionId: string): void {
+    this.#tilePatches.delete(transactionId);
+    this.#residentTilePatchBytes -= this.#tilePatchBytes.get(transactionId) ?? 0;
+    this.#tilePatchBytes.delete(transactionId);
+    this.#durableTilePatchIds.delete(transactionId);
+  }
+
+  #clearTilePatches(): void {
+    this.#tilePatches.clear();
+    this.#tilePatchBytes.clear();
+    this.#durableTilePatchIds.clear();
+    this.#residentTilePatchBytes = 0;
+  }
+
+  #enforceTilePatchBudget(): void {
+    if (this.#residentTilePatchBytes <= CONSERVATIVE_HISTORY_HOT_BUDGET_BYTES) return;
+    for (const transactionId of this.#tilePatches.keys()) {
+      if (!this.#durableTilePatchIds.has(transactionId)) continue;
+      this.#deleteTilePatches(transactionId);
+      if (this.#residentTilePatchBytes <= CONSERVATIVE_HISTORY_HOT_BUDGET_BYTES) break;
+    }
+  }
+
+  async #resolveTilePatches(transactionId: string): Promise<readonly BaselineRasterTilePatchV1[]> {
+    const resident = this.#tilePatches.get(transactionId);
+    if (resident !== undefined) return resident;
+    const loaded = await this.#tilePatchLoader?.(transactionId);
+    if (loaded === undefined || loaded === null || loaded.length === 0) {
+      throw new Error(`paint tile history payload is unavailable: ${transactionId}`);
+    }
+    this.#storeTilePatches(transactionId, loaded, true);
+    return loaded;
   }
 }

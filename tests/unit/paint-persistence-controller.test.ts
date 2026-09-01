@@ -9,6 +9,8 @@ import {
 import { PaintSessionControllerV1 } from '../../src/app/paint-session-controller.js';
 import type { BaselineBrushDabV1 } from '../../src/gpu/baseline-brush.js';
 import type {
+  BaselineRasterLayerDescriptorV1,
+  BaselineRasterTileImageV1,
   BaselineRasterTilePatchDirectionV1,
   BaselineRasterTilePatchV1,
 } from '../../src/gpu/baseline-raster-tile-store.js';
@@ -35,6 +37,7 @@ class FakeRenderer {
   readonly restored: Array<
     readonly { readonly strokeId: string; readonly dabs: readonly BaselineBrushDabV1[] }[]
   > = [];
+  readonly tiles = new Map<string, BaselineRasterTileImageV1>();
   async configureDocument(): Promise<void> {}
   async restoreBaselineStrokes(
     strokes: readonly { readonly strokeId: string; readonly dabs: readonly BaselineBrushDabV1[] }[],
@@ -42,9 +45,31 @@ class FakeRenderer {
     this.restored.push(Object.freeze([...strokes]));
   }
   async applyBaselineTilePatches(
-    _patches: readonly BaselineRasterTilePatchV1[],
-    _direction: BaselineRasterTilePatchDirectionV1,
-  ): Promise<void> {}
+    patches: readonly BaselineRasterTilePatchV1[],
+    direction: BaselineRasterTilePatchDirectionV1,
+  ): Promise<void> {
+    for (const patch of patches) {
+      const key = `${patch.layerId}/${patch.coordinate.tx}:${patch.coordinate.ty}`;
+      const selected = direction === 'before' ? patch.before : patch.after;
+      if (selected === null) this.tiles.delete(key);
+      else this.tiles.set(key, selected);
+    }
+  }
+  async restoreBaselineCanonicalTiles(
+    tiles: readonly BaselineRasterTileImageV1[],
+    _layers: readonly BaselineRasterLayerDescriptorV1[],
+  ): Promise<void> {
+    this.tiles.clear();
+    for (const tile of tiles) {
+      this.tiles.set(`${tile.layerId}/${tile.coordinate.tx}:${tile.coordinate.ty}`, tile);
+    }
+  }
+  async exportBaselineCanonicalTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    return Object.freeze([...this.tiles.values()]);
+  }
+  async exportBaselineCompositeTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    return this.exportBaselineCanonicalTiles();
+  }
 }
 
 function tilePatches(session: PaintSessionControllerV1): readonly BaselineRasterTilePatchV1[] {
@@ -86,6 +111,16 @@ class FakeStorageWorker implements PaintStorageWorkerLikeV1 {
   readonly listeners = new Set<(event: MessageEvent<unknown>) => void>();
   readonly projects = new Map<string, StoredProject>();
   readonly messages: Readonly<Record<string, unknown>>[] = [];
+  readonly tiles = new Map<
+    string,
+    {
+      readonly pixelFormat: string;
+      readonly width: number;
+      readonly height: number;
+      readonly bytes: Uint8Array;
+    }
+  >();
+  #nextTileHash = 1;
 
   addEventListener(_type: 'message', listener: (event: MessageEvent<unknown>) => void): void {
     this.listeners.add(listener);
@@ -95,7 +130,7 @@ class FakeStorageWorker implements PaintStorageWorkerLikeV1 {
     this.listeners.delete(listener);
   }
 
-  postMessage(message: unknown): void {
+  postMessage(message: unknown, _transfer: readonly Transferable[] = []): void {
     if (typeof message !== 'object' || message === null) throw new TypeError('invalid request');
     const request = message as Readonly<Record<string, unknown>>;
     this.messages.push(request);
@@ -166,6 +201,43 @@ class FakeStorageWorker implements PaintStorageWorkerLikeV1 {
         transactionId: String(request.transactionId),
       };
       this.respond(request.requestId, { generation: project.sequence + 1, state: {} });
+      return;
+    }
+    if (type === 'storage.tile.put') {
+      const bytes = new Uint8Array(request.bytes as ArrayBuffer).slice();
+      const hash = (this.#nextTileHash++).toString(16).padStart(64, '0');
+      this.tiles.set(hash, {
+        pixelFormat: String(request.pixelFormat),
+        width: Number(request.width),
+        height: Number(request.height),
+        bytes,
+      });
+      this.respond(request.requestId, {
+        codec: 'raw',
+        pixelFormat: request.pixelFormat,
+        width: request.width,
+        height: request.height,
+        rawByteLength: bytes.byteLength,
+        encodedByteLength: bytes.byteLength,
+        object: {
+          hash,
+          algorithm: 'sha256',
+          byteLength: bytes.byteLength,
+          created: true,
+        },
+      });
+      return;
+    }
+    if (type === 'storage.tile.get') {
+      const tile = this.tiles.get(String(request.objectHash));
+      if (tile === undefined) throw new Error('tile missing');
+      this.respond(request.requestId, {
+        codec: 'raw',
+        pixelFormat: tile.pixelFormat,
+        width: tile.width,
+        height: tile.height,
+        bytes: tile.bytes.slice().buffer,
+      });
       return;
     }
     if (type === 'storage.persistence.flush') {
@@ -259,13 +331,15 @@ function createController(
   session: PaintSessionControllerV1;
   history: PaintHistoryControllerV1;
   persistence: PaintPersistenceControllerV1;
+  renderer: FakeRenderer;
 } {
-  const session = new PaintSessionControllerV1(new FakeRenderer());
+  const renderer = new FakeRenderer();
+  const session = new PaintSessionControllerV1(renderer);
   const history = new PaintHistoryControllerV1(session);
   const persistence = new PaintPersistenceControllerV1(worker, session, history, {
     resumeStore: store,
   });
-  return { session, history, persistence };
+  return { session, history, persistence, renderer };
 }
 
 describe('M4 paint persistence vertical slice', () => {
@@ -280,12 +354,16 @@ describe('M4 paint persistence vertical slice', () => {
     expect(initialized.mode).toBe('created');
     expect(store.getItem(PAINT_RESUME_PROJECT_KEY_V1)).toBe(initialized.projectId);
 
-    const transaction = first.history.commitCompletedStroke(
-      completeStroke(first.session, 1),
-      tilePatches(first.session),
-    );
-    await first.persistence.markDirty(transaction.transactionId);
-    expect(first.persistence.snapshot()).toMatchObject({ sequence: 2, status: 'dirty' });
+    const strokeId = completeStroke(first.session, 1);
+    const patches = tilePatches(first.session);
+    const transaction = first.history.commitCompletedStroke(strokeId, patches);
+    first.persistence.scheduleRasterTileTransaction({
+      transactionId: transaction.transactionId,
+      strokeId,
+      beforeRevision: transaction.beforeRevision,
+      afterRevision: transaction.afterRevision,
+      patches,
+    });
     await first.persistence.flushCheckpoint();
     expect(first.persistence.snapshot()).toMatchObject({
       sequence: 2,
@@ -301,8 +379,11 @@ describe('M4 paint persistence vertical slice', () => {
       document: { width: 64, height: 64 },
     });
     expect(recovered).toMatchObject({ mode: 'recovered', sequence: 2, documentRevision: 1 });
-    expect(second.session.snapshot()).toMatchObject({ committedStrokeCount: 1 });
+    expect(second.session.snapshot()).toMatchObject({ committedStrokeCount: 0 });
+    expect(second.renderer.tiles.size).toBe(1);
     expect(second.history.snapshot()).toMatchObject({ cursor: 1, canUndo: true, canRedo: false });
+    expect(await second.history.undo()).toBe(true);
+    expect(second.renderer.tiles.size).toBe(0);
   });
 
   it('persists an Undo cursor and exact pre-stroke canonical state across another reload', async () => {
@@ -313,14 +394,21 @@ describe('M4 paint persistence vertical slice', () => {
       name: 'Undo recovery',
       document: { width: 256, height: 256 },
     });
-    const transaction = first.history.commitCompletedStroke(
-      completeStroke(first.session, 10),
-      tilePatches(first.session),
-    );
-    await first.persistence.markDirty(transaction.transactionId);
+    const strokeId = completeStroke(first.session, 10);
+    const patches = tilePatches(first.session);
+    const transaction = first.history.commitCompletedStroke(strokeId, patches);
+    first.persistence.scheduleRasterTileTransaction({
+      transactionId: transaction.transactionId,
+      strokeId,
+      beforeRevision: transaction.beforeRevision,
+      afterRevision: transaction.afterRevision,
+      patches,
+    });
     await first.persistence.flushRecovery();
     expect(await first.history.undo()).toBe(true);
-    await first.persistence.markDirty();
+    const restore = first.history.takeLastTileRestore();
+    if (restore === null) throw new Error('tile restore was not recorded');
+    first.persistence.scheduleRasterTileRestore(restore.transactionId, restore.direction);
     await first.persistence.flushCheckpoint();
     first.persistence.dispose();
 
@@ -332,5 +420,8 @@ describe('M4 paint persistence vertical slice', () => {
     expect(second.session.snapshot().committedStrokeCount).toBe(0);
     expect(second.history.snapshot()).toMatchObject({ cursor: 0, canUndo: false, canRedo: true });
     expect(second.session.currentDocument()?.revision).toBe(0);
+    expect(second.renderer.tiles.size).toBe(0);
+    expect(await second.history.redo()).toBe(true);
+    expect(second.renderer.tiles.size).toBe(1);
   });
 });
