@@ -25,4 +25,14 @@ describe('M3 renderer execution ownership selection', () => {
       }),
     ).toBe('main');
   });
+
+  it('selects compatibility rendering after both WebGPU execution paths are unavailable', () => {
+    expect(
+      selectRendererExecutionPathV1({
+        workerDeviceReady: false,
+        offscreenTransferAvailable: true,
+        mainDeviceReady: false,
+      }),
+    ).toBe('compatibility');
+  });
 });
