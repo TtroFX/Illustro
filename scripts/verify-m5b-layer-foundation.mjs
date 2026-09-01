@@ -271,4 +271,31 @@ requireText('src/index.html', [
   'id="layer-comp-select"',
   'id="layer-comp-apply"',
 ]);
+requireText('src/app/layer-mask-paint.ts', [
+  'MaskPaintControllerV1',
+  'prepareMaskPaintV1',
+  'applyPreparedMaskPaintV1',
+  'rasterizeMaskCoverageTileV1',
+  "'mask.paint'",
+  "pixelFormat: 'rgba8-unorm'",
+  'planBaselineBrushTilesV1',
+]);
+requireText('src/app/main.ts', [
+  'MaskPaintControllerV1',
+  'maskPaint.ingestPointerBatch',
+  'maskPaint.commitCompletedStroke',
+  "illustroPointerDisposition = 'mask-paint'",
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#mask-paint-target'",
+  "'#mask-paint-hide'",
+  "'#mask-paint-reveal'",
+  'maskPaint.selectMask',
+  'maskPaint.setPaintValue',
+]);
+requireText('src/index.html', [
+  'id="mask-paint-target"',
+  'id="mask-paint-hide"',
+  'id="mask-paint-reveal"',
+]);
 console.log('M5B layer system verification passed');

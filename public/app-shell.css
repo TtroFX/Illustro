@@ -875,6 +875,32 @@ body {
   font-size: 10px;
 }
 
+.shell-mask-paint-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  gap: 4px;
+  align-items: center;
+}
+
+.shell-mask-paint-controls select,
+.shell-mask-paint-controls button {
+  min-height: 27px;
+  border: 1px solid #e2e7ef;
+  border-radius: 7px;
+  background: #f7f8fb;
+  color: #536078;
+  font: 600 10px/1 system-ui, sans-serif;
+}
+
+.shell-mask-paint-controls select { min-width: 0; padding: 0 6px; background: #fff; }
+.shell-mask-paint-controls button[aria-pressed='true'] {
+  border-color: #ffd1e3;
+  background: #ffe8f2;
+  color: #d92b73;
+}
+.shell-mask-paint-controls button:disabled,
+.shell-mask-paint-controls select:disabled { opacity: 0.35; }
+
 .shell-layer-opacity input {
   width: 48px;
   height: 27px;

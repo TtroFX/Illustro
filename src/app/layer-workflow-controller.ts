@@ -1,4 +1,4 @@
-import { parseLayerId, type LayerId } from '../domain/identity.js';
+import { parseLayerId, parseMaskId, type LayerId } from '../domain/identity.js';
 import type { LayerBaseV1 } from '../domain/layers.js';
 import { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from './layer-cleanup.js';
 import {
@@ -66,6 +66,7 @@ import {
   type LayerFilterIdV1,
 } from './layer-filter.js';
 import { matchesLayerSearchV1, normalizeLayerSearchQueryV1 } from './layer-search.js';
+import type { MaskPaintControllerV1 } from './layer-mask-paint.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
@@ -81,6 +82,7 @@ interface OptionsV1 {
   readonly paintSession: PaintSessionControllerV1;
   readonly paintHistory: PaintHistoryControllerV1;
   readonly paintPersistence: PaintPersistenceControllerV1;
+  readonly maskPaint: MaskPaintControllerV1;
   readonly schedule: (operation: () => Promise<void>) => void;
   readonly onHistoryChanged: () => void;
 }
@@ -186,6 +188,9 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const verticalFlipButton = required<HTMLButtonElement>('#layer-flip-vertical');
   const groupedTransformButton = required<HTMLButtonElement>('#layer-group-transform');
   const folderPassThroughButton = required<HTMLButtonElement>('#layer-folder-pass-through');
+  const maskPaintTarget = required<HTMLSelectElement>('#mask-paint-target');
+  const maskPaintHideButton = required<HTMLButtonElement>('#mask-paint-hide');
+  const maskPaintRevealButton = required<HTMLButtonElement>('#mask-paint-reveal');
   const groupedTransformDialog = required<HTMLDialogElement>('#layer-group-transform-dialog');
   const groupedTransformForm = required<HTMLFormElement>('#layer-group-transform-form');
   const groupedTransformCancel = required<HTMLButtonElement>('#layer-group-transform-cancel');
@@ -322,6 +327,45 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     root.dataset.illustroLayerFilter = layerFilter;
     const active = currentActive();
     const disabled = active === null;
+    const maskPaintSnapshot = options.maskPaint.validateTarget();
+    const rasterMasks = active?.layer.masks.filter((mask) => mask.kind === 'raster-mask') ?? [];
+    const previousMaskTarget = maskPaintTarget.value;
+    maskPaintTarget.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = rasterMasks.length === 0 ? 'マスクなし' : 'マスクを編集';
+    maskPaintTarget.append(placeholder);
+    rasterMasks.forEach((mask, index) => {
+      const option = document.createElement('option');
+      option.value = mask.id;
+      option.textContent = `Mask ${index + 1}`;
+      maskPaintTarget.append(option);
+    });
+    const activeMaskBelongsToLayer =
+      active !== null &&
+      maskPaintSnapshot.layerId === active.id &&
+      maskPaintSnapshot.maskId !== null &&
+      rasterMasks.some((mask) => mask.id === maskPaintSnapshot.maskId);
+    maskPaintTarget.value = activeMaskBelongsToLayer
+      ? (maskPaintSnapshot.maskId ?? '')
+      : rasterMasks.some((mask) => mask.id === previousMaskTarget)
+        ? previousMaskTarget
+        : '';
+    maskPaintTarget.disabled =
+      rasterMasks.length === 0 || options.paintSession.activeStrokeId() !== null;
+    maskPaintHideButton.disabled = !activeMaskBelongsToLayer;
+    maskPaintRevealButton.disabled = !activeMaskBelongsToLayer;
+    maskPaintHideButton.setAttribute(
+      'aria-pressed',
+      activeMaskBelongsToLayer && maskPaintSnapshot.paintValue === 0 ? 'true' : 'false',
+    );
+    maskPaintRevealButton.setAttribute(
+      'aria-pressed',
+      activeMaskBelongsToLayer && maskPaintSnapshot.paintValue === 1 ? 'true' : 'false',
+    );
+    root.dataset.illustroMaskPaintLayerId = maskPaintSnapshot.layerId ?? '';
+    root.dataset.illustroMaskPaintMaskId = maskPaintSnapshot.maskId ?? '';
+    root.dataset.illustroMaskPaintValue = String(maskPaintSnapshot.paintValue);
     maskButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     duplicateButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
     const projectSnapshot = options.paintSession.projectSnapshot();
@@ -986,6 +1030,32 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const onMoveUp = (): void => runMove(1);
   const onMoveDown = (): void => runMove(-1);
 
+  const onMaskPaintTargetChange = (): void => {
+    const layerId = options.paintSession.activeLayerId();
+    try {
+      if (layerId === null || maskPaintTarget.value.length === 0) {
+        options.maskPaint.clearTarget();
+      } else {
+        options.maskPaint.selectMask(layerId, parseMaskId(maskPaintTarget.value));
+      }
+      clearError();
+      refresh();
+    } catch (error) {
+      publishError(error);
+      refresh();
+    }
+  };
+
+  const onMaskPaintHide = (): void => {
+    options.maskPaint.setPaintValue(0);
+    refresh();
+  };
+
+  const onMaskPaintReveal = (): void => {
+    options.maskPaint.setPaintValue(1);
+    refresh();
+  };
+
   const onLayerSearchInput = (): void => {
     layerSearchQuery = normalizeLayerSearchQueryV1(searchInput.value);
     refresh();
@@ -1203,6 +1273,9 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   searchInput.addEventListener('input', onLayerSearchInput);
   searchInput.addEventListener('keydown', onLayerSearchKeyDown);
   filterSelect.addEventListener('change', onLayerFilterChange);
+  maskPaintTarget.addEventListener('change', onMaskPaintTargetChange);
+  maskPaintHideButton.addEventListener('click', onMaskPaintHide);
+  maskPaintRevealButton.addEventListener('click', onMaskPaintReveal);
   list.addEventListener('click', onListClick);
   list.addEventListener('pointerdown', onPointerDown);
   list.addEventListener('pointermove', onPointerMove);
@@ -1245,6 +1318,9 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       searchInput.removeEventListener('input', onLayerSearchInput);
       searchInput.removeEventListener('keydown', onLayerSearchKeyDown);
       filterSelect.removeEventListener('change', onLayerFilterChange);
+      maskPaintTarget.removeEventListener('change', onMaskPaintTargetChange);
+      maskPaintHideButton.removeEventListener('click', onMaskPaintHide);
+      maskPaintRevealButton.removeEventListener('click', onMaskPaintReveal);
       list.removeEventListener('click', onListClick);
       list.removeEventListener('pointerdown', onPointerDown);
       list.removeEventListener('pointermove', onPointerMove);
