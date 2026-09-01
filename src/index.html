@@ -105,6 +105,24 @@
             <span class="shell-line shell-line-short"></span>
           </div>
           <fieldset id="layer-list" class="shell-inspector-list" aria-label="レイヤー一覧"></fieldset>
+          <fieldset id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">
+            <div class="shell-layer-action-strip">
+              <button id="layer-duplicate" type="button" aria-label="レイヤーを複製" title="複製">⧉</button>
+              <button id="layer-rename" type="button" aria-label="レイヤー名を変更" title="名前を変更">✎</button>
+              <button id="layer-delete" type="button" aria-label="レイヤーを削除" title="削除">×</button>
+              <button id="layer-move-up" type="button" aria-label="レイヤーを上へ移動" title="上へ">↑</button>
+              <button id="layer-move-down" type="button" aria-label="レイヤーを下へ移動" title="下へ">↓</button>
+              <button id="layer-lock" type="button" aria-label="レイヤーをロック" title="ロック" aria-pressed="false">◇</button>
+              <button id="layer-alpha-lock" type="button" aria-label="透明ピクセルをロック" title="Alpha Lock" aria-pressed="false">α</button>
+              <label class="shell-layer-opacity" title="不透明度"><span aria-hidden="true">◐</span><input id="layer-opacity" type="number" min="0" max="100" step="1" value="100" aria-label="レイヤー不透明度 パーセント" /></label>
+            </div>
+            <form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>
+              <input id="layer-rename-input" type="text" maxlength="120" aria-label="レイヤー名" />
+              <button type="submit" aria-label="名前変更を適用">✓</button>
+              <button id="layer-rename-cancel" type="button" aria-label="名前変更をキャンセル">×</button>
+            </form>
+            <output id="layer-action-status" class="shell-layer-action-status" aria-live="polite"></output>
+          </fieldset>
           <div class="shell-inspector-card shell-inspector-card-lower" aria-hidden="true">
             <span class="shell-line shell-line-wide"></span>
             <div class="shell-preset-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>

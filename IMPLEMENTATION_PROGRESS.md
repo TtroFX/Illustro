@@ -274,15 +274,15 @@ M5B-005 Fill Layer creation:完了
 M5B-006 Gradient Layer creation:完了
 M5B-007 Layer Mask creation:完了
 M5B-008 Linked/File Object Layer creation:完了
-M5B-009 layer duplicate:未完了
-M5B-010 layer delete:未完了
-M5B-011 layer rename:未完了
-M5B-012 layer reorder:未完了
-M5B-013 layer visibility:未完了
-M5B-014 layer opacity:未完了
-M5B-015 layer lock:未完了
-M5B-016 alpha lock:未完了
-M5B-017 clipping:未完了
+M5B-009 layer duplicate:完了
+M5B-010 layer delete:完了
+M5B-011 layer rename:完了
+M5B-012 layer reorder:完了
+M5B-013 layer visibility:完了
+M5B-014 layer opacity:完了
+M5B-015 layer lock:完了
+M5B-016 alpha lock:完了
+M5B-017 clipping:完了
 M5B-018 layer clear:未完了
 M5B-019 merge down:未完了
 M5B-020 merge visible copy:未完了

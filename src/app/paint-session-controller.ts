@@ -531,7 +531,8 @@ export class PaintSessionControllerV1 {
       return this.snapshot();
     }
     const activeLayer = this.#document.layerTree.layers[this.#activeLayerId];
-    if (activeLayer?.type !== 'raster') return this.snapshot();
+    if (activeLayer?.type !== 'raster' || activeLayer.locks.all || activeLayer.locks.pixels)
+      return this.snapshot();
     const latest = batch.confirmed.at(-1);
     if (latest === undefined) return this.snapshot();
     const source = strokeSource(latest);

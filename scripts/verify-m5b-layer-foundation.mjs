@@ -39,4 +39,38 @@ requireText('src/index.html', [
   'id="layer-add-linked-object"',
   'id="layer-list"',
 ]);
-console.log('M5B layer creation foundation verification passed');
+
+requireText('src/app/layer-operations.ts', [
+  'duplicateRootLayerSnapshotV1',
+  'deleteRootLayerSnapshotV1',
+  'renameLayerSnapshotV1',
+  'reorderRootLayerSnapshotV1',
+  'setLayerVisibilitySnapshotV1',
+  'setLayerOpacitySnapshotV1',
+  'setLayerAllLockSnapshotV1',
+  'setLayerAlphaLockSnapshotV1',
+  'setLayerClippingSnapshotV1',
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'layer.duplicate'",
+  "'layer.delete'",
+  "'layer.rename'",
+  "'layer.reorder'",
+  "'layer.visibility'",
+  "'layer.opacity'",
+  "'layer.lock'",
+  "'layer.alpha-lock'",
+  "'layer.clipping'",
+  'pointermove',
+]);
+requireText('src/index.html', [
+  'id="layer-duplicate"',
+  'id="layer-delete"',
+  'id="layer-rename"',
+  'id="layer-opacity"',
+  'id="layer-lock"',
+  'id="layer-alpha-lock"',
+  'id="layer-move-up"',
+  'id="layer-move-down"',
+]);
+console.log('M5B layer system verification passed');
