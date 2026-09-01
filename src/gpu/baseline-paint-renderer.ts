@@ -966,6 +966,9 @@ export class BaselinePaintRendererV1 {
     if (resolved === undefined || resolved.length === 0) {
       throw new Error('baseline paint has no raster layer');
     }
+    if (!this.#layers.some((layer) => layer.layerId === resolved)) {
+      throw new Error(`baseline paint raster layer is missing: ${resolved}`);
+    }
     return resolved;
   }
 

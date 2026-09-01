@@ -5,6 +5,12 @@ import {
   BaselinePaintRendererV1,
   type BaselinePaintCommittedStrokeV1,
 } from '../gpu/baseline-paint-renderer.js';
+import type {
+  BaselineRasterLayerDescriptorV1,
+  BaselineRasterTileImageV1,
+  BaselineRasterTilePatchDirectionV1,
+  BaselineRasterTilePatchV1,
+} from '../gpu/baseline-raster-tile-store.js';
 import { acquireCoreWebGpuV1 } from '../gpu/webgpu-capability.js';
 import { RendererDeviceManagerV1 } from '../gpu/renderer-device-manager.js';
 import {
@@ -47,6 +53,7 @@ type RenderWorkerRequestV1 =
       readonly height: number;
       readonly workingSpace: DocumentColorSpace;
       readonly precision: DocumentPrecision;
+      readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
     }
   | {
       readonly type:
@@ -93,6 +100,7 @@ type RenderWorkerRequestV1 =
       readonly type: 'renderer.paint.present' | 'renderer.paint.finalize';
       readonly requestId: string;
       readonly strokeId: string;
+      readonly layerId: string;
       readonly dabs: readonly BaselineBrushDabV1[];
     }
   | {
@@ -104,6 +112,12 @@ type RenderWorkerRequestV1 =
       readonly type: 'renderer.paint.restore';
       readonly requestId: string;
       readonly strokes: readonly BaselinePaintCommittedStrokeV1[];
+    }
+  | {
+      readonly type: 'renderer.paint.applyPatches';
+      readonly requestId: string;
+      readonly patches: readonly BaselineRasterTilePatchV1[];
+      readonly direction: BaselineRasterTilePatchDirectionV1;
     }
   | { readonly type: 'renderer.dispose' };
 
@@ -164,6 +178,110 @@ function isDocumentWorkingSpace(value: unknown): value is DocumentColorSpace {
 
 function isDocumentPrecision(value: unknown): value is DocumentPrecision {
   return value === 'rgba8-unorm' || value === 'rgba16-float';
+}
+
+function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescriptorV1[] | null {
+  if (!Array.isArray(value)) return null;
+  const layers: BaselineRasterLayerDescriptorV1[] = [];
+  const seen = new Set<string>();
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.layerId !== 'string' ||
+      candidate.layerId.length === 0 ||
+      seen.has(candidate.layerId) ||
+      typeof candidate.visible !== 'boolean' ||
+      typeof candidate.opacity !== 'number' ||
+      !Number.isFinite(candidate.opacity) ||
+      candidate.opacity < 0 ||
+      candidate.opacity > 1
+    ) {
+      return null;
+    }
+    seen.add(candidate.layerId);
+    layers.push(
+      Object.freeze({
+        layerId: candidate.layerId,
+        visible: candidate.visible,
+        opacity: candidate.opacity,
+      }),
+    );
+  }
+  return layers.length === 0 ? null : Object.freeze(layers);
+}
+
+function parseRasterTileImage(value: unknown): BaselineRasterTileImageV1 | null {
+  if (
+    !isRecord(value) ||
+    value.schema !== 'illustro.baseline-raster-tile/1' ||
+    typeof value.layerId !== 'string' ||
+    value.layerId.length === 0 ||
+    !positiveDimension(value.width) ||
+    !positiveDimension(value.height) ||
+    !isDocumentPrecision(value.pixelFormat) ||
+    !(value.bytes instanceof Uint8Array)
+  ) {
+    return null;
+  }
+  const coordinate = isRecord(value.coordinate) ? parseCoordinate(value.coordinate) : null;
+  if (coordinate === null) return null;
+  const bytesPerPixel = value.pixelFormat === 'rgba8-unorm' ? 4 : 8;
+  if (value.bytes.byteLength !== value.width * value.height * bytesPerPixel) return null;
+  return Object.freeze({
+    schema: 'illustro.baseline-raster-tile/1' as const,
+    layerId: value.layerId,
+    coordinate,
+    width: value.width,
+    height: value.height,
+    pixelFormat: value.pixelFormat,
+    bytes: value.bytes as Uint8Array<ArrayBuffer>,
+  });
+}
+
+function parseRasterTilePatches(value: unknown): readonly BaselineRasterTilePatchV1[] | null {
+  if (!Array.isArray(value)) return null;
+  const patches: BaselineRasterTilePatchV1[] = [];
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      candidate.schema !== 'illustro.baseline-raster-tile-patch/1' ||
+      typeof candidate.layerId !== 'string' ||
+      candidate.layerId.length === 0
+    ) {
+      return null;
+    }
+    const coordinate = isRecord(candidate.coordinate)
+      ? parseCoordinate(candidate.coordinate)
+      : null;
+    const before = candidate.before === null ? null : parseRasterTileImage(candidate.before);
+    const after = candidate.after === null ? null : parseRasterTileImage(candidate.after);
+    const imageMatchesPatch = (image: BaselineRasterTileImageV1 | null): boolean =>
+      image === null ||
+      (coordinate !== null &&
+        image.layerId === candidate.layerId &&
+        image.coordinate.tx === coordinate.tx &&
+        image.coordinate.ty === coordinate.ty);
+    if (
+      coordinate === null ||
+      (candidate.before !== null && before === null) ||
+      (candidate.after !== null && after === null) ||
+      (before === null && after === null) ||
+      !imageMatchesPatch(before) ||
+      !imageMatchesPatch(after)
+    ) {
+      return null;
+    }
+    patches.push(
+      Object.freeze({
+        schema: 'illustro.baseline-raster-tile-patch/1' as const,
+        layerId: candidate.layerId,
+        coordinate,
+        before,
+        after,
+      }),
+    );
+  }
+  return patches.length === 0 ? null : Object.freeze(patches);
 }
 
 function parseCoordinate(value: Readonly<Record<string, unknown>>): TileCoordinateV1 | null {
@@ -258,7 +376,12 @@ function parseBaselineCommittedStrokes(
     const dabs = parseBaselineDabs(candidate.dabs);
     if (dabs === null) return null;
     seen.add(candidate.strokeId);
-    strokes.push(Object.freeze({ strokeId: candidate.strokeId, dabs }));
+    if (candidate.layerId !== undefined && typeof candidate.layerId !== 'string') return null;
+    strokes.push(
+      candidate.layerId === undefined
+        ? Object.freeze({ strokeId: candidate.strokeId, dabs })
+        : Object.freeze({ strokeId: candidate.strokeId, layerId: candidate.layerId, dabs }),
+    );
   }
   return Object.freeze(strokes);
 }
@@ -311,6 +434,8 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     isDocumentWorkingSpace(value.workingSpace) &&
     isDocumentPrecision(value.precision)
   ) {
+    const rasterLayers = parseRasterLayers(value.rasterLayers);
+    if (rasterLayers === null) return null;
     return {
       type: value.type,
       requestId: value.requestId,
@@ -318,6 +443,7 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
       height: value.height,
       workingSpace: value.workingSpace,
       precision: value.precision,
+      rasterLayers,
     };
   }
   if (value.type === 'renderer.tiles.viewport' && typeof value.requestId === 'string') {
@@ -328,16 +454,39 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     (value.type === 'renderer.paint.present' || value.type === 'renderer.paint.finalize') &&
     typeof value.requestId === 'string' &&
     typeof value.strokeId === 'string' &&
-    value.strokeId.length > 0
+    value.strokeId.length > 0 &&
+    typeof value.layerId === 'string' &&
+    value.layerId.length > 0
   ) {
     const dabs = parseBaselineDabs(value.dabs);
     return dabs === null
       ? null
-      : { type: value.type, requestId: value.requestId, strokeId: value.strokeId, dabs };
+      : {
+          type: value.type,
+          requestId: value.requestId,
+          strokeId: value.strokeId,
+          layerId: value.layerId,
+          dabs,
+        };
   }
   if (value.type === 'renderer.paint.restore' && typeof value.requestId === 'string') {
     const strokes = parseBaselineCommittedStrokes(value.strokes);
     return strokes === null ? null : { type: value.type, requestId: value.requestId, strokes };
+  }
+  if (
+    value.type === 'renderer.paint.applyPatches' &&
+    typeof value.requestId === 'string' &&
+    (value.direction === 'before' || value.direction === 'after')
+  ) {
+    const patches = parseRasterTilePatches(value.patches);
+    return patches === null
+      ? null
+      : {
+          type: value.type,
+          requestId: value.requestId,
+          patches,
+          direction: value.direction,
+        };
   }
   if (
     value.type === 'renderer.paint.cancel' &&
@@ -445,7 +594,13 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       tileState?.dispose();
       tileState = new RendererTileStateV1(request.width, request.height);
       tileState.attachGpuDevice(deviceManager.currentDevice());
-      baselinePaint.configureDocument(tileState, request.width, request.height);
+      baselinePaint.configureDocument(
+        tileState,
+        request.width,
+        request.height,
+        request.precision,
+        request.rasterLayers,
+      );
       postResponse(request.requestId, true, {
         ...tileState.snapshot(),
         workingSpace: request.workingSpace,
@@ -457,11 +612,19 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       postResponse(request.requestId, true, baselinePaint.restoreCommittedStrokes(request.strokes));
       return;
     }
+    if (request.type === 'renderer.paint.applyPatches') {
+      postResponse(
+        request.requestId,
+        true,
+        baselinePaint.applyTilePatches(request.patches, request.direction),
+      );
+      return;
+    }
     if (request.type === 'renderer.paint.present') {
       postResponse(
         request.requestId,
         true,
-        baselinePaint.presentStroke(request.strokeId, request.dabs),
+        baselinePaint.presentStroke(request.strokeId, request.dabs, request.layerId),
       );
       return;
     }
@@ -473,7 +636,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       postResponse(
         request.requestId,
         true,
-        baselinePaint.finalizeStroke(request.strokeId, request.dabs),
+        baselinePaint.finalizeStroke(request.strokeId, request.dabs, request.layerId),
       );
       return;
     }

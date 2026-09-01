@@ -9,6 +9,10 @@ import {
 import { PaintSessionControllerV1 } from '../../src/app/paint-session-controller.js';
 import type { BaselineBrushDabV1 } from '../../src/gpu/baseline-brush.js';
 import type {
+  BaselineRasterTilePatchDirectionV1,
+  BaselineRasterTilePatchV1,
+} from '../../src/gpu/baseline-raster-tile-store.js';
+import type {
   PointerInputBatchV1,
   PointerInputEventTypeV1,
   PointerInputSampleV1,
@@ -37,6 +41,32 @@ class FakeRenderer {
   ): Promise<void> {
     this.restored.push(Object.freeze([...strokes]));
   }
+  async applyBaselineTilePatches(
+    _patches: readonly BaselineRasterTilePatchV1[],
+    _direction: BaselineRasterTilePatchDirectionV1,
+  ): Promise<void> {}
+}
+
+function tilePatches(session: PaintSessionControllerV1): readonly BaselineRasterTilePatchV1[] {
+  const layerId = session.activeLayerId();
+  if (layerId === null) throw new Error('test paint layer is missing');
+  return Object.freeze([
+    Object.freeze({
+      schema: 'illustro.baseline-raster-tile-patch/1' as const,
+      layerId,
+      coordinate: Object.freeze({ tx: 0, ty: 0 }),
+      before: null,
+      after: Object.freeze({
+        schema: 'illustro.baseline-raster-tile/1' as const,
+        layerId,
+        coordinate: Object.freeze({ tx: 0, ty: 0 }),
+        width: 128,
+        height: 128,
+        pixelFormat: 'rgba8-unorm' as const,
+        bytes: new Uint8Array(128 * 128 * 4),
+      }),
+    }),
+  ]);
 }
 
 type StoredProject = {
@@ -250,7 +280,10 @@ describe('M4 paint persistence vertical slice', () => {
     expect(initialized.mode).toBe('created');
     expect(store.getItem(PAINT_RESUME_PROJECT_KEY_V1)).toBe(initialized.projectId);
 
-    const transaction = first.history.commitCompletedStroke(completeStroke(first.session, 1));
+    const transaction = first.history.commitCompletedStroke(
+      completeStroke(first.session, 1),
+      tilePatches(first.session),
+    );
     await first.persistence.markDirty(transaction.transactionId);
     expect(first.persistence.snapshot()).toMatchObject({ sequence: 2, status: 'dirty' });
     await first.persistence.flushCheckpoint();
@@ -280,7 +313,10 @@ describe('M4 paint persistence vertical slice', () => {
       name: 'Undo recovery',
       document: { width: 256, height: 256 },
     });
-    const transaction = first.history.commitCompletedStroke(completeStroke(first.session, 10));
+    const transaction = first.history.commitCompletedStroke(
+      completeStroke(first.session, 10),
+      tilePatches(first.session),
+    );
     await first.persistence.markDirty(transaction.transactionId);
     await first.persistence.flushRecovery();
     expect(await first.history.undo()).toBe(true);

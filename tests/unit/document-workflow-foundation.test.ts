@@ -78,6 +78,13 @@ describe('M5A document creation and metadata foundation', () => {
       height: 3072,
       workingSpace: 'display-p3',
       precision: 'rgba16-float',
+      rasterLayers: [
+        {
+          layerId: document.layerTree.rootLayerIds[0],
+          visible: true,
+          opacity: 1,
+        },
+      ],
     });
   });
 

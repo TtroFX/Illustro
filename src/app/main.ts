@@ -239,10 +239,14 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
       root.dataset.illustroPaintDabs = String(paint.activeDabCount);
 
       if (activeStrokeId !== null) {
+        const activeLayerId = paintSession.activeStrokeLayerId();
+        if (activeLayerId === null) throw new Error('active paint stroke lost its raster layer');
         const dabDelta = paintSession.takeActiveDabDelta();
         root.dataset.illustroPaintVisible = 'provisional';
         if (dabDelta.length > 0) {
-          enqueuePaintRender(() => renderer.presentBaselineStroke(activeStrokeId, dabDelta));
+          enqueuePaintRender(() =>
+            renderer.presentBaselineStroke(activeStrokeId, dabDelta, activeLayerId),
+          );
         }
       } else if (
         arbitration.forwardBatch.eventType === 'pointercancel' &&
@@ -257,8 +261,15 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
           const dabs = completed.dabs;
           root.dataset.illustroPaintVisible = 'finalizing';
           enqueuePaintRender(async () => {
-            const finalization = await renderer.finalizeBaselineStroke(strokeId, dabs);
-            const transaction = paintHistory.commitCompletedStroke(strokeId);
+            const finalization = await renderer.finalizeBaselineStroke(
+              strokeId,
+              dabs,
+              completed.stroke.layerId,
+            );
+            const transaction = paintHistory.commitCompletedStroke(
+              strokeId,
+              finalization.tilePatches,
+            );
             paintPersistence.scheduleDirty(transaction.transactionId);
             root.dataset.illustroHistoryTransaction = transaction.transactionId;
             publishPaintHistory();

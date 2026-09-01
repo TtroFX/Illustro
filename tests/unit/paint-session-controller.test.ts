@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { PaintSessionControllerV1 } from '../../src/app/paint-session-controller.js';
 import type {
+  BaselineRasterLayerDescriptorV1,
+  BaselineRasterTilePatchDirectionV1,
+  BaselineRasterTilePatchV1,
+} from '../../src/gpu/baseline-raster-tile-store.js';
+import type {
   PointerInputBatchV1,
   PointerInputEventTypeV1,
   PointerInputSampleV1,
@@ -14,6 +19,7 @@ class FakeRendererDocumentPort {
     readonly height: number;
     readonly workingSpace: 'srgb' | 'display-p3';
     readonly precision: 'rgba8-unorm' | 'rgba16-float';
+    readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
   }> = [];
 
   async configureDocument(input: {
@@ -21,11 +27,16 @@ class FakeRendererDocumentPort {
     readonly height: number;
     readonly workingSpace: 'srgb' | 'display-p3';
     readonly precision: 'rgba8-unorm' | 'rgba16-float';
+    readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
   }): Promise<void> {
     this.configured.push(Object.freeze({ ...input }));
   }
 
   async restoreBaselineStrokes(): Promise<void> {}
+  async applyBaselineTilePatches(
+    _patches: readonly BaselineRasterTilePatchV1[],
+    _direction: BaselineRasterTilePatchDirectionV1,
+  ): Promise<void> {}
 }
 
 function sample(
@@ -82,9 +93,14 @@ describe('M4 paint document vertical slice', () => {
     const session = new PaintSessionControllerV1(renderer);
     const document = await session.createNewDocument({ width: 640, height: 480 });
 
-    expect(renderer.configured).toEqual([
-      { width: 640, height: 480, workingSpace: 'srgb', precision: 'rgba8-unorm' },
-    ]);
+    expect(renderer.configured).toHaveLength(1);
+    expect(renderer.configured[0]).toMatchObject({
+      width: 640,
+      height: 480,
+      workingSpace: 'srgb',
+      precision: 'rgba8-unorm',
+      rasterLayers: [{ visible: true, opacity: 1 }],
+    });
     expect(document.color).toMatchObject({ workingSpace: 'srgb', precision: 'rgba8-unorm' });
     expect(document.layerTree.rootLayerIds).toHaveLength(1);
     const layerId = document.layerTree.rootLayerIds[0];

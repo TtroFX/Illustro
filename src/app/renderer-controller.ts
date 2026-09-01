@@ -1,4 +1,4 @@
-import { type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
   BaselinePaintRendererV1,
@@ -6,6 +6,11 @@ import {
   type BaselinePaintFinalizationV1,
   type BaselinePaintRendererSnapshotV1,
 } from '../gpu/baseline-paint-renderer.js';
+import type {
+  BaselineRasterLayerDescriptorV1,
+  BaselineRasterTilePatchDirectionV1,
+  BaselineRasterTilePatchV1,
+} from '../gpu/baseline-raster-tile-store.js';
 import { acquireCoreWebGpuV1 } from '../gpu/webgpu-capability.js';
 import {
   RendererDeviceManagerV1,
@@ -88,6 +93,7 @@ function parsePaintFinalization(value: unknown): BaselinePaintFinalizationV1 | n
     typeof value.strokeId !== 'string' ||
     typeof value.dabCount !== 'number' ||
     !Array.isArray(value.affectedTiles) ||
+    !Array.isArray(value.tilePatches) ||
     parsePaintSnapshot(value.renderer) === null
   ) {
     return null;
@@ -208,6 +214,7 @@ export class RendererControllerV1 {
     readonly height: number;
     readonly workingSpace: DocumentColorSpace;
     readonly precision: DocumentPrecision;
+    readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
   }): Promise<RendererDocumentConfigurationV1> {
     if (this.#disposed) throw new Error('renderer controller is disposed');
     const snapshot = await this.start();
@@ -224,6 +231,7 @@ export class RendererControllerV1 {
         height: input.height,
         workingSpace: input.workingSpace,
         precision: input.precision,
+        rasterLayers: input.rasterLayers,
       });
       if (response?.ok !== true) {
         throw new Error('Render Worker failed to configure document tile state');
@@ -247,7 +255,13 @@ export class RendererControllerV1 {
     this.#mainTileState?.dispose();
     this.#mainTileState = new RendererTileStateV1(input.width, input.height);
     this.#mainTileState.attachGpuDevice(device);
-    this.#mainBaselinePaint.configureDocument(this.#mainTileState, input.width, input.height);
+    this.#mainBaselinePaint.configureDocument(
+      this.#mainTileState,
+      input.width,
+      input.height,
+      input.precision,
+      input.rasterLayers,
+    );
     this.#publishDocumentConfiguration(input);
     return Object.freeze({
       schema: 'illustro.renderer-document-configuration/1' as const,
@@ -262,6 +276,7 @@ export class RendererControllerV1 {
   async presentBaselineStroke(
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
+    layerId: string,
   ): Promise<BaselinePaintRendererSnapshotV1> {
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
@@ -271,12 +286,13 @@ export class RendererControllerV1 {
         requestId,
         strokeId,
         dabs,
+        layerId,
       });
       const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
       if (paint === null) throw new Error('Render Worker failed to present baseline stroke');
       return paint;
     }
-    return this.#mainBaselinePaint.presentStroke(strokeId, dabs);
+    return this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId);
   }
 
   async cancelBaselineStroke(strokeId: string): Promise<BaselinePaintRendererSnapshotV1> {
@@ -298,6 +314,7 @@ export class RendererControllerV1 {
   async finalizeBaselineStroke(
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
+    layerId: string,
   ): Promise<BaselinePaintFinalizationV1> {
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
@@ -307,13 +324,14 @@ export class RendererControllerV1 {
         requestId,
         strokeId,
         dabs,
+        layerId,
       });
       const finalization = response?.ok === true ? parsePaintFinalization(response.result) : null;
       if (finalization === null)
         throw new Error('Render Worker failed to finalize baseline stroke');
       return finalization;
     }
-    return this.#mainBaselinePaint.finalizeStroke(strokeId, dabs);
+    return this.#mainBaselinePaint.finalizeStroke(strokeId, dabs, layerId);
   }
 
   async restoreBaselineStrokes(
@@ -332,6 +350,26 @@ export class RendererControllerV1 {
       return paint;
     }
     return this.#mainBaselinePaint.restoreCommittedStrokes(strokes);
+  }
+
+  async applyBaselineTilePatches(
+    patches: readonly BaselineRasterTilePatchV1[],
+    direction: BaselineRasterTilePatchDirectionV1,
+  ): Promise<BaselinePaintRendererSnapshotV1> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.paint.applyPatches',
+        requestId,
+        patches,
+        direction,
+      });
+      const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
+      if (paint === null) throw new Error('Render Worker failed to apply raster tile patches');
+      return paint;
+    }
+    return this.#mainBaselinePaint.applyTilePatches(patches, direction);
   }
 
   async retry(): Promise<RendererControllerSnapshotV1> {

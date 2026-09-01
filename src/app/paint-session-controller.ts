@@ -15,6 +15,11 @@ import {
 } from '../domain/identity.js';
 import { createRasterLayer, type RasterLayerV1 } from '../domain/layers.js';
 import { BaselineBrushDabBuilderV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import type { BaselineRasterLayerDescriptorV1 } from '../gpu/baseline-raster-tile-store.js';
+import type {
+  BaselineRasterTilePatchDirectionV1,
+  BaselineRasterTilePatchV1,
+} from '../gpu/baseline-raster-tile-store.js';
 import type {
   PointerInputBatchV1,
   PointerInputSampleV1,
@@ -27,9 +32,18 @@ export interface PaintRendererDocumentPortV1 {
     readonly height: number;
     readonly workingSpace: DocumentV1['color']['workingSpace'];
     readonly precision: DocumentV1['color']['precision'];
+    readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
   }): Promise<unknown>;
   restoreBaselineStrokes(
-    strokes: readonly { readonly strokeId: string; readonly dabs: readonly BaselineBrushDabV1[] }[],
+    strokes: readonly {
+      readonly strokeId: string;
+      readonly layerId: string;
+      readonly dabs: readonly BaselineBrushDabV1[];
+    }[],
+  ): Promise<unknown>;
+  applyBaselineTilePatches(
+    patches: readonly BaselineRasterTilePatchV1[],
+    direction: BaselineRasterTilePatchDirectionV1,
   ): Promise<unknown>;
 }
 
@@ -82,8 +96,11 @@ export interface PaintProjectSnapshotV1 {
 }
 
 export interface PaintStrokeCommitV1 {
-  readonly before: PaintProjectSnapshotV1;
-  readonly after: PaintProjectSnapshotV1;
+  readonly beforeRevision: Revision;
+  readonly afterRevision: Revision;
+  readonly beforeModifiedAt: string;
+  readonly afterModifiedAt: string;
+  readonly strokeIndex: number;
   readonly committed: CompletedPaintStrokeV1;
 }
 
@@ -94,6 +111,19 @@ export interface PaintStrokeHistoryStateV1 {
   readonly strokeIndex: number;
   readonly present: boolean;
   readonly stroke: CompletedPaintStrokeV1;
+}
+
+export interface PaintTileHistoryStateV1 {
+  readonly schema: 'illustro.paint-tile-history/1';
+  readonly revision: Revision;
+  readonly modifiedAt: string;
+  readonly strokeId: string;
+  readonly present: boolean;
+  readonly affectedTiles: readonly {
+    readonly layerId: string;
+    readonly tx: number;
+    readonly ty: number;
+  }[];
 }
 
 export interface PaintDocumentSettingsUpdateV1 {
@@ -238,6 +268,47 @@ export function parsePaintStrokeHistoryStateV1(value: unknown): PaintStrokeHisto
   });
 }
 
+export function parsePaintTileHistoryStateV1(value: unknown): PaintTileHistoryStateV1 {
+  if (!isRecord(value) || value.schema !== 'illustro.paint-tile-history/1') {
+    throw new TypeError('invalid paint tile history schema');
+  }
+  if (!isUuid(value.strokeId) || typeof value.present !== 'boolean') {
+    throw new TypeError('invalid paint tile history stroke state');
+  }
+  if (typeof value.modifiedAt !== 'string' || Number.isNaN(Date.parse(value.modifiedAt))) {
+    throw new TypeError('invalid paint tile history timestamp');
+  }
+  if (!Array.isArray(value.affectedTiles)) {
+    throw new TypeError('paint tile history affectedTiles must be an array');
+  }
+  const affectedTiles = value.affectedTiles.map((entry) => {
+    if (
+      !isRecord(entry) ||
+      typeof entry.layerId !== 'string' ||
+      entry.layerId.length === 0 ||
+      !Number.isSafeInteger(entry.tx) ||
+      (entry.tx as number) < 0 ||
+      !Number.isSafeInteger(entry.ty) ||
+      (entry.ty as number) < 0
+    ) {
+      throw new TypeError('invalid paint tile history coordinate');
+    }
+    return Object.freeze({
+      layerId: entry.layerId,
+      tx: entry.tx as number,
+      ty: entry.ty as number,
+    });
+  });
+  return Object.freeze({
+    schema: 'illustro.paint-tile-history/1' as const,
+    revision: parseRevision(value.revision),
+    modifiedAt: value.modifiedAt,
+    strokeId: value.strokeId,
+    present: value.present,
+    affectedTiles: Object.freeze(affectedTiles),
+  });
+}
+
 export function parsePaintProjectSnapshotV1(value: unknown): PaintProjectSnapshotV1 {
   if (!isRecord(value) || value.schema !== 'illustro.paint-project-snapshot/1') {
     throw new TypeError('invalid paint project snapshot schema');
@@ -346,6 +417,25 @@ function withInitialRasterLayer(document: DocumentV1): {
   return Object.freeze({ document: nextDocument, layer });
 }
 
+export function paintRasterLayerDescriptorsV1(
+  document: DocumentV1,
+): readonly BaselineRasterLayerDescriptorV1[] {
+  const layers: BaselineRasterLayerDescriptorV1[] = [];
+  for (const layerId of document.layerTree.rootLayerIds) {
+    const layer = document.layerTree.layers[layerId];
+    if (layer?.type !== 'raster') continue;
+    layers.push(
+      Object.freeze({
+        layerId: layer.id,
+        visible: layer.visible,
+        opacity: layer.opacity,
+      }),
+    );
+  }
+  if (layers.length === 0) throw new Error('paint document requires a root raster layer');
+  return Object.freeze(layers);
+}
+
 function freezeCompletedStroke(
   stroke: PaintStrokeV1,
   dabs: readonly BaselineBrushDabV1[],
@@ -371,6 +461,9 @@ export class PaintSessionControllerV1 {
   #activeDabDelta: readonly BaselineBrushDabV1[] = Object.freeze([]);
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
   readonly #committedStrokes: CompletedPaintStrokeV1[] = [];
+  readonly #committedStrokeById = new Map<string, CompletedPaintStrokeV1>();
+  readonly #hiddenCommittedStrokeIds = new Set<string>();
+  readonly #presentCommittedStrokeIds = new Set<string>();
   #disposed = false;
 
   constructor(
@@ -392,7 +485,7 @@ export class PaintSessionControllerV1 {
       activeStrokeSampleCount: this.#activeSamples.length,
       activeDabCount: this.#activeDabBuilder?.dabCount() ?? 0,
       pendingCompletedStrokeCount: this.#completedStrokes.length,
-      committedStrokeCount: this.#committedStrokes.length,
+      committedStrokeCount: this.#presentCommittedStrokeIds.size,
     });
   }
 
@@ -486,6 +579,10 @@ export class PaintSessionControllerV1 {
     return this.#activeStroke?.strokeId ?? null;
   }
 
+  activeStrokeLayerId(): LayerId | null {
+    return this.#activeStroke?.layerId ?? null;
+  }
+
   activeStroke(): PaintStrokeV1 | null {
     const active = this.#activeStroke;
     if (active === null) return null;
@@ -501,11 +598,22 @@ export class PaintSessionControllerV1 {
     return Object.freeze({
       schema: 'illustro.paint-project-snapshot/1' as const,
       document,
-      committedStrokes: Object.freeze([...this.#committedStrokes]),
+      committedStrokes: this.committedStrokes(),
     });
   }
 
   committedStrokes(): readonly CompletedPaintStrokeV1[] {
+    if (this.#hiddenCommittedStrokeIds.size === 0) {
+      return Object.freeze([...this.#committedStrokes]);
+    }
+    return Object.freeze(
+      this.#committedStrokes.filter(
+        (entry) => !this.#hiddenCommittedStrokeIds.has(entry.stroke.strokeId),
+      ),
+    );
+  }
+
+  strokeEventLog(): readonly CompletedPaintStrokeV1[] {
     return Object.freeze([...this.#committedStrokes]);
   }
 
@@ -522,16 +630,26 @@ export class PaintSessionControllerV1 {
     if (revision <= document.revision) {
       throw new RangeError('committed paint stroke revision must advance the document');
     }
-    const timestamp = now.toISOString();
-    const before = this.projectSnapshot();
-    if (before === null) return null;
+    const beforeRevision = document.revision;
+    const beforeModifiedAt = document.modifiedAt;
+    const afterModifiedAt = now.toISOString();
+    const strokeIndex = this.#committedStrokes.length;
     const [committed] = this.#completedStrokes.splice(index, 1);
     if (committed === undefined) return null;
-    this.#committedStrokes.push(committed);
-    this.#document = Object.freeze({ ...document, revision, modifiedAt: timestamp });
-    const after = this.projectSnapshot();
-    if (after === null) throw new Error('paint project snapshot disappeared during commit');
-    return Object.freeze({ before, after, committed });
+    const baked = freezeCompletedStroke(committed.stroke, committed.dabs, true);
+    this.#committedStrokes.push(baked);
+    this.#committedStrokeById.set(baked.stroke.strokeId, baked);
+    this.#hiddenCommittedStrokeIds.delete(baked.stroke.strokeId);
+    this.#presentCommittedStrokeIds.add(baked.stroke.strokeId);
+    this.#document = Object.freeze({ ...document, revision, modifiedAt: afterModifiedAt });
+    return Object.freeze({
+      beforeRevision,
+      afterRevision: revision,
+      beforeModifiedAt,
+      afterModifiedAt,
+      strokeIndex,
+      committed: baked,
+    });
   }
 
   commitDocumentSettings(
@@ -587,10 +705,12 @@ export class PaintSessionControllerV1 {
       height: normalized.document.canvas.height,
       workingSpace: normalized.document.color.workingSpace,
       precision: normalized.document.color.precision,
+      rasterLayers: paintRasterLayerDescriptorsV1(normalized.document),
     });
     await this.#renderer.restoreBaselineStrokes(
       normalized.committedStrokes.map((entry) => ({
         strokeId: entry.stroke.strokeId,
+        layerId: entry.stroke.layerId,
         dabs: entry.dabs,
       })),
     );
@@ -617,6 +737,13 @@ export class PaintSessionControllerV1 {
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
     this.#committedStrokes.push(...normalized.committedStrokes);
+    this.#committedStrokeById.clear();
+    this.#hiddenCommittedStrokeIds.clear();
+    this.#presentCommittedStrokeIds.clear();
+    for (const entry of normalized.committedStrokes) {
+      this.#committedStrokeById.set(entry.stroke.strokeId, entry);
+      this.#presentCommittedStrokeIds.add(entry.stroke.strokeId);
+    }
     return this.projectSnapshot()!;
   }
 
@@ -643,6 +770,14 @@ export class PaintSessionControllerV1 {
       this.#committedStrokes.splice(existingIndex, 1);
     }
 
+    this.#committedStrokeById.clear();
+    this.#hiddenCommittedStrokeIds.clear();
+    this.#presentCommittedStrokeIds.clear();
+    for (const entry of this.#committedStrokes) {
+      this.#committedStrokeById.set(entry.stroke.strokeId, entry);
+      this.#presentCommittedStrokeIds.add(entry.stroke.strokeId);
+    }
+
     this.#document = Object.freeze({
       ...document,
       revision: normalized.revision,
@@ -653,12 +788,44 @@ export class PaintSessionControllerV1 {
     await this.#renderer.restoreBaselineStrokes(
       this.#committedStrokes.map((entry) => ({
         strokeId: entry.stroke.strokeId,
+        layerId: entry.stroke.layerId,
         dabs: entry.dabs,
       })),
     );
     const snapshot = this.projectSnapshot();
     if (snapshot === null) throw new Error('paint stroke history restore lost the active document');
     return snapshot;
+  }
+
+  async restoreTileHistoryState(
+    state: PaintTileHistoryStateV1,
+    patches: readonly BaselineRasterTilePatchV1[],
+    direction: BaselineRasterTilePatchDirectionV1,
+  ): Promise<void> {
+    if (this.#disposed) throw new Error('paint session is disposed');
+    const normalized = parsePaintTileHistoryStateV1(state);
+    const document = this.#document;
+    if (document === null) throw new Error('paint tile history requires an active document');
+    const present = this.#presentCommittedStrokeIds.has(normalized.strokeId);
+    if (normalized.present && !present) {
+      this.#presentCommittedStrokeIds.add(normalized.strokeId);
+      if (this.#committedStrokeById.has(normalized.strokeId)) {
+        this.#hiddenCommittedStrokeIds.delete(normalized.strokeId);
+      }
+    } else if (!normalized.present && present) {
+      this.#presentCommittedStrokeIds.delete(normalized.strokeId);
+      if (this.#committedStrokeById.has(normalized.strokeId)) {
+        this.#hiddenCommittedStrokeIds.add(normalized.strokeId);
+      }
+    }
+    this.#document = Object.freeze({
+      ...document,
+      revision: normalized.revision,
+      modifiedAt: normalized.modifiedAt,
+    });
+    this.#clearActiveStroke();
+    this.#completedStrokes.length = 0;
+    await this.#renderer.applyBaselineTilePatches(patches, direction);
   }
 
   activeDabs(): readonly BaselineBrushDabV1[] {
@@ -691,6 +858,7 @@ export class PaintSessionControllerV1 {
       height: initial.document.canvas.height,
       workingSpace: initial.document.color.workingSpace,
       precision: initial.document.color.precision,
+      rasterLayers: paintRasterLayerDescriptorsV1(initial.document),
     });
     this.#document = initial.document;
     this.#activeLayerId = initial.layer.id;
@@ -700,6 +868,9 @@ export class PaintSessionControllerV1 {
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
+    this.#committedStrokeById.clear();
+    this.#hiddenCommittedStrokeIds.clear();
+    this.#presentCommittedStrokeIds.clear();
     return initial.document;
   }
 
@@ -765,6 +936,9 @@ export class PaintSessionControllerV1 {
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
+    this.#committedStrokeById.clear();
+    this.#hiddenCommittedStrokeIds.clear();
+    this.#presentCommittedStrokeIds.clear();
   }
 
   #startStroke(batch: PointerInputBatchV1, source: PaintStrokeSourceV1): void {
