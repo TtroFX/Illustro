@@ -4,10 +4,7 @@ import {
   type BaselineBrushDabV1,
 } from '../gpu/baseline-brush.js';
 import type { BaselineRasterTileImageV1 } from '../gpu/baseline-raster-tile-store.js';
-import {
-  tileBoundsForDocumentV1,
-  type TileCoordinateV1,
-} from '../gpu/sparse-tile-model.js';
+import { tileBoundsForDocumentV1, type TileCoordinateV1 } from '../gpu/sparse-tile-model.js';
 import type { CanvasBackingSizeV1 } from './shell.js';
 
 function clampByte(value: number): number {
@@ -50,7 +47,7 @@ function tileTargetRect(
 export class CompatibilityRasterPresenterV1 {
   readonly #hostCanvas: HTMLCanvasElement;
   readonly #scratch = document.createElement('canvas');
-  readonly #scratchContext: CanvasRenderingContext2D;
+  readonly #scratchContext: CanvasRenderingContext2D | null;
   #canvas: HTMLCanvasElement | null = null;
   #context: CanvasRenderingContext2D | null = null;
   #documentWidth: number | null = null;
@@ -59,13 +56,12 @@ export class CompatibilityRasterPresenterV1 {
 
   constructor(hostCanvas: HTMLCanvasElement) {
     this.#hostCanvas = hostCanvas;
-    const scratchContext = this.#scratch.getContext('2d', { alpha: true });
-    if (scratchContext === null) throw new Error('Canvas2D scratch surface is unavailable');
-    this.#scratchContext = scratchContext;
+    this.#scratchContext = this.#scratch.getContext('2d', { alpha: true });
   }
 
   attach(): boolean {
     if (this.#canvas !== null && this.#context !== null) return true;
+    if (this.#scratchContext === null) return false;
     const parent = this.#hostCanvas.parentElement;
     if (parent === null) return false;
     const canvas = document.createElement('canvas');
@@ -94,7 +90,9 @@ export class CompatibilityRasterPresenterV1 {
 
   configureDocument(width: number, height: number): void {
     if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) {
-      throw new RangeError('compatibility renderer document dimensions must be positive safe integers');
+      throw new RangeError(
+        'compatibility renderer document dimensions must be positive safe integers',
+      );
     }
     this.#documentWidth = width;
     this.#documentHeight = height;
@@ -128,12 +126,7 @@ export class CompatibilityRasterPresenterV1 {
     const canvas = this.#canvas;
     const documentWidth = this.#documentWidth;
     const documentHeight = this.#documentHeight;
-    if (
-      context === null ||
-      canvas === null ||
-      documentWidth === null ||
-      documentHeight === null
-    ) {
+    if (context === null || canvas === null || documentWidth === null || documentHeight === null) {
       return;
     }
     for (const coordinate of coordinates) {
@@ -153,12 +146,7 @@ export class CompatibilityRasterPresenterV1 {
     const canvas = this.#canvas;
     const documentWidth = this.#documentWidth;
     const documentHeight = this.#documentHeight;
-    if (
-      context === null ||
-      canvas === null ||
-      documentWidth === null ||
-      documentHeight === null
-    ) {
+    if (context === null || canvas === null || documentWidth === null || documentHeight === null) {
       return;
     }
     context.imageSmoothingEnabled = false;
@@ -237,6 +225,8 @@ export class CompatibilityRasterPresenterV1 {
   }
 
   #writeScratch(tile: BaselineRasterTileImageV1): void {
+    const scratchContext = this.#scratchContext;
+    if (scratchContext === null) return;
     if (this.#scratch.width !== tile.width) this.#scratch.width = tile.width;
     if (this.#scratch.height !== tile.height) this.#scratch.height = tile.height;
     const output = new Uint8ClampedArray(tile.width * tile.height * 4);
@@ -253,6 +243,6 @@ export class CompatibilityRasterPresenterV1 {
         output[targetOffset + 3] = clampByte(halfToFloat(source.getUint16(sourceOffset + 6, true)));
       }
     }
-    this.#scratchContext.putImageData(new ImageData(output, tile.width, tile.height), 0, 0);
+    scratchContext.putImageData(new ImageData(output, tile.width, tile.height), 0, 0);
   }
 }
