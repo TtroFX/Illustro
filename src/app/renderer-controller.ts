@@ -1,4 +1,7 @@
-import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import {
+  planBaselineBrushTilesV1,
+  type BaselineBrushDabV1,
+} from '../gpu/baseline-brush.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
   BaselinePaintRendererV1,
@@ -12,6 +15,7 @@ import type {
   BaselineRasterTilePatchDirectionV1,
   BaselineRasterTilePatchV1,
 } from '../gpu/baseline-raster-tile-store.js';
+import type { TileCoordinateV1 } from '../gpu/sparse-tile-model.js';
 import { acquireCoreWebGpuV1 } from '../gpu/webgpu-capability.js';
 import {
   RendererDeviceManagerV1,
@@ -20,9 +24,10 @@ import {
 } from '../gpu/renderer-device-manager.js';
 import { rebuildRendererDeviceResourcesV1 } from '../gpu/renderer-device-resources.js';
 import { RendererTileStateV1 } from '../gpu/renderer-tile-state.js';
+import { CompatibilityRasterPresenterV1 } from './compatibility-raster-presenter.js';
 import type { FoundationShell } from './shell.js';
 
-type RendererOwnerV1 = 'pending' | 'worker' | 'main';
+type RendererOwnerV1 = 'pending' | 'worker' | 'main' | 'compatibility';
 
 type WorkerLikeV1 = {
   postMessage(message: unknown, transfer?: readonly Transferable[]): void;
@@ -57,6 +62,10 @@ const WORKER_RESPONSE_TIMEOUT_MS = 4_000;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function tileCoordinateKey(coordinate: TileCoordinateV1): string {
+  return `${coordinate.tx}:${coordinate.ty}`;
 }
 
 function parseDeviceSnapshot(value: unknown): RendererDeviceSnapshotV1 | null {
@@ -200,8 +209,10 @@ async function requestWorker(
 export function selectRendererExecutionPathV1(input: {
   readonly workerDeviceReady: boolean;
   readonly offscreenTransferAvailable: boolean;
-}): 'worker' | 'main' {
-  return input.workerDeviceReady && input.offscreenTransferAvailable ? 'worker' : 'main';
+  readonly mainDeviceReady?: boolean;
+}): 'worker' | 'main' | 'compatibility' {
+  if (input.workerDeviceReady && input.offscreenTransferAvailable) return 'worker';
+  return input.mainDeviceReady === false ? 'compatibility' : 'main';
 }
 
 export class RendererControllerV1 {
@@ -210,6 +221,8 @@ export class RendererControllerV1 {
   readonly #root: HTMLElement;
   readonly #workerStateListener: (event: MessageEvent<unknown>) => void;
   readonly #mainBaselinePaint = new BaselinePaintRendererV1();
+  readonly #compatibilityPresenter: CompatibilityRasterPresenterV1;
+  readonly #compatibilityActiveTiles = new Map<string, TileCoordinateV1>();
   #owner: RendererOwnerV1 = 'pending';
   #deviceState: RendererDeviceStateV1 = 'idle';
   #generation = 0;
@@ -217,6 +230,8 @@ export class RendererControllerV1 {
   #mainTileState: RendererTileStateV1 | null = null;
   #removeSizeSubscription: (() => void) | null = null;
   #startTask: Promise<RendererControllerSnapshotV1> | null = null;
+  #compatibilityDocument: { readonly width: number; readonly height: number } | null = null;
+  #fallbackReason: string | null = null;
   #disposed = false;
 
   constructor(
@@ -227,6 +242,7 @@ export class RendererControllerV1 {
     this.#shell = shell;
     this.#worker = worker;
     this.#root = root;
+    this.#compatibilityPresenter = new CompatibilityRasterPresenterV1(shell.canvas);
     this.#workerStateListener = (event) => {
       if (this.#owner !== 'worker' || !isRecord(event.data)) return;
       if (event.data.type !== 'renderer.device-state') return;
@@ -296,14 +312,20 @@ export class RendererControllerV1 {
       });
     }
 
-    if (snapshot.owner !== 'main' || this.#mainDeviceManager === null) {
+    if (snapshot.owner !== 'main' && snapshot.owner !== 'compatibility') {
       throw new Error('renderer ownership is unresolved');
     }
-    const device = this.#mainDeviceManager.currentDevice();
-    if (device === null) throw new Error('main renderer device is unavailable');
+    const device = this.#mainDeviceManager?.currentDevice() ?? null;
+    if (snapshot.owner === 'main' && device === null) {
+      throw new Error('main renderer device is unavailable');
+    }
     this.#mainTileState?.dispose();
     this.#mainTileState = new RendererTileStateV1(input.width, input.height);
-    this.#mainTileState.attachGpuDevice(device);
+    this.#mainTileState.attachGpuDevice(snapshot.owner === 'main' ? device : null);
+    if (snapshot.owner === 'compatibility') {
+      this.#mainBaselinePaint.attachDevice(null);
+      this.#mainBaselinePaint.attachSurface(null, null);
+    }
     this.#mainBaselinePaint.configureDocument(
       this.#mainTileState,
       input.width,
@@ -311,10 +333,16 @@ export class RendererControllerV1 {
       input.precision,
       input.rasterLayers,
     );
+    this.#compatibilityDocument = Object.freeze({ width: input.width, height: input.height });
+    this.#compatibilityActiveTiles.clear();
+    if (snapshot.owner === 'compatibility') {
+      this.#compatibilityPresenter.configureDocument(input.width, input.height);
+      this.#redrawCompatibilityAll();
+    }
     this.#publishDocumentConfiguration(input);
     return Object.freeze({
       schema: 'illustro.renderer-document-configuration/1' as const,
-      owner: 'main' as const,
+      owner: snapshot.owner,
       width: input.width,
       height: input.height,
       workingSpace: input.workingSpace,
@@ -341,7 +369,12 @@ export class RendererControllerV1 {
       if (paint === null) throw new Error('Render Worker failed to present baseline stroke');
       return paint;
     }
-    return this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId);
+    const paint = this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId);
+    if (snapshot.owner === 'compatibility') {
+      this.#trackCompatibilityDabs(dabs);
+      this.#compatibilityPresenter.presentDabs(dabs);
+    }
+    return paint;
   }
 
   async cancelBaselineStroke(strokeId: string): Promise<BaselinePaintRendererSnapshotV1> {
@@ -357,7 +390,11 @@ export class RendererControllerV1 {
       if (paint === null) throw new Error('Render Worker failed to cancel baseline stroke');
       return paint;
     }
-    return this.#mainBaselinePaint.cancelStroke(strokeId);
+    const affected = Object.freeze([...this.#compatibilityActiveTiles.values()]);
+    const paint = this.#mainBaselinePaint.cancelStroke(strokeId);
+    this.#compatibilityActiveTiles.clear();
+    if (snapshot.owner === 'compatibility') this.#syncCompatibilityTiles(affected);
+    return paint;
   }
 
   async finalizeBaselineStroke(
@@ -376,11 +413,17 @@ export class RendererControllerV1 {
         layerId,
       });
       const finalization = response?.ok === true ? parsePaintFinalization(response.result) : null;
-      if (finalization === null)
+      if (finalization === null) {
         throw new Error('Render Worker failed to finalize baseline stroke');
+      }
       return finalization;
     }
-    return this.#mainBaselinePaint.finalizeStroke(strokeId, dabs, layerId);
+    const finalization = this.#mainBaselinePaint.finalizeStroke(strokeId, dabs, layerId);
+    this.#compatibilityActiveTiles.clear();
+    if (snapshot.owner === 'compatibility') {
+      this.#syncCompatibilityTiles(finalization.affectedTiles.map((entry) => entry.coordinate));
+    }
+    return finalization;
   }
 
   async restoreBaselineStrokes(
@@ -398,7 +441,10 @@ export class RendererControllerV1 {
       if (paint === null) throw new Error('Render Worker failed to restore baseline strokes');
       return paint;
     }
-    return this.#mainBaselinePaint.restoreCommittedStrokes(strokes);
+    const paint = this.#mainBaselinePaint.restoreCommittedStrokes(strokes);
+    this.#compatibilityActiveTiles.clear();
+    if (snapshot.owner === 'compatibility') this.#redrawCompatibilityAll();
+    return paint;
   }
 
   async restoreBaselineCanonicalTiles(
@@ -423,7 +469,10 @@ export class RendererControllerV1 {
       if (paint === null) throw new Error('Render Worker failed to restore canonical raster tiles');
       return paint;
     }
-    return this.#mainBaselinePaint.restoreCanonicalTiles(tiles, rasterLayers);
+    const paint = this.#mainBaselinePaint.restoreCanonicalTiles(tiles, rasterLayers);
+    this.#compatibilityActiveTiles.clear();
+    if (snapshot.owner === 'compatibility') this.#redrawCompatibilityAll();
+    return paint;
   }
 
   async exportBaselineCanonicalTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
@@ -475,7 +524,12 @@ export class RendererControllerV1 {
       if (paint === null) throw new Error('Render Worker failed to apply raster tile patches');
       return paint;
     }
-    return this.#mainBaselinePaint.applyTilePatches(patches, direction);
+    const paint = this.#mainBaselinePaint.applyTilePatches(patches, direction);
+    this.#compatibilityActiveTiles.clear();
+    if (snapshot.owner === 'compatibility') {
+      this.#syncCompatibilityTiles(patches.map((patch) => patch.coordinate));
+    }
+    return paint;
   }
 
   async retry(): Promise<RendererControllerSnapshotV1> {
@@ -487,12 +541,7 @@ export class RendererControllerV1 {
       if (snapshot !== null) this.#applyDeviceSnapshot(snapshot);
       return this.snapshot();
     }
-    if (this.#mainDeviceManager !== null) {
-      const snapshot = await this.#mainDeviceManager.start();
-      this.#applyDeviceSnapshot(snapshot);
-      return this.snapshot();
-    }
-    return this.start();
+    return this.#startMainFallback();
   }
 
   dispose(): void {
@@ -500,6 +549,8 @@ export class RendererControllerV1 {
     this.#disposed = true;
     this.#removeSizeSubscription?.();
     this.#removeSizeSubscription = null;
+    this.#compatibilityPresenter.dispose();
+    this.#compatibilityActiveTiles.clear();
     this.#mainBaselinePaint.dispose();
     this.#mainTileState?.dispose();
     this.#mainTileState = null;
@@ -523,6 +574,7 @@ export class RendererControllerV1 {
   async #startInternal(): Promise<RendererControllerSnapshotV1> {
     this.#owner = 'pending';
     this.#deviceState = 'acquiring';
+    this.#fallbackReason = null;
     this.#publish();
 
     const probeRequestId = crypto.randomUUID();
@@ -555,9 +607,10 @@ export class RendererControllerV1 {
           [offscreen],
         );
         const attachedSnapshot = attached === null ? null : parseDeviceSnapshot(attached.result);
-        this.#owner = 'worker';
         if (attached?.ok === true && attachedSnapshot?.state === 'ready') {
+          this.#owner = 'worker';
           this.#applyDeviceSnapshot(attachedSnapshot);
+          this.#removeSizeSubscription?.();
           this.#removeSizeSubscription = this.#shell.subscribeRenderSurfaceSize((next) => {
             this.#worker.postMessage({
               type: 'renderer.resize',
@@ -565,11 +618,10 @@ export class RendererControllerV1 {
               height: next.height,
             });
           });
-        } else {
-          this.#deviceState = 'recovery-required';
-          this.#publish();
+          return this.snapshot();
         }
-        return this.snapshot();
+        this.#worker.postMessage({ type: 'renderer.dispose' });
+        return this.#startCompatibilityFallback('worker-attach-failed-after-offscreen-transfer');
       }
     }
 
@@ -579,6 +631,8 @@ export class RendererControllerV1 {
 
   async #startMainFallback(): Promise<RendererControllerSnapshotV1> {
     this.#owner = 'main';
+    this.#deviceState = 'acquiring';
+    this.#publish();
     this.#mainDeviceManager ??= new RendererDeviceManagerV1({
       acquire: acquireCoreWebGpuV1,
       rebuild: (device, generation) => {
@@ -599,7 +653,80 @@ export class RendererControllerV1 {
     });
     const snapshot = await this.#mainDeviceManager.start();
     this.#applyDeviceSnapshot(snapshot);
+    if (snapshot.state === 'ready') {
+      this.#leaveCompatibilityPresentation();
+      this.#fallbackReason = null;
+      this.#publish();
+      return this.snapshot();
+    }
+    return this.#startCompatibilityFallback(
+      `main-webgpu-${snapshot.lastAcquireStatus ?? snapshot.state}`,
+    );
+  }
+
+  #startCompatibilityFallback(reason: string): RendererControllerSnapshotV1 {
+    this.#removeSizeSubscription?.();
+    this.#removeSizeSubscription = null;
+    this.#owner = 'compatibility';
+    this.#fallbackReason = reason;
+    this.#mainTileState?.attachGpuDevice(null);
+    this.#mainBaselinePaint.attachDevice(null);
+    this.#mainBaselinePaint.attachSurface(null, null);
+    if (!this.#compatibilityPresenter.attach()) {
+      this.#deviceState = 'unavailable';
+      this.#fallbackReason = 'canvas2d-unavailable';
+      this.#publish();
+      return this.snapshot();
+    }
+    this.#compatibilityPresenter.resize(this.#shell.currentRenderSurfaceSize());
+    if (this.#compatibilityDocument !== null) {
+      this.#compatibilityPresenter.configureDocument(
+        this.#compatibilityDocument.width,
+        this.#compatibilityDocument.height,
+      );
+      this.#redrawCompatibilityAll();
+    }
+    this.#removeSizeSubscription = this.#shell.subscribeRenderSurfaceSize((next) => {
+      this.#compatibilityPresenter.resize(next);
+      this.#redrawCompatibilityAll();
+    });
+    this.#deviceState = 'ready';
+    this.#publish();
     return this.snapshot();
+  }
+
+  #leaveCompatibilityPresentation(): void {
+    this.#removeSizeSubscription?.();
+    this.#removeSizeSubscription = null;
+    this.#compatibilityPresenter.detach();
+    this.#compatibilityActiveTiles.clear();
+  }
+
+  #trackCompatibilityDabs(dabs: readonly BaselineBrushDabV1[]): void {
+    const documentValue = this.#compatibilityDocument;
+    if (documentValue === null) return;
+    for (const plan of planBaselineBrushTilesV1(dabs, documentValue.width, documentValue.height)) {
+      this.#compatibilityActiveTiles.set(tileCoordinateKey(plan.coordinate), plan.coordinate);
+    }
+  }
+
+  #syncCompatibilityTiles(coordinates: readonly TileCoordinateV1[]): void {
+    if (this.#owner !== 'compatibility' || coordinates.length === 0) return;
+    const selected = new Set(coordinates.map(tileCoordinateKey));
+    this.#compatibilityPresenter.clearTiles(coordinates);
+    const tiles = this.#mainBaselinePaint
+      .exportCompositeTiles()
+      .filter((tile) => selected.has(tileCoordinateKey(tile.coordinate)));
+    this.#compatibilityPresenter.patchTiles(tiles);
+  }
+
+  #redrawCompatibilityAll(): void {
+    if (this.#owner !== 'compatibility' || this.#compatibilityDocument === null) return;
+    try {
+      this.#compatibilityPresenter.presentAll(this.#mainBaselinePaint.exportCompositeTiles());
+    } catch {
+      this.#compatibilityPresenter.clear();
+    }
   }
 
   #applyDeviceSnapshot(snapshot: RendererDeviceSnapshotV1): void {
@@ -623,6 +750,9 @@ export class RendererControllerV1 {
 
   #publish(): void {
     this.#root.dataset.illustroRendererOwner = this.#owner;
+    this.#root.dataset.illustroRendererBackend =
+      this.#owner === 'compatibility' ? 'canvas2d' : this.#owner;
+    this.#root.dataset.illustroRendererFallbackReason = this.#fallbackReason ?? '';
     this.#root.dataset.illustroRendererState = this.#deviceState;
     this.#root.dataset.illustroRendererGeneration = String(this.#generation);
     this.#root.dataset.illustroRendererMutationGate =
