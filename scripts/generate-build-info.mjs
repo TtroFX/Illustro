@@ -18,10 +18,19 @@ const buildInfo = Object.freeze({
   buildMode,
 });
 
+function typescriptStringLiteral(value) {
+  return `'${value.replaceAll('\\', '\\\\').replaceAll("'", "\\'")}'`;
+}
+
 await mkdir(new URL('../src/generated/', import.meta.url), { recursive: true });
 await mkdir(new URL('../.build/meta/', import.meta.url), { recursive: true });
 
-const source = `export const buildIdentity = Object.freeze(${JSON.stringify(buildInfo, null, 2)} as const);\nexport type BuildIdentity = typeof buildIdentity;\n`;
+const source = `export const buildIdentity = Object.freeze({
+  buildSha: ${typescriptStringLiteral(buildInfo.buildSha)},
+  buildMode: ${typescriptStringLiteral(buildInfo.buildMode)},
+} as const);
+export type BuildIdentity = typeof buildIdentity;
+`;
 await writeFile(new URL('../src/generated/build-info.ts', import.meta.url), source, 'utf8');
 await writeFile(
   new URL('../.build/meta/build-info.json', import.meta.url),

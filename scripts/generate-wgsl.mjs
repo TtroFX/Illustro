@@ -26,6 +26,27 @@ const shaders = [
   },
 ];
 
+function typescriptStringLiteral(value) {
+  let escaped = '';
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (character === '\\') escaped += '\\\\';
+    else if (character === "'") escaped += "\\'";
+    else if (character === '\n') escaped += '\\n';
+    else if (character === '\r') escaped += '\\r';
+    else if (character === '\t') escaped += '\\t';
+    else if (character === '\b') escaped += '\\b';
+    else if (character === '\f') escaped += '\\f';
+    else if (
+      codePoint !== undefined &&
+      (codePoint < 0x20 || codePoint === 0x2028 || codePoint === 0x2029)
+    ) {
+      escaped += `\\u${codePoint.toString(16).padStart(4, '0')}`;
+    } else escaped += character;
+  }
+  return `'${escaped}'`;
+}
+
 await mkdir(new URL('../src/generated/', import.meta.url), { recursive: true });
 
 for (const shader of shaders) {
@@ -35,7 +56,7 @@ for (const shader of shaders) {
   if (!shader.validate(source)) throw new Error(shader.errorMessage);
   await writeFile(
     output,
-    `// Generated from ${shader.sourcePath.replace('../src/', 'src/')}. Do not edit.\nexport const ${shader.exportName} = ${JSON.stringify(source)};\n`,
+    `// Generated from ${shader.sourcePath.replace('../src/', 'src/')}. Do not edit.\nexport const ${shader.exportName} =\n  ${typescriptStringLiteral(source)};\n`,
     'utf8',
   );
   console.log(
