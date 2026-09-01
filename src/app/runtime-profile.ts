@@ -23,7 +23,9 @@ export interface RuntimeCapabilityProfileV1 {
   readonly schema: 'illustro.runtime-capabilities/1';
   readonly required: {
     readonly secureContext: boolean;
+    /** Legacy schema field. WebGPU is preferred acceleration, not editor admission. */
     readonly webGpuApi: boolean;
+    /** Legacy schema field. A compatibility renderer may satisfy editor availability. */
     readonly coreWebGpuDeviceReady: CapabilityProbeStateV1;
     readonly opfs: boolean;
     readonly dedicatedWorker: boolean;
@@ -88,10 +90,10 @@ export function createRuntimeCapabilityProfile(
 
   const blockingReasonCodes: InternalId[] = [];
   const pendingReasonCodes: InternalId[] = [];
+  // WebGPU API/device readiness intentionally does not participate here. The renderer
+  // controller owns the WebGPU Worker -> WebGPU Main -> compatibility backend chain.
   const checks: readonly [keyof typeof required, CapabilityProbeStateV1, string][] = [
     ['secureContext', required.secureContext, 'capability.secureContext'],
-    ['webGpuApi', required.webGpuApi, 'capability.webGpuApi'],
-    ['coreWebGpuDeviceReady', required.coreWebGpuDeviceReady, 'capability.coreWebGpuDevice'],
     ['opfs', required.opfs, 'capability.opfs'],
     ['dedicatedWorker', required.dedicatedWorker, 'capability.dedicatedWorker'],
     [
