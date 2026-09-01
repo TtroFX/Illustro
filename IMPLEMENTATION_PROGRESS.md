@@ -1204,7 +1204,7 @@ PROJECT-006 Illustro initial release完成:未完了
 MOBILE-001 Service Worker build-aware update/cache strategy:完了
 MOBILE-002 WebGPU/Renderer failure diagnostics（main/worker/adapter/device/limit/surface）:完了
 MOBILE-003 phone full-editor targetを設計正本で正式採用・旧<600px非対応方針をSUPERSEDE:完了
-MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:未完了
+MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:完了
 MOBILE-005 Renderer fallback chain（WebGPU Worker/Main → compatibility backend）を実装:未完了
 MOBILE-006 Canonical Raster Tile / History / Persistenceを全renderer backendで共通化:未完了
 MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完了
