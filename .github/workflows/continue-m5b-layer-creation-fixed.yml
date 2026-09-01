@@ -63,13 +63,23 @@ jobs:
           path = Path('src/index.html')
           text = path.read_text().replace(
               '<div id="layer-list" class="shell-inspector-list" aria-label="レイヤー一覧"></div>',
-              '<div id="layer-list" class="shell-inspector-list" role="group" aria-label="レイヤー一覧"></div>',
+              '<fieldset id="layer-list" class="shell-inspector-list" aria-label="レイヤー一覧"></fieldset>',
+              1,
+          )
+          path.write_text(text)
+
+          path = Path('public/app-shell.css')
+          text = path.read_text().replace(
+              '.shell-inspector-list {\n  display: grid;',
+              '.shell-inspector-list {\n  display: grid;\n  min-inline-size: 0;\n  margin: 0;\n  border: 0;',
               1,
           )
           path.write_text(text)
 
           path = Path('scripts/verify-m5b-layer-foundation.mjs')
-          text = path.read_text().replace("'layer.create.${kind}',", "'layer.create.',", 1)
+          text = path.read_text()
+          text = text.replace("'layer.create.${kind}',", "'layer.create.',", 1)
+          text = text.replace('"layer.create.${kind}",', '"layer.create.",', 1)
           path.write_text(text)
           PY
       - name: Canonical formatting
