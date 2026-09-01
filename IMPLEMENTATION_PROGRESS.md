@@ -1207,8 +1207,8 @@ MOBILE-003 phone full-editor targetを設計正本で正式採用・旧<600px非
 MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:完了
 MOBILE-005 Renderer fallback chain（WebGPU Worker/Main → compatibility backend）を実装:完了
 MOBILE-006 Canonical Raster Tile / History / Persistenceを全renderer backendで共通化:未完了
-MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了
-MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了
-MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了
+MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了
+MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了
+MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了
 MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完了
 再開メモ: USER-01スマホdiagnosticsではmain/workerともWebGPU `requestAdapter()` が `adapter-unavailable`。viewport幅やIllustro独自core-limit gate以前の失敗であり、MOBILE-004だけでは編集可能にならない。MOBILE-005のWebGPU非依存compatibility rendererが必須。検査は必要最低限とし、実装を優先する。
