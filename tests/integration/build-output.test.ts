@@ -20,8 +20,13 @@ describe('production build output', () => {
 
     expect(html).toContain('manifest.webmanifest');
     expect(manifest).toContain('Illustro');
-    expect(serviceWorker).toContain('APP_SHELL');
-    expect(serviceWorker).toContain('cache.addAll(APP_SHELL)');
+    expect(serviceWorker).toContain('PRECACHE_MANIFEST');
+    expect(serviceWorker).toContain("'./app/main.js'");
+    expect(serviceWorker).toContain("'./workers/render.worker.js'");
+    expect(serviceWorker).toContain('networkFirst(request)');
+    expect(serviceWorker).toContain("fetch(request, { cache: 'no-cache' })");
+    expect(serviceWorker).not.toContain('__ILLUSTRO_BUILD_SHA__');
+    expect(serviceWorker).not.toContain('__ILLUSTRO_PRECACHE_MANIFEST__');
     expect(main).toContain('illustroRuntime');
     expect(renderWorker).toContain('worker.render.ready');
     expect(storageWorker).toContain('worker.storage.ready');
@@ -29,6 +34,7 @@ describe('production build output', () => {
     const identity = JSON.parse(buildInfo) as { buildSha?: string; buildMode?: string };
     expect(identity.buildSha?.length).toBeGreaterThan(0);
     expect(identity.buildMode).toBe('production');
+    expect(serviceWorker).toContain(`const BUILD_SHA = ${JSON.stringify(identity.buildSha)};`);
   });
 
   it('ships the M3 renderer cache, atlas, and viewport wiring in the production bundle', async () => {
