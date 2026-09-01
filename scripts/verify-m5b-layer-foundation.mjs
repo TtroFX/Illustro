@@ -309,4 +309,20 @@ requireText('src/app/layer-workflow-controller.ts', [
   'setMaskInvertedSnapshotV1',
 ]);
 requireText('src/index.html', ['id="mask-invert"']);
+requireText('src/domain/layers.ts', [
+  'linkedToLayer?: boolean',
+  'linkedToLayer: input.linkedToLayer ?? true',
+]);
+requireText('src/app/layer-mask-operations.ts', [
+  'maskLinkedToLayerV1',
+  'setMaskLinkedToLayerSnapshotV1',
+  'mask link state has no changes',
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#mask-link'",
+  "'mask.unlink'",
+  "'mask.link'",
+  'setMaskLinkedToLayerSnapshotV1',
+]);
+requireText('src/index.html', ['id="mask-link"']);
 console.log('M5B layer system verification passed');

@@ -877,7 +877,7 @@ body {
 
 .shell-mask-paint-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px 44px 44px;
+  grid-template-columns: minmax(0, 1fr) 40px 40px 40px 40px;
   gap: 4px;
   align-items: center;
 }

@@ -124,6 +124,7 @@ export interface MaskBaseV1<Kind extends MaskAttachmentV1['kind']> {
   readonly kind: Kind;
   readonly enabled: boolean;
   readonly inverted: boolean;
+  readonly linkedToLayer?: boolean;
   readonly transformStack: readonly TransformNodeV1[];
   readonly metadata: NamespacedMetadataV1;
 }
@@ -326,6 +327,7 @@ function createMaskBase<Kind extends MaskAttachmentV1['kind']>(
     readonly id?: MaskId;
     readonly enabled?: boolean;
     readonly inverted?: boolean;
+    readonly linkedToLayer?: boolean;
     readonly transformStack?: readonly TransformNodeV1[];
     readonly metadata?: NamespacedMetadataV1;
   },
@@ -336,6 +338,7 @@ function createMaskBase<Kind extends MaskAttachmentV1['kind']>(
     kind,
     enabled: input.enabled ?? true,
     inverted: input.inverted ?? false,
+    linkedToLayer: input.linkedToLayer ?? true,
     transformStack: freezeArray(input.transformStack ?? []),
     metadata: Object.freeze({ ...(input.metadata ?? {}) }),
   });

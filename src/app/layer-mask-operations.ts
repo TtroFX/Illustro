@@ -47,3 +47,39 @@ export function setMaskInvertedSnapshotV1(
     }),
   });
 }
+
+export function maskLinkedToLayerV1(mask: RasterMaskAttachmentV1): boolean {
+  return mask.linkedToLayer !== false;
+}
+
+export function setMaskLinkedToLayerSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  layerId: LayerId,
+  maskId: MaskId,
+  linkedToLayer: boolean,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  const { layer, mask } = requireRasterMaskV1(snapshot, layerId, maskId);
+  if (maskLinkedToLayerV1(mask) === linkedToLayer) {
+    throw new Error('mask link state has no changes');
+  }
+  const nextMask = Object.freeze({ ...mask, revision, linkedToLayer });
+  const nextLayer = Object.freeze({
+    ...layer,
+    revision,
+    masks: Object.freeze(layer.masks.map((entry) => (entry.id === mask.id ? nextMask : entry))),
+  }) as LayerBaseV1;
+  return Object.freeze({
+    ...snapshot,
+    document: Object.freeze({
+      ...snapshot.document,
+      revision,
+      modifiedAt: now.toISOString(),
+      layerTree: Object.freeze({
+        rootLayerIds: snapshot.document.layerTree.rootLayerIds,
+        layers: Object.freeze({ ...snapshot.document.layerTree.layers, [layerId]: nextLayer }),
+      }),
+    }),
+  });
+}
