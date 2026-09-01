@@ -229,8 +229,7 @@ function rasterizeBlackDab(
           distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
             ? opacity
             : clamp01(
-                opacity *
-                  (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
+                opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
               );
         if (sourceAlpha <= 0) continue;
 
@@ -261,8 +260,7 @@ function rasterizeBlackDab(
         distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
           ? opacity
           : clamp01(
-              opacity *
-                (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
+              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
             );
       if (sourceAlpha <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
@@ -513,20 +511,17 @@ export class BaselineRasterTileStoreV1 {
         const outputAlpha = sourceAlpha + destination[3] * (1 - sourceAlpha);
         const red =
           outputAlpha > 0
-            ? (sourcePixel[0] * sourceAlpha +
-                destination[0] * destination[3] * (1 - sourceAlpha)) /
+            ? (sourcePixel[0] * sourceAlpha + destination[0] * destination[3] * (1 - sourceAlpha)) /
               outputAlpha
             : 0;
         const green =
           outputAlpha > 0
-            ? (sourcePixel[1] * sourceAlpha +
-                destination[1] * destination[3] * (1 - sourceAlpha)) /
+            ? (sourcePixel[1] * sourceAlpha + destination[1] * destination[3] * (1 - sourceAlpha)) /
               outputAlpha
             : 0;
         const blue =
           outputAlpha > 0
-            ? (sourcePixel[2] * sourceAlpha +
-                destination[2] * destination[3] * (1 - sourceAlpha)) /
+            ? (sourcePixel[2] * sourceAlpha + destination[2] * destination[3] * (1 - sourceAlpha)) /
               outputAlpha
             : 0;
         writePixel(output, pixel, [red, green, blue, outputAlpha]);
