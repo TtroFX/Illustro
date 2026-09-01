@@ -196,6 +196,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     if (disposed) return;
     const documentValue = options.paintSession.currentDocument();
     const activeLayerId = options.paintSession.activeLayerId();
+    const selectedLayerIds = new Set(options.paintSession.selectedLayerIds());
     list.replaceChildren();
     if (documentValue === null) {
       root.dataset.illustroLayerCount = '0';
@@ -211,7 +212,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       row.className = 'shell-layer-row';
       row.dataset.layerId = layerId;
       row.dataset.layerType = layer.type;
-      if (layerId === activeLayerId) row.classList.add('is-selected');
+      if (selectedLayerIds.has(layerId)) row.classList.add('is-selected');
+      if (layerId === activeLayerId) row.classList.add('is-active');
 
       const visibility = iconButton(
         'visibility',
@@ -224,7 +226,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       select.className = 'shell-layer-select';
       select.dataset.layerAction = 'select';
       select.setAttribute('aria-label', `${layer.name}を選択`);
-      select.setAttribute('aria-pressed', layerId === activeLayerId ? 'true' : 'false');
+      select.setAttribute('aria-pressed', selectedLayerIds.has(layerId) ? 'true' : 'false');
+      if (layerId === activeLayerId) select.setAttribute('aria-current', 'true');
 
       const thumbnail = document.createElement('span');
       thumbnail.className = 'shell-layer-thumbnail';
@@ -327,6 +330,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       alphaLockButton.dataset.active = 'false';
     }
     root.dataset.illustroLayerCount = String(Object.keys(documentValue.layerTree.layers).length);
+    root.dataset.illustroSelectedLayerCount = String(selectedLayerIds.size);
     root.dataset.illustroActiveLayerId = activeLayerId ?? '';
     root.dataset.illustroLayerWorkflow = 'ready';
   };
@@ -726,7 +730,13 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     try {
       const layerId = parseLayerId(value);
       if (action === 'select') {
-        options.paintSession.setActiveLayer(layerId);
+        const mode = event.shiftKey
+          ? 'range'
+          : event.ctrlKey || event.metaKey
+            ? 'toggle'
+            : 'replace';
+        if (mode !== 'replace') event.preventDefault();
+        options.paintSession.selectLayer(layerId, mode);
         clearError();
         renameForm.hidden = true;
         refresh();
@@ -778,8 +788,11 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     if (select === null || row === null || value === undefined || !list.contains(row)) return;
     const sourceLayerId = parseLayerId(value);
     try {
-      options.paintSession.setActiveLayer(sourceLayerId);
-      refresh();
+      const modifiedSelectionGesture = event.shiftKey || event.ctrlKey || event.metaKey;
+      if (!modifiedSelectionGesture && !options.paintSession.isLayerSelected(sourceLayerId)) {
+        options.paintSession.setActiveLayer(sourceLayerId);
+        refresh();
+      }
     } catch (error) {
       publishError(error);
       return;

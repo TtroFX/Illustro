@@ -97,10 +97,14 @@ export interface PaintDocumentSettingsCommitV1 {
   readonly after: PaintProjectSnapshotV1;
 }
 
+export type PaintLayerSelectionModeV1 = 'replace' | 'toggle' | 'range';
+
 export interface PaintSessionSnapshotV1 {
   readonly schema: 'illustro.paint-session/1';
   readonly documentId: string | null;
   readonly activeLayerId: LayerId | null;
+  readonly selectedLayerIds: readonly LayerId[];
+  readonly selectionAnchorLayerId: LayerId | null;
   readonly activeStrokeId: string | null;
   readonly activeStrokeSampleCount: number;
   readonly activeDabCount: number;
@@ -327,6 +331,8 @@ export class PaintSessionControllerV1 {
   readonly #mapPointerToDocument: PaintPointerToDocumentMapperV1;
   #document: DocumentV1 | null = null;
   #activeLayerId: LayerId | null = null;
+  readonly #selectedLayerIds = new Set<LayerId>();
+  #selectionAnchorLayerId: LayerId | null = null;
   #activeStroke: PaintStrokeV1 | null = null;
   readonly #activeSamples: PaintStrokeSampleV1[] = [];
   #activeDabBuilder: BaselineBrushDabBuilderV1 | null = null;
@@ -348,6 +354,8 @@ export class PaintSessionControllerV1 {
       schema: 'illustro.paint-session/1' as const,
       documentId: this.#document?.documentId ?? null,
       activeLayerId: this.#activeLayerId,
+      selectedLayerIds: Object.freeze([...this.#selectedLayerIds]),
+      selectionAnchorLayerId: this.#selectionAnchorLayerId,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeStrokeSampleCount: this.#activeSamples.length,
       activeDabCount: this.#activeDabBuilder?.dabCount() ?? 0,
@@ -364,14 +372,82 @@ export class PaintSessionControllerV1 {
     return this.#activeLayerId;
   }
 
+  selectedLayerIds(): readonly LayerId[] {
+    return Object.freeze([...this.#selectedLayerIds]);
+  }
+
+  isLayerSelected(layerId: LayerId): boolean {
+    return this.#selectedLayerIds.has(layerId);
+  }
+
   setActiveLayer(layerId: LayerId): PaintSessionSnapshotV1 {
+    return this.selectLayer(layerId, 'replace');
+  }
+
+  selectLayer(
+    layerId: LayerId,
+    mode: PaintLayerSelectionModeV1 = 'replace',
+  ): PaintSessionSnapshotV1 {
     const document = this.#document;
-    if (document === null) throw new Error('active layer selection requires a document');
-    if (!(layerId in document.layerTree.layers))
-      throw new Error(`active layer is missing: ${layerId}`);
-    if (this.#activeLayerId !== layerId) this.#clearActiveStroke();
-    this.#activeLayerId = layerId;
-    return this.snapshot();
+    if (document === null) throw new Error('layer selection requires a document');
+    if (!(layerId in document.layerTree.layers)) {
+      throw new Error(`selected layer is missing: ${layerId}`);
+    }
+    const roots = document.layerTree.rootLayerIds;
+    const setPrimary = (next: LayerId): void => {
+      if (this.#activeLayerId !== next) this.#clearActiveStroke();
+      this.#activeLayerId = next;
+    };
+    if (mode === 'replace') {
+      this.#selectedLayerIds.clear();
+      this.#selectedLayerIds.add(layerId);
+      this.#selectionAnchorLayerId = layerId;
+      setPrimary(layerId);
+      return this.snapshot();
+    }
+    if (mode === 'range') {
+      const anchor = this.#selectionAnchorLayerId ?? this.#activeLayerId ?? layerId;
+      const anchorIndex = roots.indexOf(anchor);
+      const targetIndex = roots.indexOf(layerId);
+      if (anchorIndex < 0 || targetIndex < 0) {
+        return this.selectLayer(layerId, 'replace');
+      }
+      this.#selectedLayerIds.clear();
+      const start = Math.min(anchorIndex, targetIndex);
+      const end = Math.max(anchorIndex, targetIndex);
+      for (const selectedId of roots.slice(start, end + 1)) {
+        this.#selectedLayerIds.add(selectedId);
+      }
+      this.#selectionAnchorLayerId = anchor;
+      setPrimary(layerId);
+      return this.snapshot();
+    }
+    if (mode === 'toggle') {
+      if (this.#selectedLayerIds.has(layerId)) {
+        if (this.#selectedLayerIds.size === 1) return this.snapshot();
+        this.#selectedLayerIds.delete(layerId);
+        if (this.#activeLayerId === layerId) {
+          const targetIndex = roots.indexOf(layerId);
+          const remaining = roots.filter((id) => this.#selectedLayerIds.has(id));
+          const next =
+            remaining.sort(
+              (left, right) =>
+                Math.abs(roots.indexOf(left) - targetIndex) -
+                Math.abs(roots.indexOf(right) - targetIndex),
+            )[0] ?? null;
+          if (next !== null) setPrimary(next);
+        }
+        if (this.#selectionAnchorLayerId === layerId) {
+          this.#selectionAnchorLayerId = this.#activeLayerId;
+        }
+      } else {
+        this.#selectedLayerIds.add(layerId);
+        this.#selectionAnchorLayerId = layerId;
+        setPrimary(layerId);
+      }
+      return this.snapshot();
+    }
+    throw new TypeError(`unsupported layer selection mode: ${String(mode)}`);
   }
 
   activeStrokeId(): string | null {
@@ -487,12 +563,24 @@ export class PaintSessionControllerV1 {
       })),
     );
     const previousActiveLayerId = this.#activeLayerId;
+    const previousSelectedLayerIds = [...this.#selectedLayerIds];
+    const previousAnchorLayerId = this.#selectionAnchorLayerId;
     this.#document = normalized.document;
     this.#activeLayerId =
       previousActiveLayerId !== null &&
       previousActiveLayerId in normalized.document.layerTree.layers
         ? previousActiveLayerId
         : (normalized.document.layerTree.rootLayerIds[0] ?? null);
+    this.#selectedLayerIds.clear();
+    for (const layerId of previousSelectedLayerIds) {
+      if (layerId in normalized.document.layerTree.layers) this.#selectedLayerIds.add(layerId);
+    }
+    if (this.#activeLayerId !== null) this.#selectedLayerIds.add(this.#activeLayerId);
+    this.#selectionAnchorLayerId =
+      previousAnchorLayerId !== null &&
+      previousAnchorLayerId in normalized.document.layerTree.layers
+        ? previousAnchorLayerId
+        : this.#activeLayerId;
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
@@ -533,6 +621,9 @@ export class PaintSessionControllerV1 {
     });
     this.#document = initial.document;
     this.#activeLayerId = initial.layer.id;
+    this.#selectedLayerIds.clear();
+    this.#selectedLayerIds.add(initial.layer.id);
+    this.#selectionAnchorLayerId = initial.layer.id;
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
@@ -596,6 +687,8 @@ export class PaintSessionControllerV1 {
     this.#disposed = true;
     this.#document = null;
     this.#activeLayerId = null;
+    this.#selectedLayerIds.clear();
+    this.#selectionAnchorLayerId = null;
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;

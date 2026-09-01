@@ -24,6 +24,10 @@ requireText('src/app/layer-workflow-controller.ts', [
 ]);
 requireText('src/app/paint-session-controller.ts', [
   'activeLayerId(): LayerId | null',
+  'selectedLayerIds(): readonly LayerId[]',
+  'isLayerSelected(layerId: LayerId)',
+  'selectLayer(',
+  "PaintLayerSelectionModeV1 = 'replace' | 'toggle' | 'range'",
   'setActiveLayer(layerId: LayerId)',
   "activeLayer?.type !== 'raster'",
 ]);
@@ -113,6 +117,8 @@ requireText('src/app/layer-workflow-controller.ts', [
   'prepareLayerRasterizeV1',
   'prepareLayerInvertV1',
   'prepareLayerRasterFlipV1',
+  'selectedLayerIds',
+  'selectLayer(layerId, mode)',
   'pointermove',
 ]);
 requireText('src/index.html', [
