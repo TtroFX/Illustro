@@ -400,6 +400,118 @@ export function deleteRootLayerSnapshotV1(
   );
 }
 
+function orderedRootSelectionV1(
+  snapshot: PaintProjectSnapshotV1,
+  layerIds: readonly LayerId[],
+): readonly LayerId[] {
+  if (layerIds.length === 0) throw new Error('root layer selection cannot be empty');
+  const selected = new Set<LayerId>();
+  for (const layerId of layerIds) {
+    requireRootLayerV1(snapshot, layerId);
+    selected.add(layerId);
+  }
+  const ordered = snapshot.document.layerTree.rootLayerIds.filter((id) => selected.has(id));
+  if (ordered.length !== selected.size) throw new Error('root layer selection is inconsistent');
+  return Object.freeze(ordered);
+}
+
+export function canMoveRootLayerSelectionStepV1(
+  snapshot: PaintProjectSnapshotV1,
+  layerIds: readonly LayerId[],
+  delta: -1 | 1,
+): boolean {
+  const selected = new Set(orderedRootSelectionV1(snapshot, layerIds));
+  const roots = snapshot.document.layerTree.rootLayerIds;
+  if (delta === 1) {
+    return roots.some(
+      (id, index) =>
+        selected.has(id) && index < roots.length - 1 && !selected.has(roots[index + 1] as LayerId),
+    );
+  }
+  return roots.some(
+    (id, index) => selected.has(id) && index > 0 && !selected.has(roots[index - 1] as LayerId),
+  );
+}
+
+export function moveRootLayerSelectionStepSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  layerIds: readonly LayerId[],
+  delta: -1 | 1,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  const ordered = orderedRootSelectionV1(snapshot, layerIds);
+  const selected = new Set(ordered);
+  const roots = [...snapshot.document.layerTree.rootLayerIds];
+  if (delta === 1) {
+    for (let index = roots.length - 2; index >= 0; index -= 1) {
+      const current = roots[index];
+      const next = roots[index + 1];
+      if (
+        current !== undefined &&
+        next !== undefined &&
+        selected.has(current) &&
+        !selected.has(next)
+      ) {
+        roots[index] = next;
+        roots[index + 1] = current;
+      }
+    }
+  } else {
+    for (let index = 1; index < roots.length; index += 1) {
+      const current = roots[index];
+      const previous = roots[index - 1];
+      if (
+        current !== undefined &&
+        previous !== undefined &&
+        selected.has(current) &&
+        !selected.has(previous)
+      ) {
+        roots[index] = previous;
+        roots[index - 1] = current;
+      }
+    }
+  }
+  if (roots.every((id, index) => id === snapshot.document.layerTree.rootLayerIds[index])) {
+    throw new Error('multi-layer move has no changes');
+  }
+  return documentWithStateV1(
+    snapshot,
+    revision,
+    roots,
+    snapshot.document.layerTree.layers,
+    snapshot.committedStrokes,
+    now,
+  );
+}
+
+export function reorderRootLayerSelectionSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  layerIds: readonly LayerId[],
+  targetIndex: number,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  const ordered = orderedRootSelectionV1(snapshot, layerIds);
+  const selected = new Set(ordered);
+  const remaining = snapshot.document.layerTree.rootLayerIds.filter((id) => !selected.has(id));
+  if (!Number.isSafeInteger(targetIndex) || targetIndex < 0 || targetIndex > remaining.length) {
+    throw new RangeError('multi-layer reorder targetIndex is outside the remaining stack');
+  }
+  const roots = [...remaining.slice(0, targetIndex), ...ordered, ...remaining.slice(targetIndex)];
+  if (roots.every((id, index) => id === snapshot.document.layerTree.rootLayerIds[index])) {
+    throw new Error('multi-layer reorder has no changes');
+  }
+  return documentWithStateV1(
+    snapshot,
+    revision,
+    roots,
+    snapshot.document.layerTree.layers,
+    snapshot.committedStrokes,
+    now,
+  );
+}
+
 export function reorderRootLayerSnapshotV1(
   snapshot: PaintProjectSnapshotV1,
   layerId: LayerId,

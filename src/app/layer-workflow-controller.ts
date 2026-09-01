@@ -9,10 +9,13 @@ import {
   type CreatableLayerKindV1,
 } from './layer-creation.js';
 import {
+  canMoveRootLayerSelectionStepV1,
   clearLayerSnapshotV1,
   deleteRootLayerSnapshotV1,
   duplicateRootLayerSnapshotV1,
+  moveRootLayerSelectionStepSnapshotV1,
   renameLayerSnapshotV1,
+  reorderRootLayerSelectionSnapshotV1,
   reorderRootLayerSnapshotV1,
   setLayerAllLockSnapshotV1,
   setLayerAlphaLockSnapshotV1,
@@ -313,9 +316,15 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     alphaLockButton.disabled = disabled;
     opacityInput.disabled = disabled;
     const roots = documentValue.layerTree.rootLayerIds;
-    const activeIndex = active === null ? -1 : roots.indexOf(active.id);
-    moveUpButton.disabled = activeIndex < 0 || activeIndex >= roots.length - 1;
-    moveDownButton.disabled = activeIndex <= 0;
+    const selectedRoots = options.paintSession
+      .selectedLayerIds()
+      .filter((id) => roots.includes(id));
+    moveUpButton.disabled =
+      selectedRoots.length === 0 ||
+      !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, 1);
+    moveDownButton.disabled =
+      selectedRoots.length === 0 ||
+      !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, -1);
     if (active !== null) {
       opacityInput.value = String(Math.round(active.layer.opacity * 100));
       lockButton.setAttribute('aria-pressed', active.layer.locks.all ? 'true' : 'false');
@@ -700,14 +709,38 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     const current = options.paintSession.projectSnapshot();
     const layerId = options.paintSession.activeLayerId();
     if (current === null || layerId === null) return;
-    const index = current.document.layerTree.rootLayerIds.indexOf(layerId);
-    const target = index + delta;
-    if (index < 0 || target < 0 || target >= current.document.layerTree.rootLayerIds.length) return;
-    commitMutation(
-      'layer.reorder',
-      (before, revision) => reorderRootLayerSnapshotV1(before, layerId, target, revision),
-      () => layerId,
-    );
+    const roots = current.document.layerTree.rootLayerIds;
+    const selectedRoots = options.paintSession
+      .selectedLayerIds()
+      .filter((id) => roots.includes(id));
+    if (selectedRoots.length <= 1) {
+      const index = roots.indexOf(layerId);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= roots.length) return;
+      commitMutation(
+        'layer.reorder',
+        (before, revision) => reorderRootLayerSnapshotV1(before, layerId, target, revision),
+        () => layerId,
+      );
+      return;
+    }
+    if (!canMoveRootLayerSelectionStepV1(current, selectedRoots, delta)) return;
+    options.schedule(async () => {
+      try {
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          'layer.reorder.multi',
+          (before, revision) =>
+            moveRootLayerSelectionStepSnapshotV1(before, selectedRoots, delta, revision),
+        );
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
   };
 
   const onMoveUp = (): void => runMove(1);
@@ -824,7 +857,11 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       return;
     }
     const targetLayerId = parseLayerId(value);
-    if (targetLayerId === drag.sourceLayerId) {
+    if (
+      targetLayerId === drag.sourceLayerId ||
+      (options.paintSession.isLayerSelected(drag.sourceLayerId) &&
+        options.paintSession.isLayerSelected(targetLayerId))
+    ) {
       drag.targetLayerId = null;
       return;
     }
@@ -847,18 +884,32 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     if (!finished.dragging || finished.targetLayerId === null) return;
     const current = options.paintSession.projectSnapshot();
     if (current === null) return;
-    const rootsWithoutSource = current.document.layerTree.rootLayerIds.filter(
-      (id) => id !== finished.sourceLayerId,
-    );
-    const targetIndex = rootsWithoutSource.indexOf(finished.targetLayerId);
+    const roots = current.document.layerTree.rootLayerIds;
+    const selectedRoots = options.paintSession.isLayerSelected(finished.sourceLayerId)
+      ? options.paintSession.selectedLayerIds().filter((id) => roots.includes(id))
+      : [finished.sourceLayerId];
+    const selectedSet = new Set(selectedRoots);
+    if (selectedSet.has(finished.targetLayerId)) return;
+    const rootsWithoutSelection = roots.filter((id) => !selectedSet.has(id));
+    const targetIndex = rootsWithoutSelection.indexOf(finished.targetLayerId);
     if (targetIndex < 0) return;
     const finalIndex = finished.beforeOnScreen ? targetIndex + 1 : targetIndex;
-    commitMutation(
-      'layer.reorder',
-      (before, revision) =>
-        reorderRootLayerSnapshotV1(before, finished.sourceLayerId, finalIndex, revision),
-      () => finished.sourceLayerId,
-    );
+    options.schedule(async () => {
+      try {
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          selectedRoots.length > 1 ? 'layer.reorder.multi' : 'layer.reorder',
+          (before, revision) =>
+            reorderRootLayerSelectionSnapshotV1(before, selectedRoots, finalIndex, revision),
+        );
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
   };
 
   maskButton.addEventListener('click', onMask);
