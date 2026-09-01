@@ -19,6 +19,7 @@ import {
 
 export const PAINT_RESUME_PROJECT_KEY_V1 = 'illustro.m4.active-project' as const;
 export const PAINT_STORAGE_REQUEST_TIMEOUT_MS = 10_000 as const;
+export const PAINT_DIRTY_COALESCE_MS = 120 as const;
 
 export type PaintPersistenceStatusV1 =
   | 'idle'
@@ -227,6 +228,9 @@ export class PaintPersistenceControllerV1 {
   #status: PaintPersistenceStatusV1 = 'idle';
   #lastDurableTransactionId: CommandTransactionId | null = null;
   #lastError: string | null = null;
+  #scheduledDirtyTransactionId: CommandTransactionId | null = null;
+  #scheduledDirtyTimer: number | null = null;
+  #dirtyTail: Promise<void> = Promise.resolve();
   #disposed = false;
 
   constructor(
@@ -464,14 +468,54 @@ export class PaintPersistenceControllerV1 {
     });
   }
 
+  scheduleDirty(transactionIdValue: CommandTransactionId | string = crypto.randomUUID()): void {
+    this.#assertNotDisposed();
+    this.#requireProject();
+    if (!isCommandTransactionId(transactionIdValue)) {
+      throw new TypeError('paint persistence transactionId must be a UUID');
+    }
+    this.#scheduledDirtyTransactionId = transactionIdValue;
+    if (this.#scheduledDirtyTimer !== null) return;
+    this.#scheduledDirtyTimer = globalThis.setTimeout(() => {
+      this.#scheduledDirtyTimer = null;
+      void this.#flushScheduledDirty().catch(() => undefined);
+    }, PAINT_DIRTY_COALESCE_MS);
+  }
+
   async markDirty(
     transactionIdValue: CommandTransactionId | string = crypto.randomUUID(),
   ): Promise<void> {
     this.#assertNotDisposed();
-    const projectId = this.#requireProject();
     if (!isCommandTransactionId(transactionIdValue)) {
       throw new TypeError('paint persistence transactionId must be a UUID');
     }
+    await this.#flushScheduledDirty();
+    await this.#enqueueDirtyNow(transactionIdValue);
+  }
+
+  async #flushScheduledDirty(): Promise<void> {
+    const transactionId = this.#scheduledDirtyTransactionId;
+    if (transactionId === null) return;
+    this.#scheduledDirtyTransactionId = null;
+    if (this.#scheduledDirtyTimer !== null) {
+      globalThis.clearTimeout(this.#scheduledDirtyTimer);
+      this.#scheduledDirtyTimer = null;
+    }
+    await this.#enqueueDirtyNow(transactionId);
+  }
+
+  #enqueueDirtyNow(transactionId: CommandTransactionId): Promise<void> {
+    const task = this.#dirtyTail.then(
+      () => this.#markDirtyNow(transactionId),
+      () => this.#markDirtyNow(transactionId),
+    );
+    this.#dirtyTail = task;
+    return task;
+  }
+
+  async #markDirtyNow(transactionId: CommandTransactionId): Promise<void> {
+    this.#assertNotDisposed();
+    const projectId = this.#requireProject();
     const document = this.#session.currentDocument();
     if (document === null) throw new Error('paint persistence requires an active document');
     const nextSequence = this.#sequence + 1;
@@ -481,7 +525,7 @@ export class PaintPersistenceControllerV1 {
       await this.#request({
         type: 'storage.persistence.markDirty',
         projectId,
-        transactionId: transactionIdValue,
+        transactionId,
         sequence: nextSequence,
         documentRevision: document.revision,
         snapshot: this.projectSnapshot(),
@@ -515,6 +559,11 @@ export class PaintPersistenceControllerV1 {
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
+    if (this.#scheduledDirtyTimer !== null) {
+      globalThis.clearTimeout(this.#scheduledDirtyTimer);
+      this.#scheduledDirtyTimer = null;
+    }
+    this.#scheduledDirtyTransactionId = null;
     this.#worker.removeEventListener('message', this.#messageListener);
     for (const pending of this.#pending.values()) {
       globalThis.clearTimeout(pending.timeout);
@@ -527,6 +576,8 @@ export class PaintPersistenceControllerV1 {
 
   async #flush(reason: 'recovery' | 'autosave'): Promise<void> {
     this.#assertNotDisposed();
+    await this.#flushScheduledDirty();
+    await this.#dirtyTail;
     const projectId = this.#requireProject();
     const previousStatus = this.#status;
     this.#setStatus('saving');

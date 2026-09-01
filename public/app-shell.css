@@ -88,7 +88,8 @@ body {
 
 .shell-build-identity,
 .shell-diagnostics-link,
-.shell-export-button {
+.shell-export-button,
+.shell-history-button {
   border: 1px solid #e2e8f2;
   border-radius: 999px;
   background: #fff;
@@ -107,18 +108,43 @@ body {
   padding: 8px 10px;
 }
 
-.shell-export-button {
+.shell-export-button,
+.shell-history-button {
   cursor: pointer;
   font-family: inherit;
 }
 
-.shell-export-button:disabled {
+.shell-history-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 58px;
+  min-height: 32px;
+  padding: 7px 9px;
+  color: #344058;
+  font-weight: 700;
+}
+
+.shell-history-button > span[aria-hidden='true'] {
+  font-size: 18px;
+  line-height: 0.8;
+}
+
+.shell-export-button:disabled,
+.shell-history-button:disabled {
   cursor: default;
-  opacity: 0.5;
+  opacity: 0.38;
+}
+
+.shell-history-button:not(:disabled):hover {
+  border-color: #cbd8ea;
+  background: #f6f9ff;
 }
 
 .shell-diagnostics-link:focus-visible,
-.shell-export-button:focus-visible {
+.shell-export-button:focus-visible,
+.shell-history-button:focus-visible {
   outline: 2px solid #60a5fa;
   outline-offset: 2px;
 }
@@ -746,6 +772,15 @@ body {
 
 @media (max-width: 900px) {
   .shell-topbar-menus > span:nth-of-type(n + 3) {
+    display: none;
+  }
+
+  .shell-history-button {
+    min-width: 36px;
+    padding-inline: 8px;
+  }
+
+  .shell-history-label {
     display: none;
   }
 

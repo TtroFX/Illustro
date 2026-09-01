@@ -78,6 +78,8 @@ const maskPaint = new MaskPaintControllerV1({
 });
 let paintRenderTask: Promise<void> = Promise.resolve();
 let refreshLayerUi = (): void => {};
+const historyUndoButton = document.querySelector<HTMLButtonElement>('#history-undo');
+const historyRedoButton = document.querySelector<HTMLButtonElement>('#history-redo');
 
 function enqueuePaintRender(operation: () => Promise<unknown>): void {
   paintRenderTask = paintRenderTask
@@ -97,6 +99,8 @@ function publishPaintHistory(): void {
   root.dataset.illustroHistoryCursor = String(history.cursor);
   root.dataset.illustroHistoryUndo = history.canUndo ? 'enabled' : 'disabled';
   root.dataset.illustroHistoryRedo = history.canRedo ? 'enabled' : 'disabled';
+  if (historyUndoButton !== null) historyUndoButton.disabled = !history.canUndo;
+  if (historyRedoButton !== null) historyRedoButton.disabled = !history.canRedo;
 }
 
 function publishDocumentState(documentValue: DocumentV1): void {
@@ -255,7 +259,7 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
           enqueuePaintRender(async () => {
             const finalization = await renderer.finalizeBaselineStroke(strokeId, dabs);
             const transaction = paintHistory.commitCompletedStroke(strokeId);
-            await paintPersistence.markDirty(transaction.transactionId);
+            paintPersistence.scheduleDirty(transaction.transactionId);
             root.dataset.illustroHistoryTransaction = transaction.transactionId;
             publishPaintHistory();
             root.dataset.illustroPaintVisible = 'committed';
@@ -285,6 +289,22 @@ root.dataset.illustroMaskPaintDabs = '0';
 root.dataset.illustroMaskPaintDirtyTiles = '0';
 publishPaintHistory();
 
+function requestPaintHistoryAction(direction: 'undo' | 'redo'): void {
+  enqueuePaintRender(async () => {
+    const changed = direction === 'redo' ? await paintHistory.redo() : await paintHistory.undo();
+    if (!changed) {
+      publishPaintHistory();
+      return;
+    }
+    paintPersistence.scheduleDirty();
+    root.dataset.illustroPaintVisible = 'committed';
+    const documentValue = paintSession.currentDocument();
+    if (documentValue !== null) publishDocumentState(documentValue);
+    publishPaintHistory();
+    incrementPerformanceCounter(direction === 'redo' ? 'history.paint.redo' : 'history.paint.undo');
+  });
+}
+
 const onPaintHistoryKeyDown = (event: KeyboardEvent): void => {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
   const target = event.target;
@@ -300,17 +320,10 @@ const onPaintHistoryKeyDown = (event: KeyboardEvent): void => {
   const undo = key === 'z' && !event.shiftKey;
   if (!undo && !redo) return;
   event.preventDefault();
-  enqueuePaintRender(async () => {
-    const changed = redo ? await paintHistory.redo() : await paintHistory.undo();
-    if (!changed) return;
-    await paintPersistence.markDirty();
-    root.dataset.illustroPaintVisible = 'committed';
-    const documentValue = paintSession.currentDocument();
-    if (documentValue !== null) publishDocumentState(documentValue);
-    publishPaintHistory();
-    incrementPerformanceCounter(redo ? 'history.paint.redo' : 'history.paint.undo');
-  });
+  requestPaintHistoryAction(redo ? 'redo' : 'undo');
 };
+historyUndoButton?.addEventListener('click', () => requestPaintHistoryAction('undo'));
+historyRedoButton?.addEventListener('click', () => requestPaintHistoryAction('redo'));
 window.addEventListener('keydown', onPaintHistoryKeyDown);
 
 const exportPngButton = document.querySelector<HTMLButtonElement>('#export-png');

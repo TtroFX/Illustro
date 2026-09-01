@@ -10,6 +10,7 @@ import { parseRevision, type Revision } from '../domain/identity.js';
 import {
   PaintSessionControllerV1,
   parsePaintProjectSnapshotV1,
+  parsePaintStrokeHistoryStateV1,
   type PaintDocumentSettingsUpdateV1,
 } from './paint-session-controller.js';
 
@@ -67,20 +68,36 @@ export class PaintHistoryControllerV1 {
     if (this.#revisionHighWater >= Number.MAX_SAFE_INTEGER) {
       throw new RangeError('paint document revision high-water is exhausted');
     }
+    const strokeIndex = before.committedStrokes.length;
     const afterRevision = parseRevision(
       Math.max(this.#revisionHighWater, before.document.revision) + 1,
     );
     const committed = this.#session.commitCompletedPaintStroke(strokeId, afterRevision);
     if (committed === null) throw new Error(`completed paint stroke not found: ${strokeId}`);
+    const sharedStrokeState = {
+      schema: 'illustro.paint-stroke-history/1' as const,
+      strokeIndex,
+      stroke: committed.committed,
+    };
     const transaction = createHistoryTransactionV1({
       transactionId: crypto.randomUUID(),
       commandId: 'brush.stroke',
       beforeRevision: committed.before.document.revision,
       afterRevision: committed.after.document.revision,
       payload: createHistoryPayloadV1({
-        strategy: 'object-before-after',
-        before: committed.before,
-        after: committed.after,
+        strategy: 'typed-before-after',
+        before: {
+          ...sharedStrokeState,
+          revision: committed.before.document.revision,
+          modifiedAt: committed.before.document.modifiedAt,
+          present: false,
+        },
+        after: {
+          ...sharedStrokeState,
+          revision: committed.after.document.revision,
+          modifiedAt: committed.after.document.modifiedAt,
+          present: true,
+        },
       }),
     });
     this.#spine.commit(transaction);
@@ -159,6 +176,13 @@ export class PaintHistoryControllerV1 {
   async undo(spillAdapter?: HistorySpillAdapterV1): Promise<boolean> {
     return this.#spine.undo(async (transaction, direction) => {
       const value = direction === 'undo' ? transaction.payload.before : transaction.payload.after;
+      if (
+        transaction.commandId === 'brush.stroke' &&
+        transaction.payload.strategy === 'typed-before-after'
+      ) {
+        await this.#session.restoreStrokeHistoryState(parsePaintStrokeHistoryStateV1(value));
+        return;
+      }
       await this.#session.restoreProjectSnapshot(parsePaintProjectSnapshotV1(value));
     }, spillAdapter);
   }
@@ -166,6 +190,13 @@ export class PaintHistoryControllerV1 {
   async redo(spillAdapter?: HistorySpillAdapterV1): Promise<boolean> {
     return this.#spine.redo(async (transaction, direction) => {
       const value = direction === 'undo' ? transaction.payload.before : transaction.payload.after;
+      if (
+        transaction.commandId === 'brush.stroke' &&
+        transaction.payload.strategy === 'typed-before-after'
+      ) {
+        await this.#session.restoreStrokeHistoryState(parsePaintStrokeHistoryStateV1(value));
+        return;
+      }
       await this.#session.restoreProjectSnapshot(parsePaintProjectSnapshotV1(value));
     }, spillAdapter);
   }

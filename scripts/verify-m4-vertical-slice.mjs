@@ -14,13 +14,21 @@ for (const file of requiredFiles) {
 const main = fs.readFileSync('src/app/main.ts', 'utf8');
 for (const contract of [
   'paintHistory.commitCompletedStroke',
-  'paintPersistence.markDirty',
+  'paintPersistence.scheduleDirty',
   'paintPersistence.initialize',
   'encodePaintSnapshotToPngV1',
   'downloadPngBlobV1',
   'export-png',
 ]) {
   if (!main.includes(contract)) throw new Error(`M4 production wiring missing: ${contract}`);
+}
+const indexSource = fs.readFileSync('src/index.html', 'utf8');
+for (const control of ['id="history-undo"', 'id="history-redo"']) {
+  if (!indexSource.includes(control))
+    throw new Error(`M4 visible history control missing: ${control}`);
+}
+if (!main.includes('paintPersistence.scheduleDirty')) {
+  throw new Error('M4 brush persistence must stay off the immediate render queue');
 }
 const exportSource = fs.readFileSync('src/export/png-export.ts', 'utf8');
 for (const contract of [

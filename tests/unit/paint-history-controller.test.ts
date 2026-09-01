@@ -79,6 +79,9 @@ describe('M4 stroke history vertical slice', () => {
     const transaction = history.commitCompletedStroke(strokeId);
 
     expect(transaction.commandId).toBe('brush.stroke');
+    expect(transaction.payload.strategy).toBe('typed-before-after');
+    expect(JSON.stringify(transaction.payload)).toContain('illustro.paint-stroke-history/1');
+    expect(JSON.stringify(transaction.payload)).not.toContain('illustro.paint-project-snapshot/1');
     expect(transaction.beforeRevision).toBe(0);
     expect(transaction.afterRevision).toBe(1);
     expect(history.snapshot()).toMatchObject({

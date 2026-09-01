@@ -87,6 +87,15 @@ export interface PaintStrokeCommitV1 {
   readonly committed: CompletedPaintStrokeV1;
 }
 
+export interface PaintStrokeHistoryStateV1 {
+  readonly schema: 'illustro.paint-stroke-history/1';
+  readonly revision: Revision;
+  readonly modifiedAt: string;
+  readonly strokeIndex: number;
+  readonly present: boolean;
+  readonly stroke: CompletedPaintStrokeV1;
+}
+
 export interface PaintDocumentSettingsUpdateV1 {
   readonly ppi?: number;
   readonly background?: CanvasBackgroundSpec;
@@ -204,6 +213,29 @@ function parseStoredCompletedStroke(value: unknown): CompletedPaintStrokeV1 {
     value.dabs.map(parseStoredDab),
     value.bakedToRasterLayer === true,
   );
+}
+
+export function parsePaintStrokeHistoryStateV1(value: unknown): PaintStrokeHistoryStateV1 {
+  if (!isRecord(value) || value.schema !== 'illustro.paint-stroke-history/1') {
+    throw new TypeError('invalid paint stroke history schema');
+  }
+  if (!Number.isSafeInteger(value.strokeIndex) || (value.strokeIndex as number) < 0) {
+    throw new TypeError('invalid paint stroke history index');
+  }
+  if (typeof value.present !== 'boolean') {
+    throw new TypeError('invalid paint stroke history presence');
+  }
+  if (typeof value.modifiedAt !== 'string' || Number.isNaN(Date.parse(value.modifiedAt))) {
+    throw new TypeError('invalid paint stroke history timestamp');
+  }
+  return Object.freeze({
+    schema: 'illustro.paint-stroke-history/1' as const,
+    revision: parseRevision(value.revision),
+    modifiedAt: value.modifiedAt,
+    strokeIndex: value.strokeIndex as number,
+    present: value.present,
+    stroke: parseStoredCompletedStroke(value.stroke),
+  });
 }
 
 export function parsePaintProjectSnapshotV1(value: unknown): PaintProjectSnapshotV1 {
@@ -586,6 +618,47 @@ export class PaintSessionControllerV1 {
     this.#committedStrokes.length = 0;
     this.#committedStrokes.push(...normalized.committedStrokes);
     return this.projectSnapshot()!;
+  }
+
+  async restoreStrokeHistoryState(
+    state: PaintStrokeHistoryStateV1,
+  ): Promise<PaintProjectSnapshotV1> {
+    if (this.#disposed) throw new Error('paint session is disposed');
+    const normalized = parsePaintStrokeHistoryStateV1(state);
+    const document = this.#document;
+    if (document === null) throw new Error('paint stroke history requires an active document');
+    if (!(normalized.stroke.stroke.layerId in document.layerTree.layers)) {
+      throw new Error('paint stroke history targets a missing layer');
+    }
+
+    const strokeId = normalized.stroke.stroke.strokeId;
+    const existingIndex = this.#committedStrokes.findIndex(
+      (entry) => entry.stroke.strokeId === strokeId,
+    );
+    if (normalized.present) {
+      if (existingIndex >= 0) this.#committedStrokes.splice(existingIndex, 1);
+      const insertionIndex = Math.min(normalized.strokeIndex, this.#committedStrokes.length);
+      this.#committedStrokes.splice(insertionIndex, 0, normalized.stroke);
+    } else if (existingIndex >= 0) {
+      this.#committedStrokes.splice(existingIndex, 1);
+    }
+
+    this.#document = Object.freeze({
+      ...document,
+      revision: normalized.revision,
+      modifiedAt: normalized.modifiedAt,
+    });
+    this.#clearActiveStroke();
+    this.#completedStrokes.length = 0;
+    await this.#renderer.restoreBaselineStrokes(
+      this.#committedStrokes.map((entry) => ({
+        strokeId: entry.stroke.strokeId,
+        dabs: entry.dabs,
+      })),
+    );
+    const snapshot = this.projectSnapshot();
+    if (snapshot === null) throw new Error('paint stroke history restore lost the active document');
+    return snapshot;
   }
 
   activeDabs(): readonly BaselineBrushDabV1[] {
