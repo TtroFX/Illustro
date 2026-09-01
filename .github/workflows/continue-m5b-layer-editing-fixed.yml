@@ -1,0 +1,139 @@
+name: Continue M5B Layer Editing Fixed
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify-record:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply corrected M5B layer editing operations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          source = subprocess.check_output([
+              'git', 'show',
+              '197ae7705a8e39a95bd13c56c3e73fa64a3c9e47:.github/workflows/continue-m5b-layer-editing.yml'
+          ], text=True)
+          start_marker = '      - name: Apply M5B layer editing operations\n        run: |\n'
+          end_marker = '      - name: Canonical formatting\n'
+          if start_marker not in source or end_marker not in source:
+              raise SystemExit('original M5B editing apply block not found')
+          body = source.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          lines = []
+          for line in body.splitlines():
+              if line.startswith('          '):
+                  lines.append(line[10:])
+              elif line == '':
+                  lines.append('')
+              else:
+                  raise SystemExit(f'unexpected apply-block indentation: {line!r}')
+          Path('/tmp/apply-m5b-editing.sh').write_text('\n'.join(lines) + '\n')
+          PY
+          bash /tmp/apply-m5b-editing.sh
+          python - <<'PY'
+          from pathlib import Path
+
+          # Keep ARIA semantics valid without changing the fixed-footer interaction model.
+          path = Path('src/index.html')
+          text = path.read_text()
+          text = text.replace(
+              '<div id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">',
+              '<fieldset id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">',
+              1,
+          )
+          start = text.find('<fieldset id="layer-actions"')
+          if start < 0:
+              raise SystemExit('layer-actions fieldset start missing')
+          end = text.find('</div>', start)
+          if end < 0:
+              raise SystemExit('layer-actions closing div missing')
+          text = text[:end] + '</fieldset>' + text[end + len('</div>'):]
+          path.write_text(text)
+
+          path = Path('public/app-shell.css')
+          text = path.read_text()
+          old = ".shell-layer-actions {\n  display: grid;\n  gap: 5px;\n  padding: 7px 8px 8px;\n  border-top: 1px solid #eef1f5;"
+          new = ".shell-layer-actions {\n  display: grid;\n  min-inline-size: 0;\n  gap: 5px;\n  margin: 0;\n  padding: 7px 8px 8px;\n  border: 0;\n  border-top: 1px solid #eef1f5;"
+          if old not in text:
+              raise SystemExit('layer-actions CSS target missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Canonical formatting
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M2 persistence inspection
+        run: npm run verify:m2
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical-slice inspection
+        run: npm run verify:m4
+      - name: M5A inspection
+        run: npm run verify:m5a
+      - name: M5B layer system inspection
+        run: npm run verify:m5b
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record verified M5B editing batch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          for item in [
+              'M5B-009 layer duplicate',
+              'M5B-010 layer delete',
+              'M5B-011 layer rename',
+              'M5B-012 layer reorder',
+              'M5B-013 layer visibility',
+              'M5B-014 layer opacity',
+              'M5B-015 layer lock',
+              'M5B-016 alpha lock',
+              'M5B-017 clipping',
+          ]:
+              old = f'{item}:未完了'
+              if old not in text:
+                  raise SystemExit(f'progress target missing: {old}')
+              text = text.replace(old, f'{item}:完了', 1)
+          path.write_text(text)
+          PY
+          rm .github/workflows/continue-m5b-layer-editing-fixed.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: add M5B layer editing operations [skip ci]'
+          git push origin HEAD:main
