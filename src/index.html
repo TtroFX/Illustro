@@ -39,6 +39,19 @@
               <button id="document-flip-vertical" type="button">上下反転</button>
             </div>
           </details>
+          <details class="shell-menu-dropdown">
+            <summary>レイヤー</summary>
+            <div class="shell-menu-popover">
+              <button id="layer-add-raster" type="button">ラスターレイヤーを追加</button>
+              <button id="layer-add-folder" type="button">フォルダを追加</button>
+              <button id="layer-add-vector" type="button">ベクター/シェイプレイヤーを追加</button>
+              <button id="layer-add-adjustment" type="button">調整レイヤーを追加</button>
+              <button id="layer-add-fill" type="button">塗りレイヤーを追加</button>
+              <button id="layer-add-gradient" type="button">グラデーションレイヤーを追加</button>
+              <button id="layer-add-mask" type="button">レイヤーマスクを追加</button>
+              <button id="layer-add-linked-object" type="button">リンクオブジェクトを追加</button>
+            </div>
+          </details>
           <span>選択範囲</span>
           <details class="shell-menu-dropdown">
             <summary>表示</summary>
@@ -91,9 +104,7 @@
             <span class="shell-line"></span>
             <span class="shell-line shell-line-short"></span>
           </div>
-          <div class="shell-inspector-list" aria-hidden="true">
-            <span></span><span></span><span class="is-selected"></span><span></span><span></span>
-          </div>
+          <fieldset id="layer-list" class="shell-inspector-list" aria-label="レイヤー一覧"></fieldset>
           <div class="shell-inspector-card shell-inspector-card-lower" aria-hidden="true">
             <span class="shell-line shell-line-wide"></span>
             <div class="shell-preset-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>

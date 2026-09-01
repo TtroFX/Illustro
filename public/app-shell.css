@@ -324,20 +324,115 @@ body {
 
 .shell-inspector-list {
   display: grid;
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
   align-content: start;
   gap: 6px;
   padding: 10px 8px;
 }
 
-.shell-inspector-list span {
+.shell-inspector-list > span {
   display: block;
   height: 42px;
   border-radius: 8px;
   background: linear-gradient(90deg, #f8fafc 0 18%, #edf1f7 18% 24%, #f8fafc 24%);
 }
 
-.shell-inspector-list span.is-selected {
+.shell-inspector-list > span.is-selected {
   background: linear-gradient(90deg, #ff4e9a 0 4px, #ffe8f2 4px 100%);
+}
+
+
+.shell-layer-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: #fff;
+  color: #1f2942;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shell-layer-row:hover {
+  background: #f8faff;
+}
+
+.shell-layer-row.is-selected {
+  border-color: #ffd1e3;
+  background: linear-gradient(90deg, #ff3d8d 0 4px, #ffe8f2 4px 100%);
+}
+
+.shell-layer-row:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+.shell-layer-thumbnail {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #dfe5ee;
+  border-radius: 5px;
+  background:
+    linear-gradient(45deg, #eef1f5 25%, transparent 25% 75%, #eef1f5 75%),
+    linear-gradient(45deg, #eef1f5 25%, #fff 25% 75%, #eef1f5 75%);
+  background-position: 0 0, 4px 4px;
+  background-size: 8px 8px;
+}
+
+.shell-layer-thumbnail[data-layer-type='folder'] {
+  border-color: #c4b5fd;
+  background: #ede9fe;
+}
+
+.shell-layer-thumbnail[data-layer-type='fill'],
+.shell-layer-thumbnail[data-layer-type='gradient'] {
+  background: linear-gradient(135deg, #111827, #f8fafc);
+}
+
+.shell-layer-thumbnail[data-layer-type='adjustment'] {
+  background: linear-gradient(135deg, #dbeafe, #fce7f3);
+}
+
+.shell-layer-thumbnail[data-layer-type='vector'] {
+  background: linear-gradient(135deg, #ecfeff, #cffafe);
+}
+
+.shell-layer-thumbnail[data-layer-type='linkedObject'] {
+  background: linear-gradient(135deg, #f3e8ff, #e0e7ff);
+}
+
+.shell-layer-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.shell-layer-name {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-layer-kind {
+  color: #7b879d;
+  font-size: 9px;
+}
+
+.shell-layer-mask-count {
+  min-width: 28px;
+  color: #748199;
+  font-size: 9px;
+  text-align: right;
 }
 
 .shell-inspector-card-lower {

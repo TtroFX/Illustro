@@ -266,14 +266,14 @@ M5A-030 create/resize/import admission control integration:完了
 M5A-検査 M5A内部検査:完了
 
 ## M5B — Layer / Mask / Linked Object System
-M5B-001 Raster Layer creation:未完了
-M5B-002 Folder creation:未完了
-M5B-003 Vector/Shape Layer creation:未完了
-M5B-004 Adjustment Layer creation:未完了
-M5B-005 Fill Layer creation:未完了
-M5B-006 Gradient Layer creation:未完了
-M5B-007 Layer Mask creation:未完了
-M5B-008 Linked/File Object Layer creation:未完了
+M5B-001 Raster Layer creation:完了
+M5B-002 Folder creation:完了
+M5B-003 Vector/Shape Layer creation:完了
+M5B-004 Adjustment Layer creation:完了
+M5B-005 Fill Layer creation:完了
+M5B-006 Gradient Layer creation:完了
+M5B-007 Layer Mask creation:完了
+M5B-008 Linked/File Object Layer creation:完了
 M5B-009 layer duplicate:未完了
 M5B-010 layer delete:未完了
 M5B-011 layer rename:未完了

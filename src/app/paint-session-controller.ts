@@ -347,6 +347,20 @@ export class PaintSessionControllerV1 {
     return this.#document;
   }
 
+  activeLayerId(): LayerId | null {
+    return this.#activeLayerId;
+  }
+
+  setActiveLayer(layerId: LayerId): PaintSessionSnapshotV1 {
+    const document = this.#document;
+    if (document === null) throw new Error('active layer selection requires a document');
+    if (!(layerId in document.layerTree.layers))
+      throw new Error(`active layer is missing: ${layerId}`);
+    if (this.#activeLayerId !== layerId) this.#clearActiveStroke();
+    this.#activeLayerId = layerId;
+    return this.snapshot();
+  }
+
   activeStrokeId(): string | null {
     return this.#activeStroke?.strokeId ?? null;
   }
@@ -459,8 +473,13 @@ export class PaintSessionControllerV1 {
         dabs: entry.dabs,
       })),
     );
+    const previousActiveLayerId = this.#activeLayerId;
     this.#document = normalized.document;
-    this.#activeLayerId = normalized.document.layerTree.rootLayerIds[0] ?? null;
+    this.#activeLayerId =
+      previousActiveLayerId !== null &&
+      previousActiveLayerId in normalized.document.layerTree.layers
+        ? previousActiveLayerId
+        : (normalized.document.layerTree.rootLayerIds[0] ?? null);
     this.#clearActiveStroke();
     this.#completedStrokes.length = 0;
     this.#committedStrokes.length = 0;
@@ -511,6 +530,8 @@ export class PaintSessionControllerV1 {
     if (this.#disposed || this.#document === null || this.#activeLayerId === null) {
       return this.snapshot();
     }
+    const activeLayer = this.#document.layerTree.layers[this.#activeLayerId];
+    if (activeLayer?.type !== 'raster') return this.snapshot();
     const latest = batch.confirmed.at(-1);
     if (latest === undefined) return this.snapshot();
     const source = strokeSource(latest);

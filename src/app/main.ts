@@ -17,6 +17,7 @@ import type { DocumentV1 } from '../domain/document.js';
 import { installDocumentWorkflowControllerV1 } from './document-workflow-controller.js';
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
 import { installGridControllerV1 } from './grid-controller.js';
+import { installLayerWorkflowControllerV1 } from './layer-workflow-controller.js';
 import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
 import { installDiagnosticsHook } from './diagnostics.js';
 import { PaintHistoryControllerV1 } from './paint-history-controller.js';
@@ -67,6 +68,7 @@ const paintPersistence = new PaintPersistenceControllerV1(
   },
 );
 let paintRenderTask: Promise<void> = Promise.resolve();
+let refreshLayerUi = (): void => {};
 
 function enqueuePaintRender(operation: () => Promise<unknown>): void {
   paintRenderTask = paintRenderTask
@@ -108,6 +110,7 @@ function publishDocumentState(documentValue: DocumentV1): void {
   } else {
     shell.canvas.style.removeProperty('--illustro-canvas-background');
   }
+  refreshLayerUi();
 }
 
 const documentWorkflow = installDocumentWorkflowControllerV1({
@@ -131,6 +134,16 @@ const documentGeometryWorkflow = installDocumentGeometryWorkflowControllerV1({
   onDocumentChanged: publishDocumentState,
   onHistoryChanged: publishPaintHistory,
 });
+
+const layerWorkflow = installLayerWorkflowControllerV1({
+  root,
+  paintSession,
+  paintHistory,
+  paintPersistence,
+  schedule: enqueuePaintRender,
+  onHistoryChanged: publishPaintHistory,
+});
+refreshLayerUi = (): void => layerWorkflow.refresh();
 
 const pointerTransport = createPointerInputTransportV1(workers.render, {
   sharedMemoryFastPath:
@@ -342,6 +355,7 @@ globalThis.addEventListener(
     window.removeEventListener('keydown', onPaintHistoryKeyDown);
     exportPngButton?.removeEventListener('click', onExportPngClick);
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
+    layerWorkflow.dispose();
     documentGeometryWorkflow.dispose();
     documentWorkflow.dispose();
     grid.dispose();
