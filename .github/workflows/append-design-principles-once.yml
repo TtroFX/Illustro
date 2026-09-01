@@ -1,4 +1,4 @@
-name: Append mobile support supersession once
+name: Mark mobile step 004 complete once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  append-mobile-support-supersession:
+  mark-mobile-step-004:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,30 +18,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Record authoritative mobile editor target
+      - name: Mark MOBILE-004 complete
         shell: bash
-        env:
-          MEMO_PAYLOAD: CiMjIE1vYmlsZSBmdWxsLWVkaXRvciB0YXJnZXQgc3VwZXJzZXNzaW9uIOKAlCAyMDI2LTA5LTAyCgoqKlN0YXR1czogQVVUSE9SSVRBVElWRSAvIFNVUEVSU0VERVMgVEhFIFBSRVZJT1VTIE5BUlJPVy1TSEVMTCBSRVNUUklDVElPTi4qKgoKVGhpcyBkZWNpc2lvbiBzdXBlcnNlZGVzIHRoZSBlYXJsaWVyIGBOYXJyb3cgc2hlbGwg4oCUIHZpZXdwb3J0IHdpZHRoIDwgNjAwIENTUyBweGAgcnVsZSB0aGF0IGNsYXNzaWZpZWQgbmFycm93IHBob25lLXNpemVkIHZpZXdwb3J0cyBhcyBub3QgYmVpbmcgYSBmdWxsLXByb2R1Y3Rpb24tZWRpdG9yIHRhcmdldC4gSXQgYWxzbyBzdXBlcnNlZGVzIGFueSBlYXJsaWVyIHdvcmRpbmcgdGhhdCBleGNsdWRlcyBBbmRyb2lkIHBob25lcywgaVBob25lcywgb3Igb3RoZXIgcGhvbmUtY2xhc3MgZGV2aWNlcyBmcm9tIHRoZSBub3JtYWwgc2luZ2xlLWlsbHVzdHJhdGlvbiBlZGl0aW5nIHdvcmtmbG93IHNvbGVseSBiZWNhdXNlIG9mIHZpZXdwb3J0IHdpZHRoIG9yIGxhY2sgb2YgdGhlIHByZWZlcnJlZCBHUFUgYWNjZWxlcmF0aW9uIHBhdGguCgoxLiAqKlBob25lLWNsYXNzIGRldmljZXMgYXJlIGZ1bGwgZWRpdG9yIHRhcmdldHMuKiogQW5kcm9pZCBzbWFydHBob25lcyBhbmQgb3RoZXIgc3VwcG9ydGVkIHBob25lLWNsYXNzIG1vYmlsZSBicm93c2VycyBhcmUgcGFydCBvZiB0aGUgZnVsbC1wcm9kdWN0aW9uLWVkaXRvciB0YXJnZXQgdG9nZXRoZXIgd2l0aCB0YWJsZXRzIGFuZCBkZXNrdG9wLWNsYXNzIGRldmljZXMuIEEgcGhvbmUtc2l6ZWQgdmlld3BvcnQgbXVzdCBub3QgYmUgY2xhc3NpZmllZCBhcyBlZGl0b3ItaW5lbGlnaWJsZSBtZXJlbHkgYmVjYXVzZSBpdCBpcyBuYXJyb3dlciB0aGFuIDYwMCBDU1MgcHguCjIuICoqVmlld3BvcnQgd2lkdGggY29udHJvbHMgcHJlc2VudGF0aW9uLCBub3QgZnVuY3Rpb25hbCBlbGlnaWJpbGl0eS4qKiBUaGUgNjAwIENTUyBweCBib3VuZGFyeSwgaWYgcmV0YWluZWQgYXQgYWxsLCBpcyBvbmx5IGEgcmVzcG9uc2l2ZS1sYXlvdXQgYnJlYWtwb2ludC4gTmFycm93IGxheW91dHMgbWF5IGNvbGxhcHNlLCBvdmVybGF5LCBzdGFjaywgdGVtcG9yYXJpbHkgaGlkZSwgb3IgcHJvZ3Jlc3NpdmVseSBkaXNjbG9zZSB0b29sIGdyb3VwcyBhbmQgaW5zcGVjdG9ycywgYnV0IHRoZSBhZG9wdGVkIGVkaXRpbmcgY2FwYWJpbGl0eSBzZXQgbXVzdCByZW1haW4gcmVhY2hhYmxlLgozLiAqKlRoZSBpYmlzUGFpbnQtcmVsZXZhbnQgc2luZ2xlLWlsbHVzdHJhdGlvbiBiYXNlbGluZSBhcHBsaWVzIG9uIHBob25lcyBhcyB3ZWxsLioqIFJlcXVpcmVkIGRyYXdpbmcsIGxheWVyLCBzZWxlY3Rpb24sIHRyYW5zZm9ybSwgaGlzdG9yeSwgcGVyc2lzdGVuY2UsIGltcG9ydC9leHBvcnQsIGNvcnJlY3Rpb24sIGZpbmlzaGluZywgYW5kIHJlbGF0ZWQgc2luZ2xlLWlsbHVzdHJhdGlvbiBjYXBhYmlsaXRpZXMgYXJlIG5vdCBvcHRpb25hbCBtZXJlbHkgYmVjYXVzZSB0aGUgZGV2aWNlIGlzIGEgc21hcnRwaG9uZS4gRGV2aWNlLXNwZWNpZmljIFVJIG1heSBkaWZmZXIgd2hpbGUgY29tbWFuZCBzZW1hbnRpY3MgYW5kIGRvY3VtZW50IGJlaGF2aW9yIHJlbWFpbiBzaGFyZWQuCjQuICoqV2ViR1BVIHJlbWFpbnMgcHJlZmVycmVkLCBub3QgbWFuZGF0b3J5IGZvciBlZGl0b3IgYXZhaWxhYmlsaXR5LioqIFdlYkdQVSBXb3JrZXIgYW5kIG1haW4tdGhyZWFkIFdlYkdQVSByZW1haW4gdGhlIHByaW1hcnkgYWNjZWxlcmF0aW9uIHBhdGhzIHdoZW4gdXNhYmxlLCBidXQgZmFpbHVyZSB0byBleHBvc2UgYSB1c2FibGUgYWRhcHRlci9kZXZpY2UgbXVzdCBub3QgbWFrZSB0aGUgZW50aXJlIGVkaXRvciB1bmF2YWlsYWJsZS4gUmVuZGVyZXIgY2FwYWJpbGl0eSBtdXN0IGRlZ3JhZGUgdGhyb3VnaCBjb21wYXRpYmxlIGJhY2tlbmRzIHdoaWxlIHByZXNlcnZpbmcgY2Fub25pY2FsIGRvY3VtZW50IGNvcnJlY3RuZXNzLgo1LiAqKlJlbmRlcmVyIGNob2ljZSBpcyBjYXBhYmlsaXR5LWJhc2VkIGFuZCByZXBsYWNlYWJsZS4qKiBDYW5vbmljYWwgUmFzdGVyIFRpbGUgc3RhdGUsIGNvbW1hbmQvaGlzdG9yeSBzdGF0ZSwgcGVyc2lzdGVuY2UsIHJlY292ZXJ5LCBhbmQgZmlsZS9leHBvcnQgc2VtYW50aWNzIGFyZSBiYWNrZW5kLWluZGVwZW5kZW50LiBSZW5kZXIgYmFja2VuZHMgYXJlIGFjY2VsZXJhdGlvbi9wcmVzZW50YXRpb24gaW1wbGVtZW50YXRpb25zIGFuZCBtYXkgYmUgc2VsZWN0ZWQgb3IgcmVwbGFjZWQgYXQgcnVudGltZSBhY2NvcmRpbmcgdG8gZGV2aWNlIGNhcGFiaWxpdHkuCjYuICoqTG93ZXItY2FwYWJpbGl0eSBkZXZpY2VzIG1heSByZWNlaXZlIGFkYXB0aXZlIHJlc291cmNlIHBvbGljaWVzLCBub3Qgc2lsZW50IGZlYXR1cmUgcmVtb3ZhbC4qKiBDYWNoZSBzaXplcywgYmF0Y2ggc2l6ZXMsIHdvcmtlciB1c2UsIHByZXZpZXcgcXVhbGl0eSwgdGVtcG9yYXJ5IHJlc29sdXRpb24sIG1lbW9yeSBidWRnZXRzLCBhbmQgYWRtaXNzaW9uIGxpbWl0cyBtYXkgYWRhcHQgdG8gbWVhc3VyZWQgZGV2aWNlIGNhcGFiaWxpdHkuIEZpbmFsL2Nhbm9uaWNhbCByZXN1bHRzIGFuZCByZXF1aXJlZCBlZGl0b3Igc2VtYW50aWNzIHJlbWFpbiBjb3JyZWN0OyBhbnkgdW5hdm9pZGFibGUgaGFyZCBwbGF0Zm9ybSBsaW1pdCBtdXN0IGJlIGV4cGxpY2l0IGFuZCBuYXJyb3dseSBzY29wZWQgcmF0aGVyIHRoYW4gcmVwcmVzZW50ZWQgYXMgYSBibGFua2V0IHBob25lIGV4Y2x1c2lvbi4KNy4gKipHUFUvQVBJIGZhaWx1cmUgbXVzdCBoYXZlIGEgZnVuY3Rpb25hbCBjb21wYXRpYmlsaXR5IHBhdGguKiogQSBkZXZpY2Ugd2hlcmUgYG5hdmlnYXRvci5ncHVgIGV4aXN0cyBidXQgYHJlcXVlc3RBZGFwdGVyKClgIHJldHVybnMgbm8gYWRhcHRlciBpcyBhIHN1cHBvcnRlZCBjb21wYXRpYmlsaXR5IGNhc2UsIG5vdCBhbiBhcHBsaWNhdGlvbi1mYXRhbCBzdGF0ZS4gVGhlIHByb2R1Y3Rpb24gcmVuZGVyZXIgYXJjaGl0ZWN0dXJlIG11c3QgcHJvdmlkZSBhbiBhcHByb3ByaWF0ZSBmYWxsYmFjayByYXRoZXIgdGhhbiBleHBvc2luZyBgcmVuZGVyZXIgLi4uIHVuYXZhaWxhYmxlYCBhcyB0aGUgbm9ybWFsIG91dGNvbWUuCjguICoqUmVzcG9uc2l2ZSBVWCByZW1haW5zIENhbnZhcyBGaXJzdC4qKiBOYXJyb3cgc2NyZWVucyBzaG91bGQgcHJvdGVjdCBkcmF3aW5nIHNwYWNlIHRocm91Z2ggY29udGV4dHVhbCBVSSwgcHJvZ3Jlc3NpdmUgZGlzY2xvc3VyZSwgc2hlZXRzL292ZXJsYXlzLCBhbmQgZGlyZWN0IG1hbmlwdWxhdGlvbiByYXRoZXIgdGhhbiBieSBjcmVhdGluZyBhIHNlcGFyYXRlIHJlZHVjZWQtY2FwYWJpbGl0eSBwaG9uZSBwcm9kdWN0LgoKIyMjIFN1cGVyc2Vzc2lvbiBub3RlCgpUaGUgcHJldmlvdXMgc3RhdGVtZW50OgoKPiBgTmFycm93IHNoZWxsIOKAlCB2aWV3cG9ydCB3aWR0aCA8IDYwMCBDU1MgcHhgIGlzIG5vdCBhIGZ1bGwtcHJvZHVjdGlvbi1lZGl0b3IgdGFyZ2V0IGZvciB0aGUgaW5pdGlhbCByZWxlYXNlLgoKaXMgKipTVVBFUlNFREVEKiogYnkgdGhpcyBzZWN0aW9uLiBFeGlzdGluZyBpbXBsZW1lbnRhdGlvbi90ZXN0cyB0aGF0IHN0aWxsIGVuY29kZSBgPDYwMCBDU1MgcHggPT4gZnVsbCBlZGl0b3IgaW5lbGlnaWJsZWAgYXJlIGxlZ2FjeSBjb25zdHJhaW50cyBhbmQgbXVzdCBiZSB1cGRhdGVkIGluIHRoZSBkZWRpY2F0ZWQgY29tcGF0aWJpbGl0eSByZW1lZGlhdGlvbiBzdGVwczsgdGhpcyBkZXNpZ24gZGVjaXNpb24gYnkgaXRzZWxmIGRvZXMgbm90IGZhbHNlbHkgbWFyayB0aG9zZSBpbXBsZW1lbnRhdGlvbiBjaGFuZ2VzIGNvbXBsZXRlLgoKIyMjIEV2aWRlbmNlIG1vdGl2YXRpbmcgdGhlIHN1cGVyc2Vzc2lvbgoKVGhlIFVTRVItMDEgcGhvbmUgZGlhZ25vc3RpY3Mgb24gYnVpbGQgYGRhMmE5YzVmZDQyNTgyYzgxMzFlYTQ2OTQ4NzdjODkyMGQwNzVjOGZgIHNob3dlZCBXZWJHUFUgQVBJIGV4cG9zdXJlIG9uIGJvdGggbWFpbiBhbmQgd29ya2VyIGNvbnRleHRzIHdoaWxlIGFkYXB0ZXIgYWNxdWlzaXRpb24gcmV0dXJuZWQgYGFkYXB0ZXItdW5hdmFpbGFibGVgOyB0aGUgUmVuZGVyIFdvcmtlciBjb25zZXF1ZW50bHkgcmVwb3J0ZWQgZGV2aWNlIHN0YXRlIGB1bmF2YWlsYWJsZWAuIFRoaXMgY29uZmlybXMgdGhhdCBwaG9uZSBzdXBwb3J0IGNhbm5vdCBiZSBkZWZpbmVkIGFzICJXZWJHUFUgYWRhcHRlciBhdmFpbGFibGUgb3Igbm8gZWRpdG9yIiBhbmQgbXVzdCB1c2UgY2FwYWJpbGl0eS1iYXNlZCByZW5kZXJlciBmYWxsYmFjay4K
-          PROGRESS_PAYLOAD: CiMjIyBVU0VSLTAxIG1vYmlsZSBjb21wYXRpYmlsaXR5IHJlbWVkaWF0aW9uIOKAlCAyMDI2LTA5LTAyCk1PQklMRS0wMDEgU2VydmljZSBXb3JrZXIgYnVpbGQtYXdhcmUgdXBkYXRlL2NhY2hlIHN0cmF0ZWd5OuWujOS6hgpNT0JJTEUtMDAyIFdlYkdQVS9SZW5kZXJlciBmYWlsdXJlIGRpYWdub3N0aWNz77yIbWFpbi93b3JrZXIvYWRhcHRlci9kZXZpY2UvbGltaXQvc3VyZmFjZe+8iTrlrozkuoYKTU9CSUxFLTAwMyBwaG9uZSBmdWxsLWVkaXRvciB0YXJnZXTjgpLoqK3oqIjmraPmnKzjgafmraPlvI/mjqHnlKjjg7vml6c8NjAwcHjpnZ7lr77lv5zmlrnph53jgpJTVVBFUlNFREU65a6M5LqGCk1PQklMRS0wMDQgNjAwIENTUyBweCBoYXJkIGVsaWdpYmlsaXR5IGdhdGXjgpLlu4PmraLjgZdyZXNwb25zaXZlIGxheW91dOadoeS7tuOBuOWkieabtDrmnKrlrozkuoYKTU9CSUxFLTAwNSBSZW5kZXJlciBmYWxsYmFjayBjaGFpbu+8iFdlYkdQVSBXb3JrZXIvTWFpbiDihpIgY29tcGF0aWJpbGl0eSBiYWNrZW5k77yJ44KS5a6f6KOFOuacquWujOS6hgpNT0JJTEUtMDA2IENhbm9uaWNhbCBSYXN0ZXIgVGlsZSAvIEhpc3RvcnkgLyBQZXJzaXN0ZW5jZeOCkuWFqHJlbmRlcmVyIGJhY2tlbmTjgaflhbHpgJrljJY65pyq5a6M5LqGCk1PQklMRS0wMDcgc21hcnRwaG9uZeWun+apn+ODu+acgOS9jumZkOOBrmNvbXBhdGliaWxpdHkgcmVncmVzc2lvbueiuuiqjTrmnKrlrozkuoYK5YaN6ZaL44Oh44OiOiBVU0VSLTAx44K544Oe44ObZGlhZ25vc3RpY3Pjgafjga9tYWluL3dvcmtlcuOBqOOCgldlYkdQVSBgcmVxdWVzdEFkYXB0ZXIoKWAg44GMIGBhZGFwdGVyLXVuYXZhaWxhYmxlYOOAgnZpZXdwb3J05bmF44KESWxsdXN0cm/ni6zoh6pjb3JlLWxpbWl0IGdhdGXku6XliY3jga7lpLHmlZfjgafjgYLjgorjgIFNT0JJTEUtMDA044Gg44GR44Gn44Gv57eo6ZuG5Y+v6IO944Gr44Gq44KJ44Gq44GE44CCTU9CSUxFLTAwNeOBrldlYkdQVemdnuS+neWtmGNvbXBhdGliaWxpdHkgcmVuZGVyZXLjgYzlv4XpoIjjgILmpJzmn7vjga/lv4XopoHmnIDkvY7pmZDjgajjgZfjgIHlrp/oo4XjgpLlhKrlhYjjgZnjgovjgIIK
         run: |
           set -euo pipefail
-          memo_marker='## Mobile full-editor target supersession — 2026-09-02'
-          progress_marker='### USER-01 mobile compatibility remediation — 2026-09-02'
-          changed=0
-          if ! grep -Fq "$memo_marker" ILLUSTRO_DESIGN_MEMO.md; then
-            printf '%s' "$MEMO_PAYLOAD" | base64 --decode >> ILLUSTRO_DESIGN_MEMO.md
-            changed=1
+          before='MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:未完了'
+          after='MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:完了'
+          if ! grep -Fq "$before" IMPLEMENTATION_PROGRESS.md; then
+            if grep -Fq "$after" IMPLEMENTATION_PROGRESS.md; then
+              echo 'MOBILE-004 already complete.'
+              exit 0
+            fi
+            echo 'Expected MOBILE-004 progress line not found.' >&2
+            exit 1
           fi
-          if ! grep -Fq "$progress_marker" IMPLEMENTATION_PROGRESS.md; then
-            printf '%s' "$PROGRESS_PAYLOAD" | base64 --decode >> IMPLEMENTATION_PROGRESS.md
-            changed=1
-          fi
-          if [ "$changed" -eq 0 ]; then
-            echo 'Mobile support supersession already recorded; no change needed.'
-            exit 0
-          fi
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          before = 'MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:未完了'
+          after = 'MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:完了'
+          if text.count(before) != 1:
+              raise SystemExit(f'expected exactly one MOBILE-004 line, found {text.count(before)}')
+          path.write_text(text.replace(before, after))
+          PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ILLUSTRO_DESIGN_MEMO.md IMPLEMENTATION_PROGRESS.md
-          git commit -m 'docs: make phone full editor support authoritative'
+          git add IMPLEMENTATION_PROGRESS.md
+          git commit -m 'chore: mark mobile viewport gate complete'
           git push origin HEAD:main
