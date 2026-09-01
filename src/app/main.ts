@@ -3,7 +3,7 @@ import { inspectWebGpuBuildPath } from '../gpu/webgpu-bootstrap.js';
 import { PointerHoverTrackerV1 } from '../input/hover-state.js';
 import { createPointerInputArbitrationV1 } from '../input/input-arbitration.js';
 import { createPointerInputTransportV1 } from '../input/input-transport.js';
-import { downloadPngBlobV1, encodePaintSnapshotToPngV1 } from '../export/png-export.js';
+import { downloadPngBlobV1, encodeCompositeRasterTilesToPngV1 } from '../export/png-export.js';
 import { createLogger } from '../shared/logger.js';
 import {
   incrementPerformanceCounter,
@@ -355,9 +355,10 @@ const onExportPngClick = (): void => {
   enqueuePaintRender(async () => {
     try {
       await paintPersistence.flushCheckpoint();
-      const snapshot = paintSession.projectSnapshot();
-      if (snapshot === null) throw new Error('PNG export requires an active document');
-      const blob = await encodePaintSnapshotToPngV1(snapshot);
+      const documentValue = paintSession.currentDocument();
+      if (documentValue === null) throw new Error('PNG export requires an active document');
+      const tiles = await paintSession.exportCompositeRasterTiles();
+      const blob = await encodeCompositeRasterTilesToPngV1(documentValue, tiles);
       downloadPngBlobV1(blob, 'Illustro.png');
       root.dataset.illustroPngExport = 'complete';
       incrementPerformanceCounter('export.png.complete');

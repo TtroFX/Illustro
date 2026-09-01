@@ -35,14 +35,51 @@ class MemoryResumeStore implements PaintResumeStoreV1 {
 
 class FakeRenderer {
   readonly restored: Array<
-    readonly { readonly strokeId: string; readonly dabs: readonly BaselineBrushDabV1[] }[]
+    readonly {
+      readonly strokeId: string;
+      readonly layerId: string;
+      readonly dabs: readonly BaselineBrushDabV1[];
+    }[]
   > = [];
   readonly tiles = new Map<string, BaselineRasterTileImageV1>();
-  async configureDocument(): Promise<void> {}
+  #width = 1;
+  #height = 1;
+  #pixelFormat: BaselineRasterTileImageV1['pixelFormat'] = 'rgba8-unorm';
+  async configureDocument(input: {
+    readonly width: number;
+    readonly height: number;
+    readonly precision: BaselineRasterTileImageV1['pixelFormat'];
+  }): Promise<void> {
+    this.#width = input.width;
+    this.#height = input.height;
+    this.#pixelFormat = input.precision;
+  }
   async restoreBaselineStrokes(
-    strokes: readonly { readonly strokeId: string; readonly dabs: readonly BaselineBrushDabV1[] }[],
+    strokes: readonly {
+      readonly strokeId: string;
+      readonly layerId: string;
+      readonly dabs: readonly BaselineBrushDabV1[];
+    }[],
   ): Promise<void> {
     this.restored.push(Object.freeze([...strokes]));
+    this.tiles.clear();
+    const stroke = strokes[0];
+    if (stroke === undefined) return;
+    const width = Math.min(128, this.#width);
+    const height = Math.min(128, this.#height);
+    const bytes = new Uint8Array(width * height * (this.#pixelFormat === 'rgba8-unorm' ? 4 : 8));
+    if (this.#pixelFormat === 'rgba8-unorm') bytes[3] = 255;
+    else new DataView(bytes.buffer).setUint16(6, 0x3c00, true);
+    const tile = Object.freeze({
+      schema: 'illustro.baseline-raster-tile/1' as const,
+      layerId: stroke.layerId,
+      coordinate: Object.freeze({ tx: 0, ty: 0 }),
+      width,
+      height,
+      pixelFormat: this.#pixelFormat,
+      bytes,
+    });
+    this.tiles.set(`${stroke.layerId}/0:0`, tile);
   }
   async applyBaselineTilePatches(
     patches: readonly BaselineRasterTilePatchV1[],
@@ -371,6 +408,17 @@ describe('M4 paint persistence vertical slice', () => {
       status: 'ready',
       lastDurableTransactionId: transaction.transactionId,
     });
+    expect(worker.messages.filter((message) => message.type === 'storage.tile.put')).toHaveLength(
+      1,
+    );
+    expect(worker.projects.get(initialized.projectId)?.snapshot).toMatchObject({
+      paint: { committedStrokes: [] },
+      raster: {
+        history: [
+          { transactionId: transaction.transactionId, patches: [{ layerId: expect.any(String) }] },
+        ],
+      },
+    });
     first.persistence.dispose();
 
     const second = createController(worker, store);
@@ -423,5 +471,48 @@ describe('M4 paint persistence vertical slice', () => {
     expect(second.renderer.tiles.size).toBe(0);
     expect(await second.history.redo()).toBe(true);
     expect(second.renderer.tiles.size).toBe(1);
+  });
+
+  it('replays a legacy stroke snapshot once, then reopens from migrated raster tiles', async () => {
+    const worker = new FakeStorageWorker();
+    const store = new MemoryResumeStore();
+    const first = createController(worker, store);
+    const initialized = await first.persistence.initialize({
+      name: 'Legacy migration',
+      document: { width: 32, height: 32 },
+    });
+    const transaction = first.history.commitCompletedStroke(
+      completeStroke(first.session, 20),
+      tilePatches(first.session),
+    );
+    await first.persistence.markDirty(transaction.transactionId);
+    await first.persistence.flushCheckpoint();
+    const stored = worker.projects.get(initialized.projectId);
+    if (stored === undefined || typeof stored.snapshot !== 'object' || stored.snapshot === null) {
+      throw new Error('stored legacy fixture is missing');
+    }
+    const { raster: _raster, ...legacySnapshot } = stored.snapshot as Record<string, unknown>;
+    stored.snapshot = legacySnapshot;
+    first.persistence.dispose();
+
+    const migrated = createController(worker, store);
+    await migrated.persistence.initialize({
+      name: 'ignored',
+      document: { width: 1, height: 1 },
+    });
+    expect(migrated.renderer.restored).toHaveLength(1);
+    expect(migrated.renderer.tiles.size).toBe(1);
+    expect(worker.projects.get(initialized.projectId)?.snapshot).toMatchObject({
+      raster: { schema: 'illustro.paint-raster-state/1', tileSize: 128 },
+    });
+    migrated.persistence.dispose();
+
+    const reopened = createController(worker, store);
+    await reopened.persistence.initialize({
+      name: 'ignored again',
+      document: { width: 1, height: 1 },
+    });
+    expect(reopened.renderer.restored).toHaveLength(0);
+    expect(reopened.renderer.tiles.size).toBe(1);
   });
 });

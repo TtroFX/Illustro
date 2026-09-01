@@ -1,9 +1,15 @@
-import type { CanvasBackgroundSpec } from '../domain/document.js';
+import type { CanvasBackgroundSpec, DocumentV1 } from '../domain/document.js';
 import {
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   type BaselineBrushDabV1,
 } from '../gpu/baseline-brush.js';
+import type { BaselineRasterTileImageV1 } from '../gpu/baseline-raster-tile-store.js';
+import {
+  CANONICAL_TILE_SIZE_PX,
+  tileBoundsForDocumentV1,
+  type TileCoordinateV1,
+} from '../gpu/sparse-tile-model.js';
 import type { PaintProjectSnapshotV1 } from '../app/paint-session-controller.js';
 
 export const PNG_MIME_TYPE = 'image/png' as const;
@@ -134,6 +140,116 @@ function encodeStraightRgba(
     rgba[offset + 3] = Math.round(alpha * 255);
   }
   return rgba;
+}
+
+function halfToFloat(value: number): number {
+  const sign = (value & 0x8000) !== 0 ? -1 : 1;
+  const exponent = (value >>> 10) & 0x1f;
+  const fraction = value & 0x03ff;
+  if (exponent === 0) return sign * 2 ** -14 * (fraction / 1024);
+  if (exponent === 0x1f) return fraction === 0 ? sign * Number.POSITIVE_INFINITY : Number.NaN;
+  return sign * 2 ** (exponent - 15) * (1 + fraction / 1024);
+}
+
+function readRasterTilePixel(
+  tile: BaselineRasterTileImageV1,
+  pixel: number,
+): readonly [number, number, number, number] {
+  if (tile.pixelFormat === 'rgba8-unorm') {
+    const offset = pixel * 4;
+    return [
+      (tile.bytes[offset] ?? 0) / 255,
+      (tile.bytes[offset + 1] ?? 0) / 255,
+      (tile.bytes[offset + 2] ?? 0) / 255,
+      (tile.bytes[offset + 3] ?? 0) / 255,
+    ];
+  }
+  const offset = pixel * 8;
+  const view = new DataView(tile.bytes.buffer, tile.bytes.byteOffset, tile.bytes.byteLength);
+  return [
+    clamp01(halfToFloat(view.getUint16(offset, true))),
+    clamp01(halfToFloat(view.getUint16(offset + 2, true))),
+    clamp01(halfToFloat(view.getUint16(offset + 4, true))),
+    clamp01(halfToFloat(view.getUint16(offset + 6, true))),
+  ];
+}
+
+export function flattenCompositeRasterTileV1(
+  documentValue: DocumentV1,
+  coordinate: TileCoordinateV1,
+  tile: BaselineRasterTileImageV1 | null,
+): BaselinePaintFlattenTileV1 {
+  const bounds = tileBoundsForDocumentV1(
+    documentValue.canvas.width,
+    documentValue.canvas.height,
+    coordinate,
+  );
+  if (tile !== null) {
+    const expectedByteLength =
+      bounds.validWidth * bounds.validHeight * (tile.pixelFormat === 'rgba8-unorm' ? 4 : 8);
+    if (
+      tile.coordinate.tx !== coordinate.tx ||
+      tile.coordinate.ty !== coordinate.ty ||
+      tile.width !== bounds.validWidth ||
+      tile.height !== bounds.validHeight ||
+      tile.pixelFormat !== documentValue.color.precision ||
+      tile.bytes.byteLength !== expectedByteLength
+    ) {
+      throw new Error('PNG composite tile violates the document tile contract');
+    }
+  }
+
+  const premultiplied = new Float32Array(bounds.validWidth * bounds.validHeight * 4);
+  const background = backgroundPremultiplied(documentValue.canvas.background);
+  for (let pixel = 0; pixel < bounds.validWidth * bounds.validHeight; pixel += 1) {
+    const offset = pixel * 4;
+    if (tile === null) {
+      premultiplied[offset] = background[0];
+      premultiplied[offset + 1] = background[1];
+      premultiplied[offset + 2] = background[2];
+      premultiplied[offset + 3] = background[3];
+      continue;
+    }
+    const source = readRasterTilePixel(tile, pixel);
+    const sourceAlpha = source[3];
+    const destinationScale = 1 - sourceAlpha;
+    premultiplied[offset] = source[0] * sourceAlpha + background[0] * destinationScale;
+    premultiplied[offset + 1] = source[1] * sourceAlpha + background[1] * destinationScale;
+    premultiplied[offset + 2] = source[2] * sourceAlpha + background[2] * destinationScale;
+    premultiplied[offset + 3] = sourceAlpha + background[3] * destinationScale;
+  }
+  return Object.freeze({
+    schema: 'illustro.baseline-paint-flatten-tile/1' as const,
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.validWidth,
+    height: bounds.validHeight,
+    rgba: encodeStraightRgba(premultiplied),
+  });
+}
+
+export function* iterateCompositeRasterFlattenTilesV1(
+  documentValue: DocumentV1,
+  tiles: readonly BaselineRasterTileImageV1[],
+): Generator<BaselinePaintFlattenTileV1, void, void> {
+  const byCoordinate = new Map<string, BaselineRasterTileImageV1>();
+  for (const tile of tiles) {
+    const key = `${tile.coordinate.tx}:${tile.coordinate.ty}`;
+    if (byCoordinate.has(key)) throw new Error(`duplicate PNG composite tile: ${key}`);
+    byCoordinate.set(key, tile);
+  }
+  const tileColumns = Math.ceil(documentValue.canvas.width / CANONICAL_TILE_SIZE_PX);
+  const tileRows = Math.ceil(documentValue.canvas.height / CANONICAL_TILE_SIZE_PX);
+  for (let ty = 0; ty < tileRows; ty += 1) {
+    for (let tx = 0; tx < tileColumns; tx += 1) {
+      const coordinate = Object.freeze({ tx, ty });
+      yield flattenCompositeRasterTileV1(
+        documentValue,
+        coordinate,
+        byCoordinate.get(`${tx}:${ty}`) ?? null,
+      );
+    }
+  }
 }
 
 export function flattenBaselinePaintTileV1(
@@ -273,6 +389,22 @@ export async function encodePaintSnapshotToPngV1(
   const surface = surfaceFactory(snapshot.document.canvas.width, snapshot.document.canvas.height);
   try {
     for (const tile of iterateBaselinePaintFlattenTilesV1(snapshot)) surface.putTile(tile);
+    return await assertPngBlobV1(await surface.encode());
+  } finally {
+    surface.dispose();
+  }
+}
+
+export async function encodeCompositeRasterTilesToPngV1(
+  documentValue: DocumentV1,
+  tiles: readonly BaselineRasterTileImageV1[],
+  surfaceFactory: PngRasterSurfaceFactoryV1 = createBrowserPngSurface,
+): Promise<Blob> {
+  const surface = surfaceFactory(documentValue.canvas.width, documentValue.canvas.height);
+  try {
+    for (const tile of iterateCompositeRasterFlattenTilesV1(documentValue, tiles)) {
+      surface.putTile(tile);
+    }
     return await assertPngBlobV1(await surface.encode());
   } finally {
     surface.dispose();

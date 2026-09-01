@@ -280,11 +280,18 @@ export class HistorySpineV1 {
     return total;
   }
 
-  commit(transaction: HistoryTransactionV1): void {
+  commit(transaction: HistoryTransactionV1): readonly CommandTransactionId[] {
     const normalized = parseHistoryTransactionV1(transaction);
-    if (this.#cursor < this.#entries.length) this.#entries.splice(this.#cursor);
+    const truncated = this.#cursor < this.#entries.length ? this.#entries.splice(this.#cursor) : [];
     this.#entries.push(residentEntry(normalized));
     this.#cursor = this.#entries.length;
+    return Object.freeze(
+      truncated.map((entry) =>
+        entry.storage === 'resident'
+          ? entry.transaction.transactionId
+          : entry.reference.transactionId,
+      ),
+    );
   }
 
   async undo(restorer: HistoryRestorerV1, spillAdapter?: HistorySpillAdapterV1): Promise<boolean> {

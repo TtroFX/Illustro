@@ -141,7 +141,7 @@ function transaction(
     commandId: 'history.test',
     beforeRevision: index,
     afterRevision: index + 1,
-    committedAt: `2026-08-30T00:00:${String(index).padStart(2, '0')}.000Z`,
+    committedAt: new Date(Date.UTC(2026, 7, 30, 0, 0, index)).toISOString(),
     payload: createHistoryPayloadV1({
       strategy,
       before: { value: index, extra },
@@ -174,7 +174,8 @@ describe('history transaction spine', () => {
   it('undoes, redoes, and invalidates the redo branch on a new mutation', async () => {
     const spine = new HistorySpineV1();
     spine.commit(transaction(0));
-    spine.commit(transaction(1));
+    const discardedOnBranch = transaction(1);
+    spine.commit(discardedOnBranch);
     let canonicalValue = 2;
     const restore = (entry: HistoryTransactionV1, direction: 'undo' | 'redo'): void => {
       canonicalValue = payloadValue(entry, direction);
@@ -200,7 +201,7 @@ describe('history transaction spine', () => {
       }),
     });
     canonicalValue = 7;
-    spine.commit(branch);
+    expect(spine.commit(branch)).toEqual([discardedOnBranch.transactionId]);
     expect(spine.length).toBe(2);
     expect(spine.canRedo).toBe(false);
     expect(await spine.undo(restore)).toBe(true);
@@ -221,6 +222,27 @@ describe('history transaction spine', () => {
     expect(spine.cursor).toBe(0);
     expect(spine.prune(1)).toHaveLength(0);
     expect(spine.length).toBe(3);
+  });
+
+  it('restores exactly one history entry at 100, 1,000, and 10,000 transactions', async () => {
+    const timings: Record<number, { undoMs: number; redoMs: number }> = {};
+    for (const total of [100, 1_000, 10_000]) {
+      const spine = new HistorySpineV1();
+      for (let index = 0; index < total; index += 1) spine.commit(transaction(index));
+      let restoreCalls = 0;
+      const restore = (): void => {
+        restoreCalls += 1;
+      };
+      const undoStartedAt = performance.now();
+      expect(await spine.undo(restore)).toBe(true);
+      const undoMs = performance.now() - undoStartedAt;
+      const redoStartedAt = performance.now();
+      expect(await spine.redo(restore)).toBe(true);
+      const redoMs = performance.now() - redoStartedAt;
+      expect(restoreCalls).toBe(2);
+      timings[total] = { undoMs, redoMs };
+    }
+    console.info(JSON.stringify({ benchmark: 'history-single-entry-restore-ms', timings }));
   });
 });
 

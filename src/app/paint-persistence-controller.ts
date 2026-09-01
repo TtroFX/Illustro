@@ -17,9 +17,9 @@ import type {
 } from '../gpu/baseline-raster-tile-store.js';
 import { CANONICAL_TILE_SIZE_PX, tileBoundsForDocumentV1 } from '../gpu/sparse-tile-model.js';
 import type { TileCodecIdV1 } from '../storage/tile-codec.js';
-import { PaintHistoryControllerV1 } from './paint-history-controller.js';
+import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import {
-  PaintSessionControllerV1,
+  type PaintSessionControllerV1,
   parsePaintProjectSnapshotV1,
   type PaintDocumentCreationInputV1,
   type PaintProjectSnapshotV1,
@@ -420,6 +420,7 @@ export class PaintPersistenceControllerV1 {
   }
 
   projectSnapshot(): PaintPersistenceProjectSnapshotV1 {
+    this.#pruneHistoryTileReferences();
     const paint = this.#session.persistenceProjectSnapshot();
     if (paint === null) throw new Error('paint persistence requires an active document');
     const history = this.#history.snapshot();
@@ -856,17 +857,8 @@ export class PaintPersistenceControllerV1 {
   }
 
   #pruneHistoryTileReferences(): void {
-    const retained = new Set<string>(
-      this.#history
-        .exportState()
-        .entries.map((entry) =>
-          entry.storage === 'resident'
-            ? entry.transaction.transactionId
-            : entry.reference.transactionId,
-        ),
-    );
-    for (const transactionId of this.#historyTileRefs.keys()) {
-      if (!retained.has(transactionId)) this.#historyTileRefs.delete(transactionId);
+    for (const transactionId of this.#history.takeRemovedTransactionIds()) {
+      this.#historyTileRefs.delete(transactionId);
     }
   }
 

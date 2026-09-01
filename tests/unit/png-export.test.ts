@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { createDocumentV1 } from '../../src/domain/document.js';
 import { createRasterLayer } from '../../src/domain/layers.js';
 import type { BaselineBrushDabV1 } from '../../src/gpu/baseline-brush.js';
+import type { BaselineRasterTileImageV1 } from '../../src/gpu/baseline-raster-tile-store.js';
 import {
   PNG_SIGNATURE,
+  encodeCompositeRasterTilesToPngV1,
   encodePaintSnapshotToPngV1,
   flattenBaselinePaintTileV1,
+  flattenCompositeRasterTileV1,
   normalizePngFilenameV1,
+  type BaselinePaintFlattenTileV1,
   type PngRasterSurfaceV1,
 } from '../../src/export/png-export.js';
 import type {
@@ -69,6 +73,21 @@ function dab(x: number, y: number, opacity = 1): BaselineBrushDabV1 {
 function pixel(tile: ReturnType<typeof flattenBaselinePaintTileV1>, x: number, y: number) {
   const offset = (y * tile.width + x) * 4;
   return Array.from(tile.rgba.slice(offset, offset + 4));
+}
+
+function compositeTile(
+  documentValue: PaintProjectSnapshotV1['document'],
+  bytes: Uint8Array,
+): BaselineRasterTileImageV1 {
+  return Object.freeze({
+    schema: 'illustro.baseline-raster-tile/1',
+    layerId: '__composite__',
+    coordinate: Object.freeze({ tx: 0, ty: 0 }),
+    width: documentValue.canvas.width,
+    height: documentValue.canvas.height,
+    pixelFormat: 'rgba8-unorm',
+    bytes,
+  });
 }
 
 describe('M4 canonical PNG flatten', () => {
@@ -145,6 +164,38 @@ describe('M4 canonical PNG flatten', () => {
       { x: 256, y: 256, width: 44, height: 4 },
     ]);
     expect(disposed).toBe(true);
+  });
+
+  it('exports canonical composite tiles without requiring a stroke log', async () => {
+    const documentValue = snapshot({
+      width: 2,
+      height: 1,
+      background: { kind: 'solid', rgba: [1, 1, 1, 1] },
+    }).document;
+    const tile = compositeTile(documentValue, new Uint8Array([0, 0, 0, 128, 255, 0, 0, 255]));
+    const flattened = flattenCompositeRasterTileV1(documentValue, tile.coordinate, tile);
+    expect(pixel(flattened, 0, 0)).toEqual([127, 127, 127, 255]);
+    expect(pixel(flattened, 1, 0)).toEqual([255, 0, 0, 255]);
+
+    const written: BaselinePaintFlattenTileV1[] = [];
+    const fakePng = new Blob([new Uint8Array([...PNG_SIGNATURE, 0])], { type: 'image/png' });
+    await encodeCompositeRasterTilesToPngV1(
+      documentValue,
+      [tile],
+      (): PngRasterSurfaceV1 => ({
+        putTile(output) {
+          written.push(output);
+        },
+        async encode() {
+          return fakePng;
+        },
+        dispose() {},
+      }),
+    );
+    expect(written).toHaveLength(1);
+    const writtenTile = written[0];
+    if (writtenTile === undefined) throw new Error('PNG surface did not receive the tile');
+    expect([...writtenTile.rgba]).toEqual([...flattened.rgba]);
   });
 
   it('normalizes exported filenames without path/control characters', () => {

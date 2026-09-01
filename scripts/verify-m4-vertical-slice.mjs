@@ -16,7 +16,8 @@ for (const contract of [
   'paintHistory.commitCompletedStroke',
   'paintPersistence.scheduleDirty',
   'paintPersistence.initialize',
-  'encodePaintSnapshotToPngV1',
+  'paintSession.exportCompositeRasterTiles',
+  'encodeCompositeRasterTilesToPngV1',
   'downloadPngBlobV1',
   'export-png',
 ]) {
@@ -32,6 +33,7 @@ if (!main.includes('paintPersistence.scheduleDirty')) {
 }
 const exportSource = fs.readFileSync('src/export/png-export.ts', 'utf8');
 for (const contract of [
+  'iterateCompositeRasterFlattenTilesV1',
   'iterateBaselinePaintFlattenTilesV1',
   'smoothstep(0.85, 1, radialDistance)',
   'assertPngBlobV1',

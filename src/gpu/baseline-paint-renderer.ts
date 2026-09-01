@@ -29,6 +29,7 @@ const GPU_TEXTURE_USAGE_COPY_DST = 0x0002;
 const GPU_TEXTURE_USAGE_RENDER_ATTACHMENT = 0x0010;
 const INSTANCE_FLOATS = 5;
 const INSTANCE_STRIDE_BYTES = INSTANCE_FLOATS * Float32Array.BYTES_PER_ELEMENT;
+const INSTANCE_BUFFER_ALIGNMENT_BYTES = 256;
 
 interface BaselineGpuTextureLikeV1 {
   createView(): object;
@@ -376,10 +377,15 @@ class BaselineGpuSurfaceRasterizerV1 {
   #device: IllustroGpuDeviceV1 | null = null;
   #shaderModule: unknown = null;
   #scene: RetainedSceneV1 | null = null;
+  #instanceBuffer: BaselineGpuBufferLikeV1 | null = null;
+  #instanceBufferCapacity = 0;
   readonly #pipelines = new Map<string, object>();
 
   attachDevice(device: IllustroGpuDeviceV1 | null): void {
     this.invalidateScene();
+    this.#instanceBuffer?.destroy?.();
+    this.#instanceBuffer = null;
+    this.#instanceBufferCapacity = 0;
     this.#device = device;
     this.#shaderModule = null;
     this.#pipelines.clear();
@@ -452,54 +458,45 @@ class BaselineGpuSurfaceRasterizerV1 {
 
     const context = canvasContext(input.surface);
     const encoder = device.createCommandEncoder({ label: 'illustro-baseline-brush-surface' });
-    let buffer: BaselineGpuBufferLikeV1 | null = null;
-    try {
-      if (input.mode === 'replace' || input.dabs.length > 0) {
-        const pass = encoder.beginRenderPass({
-          label: 'illustro-baseline-brush-retained-pass',
-          colorAttachments: [
-            {
-              view: scene.texture.createView(),
-              loadOp: input.mode === 'replace' ? 'clear' : 'load',
-              storeOp: 'store',
-              clearValue: { r: 0, g: 0, b: 0, a: 0 },
-            },
-          ],
-        });
-        if (input.dabs.length > 0) {
-          const instanceData = createInstanceData(
-            input.dabs,
-            input.documentWidth,
-            input.documentHeight,
-            input.surface.width,
-            input.surface.height,
-          );
-          buffer = device.createBuffer({
-            label: 'illustro-baseline-brush-instances',
-            size: instanceData.byteLength,
-            usage: GPU_BUFFER_USAGE_COPY_DST | GPU_BUFFER_USAGE_VERTEX,
-          });
-          device.queue.writeBuffer(buffer, 0, instanceData);
-          pass.setPipeline(this.#pipeline(input.format, device));
-          pass.setVertexBuffer(0, buffer);
-          pass.draw(6, input.dabs.length, 0, 0);
-        }
-        pass.end();
+    if (input.mode === 'replace' || input.dabs.length > 0) {
+      const pass = encoder.beginRenderPass({
+        label: 'illustro-baseline-brush-retained-pass',
+        colorAttachments: [
+          {
+            view: scene.texture.createView(),
+            loadOp: input.mode === 'replace' ? 'clear' : 'load',
+            storeOp: 'store',
+            clearValue: { r: 0, g: 0, b: 0, a: 0 },
+          },
+        ],
+      });
+      if (input.dabs.length > 0) {
+        const instanceData = createInstanceData(
+          input.dabs,
+          input.documentWidth,
+          input.documentHeight,
+          input.surface.width,
+          input.surface.height,
+        );
+        const buffer = this.#requireInstanceBuffer(device, instanceData.byteLength);
+        device.queue.writeBuffer(buffer, 0, instanceData);
+        pass.setPipeline(this.#pipeline(input.format, device));
+        pass.setVertexBuffer(0, buffer);
+        pass.draw(6, input.dabs.length, 0, 0);
       }
-
-      encoder.copyTextureToTexture(
-        { texture: scene.texture },
-        { texture: context.getCurrentTexture() },
-        {
-          width: input.surface.width,
-          height: input.surface.height,
-          depthOrArrayLayers: 1,
-        },
-      );
-      device.queue.submit([encoder.finish()]);
-    } finally {
-      buffer?.destroy?.();
+      pass.end();
     }
+
+    encoder.copyTextureToTexture(
+      { texture: scene.texture },
+      { texture: context.getCurrentTexture() },
+      {
+        width: input.surface.width,
+        height: input.surface.height,
+        depthOrArrayLayers: 1,
+      },
+    );
+    device.queue.submit([encoder.finish()]);
   }
 
   patchTiles(input: {
@@ -604,6 +601,30 @@ class BaselineGpuSurfaceRasterizerV1 {
     });
     this.#pipelines.set(format, pipeline);
     return pipeline;
+  }
+
+  #requireInstanceBuffer(
+    device: BaselineGpuDeviceLikeV1,
+    requiredBytes: number,
+  ): BaselineGpuBufferLikeV1 {
+    const existing = this.#instanceBuffer;
+    if (existing !== null && this.#instanceBufferCapacity >= requiredBytes) return existing;
+    const alignedRequired =
+      Math.ceil(requiredBytes / INSTANCE_BUFFER_ALIGNMENT_BYTES) * INSTANCE_BUFFER_ALIGNMENT_BYTES;
+    const capacity = Math.max(
+      INSTANCE_BUFFER_ALIGNMENT_BYTES,
+      alignedRequired,
+      this.#instanceBufferCapacity * 2,
+    );
+    const replacement = device.createBuffer({
+      label: 'illustro-baseline-brush-instance-pool',
+      size: capacity,
+      usage: GPU_BUFFER_USAGE_COPY_DST | GPU_BUFFER_USAGE_VERTEX,
+    });
+    existing?.destroy?.();
+    this.#instanceBuffer = replacement;
+    this.#instanceBufferCapacity = capacity;
+    return replacement;
   }
 }
 

@@ -14,7 +14,7 @@ import type {
   BaselineRasterTilePatchV1,
 } from '../gpu/baseline-raster-tile-store.js';
 import {
-  PaintSessionControllerV1,
+  type PaintSessionControllerV1,
   parsePaintProjectSnapshotV1,
   parsePaintStrokeHistoryStateV1,
   parsePaintTileHistoryStateV1,
@@ -55,6 +55,7 @@ export class PaintHistoryControllerV1 {
   readonly #tilePatches = new Map<string, readonly BaselineRasterTilePatchV1[]>();
   readonly #tilePatchBytes = new Map<string, number>();
   readonly #durableTilePatchIds = new Set<string>();
+  readonly #removedTransactionIds: string[] = [];
   #residentTilePatchBytes = 0;
   #tilePatchLoader: PaintTilePatchLoaderV1 | null = null;
   #lastTileRestore: PaintTileHistoryRestoreV1 | null = null;
@@ -77,6 +78,7 @@ export class PaintHistoryControllerV1 {
   reset(): PaintHistorySnapshotV1 {
     this.#spine = new HistorySpineV1();
     this.#clearTilePatches();
+    this.#removedTransactionIds.length = 0;
     this.#lastTileRestore = null;
     this.#revisionHighWater = this.#session.currentDocument()?.revision ?? 0;
     return this.snapshot();
@@ -85,6 +87,7 @@ export class PaintHistoryControllerV1 {
   hydrate(state: HistorySpineStateV1, revisionHighWater = 0): PaintHistorySnapshotV1 {
     this.#spine = HistorySpineV1.hydrate(state);
     this.#clearTilePatches();
+    this.#removedTransactionIds.length = 0;
     this.#lastTileRestore = null;
     this.#revisionHighWater = Math.max(
       revisionHighWater,
@@ -146,17 +149,9 @@ export class PaintHistoryControllerV1 {
         },
       }),
     });
-    const previousState = this.#spine.exportState();
-    for (const entry of previousState.entries.slice(previousState.cursor)) {
-      this.#deleteTilePatches(
-        entry.storage === 'resident'
-          ? entry.transaction.transactionId
-          : entry.reference.transactionId,
-      );
-    }
-    this.#spine.commit(transaction);
+    this.#discardTransactions(this.#spine.commit(transaction));
     this.#storeTilePatches(transactionId, tilePatches, false);
-    for (const removedId of this.#spine.prune()) this.#deleteTilePatches(removedId);
+    this.#discardTransactions(this.#spine.prune());
     this.#revisionHighWater = Math.max(this.#revisionHighWater, committed.afterRevision);
     return transaction;
   }
@@ -192,6 +187,11 @@ export class PaintHistoryControllerV1 {
     const restore = this.#lastTileRestore;
     this.#lastTileRestore = null;
     return restore;
+  }
+
+  takeRemovedTransactionIds(): readonly string[] {
+    if (this.#removedTransactionIds.length === 0) return Object.freeze([]);
+    return Object.freeze(this.#removedTransactionIds.splice(0));
   }
 
   async commitSnapshotTransform(
@@ -231,7 +231,8 @@ export class PaintHistoryControllerV1 {
       payload: createHistoryPayloadV1({ strategy: 'object-before-after', before, after }),
     });
     await this.#session.restoreProjectSnapshot(after);
-    this.#spine.commit(transaction);
+    this.#discardTransactions(this.#spine.commit(transaction));
+    this.#discardTransactions(this.#spine.prune());
     this.#revisionHighWater = Math.max(this.#revisionHighWater, afterRevision);
     return transaction;
   }
@@ -257,7 +258,8 @@ export class PaintHistoryControllerV1 {
         after: committed.after,
       }),
     });
-    this.#spine.commit(transaction);
+    this.#discardTransactions(this.#spine.commit(transaction));
+    this.#discardTransactions(this.#spine.prune());
     this.#revisionHighWater = Math.max(this.#revisionHighWater, committed.after.document.revision);
     return transaction;
   }
@@ -344,6 +346,13 @@ export class PaintHistoryControllerV1 {
     this.#residentTilePatchBytes -= this.#tilePatchBytes.get(transactionId) ?? 0;
     this.#tilePatchBytes.delete(transactionId);
     this.#durableTilePatchIds.delete(transactionId);
+  }
+
+  #discardTransactions(transactionIds: readonly string[]): void {
+    for (const transactionId of transactionIds) {
+      this.#deleteTilePatches(transactionId);
+      this.#removedTransactionIds.push(transactionId);
+    }
   }
 
   #clearTilePatches(): void {

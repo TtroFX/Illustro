@@ -19,6 +19,8 @@ function gpuHarness() {
   let submits = 0;
   let textureCopies = 0;
   let textureWrites = 0;
+  let bufferCreates = 0;
+  let bufferDestroys = 0;
   const instanceCounts: number[] = [];
   const bufferWrites: number[] = [];
   const loadOps: Array<'clear' | 'load'> = [];
@@ -31,7 +33,13 @@ function gpuHarness() {
       return {};
     },
     createBuffer(descriptor: { readonly size: number }) {
-      return { descriptor, destroy() {} };
+      bufferCreates += 1;
+      return {
+        descriptor,
+        destroy() {
+          bufferDestroys += 1;
+        },
+      };
     },
     createTexture() {
       return {
@@ -100,6 +108,8 @@ function gpuHarness() {
     submits = 0;
     textureCopies = 0;
     textureWrites = 0;
+    bufferCreates = 0;
+    bufferDestroys = 0;
     instanceCounts.length = 0;
     bufferWrites.length = 0;
     loadOps.length = 0;
@@ -108,6 +118,7 @@ function gpuHarness() {
     device,
     surface,
     reset,
+    bufferCounts: () => ({ creates: bufferCreates, destroys: bufferDestroys }),
     counts: () => ({
       drawCalls,
       renderPasses,
@@ -175,6 +186,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       bufferWrites: [10, 5, 5],
       loadOps: ['load', 'load', 'load'],
     });
+    expect(harness.bufferCounts()).toEqual({ creates: 1, destroys: 0 });
   });
 
   it('finalizes already-rasterized dabs without replaying them and marks sparse-tile dirtiness', () => {
@@ -309,5 +321,31 @@ describe('M4 baseline WebGPU paint renderer', () => {
       bufferWrites: [],
       loadOps: ['clear'],
     });
+  });
+
+  it('keeps finalize work bounded to one affected tile at 100, 1,000, and 10,000 strokes', () => {
+    const tileState = new RendererTileStateV1(1, 1);
+    const renderer = new BaselinePaintRendererV1();
+    renderer.configureDocument(tileState, 1, 1);
+    const onePixelDab = dab(0.5, 0.5);
+    const checkpoints = new Set([100, 1_000, 10_000]);
+    const windowStarts = new Set([1, 901, 9_901]);
+    const timings: Record<number, number> = {};
+    let windowStartedAt = performance.now();
+    for (let stroke = 1; stroke <= 10_000; stroke += 1) {
+      if (windowStarts.has(stroke)) windowStartedAt = performance.now();
+      const finalization = renderer.finalizeStroke(`scale-${stroke}`, [onePixelDab]);
+      if (!checkpoints.has(stroke)) continue;
+      timings[stroke] = performance.now() - windowStartedAt;
+      expect(finalization.affectedTiles).toHaveLength(1);
+      expect(finalization.tilePatches).toHaveLength(1);
+      expect(finalization.tilePatches[0]?.coordinate).toEqual({ tx: 0, ty: 0 });
+    }
+    expect(renderer.snapshot()).toMatchObject({
+      committedStrokeCount: 10_000,
+      committedDabCount: 10_000,
+    });
+    expect(tileState.snapshot()).toMatchObject({ allocatedTileCount: 1, dirtyTileCount: 1 });
+    console.info(JSON.stringify({ benchmark: 'paint-finalize-100-window-ms', timings }));
   });
 });

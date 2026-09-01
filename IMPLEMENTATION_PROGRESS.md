@@ -237,10 +237,10 @@ USER-01-PERF-001 128×128 Raster Tile canonical state基盤（affected-tile befo
 USER-01-PERF-002 production renderer/sessionをlayer別canonical Raster Tileへ接続:完了
 USER-01-PERF-003 Tile差分Undo/Redo（全stroke replay除去）:完了
 USER-01-PERF-004 dirty Tile journal・bounded history spill・Autosave差分化:完了
-USER-01-PERF-005 旧stroke snapshot一回限りmigration・Tile復元・Export互換:未完了
-USER-01-PERF-006 100/1,000/10,000 stroke scaling回帰確認・typecheck/test/build:未完了
+USER-01-PERF-005 旧stroke snapshot一回限りmigration・Tile復元・Export互換:完了
+USER-01-PERF-006 100/1,000/10,000 stroke scaling回帰確認・typecheck/test/build:完了
 USER-01-PERF-007 main統合・GitHub Pages preview更新:未完了
-再開メモ: `perf/raster-tile-canonical` branch上の最新push済みcommitから再開する。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行する。typecheckと関連unit 12件がPASS。次はPERF-005のTile-based PNG Export、旧形式migration検査、PERF-006のscaling確認を行う。
+再開メモ: `perf/raster-tile-canonical` branch上の最新push済みcommitから再開する。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。typecheck、unit 80 files / 302 tests、production build、M4 contractがPASS。次はPERF-007の最終main統合とGitHub Pages preview更新を行う。
 
 USER-01は上記内部修正の完了後も、ユーザー実機で明示的にPASSされるまで未完了のままとする。
 
