@@ -21,8 +21,8 @@ describe('production build output', () => {
     expect(html).toContain('manifest.webmanifest');
     expect(manifest).toContain('Illustro');
     expect(serviceWorker).toContain('PRECACHE_MANIFEST');
-    expect(serviceWorker).toContain("'./app/main.js'");
-    expect(serviceWorker).toContain("'./workers/render.worker.js'");
+    expect(serviceWorker).toContain('"./app/main.js"');
+    expect(serviceWorker).toContain('"./workers/render.worker.js"');
     expect(serviceWorker).toContain('networkFirst(request)');
     expect(serviceWorker).toContain("fetch(request, { cache: 'no-cache' })");
     expect(serviceWorker).not.toContain('__ILLUSTRO_BUILD_SHA__');
