@@ -70,7 +70,7 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
   });
 
   it('keeps touch in navigation mode by default and does not forward it to the drawing transport', () => {
-    const arbitration = new PointerInputArbitrationV1();
+    const arbitration = new PointerInputArbitrationV1({ fingerDrawingEnabled: false });
     const decision = arbitration.route(batch(sample('touch', 'pointerdown')));
     expect(decision).toMatchObject({
       disposition: 'navigation',
@@ -105,7 +105,10 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
   });
 
   it('biases large ambiguous touch toward palm rejection shortly after pen proximity', () => {
-    const arbitration = new PointerInputArbitrationV1({ recentPenBiasMs: 500 });
+    const arbitration = new PointerInputArbitrationV1({
+      fingerDrawingEnabled: false,
+      recentPenBiasMs: 500,
+    });
     arbitration.route(batch(sample('pen', 'pointermove', { timestampMs: 100 })));
     const rejected = arbitration.route(
       batch(
@@ -135,7 +138,7 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
     expect(later.disposition).toBe('navigation');
   });
 
-  it('supports explicit finger drawing without changing the default policy', () => {
+  it('bridges explicit finger drawing into the existing pen/mouse tool boundary', () => {
     const arbitration = new PointerInputArbitrationV1({ fingerDrawingEnabled: true });
     const decision = arbitration.route(
       batch(sample('touch', 'pointerdown', { timestampMs: 1000 })),
@@ -145,10 +148,10 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
       reason: 'touch-finger-drawing',
       cancelToolPointerIds: [],
     });
-    expect(decision.forwardBatch).not.toBeNull();
+    expect(decision.forwardBatch?.confirmed.at(-1)?.source).toBe('mouse');
   });
 
-  it('cancels the one-finger tool transaction and promotes both touches to navigation', () => {
+  it('cancels the one-finger tool transaction before promoting both touches to navigation', () => {
     const arbitration = new PointerInputArbitrationV1({ fingerDrawingEnabled: true });
     const first = arbitration.route(
       batch(sample('touch', 'pointerdown', { pointerId: 2, timestampMs: 1000 })),
@@ -159,11 +162,15 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
       batch(sample('touch', 'pointerdown', { pointerId: 3, timestampMs: 1010 })),
     );
     expect(second).toMatchObject({
-      disposition: 'navigation',
+      disposition: 'tool',
       reason: 'touch-multitouch-navigation',
-      forwardBatch: null,
       cancelToolPointerIds: [2],
     });
+    expect(second.forwardBatch).toMatchObject({
+      eventType: 'pointercancel',
+      pointerId: 2,
+    });
+    expect(second.forwardBatch?.confirmed.at(-1)?.source).toBe('mouse');
 
     const firstMove = arbitration.route(
       batch(
