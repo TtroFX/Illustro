@@ -1,0 +1,281 @@
+name: Implement M5B Multi Layer Selection
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  implement-verify:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Capture checked out identity
+        run: echo "ILLUSTRO_BUILD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Verify deployment branches
+        run: |
+          git fetch origin preview:refs/remotes/origin/preview
+          git show-ref --verify refs/remotes/origin/preview
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply multi-layer selection implementation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one anchor in {path}; found {count}: {old[:150]!r}')
+              file.write_text(text.replace(old, new, 1))
+
+          # Paint session: ephemeral multi-selection with one primary/active paint target.
+          replace_once(
+              'src/app/paint-session-controller.ts',
+              "export interface PaintSessionSnapshotV1 {\n  readonly schema: 'illustro.paint-session/1';\n  readonly documentId: string | null;\n  readonly activeLayerId: LayerId | null;",
+              "export type PaintLayerSelectionModeV1 = 'replace' | 'toggle' | 'range';\n\nexport interface PaintSessionSnapshotV1 {\n  readonly schema: 'illustro.paint-session/1';\n  readonly documentId: string | null;\n  readonly activeLayerId: LayerId | null;\n  readonly selectedLayerIds: readonly LayerId[];\n  readonly selectionAnchorLayerId: LayerId | null;",
+          )
+          replace_once(
+              'src/app/paint-session-controller.ts',
+              "  #document: DocumentV1 | null = null;\n  #activeLayerId: LayerId | null = null;\n  #activeStroke:",
+              "  #document: DocumentV1 | null = null;\n  #activeLayerId: LayerId | null = null;\n  readonly #selectedLayerIds = new Set<LayerId>();\n  #selectionAnchorLayerId: LayerId | null = null;\n  #activeStroke:",
+          )
+          replace_once(
+              'src/app/paint-session-controller.ts',
+              "      documentId: this.#document?.documentId ?? null,\n      activeLayerId: this.#activeLayerId,\n      activeStrokeId:",
+              "      documentId: this.#document?.documentId ?? null,\n      activeLayerId: this.#activeLayerId,\n      selectedLayerIds: Object.freeze([...this.#selectedLayerIds]),\n      selectionAnchorLayerId: this.#selectionAnchorLayerId,\n      activeStrokeId:",
+          )
+          replace_once(
+              'src/app/paint-session-controller.ts',
+              "  activeLayerId(): LayerId | null {\n    return this.#activeLayerId;\n  }\n\n  setActiveLayer(layerId: LayerId): PaintSessionSnapshotV1 {\n    const document = this.#document;\n    if (document === null) throw new Error('active layer selection requires a document');\n    if (!(layerId in document.layerTree.layers))\n      throw new Error(`active layer is missing: ${layerId}`);\n    if (this.#activeLayerId !== layerId) this.#clearActiveStroke();\n    this.#activeLayerId = layerId;\n    return this.snapshot();\n  }",
+              "  activeLayerId(): LayerId | null {\n    return this.#activeLayerId;\n  }\n\n  selectedLayerIds(): readonly LayerId[] {\n    return Object.freeze([...this.#selectedLayerIds]);\n  }\n\n  isLayerSelected(layerId: LayerId): boolean {\n    return this.#selectedLayerIds.has(layerId);\n  }\n\n  setActiveLayer(layerId: LayerId): PaintSessionSnapshotV1 {\n    return this.selectLayer(layerId, 'replace');\n  }\n\n  selectLayer(\n    layerId: LayerId,\n    mode: PaintLayerSelectionModeV1 = 'replace',\n  ): PaintSessionSnapshotV1 {\n    const document = this.#document;\n    if (document === null) throw new Error('layer selection requires a document');\n    if (!(layerId in document.layerTree.layers)) {\n      throw new Error(`selected layer is missing: ${layerId}`);\n    }\n    const roots = document.layerTree.rootLayerIds;\n    const setPrimary = (next: LayerId): void => {\n      if (this.#activeLayerId !== next) this.#clearActiveStroke();\n      this.#activeLayerId = next;\n    };\n    if (mode === 'replace') {\n      this.#selectedLayerIds.clear();\n      this.#selectedLayerIds.add(layerId);\n      this.#selectionAnchorLayerId = layerId;\n      setPrimary(layerId);\n      return this.snapshot();\n    }\n    if (mode === 'range') {\n      const anchor = this.#selectionAnchorLayerId ?? this.#activeLayerId ?? layerId;\n      const anchorIndex = roots.indexOf(anchor);\n      const targetIndex = roots.indexOf(layerId);\n      if (anchorIndex < 0 || targetIndex < 0) {\n        return this.selectLayer(layerId, 'replace');\n      }\n      this.#selectedLayerIds.clear();\n      const start = Math.min(anchorIndex, targetIndex);\n      const end = Math.max(anchorIndex, targetIndex);\n      for (const selectedId of roots.slice(start, end + 1)) {\n        this.#selectedLayerIds.add(selectedId);\n      }\n      this.#selectionAnchorLayerId = anchor;\n      setPrimary(layerId);\n      return this.snapshot();\n    }\n    if (mode === 'toggle') {\n      if (this.#selectedLayerIds.has(layerId)) {\n        if (this.#selectedLayerIds.size === 1) return this.snapshot();\n        this.#selectedLayerIds.delete(layerId);\n        if (this.#activeLayerId === layerId) {\n          const targetIndex = roots.indexOf(layerId);\n          const remaining = roots.filter((id) => this.#selectedLayerIds.has(id));\n          const next =\n            remaining.sort(\n              (left, right) =>\n                Math.abs(roots.indexOf(left) - targetIndex) -\n                Math.abs(roots.indexOf(right) - targetIndex),\n            )[0] ?? null;\n          if (next !== null) setPrimary(next);\n        }\n        if (this.#selectionAnchorLayerId === layerId) {\n          this.#selectionAnchorLayerId = this.#activeLayerId;\n        }\n      } else {\n        this.#selectedLayerIds.add(layerId);\n        this.#selectionAnchorLayerId = layerId;\n        setPrimary(layerId);\n      }\n      return this.snapshot();\n    }\n    throw new TypeError(`unsupported layer selection mode: ${String(mode)}`);\n  }",
+          )
+          replace_once(
+              'src/app/paint-session-controller.ts',
+              "    const previousActiveLayerId = this.#activeLayerId;\n    this.#document = normalized.document;\n    this.#activeLayerId =\n      previousActiveLayerId !== null &&\n      previousActiveLayerId in normalized.document.layerTree.layers\n        ? previousActiveLayerId\n        : (normalized.document.layerTree.rootLayerIds[0] ?? null);\n    this.#clearActiveStroke();",
+              "    const previousActiveLayerId = this.#activeLayerId;\n    const previousSelectedLayerIds = [...this.#selectedLayerIds];\n    const previousAnchorLayerId = this.#selectionAnchorLayerId;\n    this.#document = normalized.document;\n    this.#activeLayerId =\n      previousActiveLayerId !== null &&\n      previousActiveLayerId in normalized.document.layerTree.layers\n        ? previousActiveLayerId\n        : (normalized.document.layerTree.rootLayerIds[0] ?? null);\n    this.#selectedLayerIds.clear();\n    for (const layerId of previousSelectedLayerIds) {\n      if (layerId in normalized.document.layerTree.layers) this.#selectedLayerIds.add(layerId);\n    }\n    if (this.#activeLayerId !== null) this.#selectedLayerIds.add(this.#activeLayerId);\n    this.#selectionAnchorLayerId =\n      previousAnchorLayerId !== null &&\n      previousAnchorLayerId in normalized.document.layerTree.layers\n        ? previousAnchorLayerId\n        : this.#activeLayerId;\n    this.#clearActiveStroke();",
+          )
+          replace_once(
+              'src/app/paint-session-controller.ts',
+              "    this.#document = initial.document;\n    this.#activeLayerId = initial.layer.id;\n    this.#clearActiveStroke();",
+              "    this.#document = initial.document;\n    this.#activeLayerId = initial.layer.id;\n    this.#selectedLayerIds.clear();\n    this.#selectedLayerIds.add(initial.layer.id);\n    this.#selectionAnchorLayerId = initial.layer.id;\n    this.#clearActiveStroke();",
+          )
+          replace_once(
+              'src/app/paint-session-controller.ts',
+              "    this.#document = null;\n    this.#activeLayerId = null;\n    this.#clearActiveStroke();",
+              "    this.#document = null;\n    this.#activeLayerId = null;\n    this.#selectedLayerIds.clear();\n    this.#selectionAnchorLayerId = null;\n    this.#clearActiveStroke();",
+          )
+
+          # Layer list uses selected-set semantics while retaining one active paint target.
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    const documentValue = options.paintSession.currentDocument();\n    const activeLayerId = options.paintSession.activeLayerId();\n    list.replaceChildren();",
+              "    const documentValue = options.paintSession.currentDocument();\n    const activeLayerId = options.paintSession.activeLayerId();\n    const selectedLayerIds = new Set(options.paintSession.selectedLayerIds());\n    list.replaceChildren();",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "      row.dataset.layerType = layer.type;\n      if (layerId === activeLayerId) row.classList.add('is-selected');",
+              "      row.dataset.layerType = layer.type;\n      if (selectedLayerIds.has(layerId)) row.classList.add('is-selected');\n      if (layerId === activeLayerId) row.classList.add('is-active');",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "      select.setAttribute('aria-label', `${layer.name}を選択`);\n      select.setAttribute('aria-pressed', layerId === activeLayerId ? 'true' : 'false');",
+              "      select.setAttribute('aria-label', `${layer.name}を選択`);\n      select.setAttribute('aria-pressed', selectedLayerIds.has(layerId) ? 'true' : 'false');\n      if (layerId === activeLayerId) select.setAttribute('aria-current', 'true');",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    root.dataset.illustroLayerCount = String(Object.keys(documentValue.layerTree.layers).length);\n    root.dataset.illustroActiveLayerId = activeLayerId ?? '';",
+              "    root.dataset.illustroLayerCount = String(Object.keys(documentValue.layerTree.layers).length);\n    root.dataset.illustroSelectedLayerCount = String(selectedLayerIds.size);\n    root.dataset.illustroActiveLayerId = activeLayerId ?? '';",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "      if (action === 'select') {\n        options.paintSession.setActiveLayer(layerId);\n        clearError();\n        renameForm.hidden = true;\n        refresh();\n        return;\n      }",
+              "      if (action === 'select') {\n        const mode = event.shiftKey\n          ? 'range'\n          : event.ctrlKey || event.metaKey\n            ? 'toggle'\n            : 'replace';\n        if (mode !== 'replace') event.preventDefault();\n        options.paintSession.selectLayer(layerId, mode);\n        clearError();\n        renameForm.hidden = true;\n        refresh();\n        return;\n      }",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    const sourceLayerId = parseLayerId(value);\n    try {\n      options.paintSession.setActiveLayer(sourceLayerId);\n      refresh();",
+              "    const sourceLayerId = parseLayerId(value);\n    try {\n      const modifiedSelectionGesture = event.shiftKey || event.ctrlKey || event.metaKey;\n      if (!modifiedSelectionGesture && !options.paintSession.isLayerSelected(sourceLayerId)) {\n        options.paintSession.setActiveLayer(sourceLayerId);\n        refresh();\n      }",
+          )
+
+          # Primary active layer remains visually identifiable inside a multi-selection.
+          replace_once(
+              'public/app-shell.css',
+              ".shell-layer-row.is-selected {\n  border-color: #ffd1e3;\n  background: linear-gradient(90deg, #ff3d8d 0 4px, #ffe8f2 4px 100%);\n}\n\n.shell-layer-row:focus-visible",
+              ".shell-layer-row.is-selected {\n  border-color: #ffd1e3;\n  background: linear-gradient(90deg, #ff3d8d 0 4px, #ffe8f2 4px 100%);\n}\n\n.shell-layer-row.is-selected.is-active {\n  border-color: #ff9fc4;\n  box-shadow: inset 0 0 0 1px rgb(255 61 141 / 18%);\n}\n\n.shell-layer-row:focus-visible",
+          )
+
+          # Unit coverage for replace/toggle/range and restoration pruning.
+          replace_once(
+              'tests/unit/paint-session-controller.test.ts',
+              "import { PaintSessionControllerV1 } from '../../src/app/paint-session-controller.js';\n",
+              "import { PaintSessionControllerV1 } from '../../src/app/paint-session-controller.js';\nimport { createRasterLayer } from '../../src/domain/layers.js';\n",
+          )
+          Path('tests/unit/paint-layer-selection.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import { PaintSessionControllerV1 } from '../../src/app/paint-session-controller.js';
+          import { createRasterLayer } from '../../src/domain/layers.js';
+
+          class FakeRendererDocumentPort {
+            async configureDocument(): Promise<void> {}
+            async restoreBaselineStrokes(): Promise<void> {}
+          }
+
+          async function threeLayerSession(): Promise<{
+            readonly session: PaintSessionControllerV1;
+            readonly ids: readonly [string, string, string];
+          }> {
+            const session = new PaintSessionControllerV1(new FakeRendererDocumentPort());
+            await session.createNewDocument({ width: 64, height: 64 });
+            const current = session.projectSnapshot();
+            if (current === null) throw new Error('missing project');
+            const first = current.document.layerTree.rootLayerIds[0];
+            if (first === undefined) throw new Error('missing initial layer');
+            const second = createRasterLayer({ name: 'Layer 2' });
+            const third = createRasterLayer({ name: 'Layer 3' });
+            await session.restoreProjectSnapshot(
+              Object.freeze({
+                ...current,
+                document: Object.freeze({
+                  ...current.document,
+                  layerTree: Object.freeze({
+                    rootLayerIds: Object.freeze([first, second.id, third.id]),
+                    layers: Object.freeze({
+                      ...current.document.layerTree.layers,
+                      [second.id]: second,
+                      [third.id]: third,
+                    }),
+                  }),
+                }),
+              }),
+            );
+            return { session, ids: [first, second.id, third.id] as const };
+          }
+
+          describe('M5B multi-layer selection', () => {
+            it('keeps one primary active paint target while supporting toggle selection', async () => {
+              const { session, ids } = await threeLayerSession();
+              session.selectLayer(ids[1] as never, 'toggle');
+              expect(session.selectedLayerIds()).toEqual([ids[0], ids[1]]);
+              expect(session.activeLayerId()).toBe(ids[1]);
+              expect(session.snapshot()).toMatchObject({
+                activeLayerId: ids[1],
+                selectedLayerIds: [ids[0], ids[1]],
+                selectionAnchorLayerId: ids[1],
+              });
+
+              session.selectLayer(ids[0] as never, 'toggle');
+              expect(session.selectedLayerIds()).toEqual([ids[1]]);
+              expect(session.activeLayerId()).toBe(ids[1]);
+              session.selectLayer(ids[1] as never, 'toggle');
+              expect(session.selectedLayerIds()).toEqual([ids[1]]);
+            });
+
+            it('selects a contiguous root-layer range from the anchor and makes the target primary', async () => {
+              const { session, ids } = await threeLayerSession();
+              session.selectLayer(ids[0] as never, 'replace');
+              session.selectLayer(ids[2] as never, 'range');
+              expect(session.selectedLayerIds()).toEqual([ids[0], ids[1], ids[2]]);
+              expect(session.activeLayerId()).toBe(ids[2]);
+              expect(session.snapshot().selectionAnchorLayerId).toBe(ids[0]);
+            });
+
+            it('prunes stale selected layers on snapshot restore without persisting selection into the document', async () => {
+              const { session, ids } = await threeLayerSession();
+              session.selectLayer(ids[1] as never, 'toggle');
+              const snapshot = session.projectSnapshot();
+              if (snapshot === null) throw new Error('missing snapshot');
+              expect('selectedLayerIds' in snapshot).toBe(false);
+              const layers = { ...snapshot.document.layerTree.layers };
+              delete layers[ids[0]];
+              await session.restoreProjectSnapshot(
+                Object.freeze({
+                  ...snapshot,
+                  document: Object.freeze({
+                    ...snapshot.document,
+                    layerTree: Object.freeze({
+                      rootLayerIds: Object.freeze([ids[1] as never, ids[2] as never]),
+                      layers: Object.freeze(layers),
+                    }),
+                  }),
+                }),
+              );
+              expect(session.selectedLayerIds()).toEqual([ids[1]]);
+              expect(session.activeLayerId()).toBe(ids[1]);
+            });
+          });
+          ''')
+          # remove unused import inadvertently added above if existing test doesn't consume it
+          path = Path('tests/unit/paint-session-controller.test.ts')
+          path.write_text(path.read_text().replace("import { createRasterLayer } from '../../src/domain/layers.js';\n", ''))
+
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "requireText('src/app/paint-session-controller.ts', [\n  'activeLayerId(): LayerId | null',\n  'setActiveLayer(layerId: LayerId)',",
+              "requireText('src/app/paint-session-controller.ts', [\n  'activeLayerId(): LayerId | null',\n  'selectedLayerIds(): readonly LayerId[]',\n  'isLayerSelected(layerId: LayerId)',\n  'selectLayer(',\n  \"PaintLayerSelectionModeV1 = 'replace' | 'toggle' | 'range'\",\n  'setActiveLayer(layerId: LayerId)',",
+          )
+          replace_once(
+              'scripts/verify-m5b-layer-foundation.mjs',
+              "  'prepareLayerRasterFlipV1',\n  'pointermove',",
+              "  'prepareLayerRasterFlipV1',\n  'selectedLayerIds',\n  'selectLayer(layerId, mode)',\n  'pointermove',",
+          )
+          PY
+      - name: Canonical formatting
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M1 contract inspection
+        run: npm run verify:m1
+      - name: M2 persistence inspection
+        run: npm run verify:m2
+      - name: M3 foundation inspection
+        run: npm run verify:m3
+      - name: M4 vertical-slice inspection
+        run: npm run verify:m4
+      - name: M5A document foundation inspection
+        run: npm run verify:m5a
+      - name: M5B layer system inspection
+        run: npm run verify:m5b
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Deployment contract
+        run: npm run verify:m0.5
+      - name: Record verified progress and commit
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          old = 'M5B-025 multi-layer selection:未完了'
+          new = 'M5B-025 multi-layer selection:完了'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one progress marker, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/paint-session-controller.ts src/app/layer-workflow-controller.ts public/app-shell.css tests/unit/paint-layer-selection.test.ts scripts/verify-m5b-layer-foundation.mjs IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: implement M5B multi-layer selection [skip ci]'
+          git push origin HEAD:main
