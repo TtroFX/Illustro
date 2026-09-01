@@ -1,7 +1,13 @@
 import type { RuntimeCapabilities } from './capabilities.js';
 import { parseInternalId, type InternalId } from '../domain/internal-id.js';
 
-export const MIN_FULL_EDITOR_VIEWPORT_WIDTH_CSS_PX = 600;
+export const NARROW_LAYOUT_BREAKPOINT_CSS_PX = 600;
+
+/**
+ * @deprecated Viewport width no longer gates full-editor eligibility.
+ * Use NARROW_LAYOUT_BREAKPOINT_CSS_PX only for responsive presentation decisions.
+ */
+export const MIN_FULL_EDITOR_VIEWPORT_WIDTH_CSS_PX = NARROW_LAYOUT_BREAKPOINT_CSS_PX;
 
 export type CapabilityProbeStateV1 = boolean | 'pending';
 export type FullEditorEligibilityV1 = 'eligible' | 'ineligible' | 'pending';
@@ -22,10 +28,13 @@ export interface RuntimeCapabilityProfileV1 {
     readonly opfs: boolean;
     readonly dedicatedWorker: boolean;
     readonly transferableArrayBuffer: boolean;
+    /** Legacy compatibility field. Phone-class viewports are valid full-editor targets. */
     readonly fullEditorViewport: boolean;
     readonly storageWriteViable: CapabilityProbeStateV1;
   };
   readonly optional: {
+    /** Responsive-layout signal only; this must never block editor eligibility. */
+    readonly narrowViewport: boolean;
     readonly sharedMemoryFastPath: boolean;
     readonly workerOffscreenCanvas: boolean;
     readonly syncAccessHandle: boolean;
@@ -62,9 +71,9 @@ export function createRuntimeCapabilityProfile(
   capabilities: RuntimeCapabilities,
   probes: RuntimeProbeResultsV1,
 ): RuntimeCapabilityProfileV1 {
-  const viewportEligible =
+  const narrowViewport =
     Number.isFinite(probes.viewportWidthCssPx) &&
-    probes.viewportWidthCssPx >= MIN_FULL_EDITOR_VIEWPORT_WIDTH_CSS_PX;
+    probes.viewportWidthCssPx < NARROW_LAYOUT_BREAKPOINT_CSS_PX;
   const required = Object.freeze({
     secureContext: capabilities.secureContext,
     webGpuApi: capabilities.webGpu,
@@ -72,7 +81,8 @@ export function createRuntimeCapabilityProfile(
     opfs: capabilities.opfs,
     dedicatedWorker: capabilities.dedicatedWorker,
     transferableArrayBuffer: probes.transferableArrayBuffer,
-    fullEditorViewport: viewportEligible,
+    // Kept for schema compatibility. Viewport width is no longer an editor-admission gate.
+    fullEditorViewport: true,
     storageWriteViable: probes.storageWriteViable,
   });
 
@@ -89,7 +99,6 @@ export function createRuntimeCapabilityProfile(
       required.transferableArrayBuffer,
       'capability.transferableArrayBuffer',
     ],
-    ['fullEditorViewport', required.fullEditorViewport, 'capability.fullEditorViewport'],
     ['storageWriteViable', required.storageWriteViable, 'capability.storageWriteViable'],
   ];
   for (const [, value, code] of checks) {
@@ -108,6 +117,7 @@ export function createRuntimeCapabilityProfile(
     schema: 'illustro.runtime-capabilities/1',
     required,
     optional: Object.freeze({
+      narrowViewport,
       sharedMemoryFastPath:
         capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer && capabilities.atomics,
       workerOffscreenCanvas: capabilities.dedicatedWorker && capabilities.offscreenCanvas,

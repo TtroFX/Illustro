@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { RuntimeCapabilities } from '../../src/app/capabilities.js';
 import {
   createRuntimeCapabilityProfile,
-  MIN_FULL_EDITOR_VIEWPORT_WIDTH_CSS_PX,
+  NARROW_LAYOUT_BREAKPOINT_CSS_PX,
 } from '../../src/app/runtime-profile.js';
 
 const BASE_CAPABILITIES: RuntimeCapabilities = {
@@ -41,32 +41,34 @@ describe('runtime capability profile', () => {
     expect(profile.fullEditorEligibility).toBe('pending');
     expect(profile.blockingReasonCodes).toEqual([]);
     expect(profile.pendingReasonCodes).toEqual(['capability.storageWriteViable']);
+    expect(profile.optional.narrowViewport).toBe(false);
     expect(profile.optional.sharedMemoryFastPath).toBe(true);
   });
 
-  it('rejects a narrow shell or failed baseline WebGPU device without disabling optional recovery shell features', () => {
-    const profile = createRuntimeCapabilityProfile(BASE_CAPABILITIES, {
-      coreWebGpuDeviceReady: false,
-      transferableArrayBuffer: true,
-      storageWriteViable: true,
-      viewportWidthCssPx: MIN_FULL_EDITOR_VIEWPORT_WIDTH_CSS_PX - 1,
-    });
-
-    expect(profile.fullEditorEligibility).toBe('ineligible');
-    expect(profile.blockingReasonCodes).toEqual([
-      'capability.coreWebGpuDevice',
-      'capability.fullEditorViewport',
-    ]);
-    expect(profile.optional.webLocks).toBe(true);
-  });
-
-  it('marks the full editor eligible only when every baseline probe passes', () => {
+  it('treats a phone-width viewport as responsive layout state rather than an editor blocker', () => {
     const profile = createRuntimeCapabilityProfile(BASE_CAPABILITIES, {
       coreWebGpuDeviceReady: true,
       transferableArrayBuffer: true,
       storageWriteViable: true,
-      viewportWidthCssPx: 1024,
+      viewportWidthCssPx: NARROW_LAYOUT_BREAKPOINT_CSS_PX - 1,
     });
+
     expect(profile.fullEditorEligibility).toBe('eligible');
+    expect(profile.required.fullEditorViewport).toBe(true);
+    expect(profile.optional.narrowViewport).toBe(true);
+    expect(profile.blockingReasonCodes).toEqual([]);
+  });
+
+  it('keeps renderer capability failures independent from viewport width', () => {
+    const profile = createRuntimeCapabilityProfile(BASE_CAPABILITIES, {
+      coreWebGpuDeviceReady: false,
+      transferableArrayBuffer: true,
+      storageWriteViable: true,
+      viewportWidthCssPx: NARROW_LAYOUT_BREAKPOINT_CSS_PX - 1,
+    });
+
+    expect(profile.fullEditorEligibility).toBe('ineligible');
+    expect(profile.optional.narrowViewport).toBe(true);
+    expect(profile.blockingReasonCodes).toEqual(['capability.coreWebGpuDevice']);
   });
 });
