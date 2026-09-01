@@ -299,8 +299,8 @@ M5B-030 layer filtering:完了
 M5B-031 empty-layer cleanup:完了
 M5B-032 hidden-layer cleanup:完了
 M5B-033 Folder Pass Through:完了
-M5B-034 Layer Comps create/save:未完了
-M5B-035 Layer Comps switch:未完了
+M5B-034 Layer Comps create/save:完了
+M5B-035 Layer Comps switch:完了
 M5B-036 Mask painting:未完了
 M5B-037 Mask invert:未完了
 M5B-038 Mask link/unlink:未完了
