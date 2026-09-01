@@ -9,6 +9,10 @@ import {
   type CreatableLayerKindV1,
 } from './layer-creation.js';
 import {
+  applyFolderAffineTransformSnapshotV1,
+  folderLayerTransformEligibilityV1,
+} from './layer-folder-transform.js';
+import {
   applyGroupedAffineLayerTransformSnapshotV1,
   groupedLayerTransformEligibilityV1,
 } from './layer-group-transform.js';
@@ -330,11 +334,19 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       projectSnapshot === null
         ? null
         : groupedLayerTransformEligibilityV1(projectSnapshot, groupedTransformLayerIds);
+    const folderTransformEligibility =
+      active === null || projectSnapshot === null || groupedTransformLayerIds.length !== 1
+        ? null
+        : folderLayerTransformEligibilityV1(projectSnapshot, active.id);
+    const transformEligible =
+      groupedTransformEligibility?.eligible === true ||
+      folderTransformEligibility?.eligible === true;
     groupedTransformButton.disabled =
-      groupedTransformEligibility?.eligible !== true ||
-      options.paintSession.activeStrokeId() !== null;
+      !transformEligible || options.paintSession.activeStrokeId() !== null;
     groupedTransformButton.title =
-      groupedTransformEligibility?.reason ?? '選択中の複数レイヤーをまとめて変形';
+      folderTransformEligibility?.eligible === true
+        ? 'フォルダをまとめて変形'
+        : (groupedTransformEligibility?.reason ?? '選択中の複数レイヤーをまとめて変形');
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -651,15 +663,35 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     return value;
   };
 
+  let layerTransformTarget:
+    | { readonly kind: 'grouped'; readonly layerIds: readonly LayerId[] }
+    | { readonly kind: 'folder'; readonly layerId: LayerId }
+    | null = null;
+
   const onGroupedTransform = (): void => {
     const current = options.paintSession.projectSnapshot();
     if (current === null) return;
     const layerIds = options.paintSession
       .selectedLayerIds()
       .filter((id) => current.document.layerTree.rootLayerIds.includes(id));
-    const eligibility = groupedLayerTransformEligibilityV1(current, layerIds);
-    if (!eligibility.eligible) {
-      publishError(new Error(eligibility.reason ?? 'grouped transform is unavailable'));
+    const groupedEligibility = groupedLayerTransformEligibilityV1(current, layerIds);
+    const activeLayerId = options.paintSession.activeLayerId();
+    const folderEligibility =
+      activeLayerId !== null && layerIds.length === 1
+        ? folderLayerTransformEligibilityV1(current, activeLayerId)
+        : null;
+    if (groupedEligibility.eligible) {
+      layerTransformTarget = Object.freeze({ kind: 'grouped' as const, layerIds });
+    } else if (folderEligibility?.eligible === true && activeLayerId !== null) {
+      layerTransformTarget = Object.freeze({ kind: 'folder' as const, layerId: activeLayerId });
+    } else {
+      publishError(
+        new Error(
+          folderEligibility?.reason ??
+            groupedEligibility.reason ??
+            'layer transform is unavailable',
+        ),
+      );
       return;
     }
     groupedTransformX.value = '0';
@@ -674,6 +706,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   };
 
   const onGroupedTransformCancel = (): void => {
+    layerTransformTarget = null;
     groupedTransformDialog.close();
     clearError();
   };
@@ -682,9 +715,11 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     event.preventDefault();
     const current = options.paintSession.projectSnapshot();
     if (current === null) return;
-    const layerIds = options.paintSession
-      .selectedLayerIds()
-      .filter((id) => current.document.layerTree.rootLayerIds.includes(id));
+    const target = layerTransformTarget;
+    if (target === null) {
+      publishError(new Error('layer transform target is unavailable'));
+      return;
+    }
     try {
       const input = Object.freeze({
         translateX: numericTransformValue(groupedTransformX, 'translateX'),
@@ -701,12 +736,20 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
             throw new Error('grouped transform is unavailable while a stroke is active');
           }
           const transaction = await options.paintHistory.commitSnapshotTransform(
-            'layer.transform.grouped',
+            target.kind === 'folder' ? 'layer.transform.folder' : 'layer.transform.grouped',
             (before, revision) =>
-              applyGroupedAffineLayerTransformSnapshotV1(before, layerIds, input, revision),
+              target.kind === 'folder'
+                ? applyFolderAffineTransformSnapshotV1(before, target.layerId, input, revision)
+                : applyGroupedAffineLayerTransformSnapshotV1(
+                    before,
+                    target.layerIds,
+                    input,
+                    revision,
+                  ),
           );
           await options.paintPersistence.markDirty(transaction.transactionId);
           root.dataset.illustroLayerTransaction = transaction.transactionId;
+          layerTransformTarget = null;
           groupedTransformDialog.close();
           clearError();
           refresh();

@@ -114,7 +114,7 @@
               <button id="layer-invert" type="button" aria-label="選択レイヤーの色を反転" title="色反転">◑</button>
               <button id="layer-flip-horizontal" type="button" aria-label="選択レイヤーを左右反転" title="左右反転">⇆</button>
               <button id="layer-flip-vertical" type="button" aria-label="選択レイヤーを上下反転" title="上下反転">⇅</button>
-              <button id="layer-group-transform" type="button" aria-label="選択中の複数レイヤーをまとめて変形" title="複数レイヤー変形">⤢</button>
+              <button id="layer-group-transform" type="button" aria-label="選択レイヤーを非破壊変形" title="レイヤー変形">⤢</button>
               <button id="layer-rename" type="button" aria-label="レイヤー名を変更" title="名前を変更">✎</button>
               <button id="layer-delete" type="button" aria-label="レイヤーを削除" title="削除">×</button>
               <button id="layer-clear" type="button" aria-label="レイヤー内容をクリア" title="内容をクリア">⌫</button>
@@ -140,8 +140,8 @@
     </div>
     <dialog id="layer-group-transform-dialog" class="document-dialog" aria-labelledby="layer-group-transform-title">
       <form id="layer-group-transform-form" method="dialog" class="document-dialog-form">
-        <header><h2 id="layer-group-transform-title">複数レイヤー変形</h2></header>
-        <p class="document-dialog-help">選択中の複数レイヤーへ同じ非破壊Affine変形を適用します。</p>
+        <header><h2 id="layer-group-transform-title">レイヤー変形</h2></header>
+        <p class="document-dialog-help">複数選択レイヤー、または選択フォルダへ非破壊Affine変形を適用します。</p>
         <div class="document-dialog-grid">
           <label>移動 X (px)<input id="layer-group-transform-x" type="number" step="0.1" value="0" /></label>
           <label>移動 Y (px)<input id="layer-group-transform-y" type="number" step="0.1" value="0" /></label>

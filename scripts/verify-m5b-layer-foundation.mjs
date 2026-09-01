@@ -180,4 +180,17 @@ requireText('src/index.html', [
   'id="layer-group-transform-pivot-x"',
   'id="layer-group-transform-pivot-y"',
 ]);
+requireText('src/app/layer-folder-transform.ts', [
+  'folderLayerTransformEligibilityV1',
+  'applyFolderAffineTransformSnapshotV1',
+  "'illustro.folder-affine-transform/1'",
+  "kind: 'affine'",
+  'transformStack',
+  'Lineart Group transform requires the synchronized lineart transform path',
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'layer.transform.folder'",
+  'folderLayerTransformEligibilityV1',
+  'applyFolderAffineTransformSnapshotV1',
+]);
 console.log('M5B layer system verification passed');
