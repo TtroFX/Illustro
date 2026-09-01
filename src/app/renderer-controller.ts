@@ -1,7 +1,4 @@
-import {
-  planBaselineBrushTilesV1,
-  type BaselineBrushDabV1,
-} from '../gpu/baseline-brush.js';
+import { planBaselineBrushTilesV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
   BaselinePaintRendererV1,
