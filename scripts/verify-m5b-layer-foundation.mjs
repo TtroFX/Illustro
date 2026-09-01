@@ -206,4 +206,18 @@ requireText('src/app/layer-workflow-controller.ts', [
   'illustroLayerSearchMatches',
 ]);
 requireText('src/index.html', ['id="layer-search"', 'id="layer-search-count"']);
+requireText('src/app/layer-filter.ts', [
+  'LAYER_FILTER_IDS_V1',
+  'parseLayerFilterIdV1',
+  'matchesLayerFilterV1',
+  "'state:hidden'",
+  "'state:masked'",
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#layer-filter'",
+  'matchesLayerFilterV1',
+  'parseLayerFilterIdV1',
+  'illustroLayerFilter',
+]);
+requireText('src/index.html', ['id="layer-filter"', 'value="state:hidden"', 'value="type:raster"']);
 console.log('M5B layer system verification passed');

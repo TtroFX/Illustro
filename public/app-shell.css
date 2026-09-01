@@ -324,7 +324,7 @@ body {
 
 .shell-layer-search {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) max-content;
+  grid-template-columns: 18px minmax(0, 1fr) minmax(76px, max-content) max-content;
   align-items: center;
   gap: 6px;
   margin: 8px 8px 0;
@@ -348,6 +348,18 @@ body {
 
 .shell-layer-search input::placeholder {
   color: #98a3b6;
+}
+
+.shell-layer-search select {
+  max-width: 112px;
+  min-height: 24px;
+  border: 1px solid #dfe5ef;
+  border-radius: 7px;
+  outline: 0;
+  background: #fff;
+  color: #56627a;
+  font: inherit;
+  font-size: 9px;
 }
 
 .shell-layer-search:focus-within {

@@ -107,7 +107,29 @@
           <div class="shell-layer-search">
             <span aria-hidden="true">⌕</span>
             <input id="layer-search" type="search" autocomplete="off" spellcheck="false" placeholder="レイヤーを検索" aria-label="レイヤー名を検索" aria-controls="layer-list" />
-            <output id="layer-search-count" aria-label="検索結果件数">0</output>
+            <select id="layer-filter" aria-label="レイヤーを絞り込み" aria-controls="layer-list">
+              <option value="all">すべて</option>
+              <optgroup label="種類">
+                <option value="type:raster">ラスタ</option>
+                <option value="type:vector">ベクター</option>
+                <option value="type:text">テキスト</option>
+                <option value="type:fill">塗り</option>
+                <option value="type:gradient">グラデーション</option>
+                <option value="type:adjustment">調整</option>
+                <option value="type:folder">フォルダ</option>
+                <option value="type:linkedObject">リンク</option>
+                <option value="type:lineartBoundary">境界</option>
+              </optgroup>
+              <optgroup label="状態">
+                <option value="state:visible">表示</option>
+                <option value="state:hidden">非表示</option>
+                <option value="state:locked">ロックあり</option>
+                <option value="state:reference">参照</option>
+                <option value="state:draft">下書き</option>
+                <option value="state:masked">マスクあり</option>
+              </optgroup>
+            </select>
+            <output id="layer-search-count" aria-label="表示レイヤー件数">0</output>
           </div>
           <fieldset id="layer-list" class="shell-inspector-list" aria-label="レイヤー一覧"></fieldset>
           <fieldset id="layer-actions" class="shell-layer-actions" aria-label="選択レイヤー操作">

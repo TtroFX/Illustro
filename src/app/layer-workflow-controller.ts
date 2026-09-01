@@ -54,6 +54,11 @@ import {
   layerRasterFlipEligibilityV1,
   prepareLayerRasterFlipV1,
 } from './layer-raster-flip.js';
+import {
+  matchesLayerFilterV1,
+  parseLayerFilterIdV1,
+  type LayerFilterIdV1,
+} from './layer-filter.js';
 import { matchesLayerSearchV1, normalizeLayerSearchQueryV1 } from './layer-search.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
@@ -161,6 +166,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const root = options.root ?? document.documentElement;
   const list = required<HTMLElement>('#layer-list');
   const searchInput = required<HTMLInputElement>('#layer-search');
+  const filterSelect = required<HTMLSelectElement>('#layer-filter');
   const searchCount = required<HTMLOutputElement>('#layer-search-count');
   const maskButton = required<HTMLButtonElement>('#layer-add-mask');
   const duplicateButton = required<HTMLButtonElement>('#layer-duplicate');
@@ -199,6 +205,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   let disposed = false;
   let drag: LayerDragStateV1 | null = null;
   let layerSearchQuery = '';
+  let layerFilter: LayerFilterIdV1 = 'all';
 
   const publishError = (error: unknown): void => {
     const message = error instanceof Error ? error.message : String(error);
@@ -230,6 +237,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     if (documentValue === null) {
       root.dataset.illustroLayerCount = '0';
       root.dataset.illustroLayerSearchMatches = '0';
+      root.dataset.illustroLayerFilter = layerFilter;
       root.dataset.illustroActiveLayerId = '';
       searchCount.value = '0';
       return;
@@ -239,7 +247,12 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     let searchMatchCount = 0;
     for (const layerId of ordered) {
       const layer = documentValue.layerTree.layers[layerId];
-      if (layer === undefined || !matchesLayerSearchV1(layer, layerSearchQuery)) continue;
+      if (
+        layer === undefined ||
+        !matchesLayerSearchV1(layer, layerSearchQuery) ||
+        !matchesLayerFilterV1(layer, layerFilter)
+      )
+        continue;
       searchMatchCount += 1;
       const row = document.createElement('div');
       row.className = 'shell-layer-row';
@@ -297,6 +310,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     searchCount.value = String(searchMatchCount);
     root.dataset.illustroLayerSearchMatches = String(searchMatchCount);
     root.dataset.illustroLayerSearchQuery = layerSearchQuery;
+    root.dataset.illustroLayerFilter = layerFilter;
     const active = currentActive();
     const disabled = active === null;
     maskButton.disabled = disabled || active?.layer.type === 'lineartBoundary';
@@ -910,6 +924,17 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     refresh();
   };
 
+  const onLayerFilterChange = (): void => {
+    try {
+      layerFilter = parseLayerFilterIdV1(filterSelect.value);
+      clearError();
+      refresh();
+    } catch (error) {
+      filterSelect.value = layerFilter;
+      publishError(error);
+    }
+  };
+
   const onLayerSearchKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape' || searchInput.value.length === 0) return;
     event.preventDefault();
@@ -1107,6 +1132,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   moveDownButton.addEventListener('click', onMoveDown);
   searchInput.addEventListener('input', onLayerSearchInput);
   searchInput.addEventListener('keydown', onLayerSearchKeyDown);
+  filterSelect.addEventListener('change', onLayerFilterChange);
   list.addEventListener('click', onListClick);
   list.addEventListener('pointerdown', onPointerDown);
   list.addEventListener('pointermove', onPointerMove);
@@ -1145,6 +1171,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       moveDownButton.removeEventListener('click', onMoveDown);
       searchInput.removeEventListener('input', onLayerSearchInput);
       searchInput.removeEventListener('keydown', onLayerSearchKeyDown);
+      filterSelect.removeEventListener('change', onLayerFilterChange);
       list.removeEventListener('click', onListClick);
       list.removeEventListener('pointerdown', onPointerDown);
       list.removeEventListener('pointermove', onPointerMove);
