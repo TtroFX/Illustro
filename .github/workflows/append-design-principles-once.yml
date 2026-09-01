@@ -1,4 +1,4 @@
-name: Apply phone input and shell remediation once
+name: Repair phone shell lint once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  apply-phone-remediation:
+  repair-phone-shell-lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,70 +18,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply phone UX supersession and shell
+      - name: Remove unsupported span aria-label
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-
-          design_path = Path('ILLUSTRO_DESIGN_MEMO.md')
-          design = design_path.read_text()
-          heading = '## Phone touch and narrow-editor UX supersession — 2026-09-02'
-          if heading not in design:
-              design += '''\n\n## Phone touch and narrow-editor UX supersession — 2026-09-02\n\n**Status: AUTHORITATIVE / DESIGN CHANGE / SUPERSESSION**\n\nThis section supersedes the earlier P2-6 / FG-1 single-finger Touch=Pan default only for the phone-class narrow full-editor presentation. Tablet/desktop Pen-first behavior remains unchanged.\n\n1. On a phone-class narrow full-editor surface with coarse primary pointing, one-finger canvas contact targets the active drawing-capable tool by default when no Pen transaction is active.\n2. Arrival of a second Touch atomically cancels the provisional one-finger drawing transaction before that gesture changes ownership to canvas navigation. A navigation gesture must never leave a partial committed stroke behind.\n3. Once a gesture owns two or more Touch contacts, those contacts are navigation-only until the Touch transaction fully ends. Two-finger drag/pinch/twist maps to Pan/Zoom/Rotate through the existing viewport transform.\n4. Pen contact and recent-Pen palm rejection continue to outrank finger drawing. Wider Pen-capable tablet/desktop surfaces may keep Finger Drawing disabled by default.\n5. Tool-facing compatibility adaptation may translate Touch metadata at the input boundary while the existing paint/history persistence schema is retained; canonical Raster Tile state, Tile History, persistence, Undo/Redo and export remain unchanged.\n6. Phone UI follows Canvas First: a compact top command surface, a persistent bottom action strip for current drawing state and frequent actions, and Inspector content exposed as a dismissible sheet rather than being hidden solely because of viewport width.\n7. Required phone controls use at least 44 CSS px interactive targets and respect safe-area insets. Width reduction may collapse or overlay controls but must not silently remove required functions.\n8. This is a responsive interaction specialization, not a separate reduced-feature phone application.\n'''
-              design_path.write_text(design)
-
-          progress_path = Path('IMPLEMENTATION_PROGRESS.md')
-          progress = progress_path.read_text()
-          marker = 'MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完了'
-          additions = '''MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了\nMOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了\nMOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了\n'''
-          if 'MOBILE-008 phone single-finger draw' not in progress:
-              if marker not in progress:
-                  raise SystemExit('MOBILE-007 progress marker not found')
-              progress = progress.replace(marker, additions + marker, 1)
-              progress_path.write_text(progress)
-
-          index_path = Path('src/index.html')
-          index = index_path.read_text()
-          index = index.replace(
-              'content="width=device-width, initial-scale=1"',
-              'content="width=device-width, initial-scale=1, viewport-fit=cover"',
-              1,
-          )
-          if 'mobile-shell.css' not in index:
-              index = index.replace(
-                  '<link rel="stylesheet" href="./app-shell.css" />',
-                  '<link rel="stylesheet" href="./app-shell.css" />\n    <link rel="stylesheet" href="./mobile-shell.css" />',
-                  1,
-              )
-          if 'id="mobile-layer-inspector"' not in index:
-              index = index.replace(
-                  '<aside class="shell-inspector" aria-label="Inspector">',
-                  '<aside id="mobile-layer-inspector" class="shell-inspector" aria-label="Inspector">',
-                  1,
-              )
-          if 'shell-mobile-inspector-header' not in index:
-              index = index.replace(
-                  '          <div class="shell-inspector-tabs" aria-hidden="true">',
-                  '''          <div class="shell-mobile-inspector-header">\n            <strong>レイヤー</strong>\n            <button type="button" aria-label="レイヤーを閉じる" onclick="document.getElementById('app')?.classList.remove('is-mobile-inspector-open'); document.getElementById('mobile-layers')?.setAttribute('aria-expanded', 'false')">×</button>\n          </div>\n          <div class="shell-inspector-tabs" aria-hidden="true">''',
-                  1,
-              )
-          if 'shell-mobile-toolbar' not in index:
-              anchor = '      </div>\n    </div>\n    <dialog id="layer-group-transform-dialog"'
-              replacement = '''      </div>\n      <button class="shell-mobile-inspector-backdrop" type="button" aria-label="レイヤーを閉じる" tabindex="-1" onclick="document.getElementById('app')?.classList.remove('is-mobile-inspector-open'); document.getElementById('mobile-layers')?.setAttribute('aria-expanded', 'false')"></button>\n      <nav class="shell-mobile-toolbar" aria-label="スマートフォン描画操作">\n        <span class="shell-mobile-draw-mode" aria-label="1本指で描画、2本指でキャンバス操作" title="1本指: 描画 / 2本指: 移動・拡大・回転"><span aria-hidden="true">✎</span><small>描く</small></span>\n        <button id="mobile-history-undo" type="button" aria-label="元に戻す" onclick="document.getElementById('history-undo')?.click()"><span aria-hidden="true">↶</span><small>戻す</small></button>\n        <button id="mobile-history-redo" type="button" aria-label="やり直す" onclick="document.getElementById('history-redo')?.click()"><span aria-hidden="true">↷</span><small>進む</small></button>\n        <button id="mobile-layers" type="button" aria-label="レイヤー" aria-controls="mobile-layer-inspector" aria-expanded="false" onclick="const app=document.getElementById('app'); const open=app?.classList.toggle('is-mobile-inspector-open') ?? false; this.setAttribute('aria-expanded', String(open))"><span aria-hidden="true">▱</span><small>レイヤー</small></button>\n        <button id="mobile-fit" type="button" aria-label="キャンバスを画面に合わせる" onclick="document.getElementById('view-fit')?.click()"><span aria-hidden="true">⊙</span><small>Fit</small></button>\n        <button id="mobile-export" type="button" aria-label="PNGを書き出す" onclick="document.getElementById('export-png')?.click()"><span aria-hidden="true">⇩</span><small>書出</small></button>\n      </nav>\n    </div>\n    <dialog id="layer-group-transform-dialog"'''
-              if anchor not in index:
-                  raise SystemExit('app shell closing anchor not found')
-              index = index.replace(anchor, replacement, 1)
-          index_path.write_text(index)
+          path = Path('src/index.html')
+          text = path.read_text()
+          before = '<span class="shell-mobile-draw-mode" aria-label="1本指で描画、2本指でキャンバス操作" title="1本指: 描画 / 2本指: 移動・拡大・回転">'
+          after = '<span class="shell-mobile-draw-mode" title="1本指: 描画 / 2本指: 移動・拡大・回転">'
+          if before in text:
+              path.write_text(text.replace(before, after, 1))
+          elif after not in text:
+              raise SystemExit('phone draw-mode markup not found')
           PY
-
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ILLUSTRO_DESIGN_MEMO.md IMPLEMENTATION_PROGRESS.md src/index.html
+          git add src/index.html
           if git diff --cached --quiet; then
-            echo 'Phone remediation already applied.'
+            echo 'Phone shell lint repair already applied.'
             exit 0
           fi
-          git commit -m 'feat: establish phone drawing and operation shell'
+          git commit -m 'fix: repair phone shell accessibility markup'
           git push origin HEAD:main
