@@ -671,7 +671,7 @@ jobs:
           index = Path('src/index.html')
           text = index.read_text(encoding='utf-8')
           marker = '<form id="layer-rename-editor" class="shell-layer-rename-editor" hidden>'
-          insertion = '''<div class="shell-layer-comps" role="group" aria-label="Layer Comps">
+          insertion = '''<div class="shell-layer-comps">
             <input id="layer-comp-name" type="text" maxlength="120" placeholder="Layer Comp名" aria-label="保存するLayer Comp名" />
             <button id="layer-comp-save" type="button">保存</button>
             <select id="layer-comp-select" aria-label="Layer Compを選択"><option value="">Layer Comp</option></select>
