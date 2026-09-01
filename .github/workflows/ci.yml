@@ -52,6 +52,8 @@ jobs:
         run: npm run verify:m4
       - name: M5A document foundation inspection
         run: npm run verify:m5a
+      - name: M5B layer creation inspection
+        run: npm run verify:m5b
       - name: Production build
         env:
           ILLUSTRO_BUILD_MODE: production
