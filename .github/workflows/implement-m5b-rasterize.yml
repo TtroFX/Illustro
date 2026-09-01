@@ -33,6 +33,18 @@ jobs:
         run: python scripts/fix-m5b-rasterize-patch.py
       - name: Apply rasterize implementation
         run: python scripts/implement-m5b-rasterize.py
+      - name: Correct rasterize verifier contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify-m5b-layer-foundation.mjs')
+          text = path.read_text()
+          old = "  'rgba16-float',\n"
+          new = "  'solidFillBytes',\n"
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one obsolete rasterize verifier marker, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Canonical formatting
         run: npm run format
       - name: Formatting check
