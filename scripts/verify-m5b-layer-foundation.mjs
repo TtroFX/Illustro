@@ -235,4 +235,18 @@ requireText('src/app/layer-workflow-controller.ts', [
   'applyLayerCleanupSnapshotV1',
 ]);
 requireText('src/index.html', ['id="layer-cleanup-empty"', 'id="layer-cleanup-hidden"']);
+requireText('src/app/layer-folder-pass-through.ts', [
+  'folderPassThroughEligibilityV1',
+  'setFolderPassThroughSnapshotV1',
+  'buildLayerCompositeStructureV1',
+  "kind: 'isolation-begin'",
+  "blendMode !== 'pass-through'",
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#layer-folder-pass-through'",
+  "'layer.folder.pass-through'",
+  'folderPassThroughEligibilityV1',
+  'buildLayerCompositeStructureV1',
+]);
+requireText('src/index.html', ['id="layer-folder-pass-through"']);
 console.log('M5B layer system verification passed');

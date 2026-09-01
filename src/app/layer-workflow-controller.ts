@@ -10,6 +10,11 @@ import {
   type CreatableLayerKindV1,
 } from './layer-creation.js';
 import {
+  buildLayerCompositeStructureV1,
+  folderPassThroughEligibilityV1,
+  setFolderPassThroughSnapshotV1,
+} from './layer-folder-pass-through.js';
+import {
   applyFolderAffineTransformSnapshotV1,
   folderLayerTransformEligibilityV1,
 } from './layer-folder-transform.js';
@@ -180,6 +185,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const horizontalFlipButton = required<HTMLButtonElement>('#layer-flip-horizontal');
   const verticalFlipButton = required<HTMLButtonElement>('#layer-flip-vertical');
   const groupedTransformButton = required<HTMLButtonElement>('#layer-group-transform');
+  const folderPassThroughButton = required<HTMLButtonElement>('#layer-folder-pass-through');
   const groupedTransformDialog = required<HTMLDialogElement>('#layer-group-transform-dialog');
   const groupedTransformForm = required<HTMLFormElement>('#layer-group-transform-form');
   const groupedTransformCancel = required<HTMLButtonElement>('#layer-group-transform-cancel');
@@ -384,6 +390,24 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       folderTransformEligibility?.eligible === true
         ? 'フォルダをまとめて変形'
         : (groupedTransformEligibility?.reason ?? '選択中の複数レイヤーをまとめて変形');
+    const passThroughEligibility =
+      active === null || projectSnapshot === null
+        ? null
+        : folderPassThroughEligibilityV1(projectSnapshot, active.id);
+    folderPassThroughButton.disabled =
+      passThroughEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
+    folderPassThroughButton.setAttribute(
+      'aria-pressed',
+      passThroughEligibility?.enabled === true ? 'true' : 'false',
+    );
+    folderPassThroughButton.dataset.active =
+      passThroughEligibility?.enabled === true ? 'true' : 'false';
+    folderPassThroughButton.title = passThroughEligibility?.reason ?? 'フォルダ Pass Through';
+    if (projectSnapshot !== null) {
+      root.dataset.illustroCompositeStructureSteps = String(
+        buildLayerCompositeStructureV1(projectSnapshot).length,
+      );
+    }
     deleteButton.disabled = disabled;
     clearButton.disabled =
       disabled ||
@@ -706,6 +730,23 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
         publishError(error);
       }
     });
+  };
+
+  const onFolderPassThrough = (): void => {
+    const current = options.paintSession.projectSnapshot();
+    const layerId = options.paintSession.activeLayerId();
+    if (current === null || layerId === null) return;
+    const eligibility = folderPassThroughEligibilityV1(current, layerId);
+    if (!eligibility.eligible) {
+      publishError(new Error(eligibility.reason ?? 'folder Pass Through is unavailable'));
+      return;
+    }
+    commitMutation(
+      'layer.folder.pass-through',
+      (before, revision) =>
+        setFolderPassThroughSnapshotV1(before, layerId, !eligibility.enabled, revision),
+      () => layerId,
+    );
   };
 
   const numericTransformValue = (input: HTMLInputElement, label: string): number => {
@@ -1146,6 +1187,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   horizontalFlipButton.addEventListener('click', onHorizontalFlip);
   verticalFlipButton.addEventListener('click', onVerticalFlip);
   groupedTransformButton.addEventListener('click', onGroupedTransform);
+  folderPassThroughButton.addEventListener('click', onFolderPassThrough);
   groupedTransformForm.addEventListener('submit', onGroupedTransformSubmit);
   groupedTransformCancel.addEventListener('click', onGroupedTransformCancel);
   deleteButton.addEventListener('click', onDelete);
@@ -1187,6 +1229,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       horizontalFlipButton.removeEventListener('click', onHorizontalFlip);
       verticalFlipButton.removeEventListener('click', onVerticalFlip);
       groupedTransformButton.removeEventListener('click', onGroupedTransform);
+      folderPassThroughButton.removeEventListener('click', onFolderPassThrough);
       groupedTransformForm.removeEventListener('submit', onGroupedTransformSubmit);
       groupedTransformCancel.removeEventListener('click', onGroupedTransformCancel);
       deleteButton.removeEventListener('click', onDelete);
