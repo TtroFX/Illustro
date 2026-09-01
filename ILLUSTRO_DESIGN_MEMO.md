@@ -5082,3 +5082,19 @@ is **SUPERSEDED** by this section. Existing implementation/tests that still enco
 ### Evidence motivating the supersession
 
 The USER-01 phone diagnostics on build `da2a9c5fd42582c8131ea4694877c8920d075c8f` showed WebGPU API exposure on both main and worker contexts while adapter acquisition returned `adapter-unavailable`; the Render Worker consequently reported device state `unavailable`. This confirms that phone support cannot be defined as "WebGPU adapter available or no editor" and must use capability-based renderer fallback.
+
+
+## Phone touch and narrow-editor UX supersession — 2026-09-02
+
+**Status: AUTHORITATIVE / DESIGN CHANGE / SUPERSESSION**
+
+This section supersedes the earlier P2-6 / FG-1 single-finger Touch=Pan default only for the phone-class narrow full-editor presentation. Tablet/desktop Pen-first behavior remains unchanged.
+
+1. On a phone-class narrow full-editor surface with coarse primary pointing, one-finger canvas contact targets the active drawing-capable tool by default when no Pen transaction is active.
+2. Arrival of a second Touch atomically cancels the provisional one-finger drawing transaction before that gesture changes ownership to canvas navigation. A navigation gesture must never leave a partial committed stroke behind.
+3. Once a gesture owns two or more Touch contacts, those contacts are navigation-only until the Touch transaction fully ends. Two-finger drag/pinch/twist maps to Pan/Zoom/Rotate through the existing viewport transform.
+4. Pen contact and recent-Pen palm rejection continue to outrank finger drawing. Wider Pen-capable tablet/desktop surfaces may keep Finger Drawing disabled by default.
+5. Tool-facing compatibility adaptation may translate Touch metadata at the input boundary while the existing paint/history persistence schema is retained; canonical Raster Tile state, Tile History, persistence, Undo/Redo and export remain unchanged.
+6. Phone UI follows Canvas First: a compact top command surface, a persistent bottom action strip for current drawing state and frequent actions, and Inspector content exposed as a dismissible sheet rather than being hidden solely because of viewport width.
+7. Required phone controls use at least 44 CSS px interactive targets and respect safe-area insets. Width reduction may collapse or overlay controls but must not silently remove required functions.
+8. This is a responsive interaction specialization, not a separate reduced-feature phone application.
