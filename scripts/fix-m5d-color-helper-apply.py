@@ -13,6 +13,10 @@ replacements = [
         "  let colorHelperWorkingSpace = input.paintSession.currentDocument()?.color.workingSpace ?? 'srgb';\\n",
     ),
     (
+        "Object.freeze([0, 0, 0]), Object.freeze([1, 1, 1])",
+        "Object.freeze([0, 0, 0] as const), Object.freeze([1, 1, 1] as const)",
+    ),
+    (
         '<div class=\"shell-color-helper-tabs\" role=\"group\" aria-label=\"色候補モード\">',
         '<fieldset class=\"shell-color-helper-tabs\" aria-label=\"色候補モード\">',
     ),
