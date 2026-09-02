@@ -34,39 +34,26 @@ jobs:
           from pathlib import Path
           p = Path('src/index.html')
           text = p.read_text()
-          old = '''            <div class="shell-reference-view-actions" aria-label="参照画像の表示操作">
-              <button id="reference-rotate-left" type="button" aria-label="参照画像を左へ90度回転" disabled>↶</button>
-              <button id="reference-zoom-out" type="button" aria-label="参照画像を縮小" disabled>−</button>
-              <button id="reference-zoom-reset" type="button" aria-label="参照画像の表示をリセット" disabled>1:1</button>
-              <button id="reference-zoom-in" type="button" aria-label="参照画像を拡大" disabled>＋</button>
-              <button id="reference-rotate-right" type="button" aria-label="参照画像を右へ90度回転" disabled>↷</button>
-            </div>'''
-          old_role = old.replace('<div class="shell-reference-view-actions" aria-label=', '<div class="shell-reference-view-actions" role="group" aria-label=')
-          new = old.replace('<div class="shell-reference-view-actions"', '<fieldset class="shell-reference-view-actions"').replace('</div>', '</fieldset>')
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif old_role in text:
-              text = text.replace(old_role, new, 1)
-          elif new not in text:
-              raise SystemExit('expected reference action group anchor missing')
+          open_old = '<div class="shell-reference-view-actions" aria-label="参照画像の表示操作">'
+          open_role = '<div class="shell-reference-view-actions" role="group" aria-label="参照画像の表示操作">'
+          open_new = '<fieldset class="shell-reference-view-actions" aria-label="参照画像の表示操作">'
+          if open_old in text:
+              text = text.replace(open_old, open_new, 1)
+          elif open_role in text:
+              text = text.replace(open_role, open_new, 1)
+          elif open_new not in text:
+              raise SystemExit('expected reference group opening missing')
+          close_old = '<button id="reference-rotate-right" type="button" aria-label="参照画像を右へ90度回転" disabled>↷</button>\n            </div>'
+          close_new = '<button id="reference-rotate-right" type="button" aria-label="参照画像を右へ90度回転" disabled>↷</button>\n            </fieldset>'
+          if close_old in text:
+              text = text.replace(close_old, close_new, 1)
+          elif close_new not in text:
+              raise SystemExit('expected reference group closing missing')
           p.write_text(text)
-
           css = Path('public/app-shell.css')
           css_text = css.read_text()
-          anchor = '''.shell-reference-view-actions {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.35rem;
-}'''
-          replacement = '''.shell-reference-view-actions {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.35rem;
-  min-inline-size: 0;
-  margin: 0;
-  border: 0;
-  padding: 0;
-}'''
+          anchor = '.shell-reference-view-actions {\n  display: grid;\n  grid-template-columns: repeat(5, minmax(0, 1fr));\n  gap: 0.35rem;\n}'
+          replacement = '.shell-reference-view-actions {\n  display: grid;\n  grid-template-columns: repeat(5, minmax(0, 1fr));\n  gap: 0.35rem;\n  min-inline-size: 0;\n  margin: 0;\n  border: 0;\n  padding: 0;\n}'
           if anchor in css_text:
               css_text = css_text.replace(anchor, replacement, 1)
           elif replacement not in css_text:
