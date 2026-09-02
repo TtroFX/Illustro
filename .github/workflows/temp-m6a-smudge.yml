@@ -27,7 +27,8 @@ jobs:
       - name: Apply M6A Smudge
         run: |
           python scripts/apply-m6a-smudge.py
-          rm scripts/apply-m6a-smudge.py .github/workflows/temp-m6a-smudge.yml
+          python scripts/fix-m6a-smudge-verifier.py
+          rm scripts/apply-m6a-smudge.py scripts/fix-m6a-smudge-verifier.py .github/workflows/temp-m6a-smudge.yml
       - name: Formatting
         run: npm run format
       - name: Lint
