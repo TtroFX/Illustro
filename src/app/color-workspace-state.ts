@@ -5,6 +5,7 @@ import {
   rgbUnitColorEqualV1,
   type RgbUnitColorV1,
 } from '../domain/color.js';
+import { convertEncodedRgbV1 } from '../domain/color-management.js';
 import type { DocumentColorSpace } from '../domain/document.js';
 
 export const COLOR_HISTORY_LIMIT_V1 = 24;
@@ -328,6 +329,28 @@ export function parseColorPaletteBundleV1(value: unknown): ColorPaletteBundleV1 
     encoding: 'encoded-rgb-unit' as const,
     workingSpace: record.workingSpace,
     palettes,
+  });
+}
+
+export function convertColorPaletteBundleWorkingSpaceV1(
+  bundle: ColorPaletteBundleV1,
+  targetWorkingSpace: DocumentColorSpace,
+): ColorPaletteBundleV1 {
+  if (bundle.workingSpace === targetWorkingSpace) return bundle;
+  return Object.freeze({
+    ...bundle,
+    workingSpace: targetWorkingSpace,
+    palettes: Object.freeze(
+      bundle.palettes.map((palette) =>
+        createColorPaletteV1(
+          palette.id,
+          palette.name,
+          palette.colors.map((color) =>
+            convertEncodedRgbV1(color, bundle.workingSpace, targetWorkingSpace),
+          ),
+        ),
+      ),
+    ),
   });
 }
 

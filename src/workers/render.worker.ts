@@ -20,6 +20,7 @@ import { RendererDeviceManagerV1 } from '../gpu/renderer-device-manager.js';
 import {
   configureRendererSurfaceV1,
   rebuildRendererDeviceResourcesV1,
+  RendererPreviewColorSpaceUnavailableErrorV1,
   type RendererSurfaceLikeV1,
 } from '../gpu/renderer-device-resources.js';
 import { RendererTileStateV1 } from '../gpu/renderer-tile-state.js';
@@ -141,13 +142,19 @@ const scope = globalThis as unknown as WorkerScope;
 const inputIngress = installRenderInputIngressV1(scope);
 const baselinePaint = new BaselinePaintRendererV1();
 let surface: RendererSurfaceLikeV1 | null = null;
+let currentWorkingSpace: DocumentColorSpace = 'srgb';
 let tileState: RendererTileStateV1 | null = null;
 let renderSchedulingController: RenderSchedulingControllerV1 | null = null;
 
 const deviceManager = new RendererDeviceManagerV1({
   acquire: acquireCoreWebGpuV1,
   rebuild(device, generation) {
-    const resources = rebuildRendererDeviceResourcesV1(device, generation, surface);
+    const resources = rebuildRendererDeviceResourcesV1(
+      device,
+      generation,
+      surface,
+      currentWorkingSpace,
+    );
     tileState?.attachGpuDevice(device);
     baselinePaint.attachDevice(device);
     if (surface !== null && resources.canvasFormat !== null) {
@@ -767,6 +774,12 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
 
   try {
     if (request.type === 'renderer.tiles.configure') {
+      const device = deviceManager.currentDevice();
+      if (surface !== null && device !== null) {
+        const canvasFormat = configureRendererSurfaceV1(surface, device, request.workingSpace);
+        baselinePaint.attachSurface(surface, canvasFormat);
+      }
+      currentWorkingSpace = request.workingSpace;
       tileState?.dispose();
       tileState = new RendererTileStateV1(request.width, request.height);
       tileState.attachGpuDevice(deviceManager.currentDevice());
@@ -952,7 +965,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
         postResponse(request.requestId, false, deviceManager.snapshot());
         return;
       }
-      const canvasFormat = configureRendererSurfaceV1(surface, device);
+      const canvasFormat = configureRendererSurfaceV1(surface, device, currentWorkingSpace);
       tileState?.attachGpuDevice(device);
       baselinePaint.attachDevice(device);
       baselinePaint.attachSurface(surface, canvasFormat);
@@ -963,7 +976,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     await deviceManager.start();
     const device = deviceManager.currentDevice();
     if (device !== null && surface !== null) {
-      const canvasFormat = configureRendererSurfaceV1(surface, device);
+      const canvasFormat = configureRendererSurfaceV1(surface, device, currentWorkingSpace);
       baselinePaint.attachDevice(device);
       baselinePaint.attachSurface(surface, canvasFormat);
     }
@@ -977,6 +990,10 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     if (requestId !== null) {
       postResponse(requestId, false, {
         snapshot: deviceManager.snapshot(),
+        code:
+          error instanceof RendererPreviewColorSpaceUnavailableErrorV1
+            ? error.code
+            : 'renderer-request-failed',
         message: error instanceof Error ? error.message : String(error),
       });
     }

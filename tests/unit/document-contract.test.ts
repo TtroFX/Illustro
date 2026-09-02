@@ -33,6 +33,7 @@ describe('DocumentV1 canonical contract', () => {
       workingSpace: 'srgb',
       precision: 'rgba8-unorm',
       alphaMode: 'straight',
+      profile: { kind: 'builtin-rgb', space: 'srgb', whitePoint: 'd65', transfer: 'srgb' },
     });
     expect(document.layerTree.rootLayerIds).toEqual([]);
     expect(document.featureFlags).toEqual({ required: [], optional: [] });
@@ -52,6 +53,12 @@ describe('DocumentV1 canonical contract', () => {
       workingSpace: 'display-p3',
       precision: 'rgba16-float',
       alphaMode: 'straight',
+      profile: {
+        kind: 'builtin-rgb',
+        space: 'display-p3',
+        whitePoint: 'd65',
+        transfer: 'srgb',
+      },
     });
     expect(document.canvas.resolution.ppi).toBe(600);
   });

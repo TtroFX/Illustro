@@ -24,6 +24,7 @@ import {
   activeColorPaletteV1,
   addColorToPaletteV1,
   commitColorWorkspaceCurrentV1,
+  convertColorPaletteBundleWorkingSpaceV1,
   createColorPaletteInWorkspaceV1,
   createColorWorkspaceStateV1,
   deleteColorPaletteV1,
@@ -735,13 +736,15 @@ export function installColorWorkflowControllerV1(input: {
     if (file === undefined) return;
     try {
       const bundle = parseColorPaletteBundleV1(JSON.parse(await file.text()));
-      const next = importColorPaletteBundleV1(state, bundle);
+      const targetWorkingSpace = workingSpace();
+      const mismatch = bundle.workingSpace !== targetWorkingSpace;
+      const converted = convertColorPaletteBundleWorkingSpaceV1(bundle, targetWorkingSpace);
+      const next = importColorPaletteBundleV1(state, converted);
       selectedPaletteColorIndex = null;
-      const mismatch = bundle.workingSpace !== workingSpace();
       paletteUpdate(
         next,
         mismatch
-          ? `パレットを読込: ${bundle.workingSpace}値を変換せず保持（profile変換は後続M5D）`
+          ? `パレットを読込: ${bundle.workingSpace} → ${targetWorkingSpace} にprofile-aware変換`
           : 'パレットを読み込みました',
       );
     } catch (error) {

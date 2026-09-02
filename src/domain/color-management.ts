@@ -4,17 +4,7 @@ import type { DocumentColorProfileV1, DocumentColorSpace } from './document.js';
 export type GamutMappingModeV1 = 'clip';
 export type IccPcsV1 = 'xyz-d50';
 
-type Matrix3V1 = readonly [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-];
+type Matrix3V1 = readonly [number, number, number, number, number, number, number, number, number];
 
 type Vector3V1 = readonly [number, number, number];
 
@@ -63,35 +53,30 @@ export class UnsupportedIccProfileErrorV1 extends Error {
 }
 
 const SRGB_TO_XYZ_D65: Matrix3V1 = Object.freeze([
-  0.4124564, 0.3575761, 0.1804375,
-  0.2126729, 0.7151522, 0.072175,
-  0.0193339, 0.119192, 0.9503041,
+  0.4124564, 0.3575761, 0.1804375, 0.2126729, 0.7151522, 0.072175, 0.0193339, 0.119192, 0.9503041,
 ]);
 
 const XYZ_D65_TO_SRGB: Matrix3V1 = Object.freeze([
-  3.2404542, -1.5371385, -0.4985314,
-  -0.969266, 1.8760108, 0.041556,
-  0.0556434, -0.2040259, 1.0572252,
+  3.2404542, -1.5371385, -0.4985314, -0.969266, 1.8760108, 0.041556, 0.0556434, -0.2040259,
+  1.0572252,
 ]);
 
 const DISPLAY_P3_TO_XYZ_D65: Matrix3V1 = Object.freeze([
-  0.4865709486482162, 0.26566769316909306, 0.1982172852343625,
-  0.2289745640697488, 0.6917385218365064, 0.079286914093745,
-  0, 0.04511338185890264, 1.043944368900976,
+  0.4865709486482162, 0.26566769316909306, 0.1982172852343625, 0.2289745640697488,
+  0.6917385218365064, 0.079286914093745, 0, 0.04511338185890264, 1.043944368900976,
 ]);
 
 const XYZ_D65_TO_DISPLAY_P3: Matrix3V1 = Object.freeze([
-  2.493496911941425, -0.9313836179191239, -0.40271078445071684,
-  -0.8294889695615747, 1.7626640603183463, 0.023624685841943577,
-  0.03584583024378447, -0.07617238926804182, 0.9568845240076872,
+  2.493496911941425, -0.9313836179191239, -0.40271078445071684, -0.8294889695615747,
+  1.7626640603183463, 0.023624685841943577, 0.03584583024378447, -0.07617238926804182,
+  0.9568845240076872,
 ]);
 
 // ICC matrix/TRC profiles use PCS XYZ relative to D50. This Bradford transform
 // moves those values into the D65 basis used by the two supported document RGB spaces.
 const XYZ_D50_TO_D65: Matrix3V1 = Object.freeze([
-  0.9555766, -0.0230393, 0.0631636,
-  -0.0282895, 1.0099416, 0.0210077,
-  0.0122982, -0.020483, 1.3299098,
+  0.9555766, -0.0230393, 0.0631636, -0.0282895, 1.0099416, 0.0210077, 0.0122982, -0.020483,
+  1.3299098,
 ]);
 
 function clamp01(value: number): number {
@@ -148,7 +133,10 @@ function fromXyzD65V1(xyz: Vector3V1, targetSpace: DocumentColorSpace): Vector3V
   );
 }
 
-function clipEncodedV1(encoded: Vector3V1): { readonly color: RgbUnitColorV1; readonly clipped: boolean } {
+function clipEncodedV1(encoded: Vector3V1): {
+  readonly color: RgbUnitColorV1;
+  readonly clipped: boolean;
+} {
   const clipped = encoded.some((component) => component < 0 || component > 1);
   return Object.freeze({
     color: freezeRgbUnitColorV1(encoded.map(clamp01)),
@@ -245,7 +233,9 @@ function parseCurveTag(bytes: Uint8Array, offset: number, size: number): IccTone
   }
   const functionType = view.getUint16(offset + 8, false);
   if (functionType < 0 || functionType > 4) {
-    throw new UnsupportedIccProfileErrorV1(`ICC parametric TRC type ${functionType} is unsupported`);
+    throw new UnsupportedIccProfileErrorV1(
+      `ICC parametric TRC type ${functionType} is unsupported`,
+    );
   }
   const parameterCounts = [1, 3, 4, 5, 7] as const;
   const count = parameterCounts[functionType];
@@ -350,10 +340,16 @@ export function parseIccRgbMatrixProfileV1(bytes: Uint8Array): IccRgbMatrixProfi
     deviceClass: ascii(bytes, 12, 4),
     pcs: 'xyz-d50' as const,
     matrixToXyzD50: Object.freeze([
-      red[0], green[0], blue[0],
-      red[1], green[1], blue[1],
-      red[2], green[2], blue[2],
-    ]),
+      red[0],
+      green[0],
+      blue[0],
+      red[1],
+      green[1],
+      blue[1],
+      red[2],
+      green[2],
+      blue[2],
+    ]) as Matrix3V1,
     redTrc: parseCurveTag(bytes, redTrc.offset, redTrc.size),
     greenTrc: parseCurveTag(bytes, greenTrc.offset, greenTrc.size),
     blueTrc: parseCurveTag(bytes, blueTrc.offset, blueTrc.size),

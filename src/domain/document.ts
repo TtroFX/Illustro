@@ -18,6 +18,13 @@ export type DocumentColorSpace = 'srgb' | 'display-p3';
 export type DocumentPrecision = 'rgba8-unorm' | 'rgba16-float';
 export type CanonicalAlphaMode = 'straight';
 
+export interface DocumentColorProfileV1 {
+  readonly kind: 'builtin-rgb';
+  readonly space: DocumentColorSpace;
+  readonly whitePoint: 'd65';
+  readonly transfer: 'srgb';
+}
+
 export type RgbaUnitColor = readonly [number, number, number, number];
 
 export type CanvasBackgroundSpec =
@@ -46,6 +53,7 @@ export interface DocumentColorSpec {
   readonly workingSpace: DocumentColorSpace;
   readonly precision: DocumentPrecision;
   readonly alphaMode: CanonicalAlphaMode;
+  readonly profile?: DocumentColorProfileV1;
 }
 
 export interface FeatureFlagSet {
@@ -130,11 +138,33 @@ export function createCanvasSpec(input: {
   });
 }
 
+export function createDocumentColorProfileV1(
+  workingSpace: DocumentColorSpace,
+): DocumentColorProfileV1 {
+  return Object.freeze({
+    kind: 'builtin-rgb' as const,
+    space: workingSpace,
+    whitePoint: 'd65' as const,
+    transfer: 'srgb' as const,
+  });
+}
+
+export function resolveDocumentColorProfileV1(color: DocumentColorSpec): DocumentColorProfileV1 {
+  const profile = color.profile;
+  if (profile !== undefined && profile.space === color.workingSpace) return profile;
+  return createDocumentColorProfileV1(color.workingSpace);
+}
+
 export function createDocumentColorSpec(
   workingSpace: DocumentColorSpace = 'srgb',
   precision: DocumentPrecision = 'rgba8-unorm',
 ): DocumentColorSpec {
-  return Object.freeze({ workingSpace, precision, alphaMode: 'straight' as const });
+  return Object.freeze({
+    workingSpace,
+    precision,
+    alphaMode: 'straight' as const,
+    profile: createDocumentColorProfileV1(workingSpace),
+  });
 }
 
 export function createDocumentV1(input: {

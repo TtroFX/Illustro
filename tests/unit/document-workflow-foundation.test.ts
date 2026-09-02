@@ -72,6 +72,12 @@ describe('M5A document creation and metadata foundation', () => {
       workingSpace: 'display-p3',
       precision: 'rgba16-float',
       alphaMode: 'straight',
+      profile: {
+        kind: 'builtin-rgb',
+        space: 'display-p3',
+        whitePoint: 'd65',
+        transfer: 'srgb',
+      },
     });
     expect(renderer.configurations.at(-1)).toEqual({
       width: 4096,
