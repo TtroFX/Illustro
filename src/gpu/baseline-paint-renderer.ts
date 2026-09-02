@@ -879,8 +879,10 @@ export class BaselinePaintRendererV1 {
     return this.#requireDocument().canonicalTiles.exportTiles();
   }
 
-  exportCompositeTiles(): readonly BaselineRasterTileImageV1[] {
-    return this.#requireDocument().canonicalTiles.compositeTiles();
+  exportCompositeTiles(
+    options: { readonly includeDraft?: boolean } = {},
+  ): readonly BaselineRasterTileImageV1[] {
+    return this.#requireDocument().canonicalTiles.compositeTiles(undefined, options);
   }
 
   dispose(): void {

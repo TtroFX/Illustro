@@ -518,12 +518,13 @@ export class RendererControllerV1 {
         type: 'renderer.paint.exportTiles',
         requestId,
         composite: true,
+        includeDraft: false,
       });
       const tiles = response?.ok === true ? parseRasterTileImages(response.result) : null;
       if (tiles === null) throw new Error('Render Worker failed to export composite raster tiles');
       return tiles;
     }
-    return this.#mainBaselinePaint.exportCompositeTiles();
+    return this.#mainBaselinePaint.exportCompositeTiles({ includeDraft: false });
   }
 
   async applyBaselineTilePatches(
@@ -755,6 +756,7 @@ export class RendererControllerV1 {
             layerId: layer.layerId,
             visible: layer.visible,
             opacity: layer.opacity,
+            draft: layer.draft ?? false,
           }),
         ),
       ),

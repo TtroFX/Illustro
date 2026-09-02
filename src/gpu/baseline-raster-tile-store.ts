@@ -11,6 +11,7 @@ export interface BaselineRasterLayerDescriptorV1 {
   readonly layerId: string;
   readonly visible: boolean;
   readonly opacity: number;
+  readonly draft?: boolean;
 }
 
 export interface BaselineRasterTileImageV1 {
@@ -445,7 +446,10 @@ export class BaselineRasterTileStoreV1 {
     return Object.freeze([...this.#tiles.values()].map((tile) => cloneTile(tile)));
   }
 
-  compositeTiles(coordinates?: readonly TileCoordinateV1[]): readonly BaselineRasterTileImageV1[] {
+  compositeTiles(
+    coordinates?: readonly TileCoordinateV1[],
+    options: { readonly includeDraft?: boolean } = {},
+  ): readonly BaselineRasterTileImageV1[] {
     const selected = new Map<string, TileCoordinateV1>();
     if (coordinates === undefined) {
       for (const tile of this.#tiles.values()) {
@@ -454,13 +458,16 @@ export class BaselineRasterTileStoreV1 {
     } else {
       for (const coordinate of coordinates) selected.set(tileKeyV1(coordinate), coordinate);
     }
-    const visibleLayers = this.#layers.filter((layer) => layer.visible && layer.opacity > 0);
+    const includeDraft = options.includeDraft !== false;
+    const visibleLayers = this.#layers.filter(
+      (layer) => layer.visible && layer.opacity > 0 && (includeDraft || layer.draft !== true),
+    );
     const result: BaselineRasterTileImageV1[] = [];
     for (const [key, coordinate] of selected) {
-      let composite = this.#compositeCache.get(key);
+      let composite = includeDraft ? this.#compositeCache.get(key) : undefined;
       if (composite === undefined) {
         composite = this.#composeCoordinate(coordinate, visibleLayers);
-        this.#compositeCache.set(key, composite);
+        if (includeDraft) this.#compositeCache.set(key, composite);
       }
       result.push(cloneTile(composite));
     }
@@ -547,6 +554,7 @@ export class BaselineRasterTileStoreV1 {
           layerId: layer.layerId,
           visible: layer.visible,
           opacity: layer.opacity,
+          draft: layer.draft ?? false,
         });
       }),
     );

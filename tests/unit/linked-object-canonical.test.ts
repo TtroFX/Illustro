@@ -1,6 +1,4 @@
-from pathlib import Path
-
-Path("tests/unit/linked-object-canonical.test.ts").write_text(r'''import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createDocumentV1 } from '../../src/domain/document.js';
 import { serializeJson } from '../../src/domain/serialization.js';
 import { createLinkedObjectLayer } from '../../src/domain/special-layers.js';
@@ -37,4 +35,3 @@ describe('M5B Linked Object canonical embedded representation', () => {
     expect(encoded.externalSource?.sourceHash).toBe('c'.repeat(64));
   });
 });
-''')
