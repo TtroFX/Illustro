@@ -39,6 +39,14 @@ interface RendererWorkerResponseV1 {
   readonly result: unknown;
 }
 
+interface RendererCanonicalDocumentV1 {
+  readonly width: number;
+  readonly height: number;
+  readonly workingSpace: DocumentColorSpace;
+  readonly precision: DocumentPrecision;
+  readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
+}
+
 export interface RendererControllerSnapshotV1 {
   readonly schema: 'illustro.renderer-controller/1';
   readonly owner: RendererOwnerV1;
@@ -212,6 +220,13 @@ export function selectRendererExecutionPathV1(input: {
   return input.mainDeviceReady === false ? 'compatibility' : 'main';
 }
 
+export function shouldHandoffRendererToCompatibilityV1(
+  owner: RendererOwnerV1,
+  state: RendererDeviceStateV1,
+): boolean {
+  return (owner === 'worker' || owner === 'main') && state === 'recovery-required';
+}
+
 export class RendererControllerV1 {
   readonly #shell: FoundationShell;
   readonly #worker: WorkerLikeV1;
@@ -228,6 +243,8 @@ export class RendererControllerV1 {
   #removeSizeSubscription: (() => void) | null = null;
   #startTask: Promise<RendererControllerSnapshotV1> | null = null;
   #compatibilityDocument: { readonly width: number; readonly height: number } | null = null;
+  #canonicalDocument: RendererCanonicalDocumentV1 | null = null;
+  #backendHandoffTask: Promise<void> | null = null;
   #fallbackReason: string | null = null;
   #disposed = false;
 
@@ -244,7 +261,11 @@ export class RendererControllerV1 {
       if (this.#owner !== 'worker' || !isRecord(event.data)) return;
       if (event.data.type !== 'renderer.device-state') return;
       const snapshot = parseDeviceSnapshot(event.data.snapshot);
-      if (snapshot !== null) this.#applyDeviceSnapshot(snapshot);
+      if (snapshot === null) return;
+      this.#applyDeviceSnapshot(snapshot);
+      if (shouldHandoffRendererToCompatibilityV1(this.#owner, snapshot.state)) {
+        this.#scheduleWorkerCompatibilityHandoff(snapshot);
+      }
     };
     worker.addEventListener('message', this.#workerStateListener);
     this.#publish();
@@ -298,6 +319,7 @@ export class RendererControllerV1 {
       if (response?.ok !== true) {
         throw new Error('Render Worker failed to configure document tile state');
       }
+      this.#rememberDocumentConfiguration(input);
       this.#publishDocumentConfiguration(input);
       return Object.freeze({
         schema: 'illustro.renderer-document-configuration/1' as const,
@@ -330,7 +352,7 @@ export class RendererControllerV1 {
       input.precision,
       input.rasterLayers,
     );
-    this.#compatibilityDocument = Object.freeze({ width: input.width, height: input.height });
+    this.#rememberDocumentConfiguration(input);
     this.#compatibilityActiveTiles.clear();
     if (snapshot.owner === 'compatibility') {
       this.#compatibilityPresenter.configureDocument(input.width, input.height);
@@ -535,7 +557,12 @@ export class RendererControllerV1 {
       const requestId = crypto.randomUUID();
       const response = await requestWorker(this.#worker, { type: 'renderer.retry', requestId });
       const snapshot = response === null ? null : parseDeviceSnapshot(response.result);
-      if (snapshot !== null) this.#applyDeviceSnapshot(snapshot);
+      if (snapshot !== null) {
+        this.#applyDeviceSnapshot(snapshot);
+        if (shouldHandoffRendererToCompatibilityV1(this.#owner, snapshot.state)) {
+          this.#scheduleWorkerCompatibilityHandoff(snapshot);
+        }
+      }
       return this.snapshot();
     }
     return this.#startMainFallback();
@@ -553,6 +580,8 @@ export class RendererControllerV1 {
     this.#mainTileState = null;
     this.#mainDeviceManager?.dispose();
     this.#mainDeviceManager = null;
+    this.#canonicalDocument = null;
+    this.#compatibilityDocument = null;
     this.#worker.removeEventListener('message', this.#workerStateListener);
     this.#worker.postMessage({ type: 'renderer.dispose' });
     this.#deviceState = 'disposed';
@@ -641,7 +670,16 @@ export class RendererControllerV1 {
         }
         this.#mainBaselinePaint.attachSurface(this.#shell.canvas, resources.canvasFormat);
       },
-      onState: (snapshot) => this.#applyDeviceSnapshot(snapshot),
+      onState: (snapshot) => {
+        this.#applyDeviceSnapshot(snapshot);
+        if (shouldHandoffRendererToCompatibilityV1(this.#owner, snapshot.state)) {
+          this.#root.dataset.illustroRendererCanonicalHandoff = 'main-to-compatibility';
+          this.#root.dataset.illustroRendererCanonicalHandoffError = '';
+          this.#startCompatibilityFallback(
+            `main-webgpu-${snapshot.lastAcquireStatus ?? snapshot.state}`,
+          );
+        }
+      },
       onDiscardProvisional: () => {
         this.#mainTileState?.attachGpuDevice(null);
         this.#mainBaselinePaint.attachDevice(null);
@@ -697,6 +735,102 @@ export class RendererControllerV1 {
     this.#removeSizeSubscription = null;
     this.#compatibilityPresenter.detach();
     this.#compatibilityActiveTiles.clear();
+  }
+
+  #rememberDocumentConfiguration(input: {
+    readonly width: number;
+    readonly height: number;
+    readonly workingSpace: DocumentColorSpace;
+    readonly precision: DocumentPrecision;
+    readonly rasterLayers: readonly BaselineRasterLayerDescriptorV1[];
+  }): void {
+    this.#canonicalDocument = Object.freeze({
+      width: input.width,
+      height: input.height,
+      workingSpace: input.workingSpace,
+      precision: input.precision,
+      rasterLayers: Object.freeze(
+        input.rasterLayers.map((layer) =>
+          Object.freeze({
+            layerId: layer.layerId,
+            visible: layer.visible,
+            opacity: layer.opacity,
+          }),
+        ),
+      ),
+    });
+    this.#compatibilityDocument = Object.freeze({ width: input.width, height: input.height });
+  }
+
+  #scheduleWorkerCompatibilityHandoff(snapshot: RendererDeviceSnapshotV1): void {
+    if (this.#disposed || this.#owner !== 'worker' || this.#backendHandoffTask !== null) return;
+    const task = this.#handoffWorkerCanonicalTilesToCompatibility(snapshot);
+    this.#backendHandoffTask = task;
+    void task
+      .catch((error: unknown) => {
+        if (this.#disposed || this.#owner !== 'worker') return;
+        this.#fallbackReason = 'worker-canonical-handoff-failed';
+        this.#root.dataset.illustroRendererCanonicalHandoff = 'failed';
+        this.#root.dataset.illustroRendererCanonicalHandoffError =
+          error instanceof Error ? error.message : String(error);
+        this.#deviceState = 'recovery-required';
+        this.#publish();
+      })
+      .finally(() => {
+        if (this.#backendHandoffTask === task) this.#backendHandoffTask = null;
+      });
+  }
+
+  async #handoffWorkerCanonicalTilesToCompatibility(
+    snapshot: RendererDeviceSnapshotV1,
+  ): Promise<void> {
+    if (this.#owner !== 'worker') return;
+    const documentValue = this.#canonicalDocument;
+    if (documentValue === null) {
+      this.#worker.postMessage({ type: 'renderer.dispose' });
+      this.#root.dataset.illustroRendererCanonicalHandoff = 'worker-to-compatibility-empty';
+      this.#root.dataset.illustroRendererCanonicalHandoffError = '';
+      this.#startCompatibilityFallback(
+        `worker-webgpu-${snapshot.lastAcquireStatus ?? snapshot.state}`,
+      );
+      return;
+    }
+
+    const requestId = crypto.randomUUID();
+    const response = await requestWorker(this.#worker, {
+      type: 'renderer.paint.exportTiles',
+      requestId,
+      composite: false,
+    });
+    const tiles = response?.ok === true ? parseRasterTileImages(response.result) : null;
+    if (tiles === null) {
+      throw new Error('Render Worker failed to export canonical raster tiles for fallback');
+    }
+
+    this.#mainTileState?.dispose();
+    this.#mainTileState = new RendererTileStateV1(documentValue.width, documentValue.height);
+    this.#mainTileState.attachGpuDevice(null);
+    this.#mainBaselinePaint.attachDevice(null);
+    this.#mainBaselinePaint.attachSurface(null, null);
+    this.#mainBaselinePaint.configureDocument(
+      this.#mainTileState,
+      documentValue.width,
+      documentValue.height,
+      documentValue.precision,
+      documentValue.rasterLayers,
+    );
+    this.#mainBaselinePaint.restoreCanonicalTiles(tiles, documentValue.rasterLayers);
+    this.#compatibilityDocument = Object.freeze({
+      width: documentValue.width,
+      height: documentValue.height,
+    });
+    this.#compatibilityActiveTiles.clear();
+    this.#worker.postMessage({ type: 'renderer.dispose' });
+    this.#root.dataset.illustroRendererCanonicalHandoff = 'worker-to-compatibility';
+    this.#root.dataset.illustroRendererCanonicalHandoffError = '';
+    this.#startCompatibilityFallback(
+      `worker-webgpu-${snapshot.lastAcquireStatus ?? snapshot.state}`,
+    );
   }
 
   #trackCompatibilityDabs(dabs: readonly BaselineBrushDabV1[]): void {
