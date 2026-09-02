@@ -240,6 +240,7 @@ USER-01-PERF-004 dirty Tile journal・bounded history spill・Autosave差分化:
 USER-01-PERF-005 旧stroke snapshot一回限りmigration・Tile復元・Export互換:完了
 USER-01-PERF-006 100/1,000/10,000 stroke scaling回帰確認・typecheck/test/build:完了
 USER-01-PERF-007 main統合・GitHub Pages preview更新:完了
+USER-01-EXPORT-001 スマホPNG Export direct handler接続・hidden button中継除去・Exportのcheckpoint依存除去・可視status feedback:完了
 再開メモ: Raster Tile canonical state性能修正はmainへ統合済み。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。format、lint（既存warningのみ）、typecheck、unit 80 files / 302 tests、integration 2 files / 4 tests、production build、M4 contractがPASS。GitHub Pages `https://ttrofx.github.io/Illustro/` のbuild-infoとmain SHAの一致を確認済み。次はUSER-01のユーザー実機再確認を待つ。
 
 USER-01は上記内部修正の完了後も、ユーザー実機で明示的にPASSされるまで未完了のままとする。

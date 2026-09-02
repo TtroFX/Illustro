@@ -195,7 +195,7 @@
         <button id="mobile-history-redo" type="button" aria-label="やり直す" onclick="document.getElementById('history-redo')?.click()"><span aria-hidden="true">↷</span><small>進む</small></button>
         <button id="mobile-layers" type="button" aria-label="レイヤー" aria-controls="mobile-layer-inspector" aria-expanded="false" onclick="const app=document.getElementById('app'); const open=app?.classList.toggle('is-mobile-inspector-open') ?? false; this.setAttribute('aria-expanded', String(open))"><span aria-hidden="true">▱</span><small>レイヤー</small></button>
         <button id="mobile-fit" type="button" aria-label="キャンバスを画面に合わせる" onclick="document.getElementById('view-fit')?.click()"><span aria-hidden="true">⊙</span><small>Fit</small></button>
-        <button id="mobile-export" type="button" aria-label="PNGを書き出す" onclick="document.getElementById('export-png')?.click()"><span aria-hidden="true">⇩</span><small>書出</small></button>
+        <button id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false" disabled><span aria-hidden="true">⇩</span><small>書出</small></button>
       </nav>
     </div>
     <dialog id="layer-group-transform-dialog" class="document-dialog" aria-labelledby="layer-group-transform-title">

@@ -349,42 +349,72 @@ window.addEventListener('keydown', onPaintHistoryKeyDown);
 
 const exportPngButton = document.querySelector<HTMLButtonElement>('#export-png');
 const exportPngMenuButton = document.querySelector<HTMLButtonElement>('#export-png-menu');
+const mobileExportButton = document.querySelector<HTMLButtonElement>('#mobile-export');
+const mobileExportLabel = mobileExportButton?.querySelector('small') ?? null;
+let pngExportInFlight = false;
+
+function setMobilePngExportLabel(label: string): void {
+  if (mobileExportLabel !== null) mobileExportLabel.textContent = label;
+}
 
 function setPngExportControlsDisabled(disabled: boolean): void {
   if (exportPngButton !== null) exportPngButton.disabled = disabled;
   if (exportPngMenuButton !== null) exportPngMenuButton.disabled = disabled;
+  if (mobileExportButton !== null) {
+    mobileExportButton.disabled = disabled;
+    mobileExportButton.setAttribute('aria-busy', pngExportInFlight ? 'true' : 'false');
+  }
 }
 
+const restoreMobilePngExportLabel = (): void => {
+  globalThis.setTimeout(() => {
+    if (!pngExportInFlight) setMobilePngExportLabel('書出');
+  }, 1_500);
+};
+
 const onExportPngClick = (): void => {
-  if (exportPngButton === null || exportPngButton.disabled) return;
+  if (pngExportInFlight) return;
+  if (paintSession.currentDocument() === null) {
+    root.dataset.illustroPngExport = 'unavailable';
+    setPngExportControlsDisabled(true);
+    return;
+  }
+  pngExportInFlight = true;
   setPngExportControlsDisabled(true);
+  setMobilePngExportLabel('書出中');
   root.dataset.illustroPngExport = 'exporting';
   enqueuePaintRender(async () => {
     try {
-      await paintPersistence.flushCheckpoint();
       const documentValue = paintSession.currentDocument();
       if (documentValue === null) throw new Error('PNG export requires an active document');
       const tiles = await paintSession.exportCompositeRasterTiles();
       const blob = await encodeCompositeRasterTilesToPngV1(documentValue, tiles);
       downloadPngBlobV1(blob, 'Illustro.png');
       root.dataset.illustroPngExport = 'complete';
+      setMobilePngExportLabel('完了');
+      restoreMobilePngExportLabel();
       incrementPerformanceCounter('export.png.complete');
     } catch (error) {
       root.dataset.illustroPngExport = 'error';
+      setMobilePngExportLabel('失敗');
+      restoreMobilePngExportLabel();
       incrementPerformanceCounter('export.png.failure');
       logger.error('export.png-failed', error);
     } finally {
-      setPngExportControlsDisabled(false);
+      pngExportInFlight = false;
+      setPngExportControlsDisabled(paintSession.currentDocument() === null);
     }
   });
 };
-exportPngButton?.addEventListener('click', onExportPngClick);
-exportPngMenuButton?.addEventListener('click', () => {
-  exportPngMenuButton.closest('details')?.removeAttribute('open');
+const onExportPngMenuClick = (): void => {
+  exportPngMenuButton?.closest('details')?.removeAttribute('open');
   onExportPngClick();
-});
-if (exportPngMenuButton !== null) exportPngMenuButton.disabled = true;
-root.dataset.illustroPngExport = exportPngButton === null ? 'unavailable' : 'ready';
+};
+exportPngButton?.addEventListener('click', onExportPngClick);
+exportPngMenuButton?.addEventListener('click', onExportPngMenuClick);
+mobileExportButton?.addEventListener('click', onExportPngClick);
+setPngExportControlsDisabled(true);
+root.dataset.illustroPngExport = 'unavailable';
 
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
@@ -424,6 +454,7 @@ void renderer
     root.dataset.illustroPaintStroke = 'idle';
     root.dataset.illustroPaintStrokeSamples = '0';
     setPngExportControlsDisabled(false);
+    root.dataset.illustroPngExport = 'ready';
     publishPaintHistory();
     logger.info('paint-session.document-ready', {
       documentId: document.documentId,
@@ -451,6 +482,8 @@ globalThis.addEventListener(
   () => {
     window.removeEventListener('keydown', onPaintHistoryKeyDown);
     exportPngButton?.removeEventListener('click', onExportPngClick);
+    exportPngMenuButton?.removeEventListener('click', onExportPngMenuClick);
+    mobileExportButton?.removeEventListener('click', onExportPngClick);
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
     layerComps.dispose();
     layerWorkflow.dispose();
