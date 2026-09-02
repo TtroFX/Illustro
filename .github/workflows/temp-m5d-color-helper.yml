@@ -1,0 +1,59 @@
+name: temp M5D color helper
+
+on:
+  push:
+    branches:
+      - work/m5d-color-helper-20260902
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: work/m5d-color-helper-20260902
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts
+          fi
+          npm ci --ignore-scripts
+      - name: Apply M5D color helper
+        run: python scripts/apply-m5d-color-helper.py
+      - name: Formatting
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Prepare generated assets
+        run: npm run prepare:generated
+      - name: Focused M5D helper tests
+        run: npx vitest run tests/unit/color-helper-grid.test.ts tests/unit/color-workflow.test.ts tests/unit/color-management.test.ts tests/unit/color-mixing-surface.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5D contract inspection
+        run: npm run verify:m5d
+      - name: Full unit suite
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Persist verified implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/app/color-helper-grid.ts src/app/color-workflow-controller.ts src/index.html public/app-shell.css tests/unit/color-helper-grid.test.ts scripts/verify-m5d-color.mjs IMPLEMENTATION_PROGRESS.md ILLUSTRO_DESIGN_MEMO.md
+          git commit -m "feat: add M5D intermediate approximate color helper"
+          git push origin HEAD:work/m5d-color-helper-20260902
