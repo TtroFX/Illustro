@@ -51,7 +51,7 @@ jobs:
       - name: Formatting
         run: npm run format
       - name: Lint
-        run: npm run lint
+        run: npx biome lint src tests scripts bench vitest.config.ts --max-diagnostics=100
       - name: Focused M6A preset tests
         run: npx vitest run tests/unit/brush-preset-library.test.ts tests/unit/canonical-raster-brush.test.ts tests/unit/eraser-mode.test.ts tests/unit/smudge-mode.test.ts tests/unit/blur-brush-mode.test.ts
       - name: Typecheck
