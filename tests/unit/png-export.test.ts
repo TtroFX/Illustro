@@ -4,6 +4,7 @@ import { createRasterLayer } from '../../src/domain/layers.js';
 import type { BaselineBrushDabV1 } from '../../src/gpu/baseline-brush.js';
 import type { BaselineRasterTileImageV1 } from '../../src/gpu/baseline-raster-tile-store.js';
 import {
+  PNG_DOWNLOAD_URL_REVOKE_DELAY_MS,
   PNG_SIGNATURE,
   encodeCompositeRasterTilesToPngV1,
   encodePaintSnapshotToPngV1,
@@ -196,6 +197,10 @@ describe('M4 canonical PNG flatten', () => {
     const writtenTile = written[0];
     if (writtenTile === undefined) throw new Error('PNG surface did not receive the tile');
     expect([...writtenTile.rgba]).toEqual([...flattened.rgba]);
+  });
+
+  it('keeps download object URLs alive for asynchronous mobile download handling', () => {
+    expect(PNG_DOWNLOAD_URL_REVOKE_DELAY_MS).toBeGreaterThanOrEqual(30_000);
   });
 
   it('normalizes exported filenames without path/control characters', () => {

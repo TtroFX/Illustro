@@ -15,6 +15,7 @@ import type { PaintProjectSnapshotV1 } from '../app/paint-session-controller.js'
 export const PNG_MIME_TYPE = 'image/png' as const;
 export const PNG_FLATTEN_TILE_SIZE_PX = 256 as const;
 export const PNG_SIGNATURE = Object.freeze([137, 80, 78, 71, 13, 10, 26, 10] as const);
+export const PNG_DOWNLOAD_URL_REVOKE_DELAY_MS = 60_000 as const;
 
 export interface BaselinePaintFlattenTileV1 {
   readonly schema: 'illustro.baseline-paint-flatten-tile/1';
@@ -439,6 +440,6 @@ export function downloadPngBlobV1(blob: Blob, filename = 'Illustro.png'): void {
     anchor.click();
     anchor.remove();
   } finally {
-    globalThis.setTimeout(() => URL.revokeObjectURL(url), 0);
+    globalThis.setTimeout(() => URL.revokeObjectURL(url), PNG_DOWNLOAD_URL_REVOKE_DELAY_MS);
   }
 }

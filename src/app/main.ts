@@ -348,9 +348,16 @@ historyRedoButton?.addEventListener('click', () => requestPaintHistoryAction('re
 window.addEventListener('keydown', onPaintHistoryKeyDown);
 
 const exportPngButton = document.querySelector<HTMLButtonElement>('#export-png');
+const exportPngMenuButton = document.querySelector<HTMLButtonElement>('#export-png-menu');
+
+function setPngExportControlsDisabled(disabled: boolean): void {
+  if (exportPngButton !== null) exportPngButton.disabled = disabled;
+  if (exportPngMenuButton !== null) exportPngMenuButton.disabled = disabled;
+}
+
 const onExportPngClick = (): void => {
   if (exportPngButton === null || exportPngButton.disabled) return;
-  exportPngButton.disabled = true;
+  setPngExportControlsDisabled(true);
   root.dataset.illustroPngExport = 'exporting';
   enqueuePaintRender(async () => {
     try {
@@ -367,11 +374,16 @@ const onExportPngClick = (): void => {
       incrementPerformanceCounter('export.png.failure');
       logger.error('export.png-failed', error);
     } finally {
-      exportPngButton.disabled = false;
+      setPngExportControlsDisabled(false);
     }
   });
 };
 exportPngButton?.addEventListener('click', onExportPngClick);
+exportPngMenuButton?.addEventListener('click', () => {
+  exportPngMenuButton.closest('details')?.removeAttribute('open');
+  onExportPngClick();
+});
+if (exportPngMenuButton !== null) exportPngMenuButton.disabled = true;
 root.dataset.illustroPngExport = exportPngButton === null ? 'unavailable' : 'ready';
 
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
@@ -411,7 +423,7 @@ void renderer
     root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
     root.dataset.illustroPaintStroke = 'idle';
     root.dataset.illustroPaintStrokeSamples = '0';
-    if (exportPngButton !== null) exportPngButton.disabled = false;
+    setPngExportControlsDisabled(false);
     publishPaintHistory();
     logger.info('paint-session.document-ready', {
       documentId: document.documentId,
