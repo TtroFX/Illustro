@@ -109,8 +109,6 @@ export function installDocumentWorkflowControllerV1(
   const submit = requireElement<HTMLButtonElement>('#document-submit');
   const newDocumentButton = requireElement<HTMLButtonElement>('#new-document');
   const settingsButton = requireElement<HTMLButtonElement>('#document-settings');
-  const exportMenuButton = requireElement<HTMLButtonElement>('#export-png-menu');
-  const exportButton = document.querySelector<HTMLButtonElement>('#export-png');
 
   for (const entry of DEFAULT_DOCUMENT_PRESETS_V1) {
     const option = document.createElement('option');
@@ -200,10 +198,6 @@ export function installDocumentWorkflowControllerV1(
     closeContainingMenu(settingsButton);
     openDocumentSettings();
   };
-  const onExportMenuClick = (): void => {
-    closeContainingMenu(exportMenuButton);
-    exportButton?.click();
-  };
 
   const onSubmit = (event: SubmitEvent): void => {
     event.preventDefault();
@@ -268,7 +262,6 @@ export function installDocumentWorkflowControllerV1(
   backgroundMode.addEventListener('change', onBackgroundModeChange);
   newDocumentButton.addEventListener('click', onNewClick);
   settingsButton.addEventListener('click', onSettingsClick);
-  exportMenuButton.addEventListener('click', onExportMenuClick);
   form.addEventListener('submit', onSubmit);
   updateBackgroundControls();
   root.dataset.illustroDocumentWorkflow = 'ready';
@@ -282,7 +275,6 @@ export function installDocumentWorkflowControllerV1(
       backgroundMode.removeEventListener('change', onBackgroundModeChange);
       newDocumentButton.removeEventListener('click', onNewClick);
       settingsButton.removeEventListener('click', onSettingsClick);
-      exportMenuButton.removeEventListener('click', onExportMenuClick);
       form.removeEventListener('submit', onSubmit);
       root.dataset.illustroDocumentWorkflow = 'disposed';
     },

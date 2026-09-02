@@ -366,7 +366,7 @@ function setPngExportControlsDisabled(disabled: boolean): void {
   if (exportPngButton !== null) exportPngButton.disabled = disabled;
   if (exportPngMenuButton !== null) exportPngMenuButton.disabled = disabled;
   if (mobileExportButton !== null) {
-    mobileExportButton.disabled = disabled;
+    mobileExportButton.disabled = pngExportInFlight;
     mobileExportButton.setAttribute('aria-busy', pngExportInFlight ? 'true' : 'false');
   }
 }
@@ -388,6 +388,8 @@ const onExportPngClick = (): void => {
   if (pngExportInFlight) return;
   if (paintSession.currentDocument() === null) {
     root.dataset.illustroPngExport = 'unavailable';
+    setMobilePngExportLabel('未準備');
+    restoreMobilePngExportLabel();
     setPngExportControlsDisabled(true);
     return;
   }
