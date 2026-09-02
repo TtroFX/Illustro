@@ -89,6 +89,7 @@ export interface ColorWorkflowControllerV1 {
   dispose(): void;
   snapshot(): ColorWorkspaceStateV1;
   ingestPointerBatch(batch: PointerInputBatchV1): boolean;
+  applyExternalSample(color: RgbUnitColorV1, sourceLabel: string): void;
 }
 
 export function installColorWorkflowControllerV1(input: {
@@ -824,6 +825,12 @@ export function installColorWorkflowControllerV1(input: {
     },
     snapshot(): ColorWorkspaceStateV1 {
       return state;
+    },
+    applyExternalSample(color: RgbUnitColorV1, sourceLabel: string): void {
+      if (disposed) return;
+      commit(color);
+      status.value = `${sourceLabel}から採色 ${formatHexRgbV1(color)}`;
+      input.root.dataset.illustroColorSamplingSource = 'reference-image';
     },
     ingestPointerBatch(batch: PointerInputBatchV1): boolean {
       if (disposed) return false;
