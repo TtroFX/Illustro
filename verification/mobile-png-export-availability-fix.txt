@@ -1,0 +1,3 @@
+Mobile PNG export availability regression fix.
+
+The PNG export controls are enabled whenever an active document exists, independent of initial renderer startup path. This covers compatibility-renderer startup and documents created after startup.
