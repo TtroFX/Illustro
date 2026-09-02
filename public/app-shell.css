@@ -1569,3 +1569,65 @@ body {
 }
 
 .shell-color-approximate-amount input { width: 100%; }
+
+/* M5D Color Match */
+.color-match-reference-row,
+.color-match-strength {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.color-match-reference-row output {
+  grid-column: 2 / -1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.color-match-strength input[type='range'] {
+  width: 100%;
+  min-width: 120px;
+}
+
+.color-match-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.color-match-preview-grid figure {
+  margin: 0;
+  min-width: 0;
+}
+
+.color-match-preview-grid figcaption {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--illustro-muted, #667085);
+}
+
+.color-match-preview-grid canvas {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  image-rendering: auto;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e5e7eb 75%),
+    linear-gradient(-45deg, transparent 75%, #e5e7eb 75%), #fff;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px;
+}
+
+@media (max-width: 640px) {
+  .color-match-preview-grid {
+    grid-template-columns: 1fr;
+  }
+}

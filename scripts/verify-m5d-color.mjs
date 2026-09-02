@@ -215,4 +215,40 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-026 Color Mixing Palette:完了',
   'M5D-027 Intermediate/Approximate Color helper:完了',
 ]);
+requireText('src/app/color-match.ts', [
+  'colorMatchStatisticsFromRgba8V1',
+  'readLayerColorMatchSourceV1',
+  'prepareLayerColorMatchV1',
+  'persistPreparedLayerColorMatchV1',
+  'applyPersistedLayerColorMatchV1',
+  'colorMatchPreviewImageV1',
+  'Color Match requires a Raster Layer',
+]);
+requireText('src/app/color-match-controller.ts', [
+  'installColorMatchControllerV1',
+  "'color.match'",
+  'activeColorStatistics',
+  'persistPreparedLayerColorMatchV1',
+  'commitSnapshotTransform',
+]);
+requireText('src/app/reference-workflow-controller.ts', [
+  'activeReferenceLabel',
+  'activeColorStatistics',
+  'convertEncodedRgbV1',
+  'colorMatchStatisticsFromRgba8V1',
+]);
+requireText('src/app/main.ts', ['installColorMatchControllerV1', 'colorMatch.dispose()']);
+requireText('src/index.html', [
+  'id="color-match-command"',
+  'id="color-match-dialog"',
+  'id="color-match-strength"',
+  'id="color-match-before"',
+  'id="color-match-after"',
+  'id="color-match-apply"',
+]);
+requireText('IMPLEMENTATION_PROGRESS.md', [
+  'M5D-028 Color Match:完了',
+  'M5D-検査 M5D内部検査:完了',
+]);
+
 console.log('M5D color/palette verification passed');

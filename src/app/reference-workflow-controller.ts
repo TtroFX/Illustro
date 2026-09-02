@@ -1,4 +1,7 @@
 import { freezeRgbUnitColorV1, type RgbUnitColorV1 } from '../domain/color.js';
+import { convertEncodedRgbV1 } from '../domain/color-management.js';
+import type { DocumentColorSpace } from '../domain/document.js';
+import { colorMatchStatisticsFromRgba8V1, type ColorMatchStatisticsV1 } from './color-match.js';
 import { createProvenanceV1, createResourceV1 } from '../domain/resources.js';
 import { putImmutableObject, readImmutableObject } from '../storage/immutable-object-store.js';
 import { openIllustroOpfsRoot, type IllustroOpfsRootV1 } from '../storage/opfs-layout.js';
@@ -18,6 +21,8 @@ import {
 export interface ReferenceWorkflowControllerV1 {
   refresh(): void;
   dispose(): void;
+  activeReferenceLabel(): string | null;
+  activeColorStatistics(targetSpace: DocumentColorSpace): Promise<ColorMatchStatisticsV1 | null>;
   snapshot(): ReferenceWorkspaceStateV1;
 }
 
@@ -115,6 +120,8 @@ export function installReferenceWorkflowControllerV1(input: {
   scratch.width = 1;
   scratch.height = 1;
   const scratchContext = scratch.getContext('2d', { willReadFrequently: true });
+  const statisticsCanvas = document.createElement('canvas');
+  const statisticsContext = statisticsCanvas.getContext('2d', { willReadFrequently: true });
 
   const openOpfs = (): Promise<IllustroOpfsRootV1> => {
     opfsPromise ??= openIllustroOpfsRoot();
@@ -268,7 +275,7 @@ export function installReferenceWorkflowControllerV1(input: {
           extensions: {
             'illustro.reference-workspace/1': Object.freeze({
               sampling: 'decoded-encoded-components',
-              profileConversion: 'pending-m5d-021-025',
+              profileConversion: 'builtin-srgb-reference-baseline',
             }),
           },
         });
@@ -335,6 +342,57 @@ export function installReferenceWorkflowControllerV1(input: {
     input.onSample(color, item.resource.originalName ?? 'Reference');
     status.value = `参照画像から採色 (${x}, ${y})`;
     input.root.dataset.illustroReferenceSample = `${item.resource.resourceId}:${x}:${y}`;
+  }
+
+  function referenceLabel(): string | null {
+    const item = activeItem();
+    if (item === null) return null;
+    return item.resource.originalName ?? `Reference ${item.resource.resourceId.slice(0, 8)}`;
+  }
+
+  async function referenceStatistics(
+    targetSpace: DocumentColorSpace,
+  ): Promise<ColorMatchStatisticsV1 | null> {
+    const item = activeItem();
+    if (
+      item === null ||
+      activeBitmap?.resourceId !== item.resource.resourceId ||
+      statisticsContext === null
+    ) {
+      return null;
+    }
+    const bitmap = activeBitmap.bitmap;
+    const maxDimension = 96;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    statisticsCanvas.width = width;
+    statisticsCanvas.height = height;
+    statisticsContext.setTransform(1, 0, 0, 1, 0, 0);
+    statisticsContext.clearRect(0, 0, width, height);
+    statisticsContext.imageSmoothingEnabled = true;
+    statisticsContext.drawImage(bitmap, 0, 0, width, height);
+    const rgba = statisticsContext.getImageData(0, 0, width, height).data;
+    if (targetSpace === 'srgb') return colorMatchStatisticsFromRgba8V1(rgba, width, height);
+    const converted = new Uint8ClampedArray(rgba.length);
+    for (let offset = 0; offset < rgba.length; offset += 4) {
+      const alpha = rgba[offset + 3] ?? 0;
+      converted[offset + 3] = alpha;
+      if (alpha <= 0) continue;
+      const color = convertEncodedRgbV1(
+        freezeRgbUnitColorV1([
+          (rgba[offset] ?? 0) / 255,
+          (rgba[offset + 1] ?? 0) / 255,
+          (rgba[offset + 2] ?? 0) / 255,
+        ]),
+        'srgb',
+        targetSpace,
+      );
+      converted[offset] = Math.round(color[0] * 255);
+      converted[offset + 1] = Math.round(color[1] * 255);
+      converted[offset + 2] = Math.round(color[2] * 255);
+    }
+    return colorMatchStatisticsFromRgba8V1(converted, width, height);
   }
 
   const onImport = (): void => fileInput.click();
@@ -413,6 +471,12 @@ export function installReferenceWorkflowControllerV1(input: {
       rotateRightButton.removeEventListener('click', onRotateRight);
       canvas.removeEventListener('pointerdown', onCanvasPointerDown);
       input.root.dataset.illustroReferenceWorkflow = 'disposed';
+    },
+    activeReferenceLabel(): string | null {
+      return referenceLabel();
+    },
+    activeColorStatistics(targetSpace: DocumentColorSpace): Promise<ColorMatchStatisticsV1 | null> {
+      return referenceStatistics(targetSpace);
     },
     snapshot(): ReferenceWorkspaceStateV1 {
       return state;
