@@ -1206,9 +1206,9 @@ MOBILE-002 WebGPU/Renderer failure diagnostics（main/worker/adapter/device/limi
 MOBILE-003 phone full-editor targetを設計正本で正式採用・旧<600px非対応方針をSUPERSEDE:完了
 MOBILE-004 600 CSS px hard eligibility gateを廃止しresponsive layout条件へ変更:完了
 MOBILE-005 Renderer fallback chain（WebGPU Worker/Main → compatibility backend）を実装:完了
-MOBILE-006 Canonical Raster Tile / History / Persistenceを全renderer backendで共通化:未完了
+MOBILE-006 Canonical Raster Tile / History / Persistenceを全renderer backendで共通化:完了
 MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了
 MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了
 MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了
 MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完了
-再開メモ: USER-01スマホdiagnosticsではmain/workerともWebGPU `requestAdapter()` が `adapter-unavailable`。viewport幅やIllustro独自core-limit gate以前の失敗であり、MOBILE-004だけでは編集可能にならない。MOBILE-005のWebGPU非依存compatibility rendererが必須。検査は必要最低限とし、実装を優先する。
+再開メモ: USER-01スマホdiagnosticsではmain/workerともWebGPU `requestAdapter()` が `adapter-unavailable`。viewport幅やIllustro独自core-limit gate以前の失敗であり、MOBILE-004だけでは編集可能にならない。MOBILE-005のWebGPU非依存compatibility rendererを実装済み。MOBILE-006ではWorker/Main WebGPUが復旧不能になった場合もcanonical Raster TileをStroke replayなしでcompatibility Canvas2Dへ引き継ぎ、History / Persistence / Exportの正本をrenderer backendから分離した。スマホPNG ExportはFile menu導線も共通handlerへ接続し、Androidの非同期download処理より先にBlob URLを破棄しないようobject URL保持を60秒へ延長した。MOBILE-007の実機確認とUSER-01の明示PASSは引き続き未完了。検査は必要最低限とし、実装を優先する。
