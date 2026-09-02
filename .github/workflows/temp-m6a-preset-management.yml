@@ -39,11 +39,19 @@ jobs:
           p.write_text(s)
           PY
           python scripts/apply-m6a-preset-management.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/index.html')
+          s = p.read_text()
+          s = s.replace('class="shell-brush-preset-list" aria-label="ブラシプリセット一覧"', 'class="shell-brush-preset-list" role="group" aria-label="ブラシプリセット一覧"', 1)
+          s = s.replace('class="shell-brush-preset-actions" aria-label="ブラシプリセット操作"', 'class="shell-brush-preset-actions" role="group" aria-label="ブラシプリセット操作"', 1)
+          p.write_text(s)
+          PY
           rm scripts/apply-m6a-preset-management.py .github/workflows/temp-m6a-preset-management.yml
       - name: Formatting
         run: npm run format
       - name: Lint
-        run: npx biome lint src tests scripts bench vitest.config.ts --max-diagnostics=100
+        run: npm run lint
       - name: Focused M6A preset tests
         run: npx vitest run tests/unit/brush-preset-library.test.ts tests/unit/canonical-raster-brush.test.ts tests/unit/eraser-mode.test.ts tests/unit/smudge-mode.test.ts tests/unit/blur-brush-mode.test.ts
       - name: Typecheck
