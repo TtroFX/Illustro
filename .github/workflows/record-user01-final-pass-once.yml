@@ -1,0 +1,69 @@
+name: Record USER-01 final pass once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/record-user01-final-pass-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record-pass:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Record explicit physical-device PASS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          progress_path = Path('IMPLEMENTATION_PROGRESS.md')
+          progress = progress_path.read_text()
+          replacements = {
+              'USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了':
+                  'USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:完了',
+              'USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:未完了':
+                  'USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:完了',
+              'USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:未完了':
+                  'USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:完了',
+              'USER-01はスマホ実機で新規作成・1本指描画・性能確認のみ明示PASS済み。Undo/Redo・保存再読込・PNG Exportは引き続きユーザー確認待ち。M5B-043/044 Mask↔Selection conversionまで完了しているが、USER-01の残りの実機確認が明示PASSするまでM5B-045以降へ再開しない。':
+                  'USER-01は2026-09-02のスマホ実機確認で新規作成・1本指描画・性能・Undo/Redo・保存再読込・PNG Exportまで全項目明示PASS済み。M5B-043/044 Mask↔Selection conversionまで完了しており、次はM5B-045 Reference Layer designationから再開する。',
+              'USER-01は2026-09-02のスマホ実機確認を継続中。新規作成・1本指描画・性能は明示PASS済みだが、Undo/Redo・保存再読込・PNG Exportは未PASSのためUSER-01全体は未完了。':
+                  'USER-01は2026-09-02のスマホ実機確認で全項目明示PASS済み。',
+          }
+          for before, after in replacements.items():
+              if progress.count(before) != 1:
+                  raise SystemExit(f'expected one USER-01 progress anchor: {before[:120]}')
+              progress = progress.replace(before, after, 1)
+          progress_path.write_text(progress)
+
+          memo_path = Path('ILLUSTRO_DESIGN_MEMO.md')
+          memo = memo_path.read_text()
+          note = '''\n\n### USER-01 final physical-device verification closure — 2026-09-02\n\n**Status: USER-VERIFIED / CLOSED.** The user explicitly confirmed that the remaining smartphone checks all passed: Undo/Redo, persistence/recovery after reload, and PNG Export. Combined with the previously explicit PASS for new-document creation, one-finger drawing, and drawing/navigation/finalization performance, USER-01 is complete. This closure records user evidence only; it does not repeat or supersede already completed implementation/CI work.\n'''
+          if '### USER-01 final physical-device verification closure — 2026-09-02' not in memo:
+              memo_path.write_text(memo.rstrip() + note)
+          PY
+      - name: Verify recorded user evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F 'USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F 'USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F '### USER-01 final physical-device verification closure — 2026-09-02' ILLUSTRO_DESIGN_MEMO.md
+      - name: Commit USER-01 closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/record-user01-final-pass-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'chore: record USER-01 physical-device pass'
+          git push origin HEAD:main
