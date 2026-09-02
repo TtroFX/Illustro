@@ -7,6 +7,7 @@ import {
   type BaselinePaintRendererSnapshotV1,
 } from '../gpu/baseline-paint-renderer.js';
 import type {
+  BaselineAffineMatrixV1,
   BaselineRasterLayerDescriptorV1,
   BaselineRasterTileImageV1,
   BaselineRasterTilePatchDirectionV1,
@@ -759,6 +760,39 @@ export class RendererControllerV1 {
             opacity: layer.opacity,
             draft: layer.draft ?? false,
             ...(layer.blendMode === undefined ? {} : { blendMode: layer.blendMode }),
+            ...(layer.clippingBaseLayerId === undefined
+              ? {}
+              : { clippingBaseLayerId: layer.clippingBaseLayerId }),
+            ...((layer.masks?.length ?? 0) === 0
+              ? {}
+              : {
+                  masks: Object.freeze(
+                    (layer.masks ?? []).map((mask) =>
+                      Object.freeze({
+                        ...mask,
+                        effects: Object.freeze(
+                          mask.effects.map((effect) => Object.freeze({ ...effect })),
+                        ),
+                        tiles: Object.freeze(
+                          mask.tiles.map((tile) =>
+                            Object.freeze({
+                              ...tile,
+                              coordinate: Object.freeze({ ...tile.coordinate }),
+                              bytes: new Uint8Array(tile.bytes),
+                            }),
+                          ),
+                        ),
+                        ...(mask.documentToMask === undefined
+                          ? {}
+                          : {
+                              documentToMask: Object.freeze([
+                                ...mask.documentToMask,
+                              ]) as BaselineAffineMatrixV1,
+                            }),
+                      }),
+                    ),
+                  ),
+                }),
           }),
         ),
       ),
@@ -822,6 +856,7 @@ export class RendererControllerV1 {
       documentValue.height,
       documentValue.precision,
       documentValue.rasterLayers,
+      documentValue.workingSpace,
     );
     this.#mainBaselinePaint.restoreCanonicalTiles(tiles, documentValue.rasterLayers);
     this.#compatibilityDocument = Object.freeze({

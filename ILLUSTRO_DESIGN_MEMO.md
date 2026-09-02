@@ -5118,3 +5118,13 @@ This section records product and architecture corrections established during USE
 ### USER-01 final physical-device verification closure — 2026-09-02
 
 **Status: USER-VERIFIED / CLOSED.** The user explicitly confirmed that the remaining smartphone checks all passed: Undo/Redo, persistence/recovery after reload, and PNG Export. Combined with the previously explicit PASS for new-document creation, one-finger drawing, and drawing/navigation/finalization performance, USER-01 is complete. This closure records user evidence only; it does not repeat or supersede already completed implementation/CI work.
+
+
+### M5C canonical Raster Mask / clipping compositor semantics — 2026-09-02
+
+- Canonical Raster Layer compositing applies every enabled Raster Mask multiplicatively to source alpha before blend-mode evaluation and source-over composition. Disabled masks do not affect coverage; mask inversion is applied to effective coverage.
+- Raster Mask sparse tiles remain content-addressed persistence payloads in the document model. Rendering hydrates their immutable RGBA8 coverage payloads on demand through the persistence port and keeps a bounded 128-tile session LRU-style cache; mask bytes are not duplicated into the document schema or history snapshot.
+- Independent affine Raster Mask transforms are evaluated by inverse document-to-mask sampling. The current M5C raster compositor rejects unsupported non-affine mask transforms rather than silently producing incorrect output.
+- Mask feather/blur remain non-destructive coverage effects. The M5C canonical CPU/fallback path uses a bounded 5×5 binomial Gaussian approximation with combined radial variance so work per output pixel is independent of an arbitrarily large configured radius; a future WebGPU separable implementation may replace this kernel only if it preserves the same visible semantics within verified tolerance.
+- Raster clipping uses the referenced base Raster Layer's effective alpha after its own visibility, opacity, Raster Masks and upstream clipping. Clipping chains are recursive and cycle-checked. A hidden/excluded base contributes zero clipping coverage. Draft exclusion therefore also excludes a Draft layer when it is used as the clipping base of final output.
+- M5C's mask/clipping integration is the canonical currently-renderable Raster Layer path. Enabled Vector/Effect masks or clipping bases that are not configured root Raster Layers fail explicitly until their own canonical renderers are integrated; they are never silently ignored.

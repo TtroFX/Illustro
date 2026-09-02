@@ -404,6 +404,18 @@ export class PaintPersistenceControllerV1 {
     this.#messageListener = (event) => this.#handleWorkerMessage(event.data);
     this.#worker.addEventListener('message', this.#messageListener);
     this.#history.setTilePatchLoader((transactionId) => this.#loadTilePatches(transactionId));
+    this.#session.setRasterMaskTileLoader(async (payloadRef) => {
+      const tile = await this.readRasterTile(payloadRef);
+      if (tile.pixelFormat !== 'rgba8-unorm') {
+        throw new Error('Raster Mask persistence payload must use rgba8-unorm');
+      }
+      return Object.freeze({
+        pixelFormat: 'rgba8-unorm' as const,
+        width: tile.width,
+        height: tile.height,
+        bytes: tile.bytes,
+      });
+    });
     this.#publish();
   }
 
@@ -1061,6 +1073,7 @@ export class PaintPersistenceControllerV1 {
     }
     this.#scheduledDirtyTransactionId = null;
     this.#history.setTilePatchLoader(null);
+    this.#session.setRasterMaskTileLoader(null);
     this.#worker.removeEventListener('message', this.#messageListener);
     for (const pending of this.#pending.values()) {
       globalThis.clearTimeout(pending.timeout);
