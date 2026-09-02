@@ -34,13 +34,44 @@ jobs:
           from pathlib import Path
           p = Path('src/index.html')
           text = p.read_text()
-          old = '<div class="shell-reference-view-actions" aria-label="参照画像の表示操作">'
-          new = '<div class="shell-reference-view-actions" role="group" aria-label="参照画像の表示操作">'
+          old = '''            <div class="shell-reference-view-actions" aria-label="参照画像の表示操作">
+              <button id="reference-rotate-left" type="button" aria-label="参照画像を左へ90度回転" disabled>↶</button>
+              <button id="reference-zoom-out" type="button" aria-label="参照画像を縮小" disabled>−</button>
+              <button id="reference-zoom-reset" type="button" aria-label="参照画像の表示をリセット" disabled>1:1</button>
+              <button id="reference-zoom-in" type="button" aria-label="参照画像を拡大" disabled>＋</button>
+              <button id="reference-rotate-right" type="button" aria-label="参照画像を右へ90度回転" disabled>↷</button>
+            </div>'''
+          old_role = old.replace('<div class="shell-reference-view-actions" aria-label=', '<div class="shell-reference-view-actions" role="group" aria-label=')
+          new = old.replace('<div class="shell-reference-view-actions"', '<fieldset class="shell-reference-view-actions"').replace('</div>', '</fieldset>')
           if old in text:
               text = text.replace(old, new, 1)
+          elif old_role in text:
+              text = text.replace(old_role, new, 1)
           elif new not in text:
               raise SystemExit('expected reference action group anchor missing')
           p.write_text(text)
+
+          css = Path('public/app-shell.css')
+          css_text = css.read_text()
+          anchor = '''.shell-reference-view-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem;
+}'''
+          replacement = '''.shell-reference-view-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem;
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}'''
+          if anchor in css_text:
+              css_text = css_text.replace(anchor, replacement, 1)
+          elif replacement not in css_text:
+              raise SystemExit('expected reference action CSS anchor missing')
+          css.write_text(css_text)
           PY
       - name: Formatting
         run: npm run format
@@ -66,6 +97,6 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/index.html
-          git commit -m "fix: label reference view controls accessibly"
+          git add src/index.html public/app-shell.css
+          git commit -m "fix: group reference view controls semantically"
           git push origin HEAD:work/m5d-reference-sampling-20260902
