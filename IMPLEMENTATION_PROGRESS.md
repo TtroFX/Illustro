@@ -838,6 +838,7 @@ M8C-015 Text family:未完了
 M8C-016 Repair family:未完了
 M8C-017 Ruler/Guide family:未完了
 M8C-018 Navigation family:未完了
+M8C-019 Lasso direct high-frequency entry in canonical Eyedropper→Lasso→Text interval:未完了
 M8C-検査 M8C内部検査:未完了
 
 ## M8D — 13-block Inspector / PiP / Workspace Customization
@@ -935,7 +936,7 @@ M8G-014 shortcut conflict detection:未完了
 M8G-015 shortcut conflict explicit resolution:未完了
 M8G-016 stylus-button binding:未完了
 M8G-017 Pen=draw/precision arbitration:未完了
-M8G-018 Touch=canvas/UI arbitration:未完了
+M8G-018 Touch one-finger draw / two-or-more navigation arbitration:未完了
 M8G-019 Mouse=desktop precision arbitration:未完了
 M8G-020 Keyboard=fast/temporary action arbitration:未完了
 M8G-検査 M8G内部検査:未完了
@@ -976,11 +977,11 @@ M8H-検査 M8H内部検査:未完了
 ## M8I — Responsive / Accessibility / Localization
 M8I-001 Wide layout:未完了
 M8I-002 Compact layout:未完了
-M8I-003 Narrow compatibility shell:未完了
-M8I-004 narrow shell project listing/open metadata:未完了
-M8I-005 narrow shell compatibility diagnostics:未完了
-M8I-006 narrow shell recovery/export/backup:未完了
-M8I-007 narrow shell settings/help:未完了
+M8I-003 Narrow full-editor responsive layout:未完了
+M8I-004 narrow full-editor compact top command surface:未完了
+M8I-005 narrow full-editor persistent bottom action strip:未完了
+M8I-006 narrow full-editor Inspector sheet/overlay access:未完了
+M8I-007 narrow full-editor safe-area / capability-preserving access:未完了
 M8I-008 orientation change state preservation:未完了
 M8I-009 viewport-tier transition state preservation:未完了
 M8I-010 keyboard focus navigation:未完了
@@ -1054,7 +1055,7 @@ M8J-048 live stylus-input monitor during dynamics setup where capability exists:
 M8J-049 Brush preset temporary Modified state / Reset / Save / Save As workflow:未完了
 M8J-050 Brush Studio shared Drawing Pad/live stroke preview:未完了
 M8J-051 multi-selection Mixed Value presentation:未完了
-M8J-052 multi-selection relative scrub vs explicit absolute numeric-set semantics:未完了
+M8J-052 multi-selection Mixed Value absolute edit + explicit/modifier relative-adjust semantics:未完了
 M8J-053 layer/filter/panel/asset reorder insertion target live preview before drop:未完了
 M8J-054 contextual mini-surface placement avoids target, active pen, handles and workspace boundaries:未完了
 M8J-055 Quick Hole tap + press-slide/marking accelerator without making empty center a canvas-blocking permanent hit target:未完了
