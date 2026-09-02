@@ -15,5 +15,23 @@ if old_same_dab not in text:
     raise SystemExit('target sameDab patch block not found')
 text = text.replace(old_same_dab, new_same_dab, 1)
 
+old_present = '''replace_once(\n    'src/gpu/baseline-paint-renderer.ts',\n    "    this.#activeStroke.dabs.push(...delta);\\n    if (delta.length > 0) {\\n      if (operation !== 'paint') {",\n    "    this.#activeStroke.dabs.push(...delta);\\n    if (delta.some(baselineDabRequiresCanonicalTilePresentationV1)) {\\n      this.#activeStroke.canonicalTilePresentation = true;\\n    }\\n    if (delta.length > 0) {\\n      if (operation !== 'paint' || this.#activeStroke.canonicalTilePresentation) {",\n)\n'''
+new_present = '''replace_once(\n    'src/gpu/baseline-paint-renderer.ts',\n    "    this.#activeStroke.dabs.push(...delta);\\n    if (delta.length > 0) {\\n      if (operation !== 'paint' || requiresCanonicalPaintPreview(delta)) {",\n    "    this.#activeStroke.dabs.push(...delta);\\n    if (delta.some(baselineDabRequiresCanonicalTilePresentationV1)) {\\n      this.#activeStroke.canonicalTilePresentation = true;\\n    }\\n    if (delta.length > 0) {\\n      if (\\n        operation !== 'paint' ||\\n        this.#activeStroke.canonicalTilePresentation ||\\n        requiresCanonicalPaintPreview(delta)\\n      ) {",\n)\n'''
+if old_present not in text:
+    raise SystemExit('target presentStroke patch block not found')
+text = text.replace(old_present, new_present, 1)
+
+old_tail = '''replace_once(\n    'src/gpu/baseline-paint-renderer.ts',\n    "        if (operation !== 'paint') {\\n          this.#patchCompositeTiles(",\n    "        if (operation !== 'paint' || active.canonicalTilePresentation) {\\n          this.#patchCompositeTiles(",\n)\n'''
+new_tail = '''replace_once(\n    'src/gpu/baseline-paint-renderer.ts',\n    "        if (operation !== 'paint' || requiresCanonicalPaintPreview(missingTail)) {\\n          this.#patchCompositeTiles(",\n    "        if (\\n          operation !== 'paint' ||\\n          active.canonicalTilePresentation ||\\n          requiresCanonicalPaintPreview(missingTail)\\n        ) {\\n          this.#patchCompositeTiles(",\n)\n'''
+if old_tail not in text:
+    raise SystemExit('target finalize tail patch block not found')
+text = text.replace(old_tail, new_tail, 1)
+
+old_full = '''replace_once(\n    'src/gpu/baseline-paint-renderer.ts',\n    "        if (operation !== 'paint') {\\n          this.#patchCompositeTiles(\\n            planBaselineBrushTilesV1(frozenDabs, width, height)",\n    "        if (operation !== 'paint' || this.#activeStroke.canonicalTilePresentation) {\\n          this.#patchCompositeTiles(\\n            planBaselineBrushTilesV1(frozenDabs, width, height)",\n)\n'''
+new_full = '''replace_once(\n    'src/gpu/baseline-paint-renderer.ts',\n    "        if (operation !== 'paint' || requiresCanonicalPaintPreview(frozenDabs)) {\\n          this.#patchCompositeTiles(\\n            planBaselineBrushTilesV1(frozenDabs, width, height)",\n    "        if (\\n          operation !== 'paint' ||\\n          this.#activeStroke.canonicalTilePresentation ||\\n          requiresCanonicalPaintPreview(frozenDabs)\\n        ) {\\n          this.#patchCompositeTiles(\\n            planBaselineBrushTilesV1(frozenDabs, width, height)",\n)\n'''
+if old_full not in text:
+    raise SystemExit('target finalize full patch block not found')
+text = text.replace(old_full, new_full, 1)
+
 path.write_text(text)
 print('brush tip patcher anchors fixed')
