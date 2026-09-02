@@ -56,8 +56,7 @@ function isTerminal(batch: PointerInputBatchV1): boolean {
 }
 
 function defaultFingerDrawingEnabledV1(): boolean {
-  if (typeof globalThis.matchMedia !== 'function') return false;
-  return globalThis.matchMedia('(max-width: 799px) and (pointer: coarse)').matches;
+  return true;
 }
 
 function mapTouchSampleToToolV1(sample: PointerInputSampleV1): PointerInputSampleV1 {

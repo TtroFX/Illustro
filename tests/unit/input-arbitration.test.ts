@@ -69,7 +69,21 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
     expect(disposition(arbitration, sample('mouse', 'pointerdown'))).toBe('tool');
   });
 
-  it('keeps touch in navigation mode by default and does not forward it to the drawing transport', () => {
+  it('routes one-finger touch to the active tool by default regardless of viewport width', () => {
+    const arbitration = new PointerInputArbitrationV1();
+    const decision = arbitration.route(
+      batch(sample('touch', 'pointerdown', { timestampMs: 1000 })),
+    );
+    expect(decision).toMatchObject({
+      disposition: 'tool',
+      reason: 'touch-finger-drawing',
+      cancelToolPointerIds: [],
+    });
+    expect(decision.forwardBatch?.confirmed.at(-1)?.source).toBe('mouse');
+    expect(arbitration.snapshot().fingerDrawingEnabled).toBe(true);
+  });
+
+  it('keeps touch in navigation mode when finger drawing is explicitly disabled', () => {
     const arbitration = new PointerInputArbitrationV1({ fingerDrawingEnabled: false });
     const decision = arbitration.route(batch(sample('touch', 'pointerdown')));
     expect(decision).toMatchObject({
