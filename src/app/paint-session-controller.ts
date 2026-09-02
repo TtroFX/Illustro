@@ -19,12 +19,19 @@ import {
   type RasterTileReferenceV1,
 } from '../domain/layers.js';
 import {
-  BaselineBrushDabBuilderV1,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   type BaselineBrushColorV1,
   type BaselineBrushDabV1,
 } from '../gpu/baseline-brush.js';
+import {
+  CanonicalRasterBrushStrokeV1,
+  isImplementedCanonicalBrushModeV1,
+  requireImplementedCanonicalBrushModeV1,
+  type CanonicalBrushModeIdV1,
+  type CanonicalBrushModeV1,
+  type CanonicalRasterBrushWorkSnapshotV1,
+} from './canonical-raster-brush.js';
 import type { BaselineRasterLayerDescriptorV1 } from '../gpu/baseline-raster-tile-store.js';
 import type {
   BaselineRasterTileImageV1,
@@ -102,6 +109,7 @@ export interface PaintStrokeV1 {
   readonly pointerId: number;
   readonly source: PaintStrokeSourceV1;
   readonly layerId: LayerId;
+  readonly brushMode: CanonicalBrushModeV1;
   readonly samples: readonly PaintStrokeSampleV1[];
 }
 
@@ -173,6 +181,8 @@ export interface PaintSessionSnapshotV1 {
   readonly activeLayerId: LayerId | null;
   readonly selectedLayerIds: readonly LayerId[];
   readonly selectionAnchorLayerId: LayerId | null;
+  readonly brushMode: CanonicalBrushModeV1;
+  readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
   readonly activeStrokeId: string | null;
   readonly activeStrokeSampleCount: number;
   readonly activeDabCount: number;
@@ -266,12 +276,17 @@ function parseStoredCompletedStroke(value: unknown): CompletedPaintStrokeV1 {
   if (stroke.source !== 'pen' && stroke.source !== 'mouse')
     throw new TypeError('invalid paint stroke source');
   if (!Array.isArray(stroke.samples)) throw new TypeError('paint stroke samples must be an array');
+  const storedBrushMode = stroke.brushMode ?? 'raster';
+  if (!isImplementedCanonicalBrushModeV1(storedBrushMode)) {
+    throw new TypeError(`unsupported recovered brush mode: ${String(storedBrushMode)}`);
+  }
   const normalizedStroke: PaintStrokeV1 = Object.freeze({
     schema: 'illustro.paint-stroke/1' as const,
     strokeId: stroke.strokeId,
     pointerId: stroke.pointerId as number,
     source: stroke.source,
     layerId: parseLayerId(stroke.layerId),
+    brushMode: storedBrushMode,
     samples: Object.freeze(stroke.samples.map(parseStoredStrokeSample)),
   });
   if (value.bakedToRasterLayer !== undefined && typeof value.bakedToRasterLayer !== 'boolean') {
@@ -498,7 +513,7 @@ export class PaintSessionControllerV1 {
   #selectionAnchorLayerId: LayerId | null = null;
   #activeStroke: PaintStrokeV1 | null = null;
   readonly #activeSamples: PaintStrokeSampleV1[] = [];
-  #activeDabBuilder: BaselineBrushDabBuilderV1 | null = null;
+  #activeBrushStroke: CanonicalRasterBrushStrokeV1 | null = null;
   #activeDabDelta: readonly BaselineBrushDabV1[] = Object.freeze([]);
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
   readonly #committedStrokes: CompletedPaintStrokeV1[] = [];
@@ -511,6 +526,7 @@ export class PaintSessionControllerV1 {
   readonly #rasterMaskTileCache = new Map<string, RasterMaskTilePayloadV1>();
   #rasterMaskTileLoader: RasterMaskTileLoaderV1 | null = null;
   #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
+  #brushMode: CanonicalBrushModeV1 = 'raster';
   #disposed = false;
 
   constructor(
@@ -528,9 +544,11 @@ export class PaintSessionControllerV1 {
       activeLayerId: this.#activeLayerId,
       selectedLayerIds: Object.freeze([...this.#selectedLayerIds]),
       selectionAnchorLayerId: this.#selectionAnchorLayerId,
+      brushMode: this.#brushMode,
+      brushWork: this.#activeBrushStroke?.snapshot() ?? null,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeStrokeSampleCount: this.#activeSamples.length,
-      activeDabCount: this.#activeDabBuilder?.dabCount() ?? 0,
+      activeDabCount: this.#activeBrushStroke?.dabCount() ?? 0,
       pendingCompletedStrokeCount: this.#completedStrokes.length,
       committedStrokeCount: this.#presentCommittedStrokeIds.size,
     });
@@ -551,6 +569,18 @@ export class PaintSessionControllerV1 {
 
   paintColor(): BaselineBrushColorV1 {
     return this.#paintColor;
+  }
+
+  brushMode(): CanonicalBrushModeV1 {
+    return this.#brushMode;
+  }
+
+  setBrushMode(mode: CanonicalBrushModeIdV1): CanonicalBrushModeV1 {
+    const implemented = requireImplementedCanonicalBrushModeV1(mode);
+    if (implemented === this.#brushMode) return this.#brushMode;
+    this.#clearActiveStroke();
+    this.#brushMode = implemented;
+    return this.#brushMode;
   }
 
   activeLayerId(): LayerId | null {
@@ -972,7 +1002,7 @@ export class PaintSessionControllerV1 {
   }
 
   activeDabs(): readonly BaselineBrushDabV1[] {
-    return this.#activeDabBuilder?.dabs() ?? Object.freeze([]);
+    return this.#activeBrushStroke?.dabs() ?? Object.freeze([]);
   }
 
   takeActiveDabDelta(): readonly BaselineBrushDabV1[] {
@@ -1063,9 +1093,9 @@ export class PaintSessionControllerV1 {
 
     if (batch.eventType === 'pointerup') {
       const completed = this.activeStroke();
-      const builder = this.#activeDabBuilder;
+      const builder = this.#activeBrushStroke;
       if (completed !== null && builder !== null) {
-        builder.finishDelta();
+        builder.finishConfirmed();
         this.#completedStrokes.push(freezeCompletedStroke(completed, builder.dabs()));
       }
       this.#clearActiveStroke();
@@ -1224,25 +1254,26 @@ export class PaintSessionControllerV1 {
       pointerId: batch.pointerId,
       source,
       layerId,
+      brushMode: this.#brushMode,
       samples: Object.freeze([]),
     });
-    const builder = new BaselineBrushDabBuilderV1({ color: this.#paintColor });
-    this.#queueActiveDabDelta(builder.beginDelta(firstSample));
-    this.#queueActiveDabDelta(builder.appendDelta(samples.slice(1)));
-    this.#activeDabBuilder = builder;
+    const builder = new CanonicalRasterBrushStrokeV1({ color: this.#paintColor });
+    this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
+    this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));
+    this.#activeBrushStroke = builder;
   }
 
   #appendConfirmedSamples(batch: PointerInputBatchV1): void {
     const active = this.#activeStroke;
     const document = this.#document;
-    const builder = this.#activeDabBuilder;
+    const builder = this.#activeBrushStroke;
     if (active === null || document === null || builder === null) return;
     const additions = batch.confirmed
       .filter((sample) => sample.pointerId === active.pointerId && sample.source === active.source)
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
     if (additions.length === 0) return;
     this.#activeSamples.push(...additions);
-    this.#queueActiveDabDelta(builder.appendDelta(additions));
+    this.#queueActiveDabDelta(builder.appendConfirmed(additions));
   }
 
   #queueActiveDabDelta(delta: readonly BaselineBrushDabV1[]): void {
@@ -1257,7 +1288,7 @@ export class PaintSessionControllerV1 {
   #clearActiveStroke(): void {
     this.#activeStroke = null;
     this.#activeSamples.length = 0;
-    this.#activeDabBuilder = null;
+    this.#activeBrushStroke = null;
     this.#activeDabDelta = Object.freeze([]);
   }
 }

@@ -5227,3 +5227,11 @@ The older rules stating `Touch = canvas navigation/UI by default`, `one-finger c
 - The deterministic baseline uses alpha-weighted per-channel first/second moments (mean and standard deviation), with a bounded contrast-ratio transfer to avoid pathological amplification. This follows the classical statistical color-transfer family (Reinhard et al., 2001, DOI 10.1109/38.946629) as an algorithmic reference; no external implementation source code is copied.
 - Preview preparation reads canonical Raster Tiles and keeps transformed bytes in memory only. Strength changes recompute the in-memory preview. Cancel creates no document mutation and no History transaction.
 - Apply persists the prepared Raster Tiles, then commits exactly one `color.match` History transaction through the existing snapshot/history/persistence path. Existing layer identity/properties are preserved; pending compatible stroke content is materialized through the existing Rasterize path when required.
+
+
+### 2026-09-02 — M6A Raster Brush production boundary
+
+- M6A starts by promoting the already-proven incremental M4 raster dab path behind an explicit Canonical Brush Engine facade rather than replacing its deterministic low-level raster kernel.
+- The production stroke record carries an explicit `brushMode`; legacy M4/M5 snapshots without that field normalize to `raster`, preserving recovery compatibility while creating the extension boundary for Eraser, Smudge/Finger and Blur modes.
+- Raster Brush sends only newly confirmed samples into the incremental dab kernel. Its current mutable stabilization tail is zero, so all emitted raster dabs immediately become stable-prefix work; stable-prefix reprocessing is instrumented explicitly and must remain zero on the ordinary path.
+- This M6A-001 promotion does not by itself close M6A-PERF-001〜004. Those gates remain separate and require renderer/transfer counters plus the authoritative long-stroke scaling workload before being marked complete.

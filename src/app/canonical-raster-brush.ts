@@ -13,9 +13,7 @@ export const IMPLEMENTED_CANONICAL_BRUSH_MODES_V1 = Object.freeze([
   'raster',
 ] as const satisfies readonly CanonicalBrushModeV1[]);
 
-export function isImplementedCanonicalBrushModeV1(
-  value: unknown,
-): value is CanonicalBrushModeV1 {
+export function isImplementedCanonicalBrushModeV1(value: unknown): value is CanonicalBrushModeV1 {
   return value === 'raster';
 }
 
@@ -77,9 +75,7 @@ export class CanonicalRasterBrushStrokeV1 {
     return this.#recordDelta(1, this.#kernel.beginDelta(sample));
   }
 
-  appendConfirmed(
-    samples: readonly CanonicalRasterBrushSampleV1[],
-  ): readonly BaselineBrushDabV1[] {
+  appendConfirmed(samples: readonly CanonicalRasterBrushSampleV1[]): readonly BaselineBrushDabV1[] {
     if (this.#finished) throw new Error('canonical raster brush stroke is finished');
     if (!this.#begun) {
       const first = samples[0];

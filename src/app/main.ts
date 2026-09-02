@@ -277,6 +277,14 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
               : 'idle';
         root.dataset.illustroPaintStrokeSamples = String(paint.activeStrokeSampleCount);
         root.dataset.illustroPaintDabs = String(paint.activeDabCount);
+        root.dataset.illustroBrushMode = paint.brushMode;
+        root.dataset.illustroBrushStableDabs = String(paint.brushWork?.stablePrefixDabCount ?? 0);
+        root.dataset.illustroBrushMutableTailDabs = String(
+          paint.brushWork?.mutableTailDabCount ?? 0,
+        );
+        root.dataset.illustroBrushReprocessedStableDabs = String(
+          paint.brushWork?.reprocessedStableDabCount ?? 0,
+        );
 
         if (activeStrokeId !== null) {
           const activeLayerId = paintSession.activeStrokeLayerId();
@@ -345,6 +353,10 @@ root.dataset.illustroPaintSession = 'pending-document';
 root.dataset.illustroPaintVisible = 'idle';
 root.dataset.illustroPaintDabs = '0';
 root.dataset.illustroPaintDirtyTiles = '0';
+root.dataset.illustroBrushMode = paintSession.brushMode();
+root.dataset.illustroBrushStableDabs = '0';
+root.dataset.illustroBrushMutableTailDabs = '0';
+root.dataset.illustroBrushReprocessedStableDabs = '0';
 root.dataset.illustroMaskPaintState = 'idle';
 root.dataset.illustroMaskPaintDabs = '0';
 root.dataset.illustroMaskPaintDirtyTiles = '0';

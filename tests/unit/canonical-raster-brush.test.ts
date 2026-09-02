@@ -16,15 +16,13 @@ describe('M6A-001 canonical Raster Brush mode', () => {
   it('emits only newly generated dabs while retaining the stable prefix', () => {
     const stroke = new CanonicalRasterBrushStrokeV1();
 
-    expect(stroke.beginConfirmed({ documentX: 0, documentY: 0 }).map((dab) => dab.x)).toEqual([
-      0,
+    expect(stroke.beginConfirmed({ documentX: 0, documentY: 0 }).map((dab) => dab.x)).toEqual([0]);
+    expect(stroke.appendConfirmed([{ documentX: 8, documentY: 0 }]).map((dab) => dab.x)).toEqual([
+      4, 8,
     ]);
-    expect(
-      stroke.appendConfirmed([{ documentX: 8, documentY: 0 }]).map((dab) => dab.x),
-    ).toEqual([4, 8]);
-    expect(
-      stroke.appendConfirmed([{ documentX: 12, documentY: 0 }]).map((dab) => dab.x),
-    ).toEqual([12]);
+    expect(stroke.appendConfirmed([{ documentX: 12, documentY: 0 }]).map((dab) => dab.x)).toEqual([
+      12,
+    ]);
 
     expect(stroke.dabs().map((dab) => dab.x)).toEqual([0, 4, 8, 12]);
     expect(stroke.snapshot()).toMatchObject({
