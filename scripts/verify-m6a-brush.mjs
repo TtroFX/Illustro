@@ -100,6 +100,49 @@ requireText(
   'Smudge snapshot regression coverage missing',
 );
 requireText(progress, 'M6A-004 Blur brush mode:完了', 'M6A-004 progress is not complete');
+for (const item of [
+  'M6A-005 preset create:完了',
+  'M6A-006 preset duplicate:完了',
+  'M6A-007 preset rename:完了',
+  'M6A-008 preset delete:完了',
+  'M6A-009 preset search:完了',
+  'M6A-010 preset categories:完了',
+  'M6A-011 preset lock:完了',
+  'M6A-012 preset reset:完了',
+]) {
+  requireText(progress, item, `${item.split(':')[0]} progress is not complete`);
+}
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'export interface BrushPresetV1',
+  'canonical BrushPresetV1 management shape missing',
+);
+requireText(
+  read('src/app/brush-preset-library.ts'),
+  'serializeBrushPresetLibraryV1',
+  'brush preset persistence missing',
+);
+requireText(
+  read('src/app/brush-preset-library.ts'),
+  'factory brush preset cannot be deleted',
+  'factory preset protection missing',
+);
+requireText(
+  read('src/app/brush-preset-controller.ts'),
+  'paintSession.setBrushMode',
+  'preset selection is not connected to production brush behavior',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-preset-list"',
+  'reachable Brush Presets panel missing',
+);
+requireText(
+  read('tests/unit/brush-preset-library.test.ts'),
+  'factory presets undeletable',
+  'preset management regression coverage missing',
+);
+
 requireText(
   read('src/gpu/baseline-raster-tile-store.ts'),
   'rasterizeBlurDab',
@@ -123,8 +166,8 @@ requireText(
 );
 requireText(
   progress,
-  'M6A-005 preset create:未完了',
-  'future brush preset status was incorrectly advanced',
+  'M6A-013 brush size:未完了',
+  'future brush-size status was incorrectly advanced',
 );
 requireText(
   progress,

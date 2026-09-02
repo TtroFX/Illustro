@@ -29,6 +29,7 @@ import { MaskPaintControllerV1 } from './layer-mask-paint.js';
 import { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { canonicalBrushCompositeOperationV1 } from './canonical-raster-brush.js';
+import { installBrushPresetControllerV1 } from './brush-preset-controller.js';
 import { SelectionCoverageControllerV1 } from './selection-coverage-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { installViewportControllerV1 } from './viewport-controller.js';
@@ -87,6 +88,12 @@ brushBlurButton?.addEventListener('click', () => {
   publishBrushMode();
 });
 publishBrushMode();
+const brushPresets = installBrushPresetControllerV1({
+  root,
+  paintSession,
+  storage: globalThis.localStorage,
+  onBrushModeChanged: publishBrushMode,
+});
 const paintHistory = new PaintHistoryControllerV1(paintSession);
 const colorWorkflow = installColorWorkflowControllerV1({
   root,
@@ -588,6 +595,7 @@ globalThis.addEventListener(
     layerWorkflow.dispose();
     colorMatch.dispose();
     referenceWorkflow.dispose();
+    brushPresets.dispose();
     colorWorkflow.dispose();
     maskPaint.dispose();
     documentGeometryWorkflow.dispose();
