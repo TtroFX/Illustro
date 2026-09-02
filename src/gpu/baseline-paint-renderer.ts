@@ -5,6 +5,7 @@ import {
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   planBaselineBrushTilesV1,
+  type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
 } from './baseline-brush.js';
 import type { RendererSurfaceLikeV1 } from './renderer-device-resources.js';
@@ -176,6 +177,7 @@ export interface BaselinePaintRendererSnapshotV1 {
 export interface BaselinePaintCommittedStrokeV1 {
   readonly strokeId: string;
   readonly layerId?: string;
+  readonly operation?: BaselineBrushCompositeOperationV1;
   readonly dabs: readonly BaselineBrushDabV1[];
 }
 
@@ -195,6 +197,7 @@ export interface BaselinePaintFinalizationV1 {
 
 interface ActiveBaselineStrokeV1 {
   readonly strokeId: string;
+  readonly operation: BaselineBrushCompositeOperationV1;
   readonly dabs: BaselineBrushDabV1[];
 }
 
@@ -730,6 +733,7 @@ export class BaselinePaintRendererV1 {
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
     layerId?: string,
+    operation: BaselineBrushCompositeOperationV1 = 'paint',
   ): BaselinePaintRendererSnapshotV1 {
     const { canonicalTiles } = this.#requireDocument();
     if (strokeId.length === 0) throw new TypeError('baseline paint strokeId must not be empty');
@@ -742,11 +746,23 @@ export class BaselinePaintRendererV1 {
       throw new Error('another baseline paint stroke is already active');
     }
     if (this.#activeStroke === null) {
-      this.#activeStroke = { strokeId, dabs: [] };
+      this.#activeStroke = { strokeId, operation, dabs: [] };
     }
-    canonicalTiles.applyDabs(this.#resolveLayerId(layerId), strokeId, delta);
+    if (this.#activeStroke.operation !== operation) {
+      throw new Error('baseline paint stroke changed brush operation');
+    }
+    canonicalTiles.applyDabs(this.#resolveLayerId(layerId), strokeId, delta, operation);
     this.#activeStroke.dabs.push(...delta);
-    if (delta.length > 0) this.#appendDabs(delta);
+    if (delta.length > 0) {
+      if (operation === 'erase') {
+        const { width, height } = this.#requireDocument();
+        this.#patchCompositeTiles(
+          planBaselineBrushTilesV1(delta, width, height).map((plan) => plan.coordinate),
+        );
+      } else {
+        this.#appendDabs(delta);
+      }
+    }
     return this.snapshot();
   }
 
@@ -764,6 +780,7 @@ export class BaselinePaintRendererV1 {
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
     layerId?: string,
+    operation: BaselineBrushCompositeOperationV1 = 'paint',
   ): BaselinePaintFinalizationV1 {
     const existing = this.#finalizations.get(strokeId);
     if (existing !== undefined) return existing;
@@ -775,20 +792,37 @@ export class BaselinePaintRendererV1 {
     }
 
     const active = this.#activeStroke;
+    if (active !== null && active.operation !== operation) {
+      throw new Error('baseline finalized stroke changed brush operation');
+    }
     const resolvedLayerId = this.#resolveLayerId(layerId);
     if (active?.strokeId === strokeId && isDabPrefix(active.dabs, frozenDabs)) {
       const missingTail = frozenDabs.slice(active.dabs.length);
       if (missingTail.length > 0) {
-        canonicalTiles.applyDabs(resolvedLayerId, strokeId, missingTail);
+        canonicalTiles.applyDabs(resolvedLayerId, strokeId, missingTail, operation);
         active.dabs.push(...missingTail);
-        this.#appendDabs(missingTail);
+        if (operation === 'erase') {
+          this.#patchCompositeTiles(
+            planBaselineBrushTilesV1(missingTail, width, height).map((plan) => plan.coordinate),
+          );
+        } else {
+          this.#appendDabs(missingTail);
+        }
       } else if (!this.#hasCurrentScene()) {
         this.#rebuildScene();
       }
     } else if (active === null) {
-      this.#activeStroke = { strokeId, dabs: [...frozenDabs] };
-      canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs);
-      if (frozenDabs.length > 0) this.#appendDabs(frozenDabs);
+      this.#activeStroke = { strokeId, operation, dabs: [...frozenDabs] };
+      canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs, operation);
+      if (frozenDabs.length > 0) {
+        if (operation === 'erase') {
+          this.#patchCompositeTiles(
+            planBaselineBrushTilesV1(frozenDabs, width, height).map((plan) => plan.coordinate),
+          );
+        } else {
+          this.#appendDabs(frozenDabs);
+        }
+      }
     } else {
       throw new Error('baseline finalized dabs do not extend the active retained prefix');
     }
@@ -851,7 +885,7 @@ export class BaselinePaintRendererV1 {
         tileState.markDirty(plan.coordinate, plan.dirtyRect);
       }
       const layerId = this.#resolveLayerId(stroke.layerId);
-      this.#canonicalTiles.applyDabs(layerId, stroke.strokeId, dabs);
+      this.#canonicalTiles.applyDabs(layerId, stroke.strokeId, dabs, stroke.operation ?? 'paint');
       this.#canonicalTiles.finalize(stroke.strokeId);
       this.#committedStrokeCount += 1;
       this.#committedDabCount += dabs.length;

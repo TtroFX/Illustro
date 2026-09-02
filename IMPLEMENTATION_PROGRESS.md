@@ -403,7 +403,8 @@ M5D-検査 M5D内部検査:完了
 ## M6A — Canonical Brush Engine
 M6A-001 Raster Brush mode:完了
 再開メモ: M6A-001 Raster Brush modeはproduction PaintSessionをCanonicalRasterBrushStrokeV1へ接続し、既存M4 dab builderを低レベル決定論kernelとして再利用する構成で完了。strokeにはbrushMode=rasterを保存し、旧snapshotはmode欠落時にrasterへ互換復元する。通常pointer batchは新規confirmed sampleだけをappendConfirmedへ渡し、stable-prefix再処理数を0として観測可能にした。M6A-PERF-001〜004は専用scaling/renderer検証が必要なため未完了のまま。次はM6A-002 Eraser modeから再開する。
-M6A-002 Eraser mode:未完了
+M6A-002 Eraser mode:完了
+再開メモ: M6A-002 Eraser modeはRaster Brushと同じ増分dab geometryを共有し、canonical Raster Tile上でactive layerのalphaをdestination-out相当で削る。flatten済みsceneを直接消さず、影響Tileのみ再compositeして下層レイヤーを正しく露出する。Worker/Main/Canvas2D fallback・stroke永続化/旧raster互換・Tile差分Undo/Redoへoperationを接続し、Primary Tool RailからBrush/Eraserを48pxボタンで切替可能。次はM6A-003 Smudge/Finger modeから再開する。
 M6A-003 Smudge/Finger mode:未完了
 M6A-004 Blur brush mode:未完了
 M6A-005 preset create:未完了

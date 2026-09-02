@@ -5,6 +5,7 @@ import {
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   planBaselineBrushTilesV1,
+  type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
 } from './baseline-brush.js';
 import { compositeBlendRgbaV1, isM5cBaseBlendModeV1 } from './blend-modes.js';
@@ -72,6 +73,7 @@ export type BaselineRasterTilePatchDirectionV1 = 'before' | 'after';
 interface ActiveTileTransactionV1 {
   readonly strokeId: string;
   readonly layerId: string;
+  readonly operation: BaselineBrushCompositeOperationV1;
   readonly before: Map<string, BaselineRasterTileImageV1 | null>;
   readonly affected: Map<string, TileCoordinateV1>;
 }
@@ -346,6 +348,50 @@ function rasterizeColorDab(
   }
 }
 
+function rasterizeEraseDab(
+  tile: BaselineRasterTileImageV1,
+  tileX: number,
+  tileY: number,
+  dab: BaselineBrushDabV1,
+): void {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const minX = Math.max(tileX, Math.floor(dab.x - radiusX));
+  const minY = Math.max(tileY, Math.floor(dab.y - radiusY));
+  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + radiusX) - 1);
+  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
+  const opacity = clamp01(dab.opacity);
+
+  for (let documentY = minY; documentY <= maxY; documentY += 1) {
+    const localY = (documentY + 0.5 - dab.y) / radiusY;
+    const localYSquared = localY * localY;
+    if (localYSquared >= 1) continue;
+    for (let documentX = minX; documentX <= maxX; documentX += 1) {
+      const localX = (documentX + 0.5 - dab.x) / radiusX;
+      const distanceSquared = localX * localX + localYSquared;
+      if (distanceSquared >= 1) continue;
+      const eraseAlpha =
+        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
+          ? opacity
+          : clamp01(
+              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
+            );
+      if (eraseAlpha <= 0) continue;
+      const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
+      const destination = readPixel(tile, pixel);
+      if (destination[3] <= 0) continue;
+      const outputAlpha = clamp01(destination[3] * (1 - eraseAlpha));
+      writePixel(
+        tile,
+        pixel,
+        outputAlpha <= 0
+          ? [0, 0, 0, 0]
+          : [destination[0], destination[1], destination[2], outputAlpha],
+      );
+    }
+  }
+}
+
 const MASK_SOFTEN_WEIGHTS = Object.freeze([1, 4, 6, 4, 1] as const);
 const MASK_SOFTEN_WEIGHT_TOTAL = 256;
 
@@ -523,7 +569,12 @@ export class BaselineRasterTileStoreV1 {
     this.#compositeCache.clear();
   }
 
-  applyDabs(layerId: string, strokeId: string, dabs: readonly BaselineBrushDabV1[]): void {
+  applyDabs(
+    layerId: string,
+    strokeId: string,
+    dabs: readonly BaselineBrushDabV1[],
+    operation: BaselineBrushCompositeOperationV1 = 'paint',
+  ): void {
     if (strokeId.length === 0) throw new TypeError('tile transaction strokeId must not be empty');
     if (this.#active !== null && this.#active.strokeId !== strokeId) {
       throw new Error('another baseline raster tile transaction is active');
@@ -532,22 +583,26 @@ export class BaselineRasterTileStoreV1 {
       this.#active = {
         strokeId,
         layerId,
+        operation,
         before: new Map(),
         affected: new Map(),
       };
     }
     if (this.#active.layerId !== layerId) throw new Error('active stroke changed raster layer');
+    if (this.#active.operation !== operation)
+      throw new Error('active stroke changed brush operation');
 
     for (const plan of planBaselineBrushTilesV1(dabs, this.#documentWidth, this.#documentHeight)) {
       const coordinateKey = tileKeyV1(plan.coordinate);
       this.#compositeCache.delete(coordinateKey);
       const key = tileStateKey(layerId, plan.coordinate);
+      const current = this.#tiles.get(key);
+      if (operation === 'erase' && (current === undefined || isTransparent(current))) continue;
       if (!this.#active.before.has(key)) {
-        const current = this.#tiles.get(key);
         this.#active.before.set(key, current === undefined ? null : cloneTile(current));
         this.#active.affected.set(key, freezeCoordinate(plan.coordinate));
       }
-      let tile = this.#tiles.get(key);
+      let tile = current;
       if (tile === undefined) {
         tile = createTransparentTile(
           layerId,
@@ -563,7 +618,10 @@ export class BaselineRasterTileStoreV1 {
         this.#documentHeight,
         plan.coordinate,
       );
-      for (const dab of plan.dabs) rasterizeColorDab(tile, bounds.x, bounds.y, dab);
+      for (const dab of plan.dabs) {
+        if (operation === 'erase') rasterizeEraseDab(tile, bounds.x, bounds.y, dab);
+        else rasterizeColorDab(tile, bounds.x, bounds.y, dab);
+      }
     }
   }
 

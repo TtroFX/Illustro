@@ -18,8 +18,8 @@ const progress = read('IMPLEMENTATION_PROGRESS.md');
 
 requireText(
   canonical,
-  "export type CanonicalBrushModeV1 = 'raster';",
-  'Raster mode identity missing',
+  "export type CanonicalBrushModeV1 = 'raster' | 'eraser';",
+  'Raster/Eraser mode identity missing',
 );
 requireText(
   canonical,
@@ -55,7 +55,28 @@ requireText(
 requireText(main, 'illustroBrushMode', 'runtime Raster Brush diagnostics are not published');
 requireText(tests, 'long stable prefix', 'stable-prefix regression coverage missing');
 requireText(progress, 'M6A-001 Raster Brush mode:完了', 'M6A-001 progress is not complete');
-requireText(progress, 'M6A-002 Eraser mode:未完了', 'future mode status was incorrectly advanced');
+requireText(progress, 'M6A-002 Eraser mode:完了', 'M6A-002 progress is not complete');
+requireText(
+  progress,
+  'M6A-003 Smudge/Finger mode:未完了',
+  'future mode status was incorrectly advanced',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'rasterizeEraseDab',
+  'canonical eraser rasterization missing',
+);
+requireText(
+  read('src/app/renderer-controller.ts'),
+  "operation === 'erase'",
+  'eraser recomposite presentation path missing',
+);
+requireText(
+  read('src/workers/render.worker.ts'),
+  "value.operation === 'erase'",
+  'worker eraser protocol missing',
+);
+requireText(read('src/index.html'), 'id="brush-mode-eraser"', 'reachable Eraser control missing');
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

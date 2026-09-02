@@ -28,6 +28,7 @@ import { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import { MaskPaintControllerV1 } from './layer-mask-paint.js';
 import { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
+import { canonicalBrushCompositeOperationV1 } from './canonical-raster-brush.js';
 import { SelectionCoverageControllerV1 } from './selection-coverage-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { installViewportControllerV1 } from './viewport-controller.js';
@@ -57,6 +58,23 @@ const paintSession = new PaintSessionControllerV1(renderer, {
   mapPointerToDocument: (sample, documentValue) =>
     viewport.mapPointerToDocument(sample, documentValue),
 });
+const brushRasterButton = document.querySelector<HTMLButtonElement>('#brush-mode-raster');
+const brushEraserButton = document.querySelector<HTMLButtonElement>('#brush-mode-eraser');
+function publishBrushMode(): void {
+  const mode = paintSession.brushMode();
+  root.dataset.illustroBrushMode = mode;
+  brushRasterButton?.setAttribute('aria-pressed', String(mode === 'raster'));
+  brushEraserButton?.setAttribute('aria-pressed', String(mode === 'eraser'));
+}
+brushRasterButton?.addEventListener('click', () => {
+  paintSession.setBrushMode('raster');
+  publishBrushMode();
+});
+brushEraserButton?.addEventListener('click', () => {
+  paintSession.setBrushMode('eraser');
+  publishBrushMode();
+});
+publishBrushMode();
 const paintHistory = new PaintHistoryControllerV1(paintSession);
 const colorWorkflow = installColorWorkflowControllerV1({
   root,
@@ -293,7 +311,12 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
           root.dataset.illustroPaintVisible = 'provisional';
           if (dabDelta.length > 0) {
             enqueuePaintRender(() =>
-              renderer.presentBaselineStroke(activeStrokeId, dabDelta, activeLayerId),
+              renderer.presentBaselineStroke(
+                activeStrokeId,
+                dabDelta,
+                activeLayerId,
+                canonicalBrushCompositeOperationV1(paint.brushMode),
+              ),
             );
           }
         } else if (
@@ -316,6 +339,7 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
                 strokeId,
                 dabs,
                 completed.stroke.layerId,
+                canonicalBrushCompositeOperationV1(completed.stroke.brushMode),
               );
               const transaction = paintHistory.commitCompletedStroke(
                 strokeId,

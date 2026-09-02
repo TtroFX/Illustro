@@ -1631,3 +1631,26 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* M6A canonical brush modes */
+.shell-rail-slots .shell-brush-mode {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.shell-rail-slots .shell-brush-mode[aria-pressed='true'] {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}

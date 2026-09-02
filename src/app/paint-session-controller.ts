@@ -22,9 +22,11 @@ import {
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   type BaselineBrushColorV1,
+  type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
 } from '../gpu/baseline-brush.js';
 import {
+  canonicalBrushCompositeOperationV1,
   CanonicalRasterBrushStrokeV1,
   isImplementedCanonicalBrushModeV1,
   requireImplementedCanonicalBrushModeV1,
@@ -61,6 +63,7 @@ export interface PaintRendererDocumentPortV1 {
     strokes: readonly {
       readonly strokeId: string;
       readonly layerId: string;
+      readonly operation: BaselineBrushCompositeOperationV1;
       readonly dabs: readonly BaselineBrushDabV1[];
     }[],
   ): Promise<unknown>;
@@ -880,6 +883,7 @@ export class PaintSessionControllerV1 {
       normalized.committedStrokes.map((entry) => ({
         strokeId: entry.stroke.strokeId,
         layerId: entry.stroke.layerId,
+        operation: canonicalBrushCompositeOperationV1(entry.stroke.brushMode),
         dabs: entry.dabs,
       })),
     );
@@ -962,6 +966,7 @@ export class PaintSessionControllerV1 {
       this.#committedStrokes.map((entry) => ({
         strokeId: entry.stroke.strokeId,
         layerId: entry.stroke.layerId,
+        operation: canonicalBrushCompositeOperationV1(entry.stroke.brushMode),
         dabs: entry.dabs,
       })),
     );
@@ -1257,7 +1262,10 @@ export class PaintSessionControllerV1 {
       brushMode: this.#brushMode,
       samples: Object.freeze([]),
     });
-    const builder = new CanonicalRasterBrushStrokeV1({ color: this.#paintColor });
+    const builder = new CanonicalRasterBrushStrokeV1({
+      color: this.#paintColor,
+      mode: this.#brushMode,
+    });
     this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
     this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));
     this.#activeBrushStroke = builder;

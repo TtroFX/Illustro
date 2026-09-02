@@ -1,4 +1,8 @@
-import { planBaselineBrushTilesV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import {
+  planBaselineBrushTilesV1,
+  type BaselineBrushCompositeOperationV1,
+  type BaselineBrushDabV1,
+} from '../gpu/baseline-brush.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
   BaselinePaintRendererV1,
@@ -408,6 +412,7 @@ export class RendererControllerV1 {
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
     layerId: string,
+    operation: BaselineBrushCompositeOperationV1 = 'paint',
   ): Promise<BaselinePaintRendererSnapshotV1> {
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
@@ -418,15 +423,27 @@ export class RendererControllerV1 {
         strokeId,
         dabs,
         layerId,
+        operation,
       });
       const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
       if (paint === null) throw new Error('Render Worker failed to present baseline stroke');
       return paint;
     }
-    const paint = this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId);
+    const paint = this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId, operation);
     if (snapshot.owner === 'compatibility') {
       this.#trackCompatibilityDabs(dabs);
-      this.#compatibilityPresenter.presentDabs(dabs);
+      if (operation === 'erase') {
+        const documentValue = this.#canonicalDocument;
+        if (documentValue !== null) {
+          this.#syncCompatibilityTiles(
+            planBaselineBrushTilesV1(dabs, documentValue.width, documentValue.height).map(
+              (plan) => plan.coordinate,
+            ),
+          );
+        }
+      } else {
+        this.#compatibilityPresenter.presentDabs(dabs);
+      }
     }
     return paint;
   }
@@ -455,6 +472,7 @@ export class RendererControllerV1 {
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
     layerId: string,
+    operation: BaselineBrushCompositeOperationV1 = 'paint',
   ): Promise<BaselinePaintFinalizationV1> {
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
@@ -465,6 +483,7 @@ export class RendererControllerV1 {
         strokeId,
         dabs,
         layerId,
+        operation,
       });
       const finalization = response?.ok === true ? parsePaintFinalization(response.result) : null;
       if (finalization === null) {
@@ -472,7 +491,7 @@ export class RendererControllerV1 {
       }
       return finalization;
     }
-    const finalization = this.#mainBaselinePaint.finalizeStroke(strokeId, dabs, layerId);
+    const finalization = this.#mainBaselinePaint.finalizeStroke(strokeId, dabs, layerId, operation);
     this.#compatibilityActiveTiles.clear();
     if (snapshot.owner === 'compatibility') {
       this.#syncCompatibilityTiles(finalization.affectedTiles.map((entry) => entry.coordinate));

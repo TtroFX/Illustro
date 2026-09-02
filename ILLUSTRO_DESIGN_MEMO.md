@@ -5235,3 +5235,11 @@ The older rules stating `Touch = canvas navigation/UI by default`, `one-finger c
 - The production stroke record carries an explicit `brushMode`; legacy M4/M5 snapshots without that field normalize to `raster`, preserving recovery compatibility while creating the extension boundary for Eraser, Smudge/Finger and Blur modes.
 - Raster Brush sends only newly confirmed samples into the incremental dab kernel. Its current mutable stabilization tail is zero, so all emitted raster dabs immediately become stable-prefix work; stable-prefix reprocessing is instrumented explicitly and must remain zero on the ordinary path.
 - This M6A-001 promotion does not by itself close M6A-PERF-001〜004. Those gates remain separate and require renderer/transfer counters plus the authoritative long-stroke scaling workload before being marked complete.
+
+
+### 2026-09-02 — M6A Eraser compositing semantics
+
+- Canonical Eraser is an alpha-removal operation on the targeted Raster Layer, never a white-paint approximation.
+- Eraser shares Raster Brush geometry/spacing and the incremental confirmed-sample path, but its canonical pixel operation reduces destination alpha by brush coverage while preserving surviving RGB values.
+- Because the visible retained scene is a composite of multiple layers, erasing the flattened presentation directly is incorrect: it would punch through lower layers. Eraser therefore mutates only the active layer's canonical Raster Tiles and recomposites/presents only affected tile coordinates so lower layers are revealed correctly.
+- Erasing an already-transparent/unallocated tile is a no-op and must not allocate a canonical tile or history payload.
