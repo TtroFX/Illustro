@@ -86,8 +86,6 @@ export function blendRgbV1(
         return colorDodge(backdropChannel, sourceChannel);
       case 'linear-dodge':
         return Math.min(1, backdropChannel + sourceChannel);
-      case 'darker-color':
-        return sourceChannel;
     }
   };
 
