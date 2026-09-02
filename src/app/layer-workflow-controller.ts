@@ -67,6 +67,12 @@ import {
 } from './layer-filter.js';
 import { matchesLayerSearchV1, normalizeLayerSearchQueryV1 } from './layer-search.js';
 import {
+  MASK_BLUR_EFFECT_ID_V1,
+  MASK_FEATHER_EFFECT_ID_V1,
+  maskCoverageEffectStateV1,
+  setMaskCoverageEffectRadiusSnapshotV1,
+} from './layer-mask-effects.js';
+import {
   maskLinkedToLayerV1,
   setMaskInvertedSnapshotV1,
   setMaskLinkedToLayerSnapshotV1,
@@ -205,6 +211,14 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const maskLinkButton = required<HTMLButtonElement>('#mask-link');
   const maskMoveButton = required<HTMLButtonElement>('#mask-move');
   const maskTransformButton = required<HTMLButtonElement>('#mask-transform');
+  const maskFeatherButton = required<HTMLButtonElement>('#mask-feather');
+  const maskBlurButton = required<HTMLButtonElement>('#mask-blur');
+  const maskEffectDialog = required<HTMLDialogElement>('#mask-effect-dialog');
+  const maskEffectForm = required<HTMLFormElement>('#mask-effect-form');
+  const maskEffectCancel = required<HTMLButtonElement>('#mask-effect-cancel');
+  const maskEffectTitle = required<HTMLElement>('#mask-effect-title');
+  const maskEffectRadius = required<HTMLInputElement>('#mask-effect-radius');
+  const maskEffectStatus = required<HTMLOutputElement>('#mask-effect-status');
   const maskTransformDialog = required<HTMLDialogElement>('#mask-transform-dialog');
   const maskTransformForm = required<HTMLFormElement>('#mask-transform-form');
   const maskTransformCancel = required<HTMLButtonElement>('#mask-transform-cancel');
@@ -414,6 +428,21 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       !active.layer.locks.position;
     maskMoveButton.disabled = !maskIndependentTransformEnabled;
     maskTransformButton.disabled = !maskIndependentTransformEnabled;
+    const maskCoverageEffectEnabled =
+      selectedRasterMask !== undefined && active !== null && !active.layer.locks.all;
+    maskFeatherButton.disabled = !maskCoverageEffectEnabled;
+    maskBlurButton.disabled = !maskCoverageEffectEnabled;
+    if (selectedRasterMask !== undefined) {
+      const feather = maskCoverageEffectStateV1(selectedRasterMask, MASK_FEATHER_EFFECT_ID_V1);
+      const blur = maskCoverageEffectStateV1(selectedRasterMask, MASK_BLUR_EFFECT_ID_V1);
+      maskFeatherButton.title = `マスク境界ぼかし: ${feather.radiusPx}px`;
+      maskBlurButton.title = `マスクぼかし: ${blur.radiusPx}px`;
+      root.dataset.illustroMaskFeatherRadius = String(feather.radiusPx);
+      root.dataset.illustroMaskBlurRadius = String(blur.radiusPx);
+    } else {
+      root.dataset.illustroMaskFeatherRadius = '0';
+      root.dataset.illustroMaskBlurRadius = '0';
+    }
     maskMoveButton.title = maskLinked
       ? '独立移動するには先にマスクのリンクを解除'
       : 'マスクだけを移動';
@@ -1151,6 +1180,66 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     );
   };
 
+  let maskEffectMode: 'feather' | 'blur' = 'feather';
+
+  const openMaskEffectDialog = (mode: 'feather' | 'blur'): void => {
+    clearError();
+    const target = options.maskPaint.snapshot();
+    const current = options.paintSession.projectSnapshot();
+    if (current === null || target.layerId === null || target.maskId === null) return;
+    const layer = current.document.layerTree.layers[target.layerId];
+    const mask = layer?.masks.find((entry) => entry.id === target.maskId);
+    if (mask?.kind !== 'raster-mask') return;
+    if (layer?.locks.all) {
+      publishError(new Error('mask coverage effect is blocked by the layer lock'));
+      return;
+    }
+    maskEffectMode = mode;
+    const effectId = mode === 'feather' ? MASK_FEATHER_EFFECT_ID_V1 : MASK_BLUR_EFFECT_ID_V1;
+    const state = maskCoverageEffectStateV1(mask, effectId);
+    maskEffectTitle.textContent = mode === 'feather' ? 'マスク境界ぼかし' : 'マスクぼかし';
+    maskEffectRadius.value = String(state.radiusPx);
+    maskEffectStatus.value =
+      mode === 'feather'
+        ? '境界を両側へ滑らかに遷移させます。0pxで解除します。'
+        : 'Mask coverageへGaussian blurを非破壊適用します。0pxで解除します。';
+    maskEffectDialog.showModal();
+  };
+
+  const onMaskFeather = (): void => openMaskEffectDialog('feather');
+  const onMaskBlur = (): void => openMaskEffectDialog('blur');
+  const onMaskEffectCancel = (): void => maskEffectDialog.close();
+  const onMaskEffectSubmit = (event: SubmitEvent): void => {
+    event.preventDefault();
+    try {
+      const target = options.maskPaint.snapshot();
+      if (target.layerId === null || target.maskId === null) return;
+      const radiusPx = Number(maskEffectRadius.value);
+      if (!Number.isFinite(radiusPx) || radiusPx < 0) {
+        throw new RangeError('mask effect radius must be zero or greater');
+      }
+      const effectId =
+        maskEffectMode === 'feather' ? MASK_FEATHER_EFFECT_ID_V1 : MASK_BLUR_EFFECT_ID_V1;
+      commitMutation(
+        maskEffectMode === 'feather' ? 'mask.feather' : 'mask.blur',
+        (before, revision) =>
+          setMaskCoverageEffectRadiusSnapshotV1(
+            before,
+            target.layerId!,
+            target.maskId!,
+            effectId,
+            radiusPx,
+            revision,
+          ),
+        () => target.layerId,
+      );
+      maskEffectDialog.close();
+    } catch (error) {
+      publishError(error);
+      maskEffectStatus.value = error instanceof Error ? error.message : String(error);
+    }
+  };
+
   let maskTransformMode: 'move' | 'transform' = 'transform';
 
   const finiteMaskTransformValue = (input: HTMLInputElement, label: string): number => {
@@ -1478,6 +1567,10 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   maskLinkButton.addEventListener('click', onMaskLink);
   maskMoveButton.addEventListener('click', onMaskMove);
   maskTransformButton.addEventListener('click', onMaskTransform);
+  maskFeatherButton.addEventListener('click', onMaskFeather);
+  maskBlurButton.addEventListener('click', onMaskBlur);
+  maskEffectCancel.addEventListener('click', onMaskEffectCancel);
+  maskEffectForm.addEventListener('submit', onMaskEffectSubmit);
   maskTransformCancel.addEventListener('click', onMaskTransformCancel);
   maskTransformForm.addEventListener('submit', onMaskTransformSubmit);
   list.addEventListener('click', onListClick);
@@ -1529,6 +1622,10 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       maskLinkButton.removeEventListener('click', onMaskLink);
       maskMoveButton.removeEventListener('click', onMaskMove);
       maskTransformButton.removeEventListener('click', onMaskTransform);
+      maskFeatherButton.removeEventListener('click', onMaskFeather);
+      maskBlurButton.removeEventListener('click', onMaskBlur);
+      maskEffectCancel.removeEventListener('click', onMaskEffectCancel);
+      maskEffectForm.removeEventListener('submit', onMaskEffectSubmit);
       maskTransformCancel.removeEventListener('click', onMaskTransformCancel);
       maskTransformForm.removeEventListener('submit', onMaskTransformSubmit);
       list.removeEventListener('click', onListClick);

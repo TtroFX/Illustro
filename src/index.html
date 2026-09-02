@@ -169,6 +169,8 @@
               <button id="mask-link" type="button" aria-label="マスクとレイヤーをリンク" title="マスクとレイヤーをリンク" aria-pressed="true" disabled>⌁</button>
               <button id="mask-move" type="button" aria-label="マスクを独立移動" title="マスクを独立移動" disabled>↔</button>
               <button id="mask-transform" type="button" aria-label="マスクを独立変形" title="マスクを独立変形" disabled>⤢</button>
+              <button id="mask-feather" type="button" aria-label="マスク境界ぼかし" title="マスク境界ぼかし" disabled>≈</button>
+              <button id="mask-blur" type="button" aria-label="マスクぼかし" title="マスクぼかし" disabled>◌</button>
             </div>
             <div class="shell-layer-comps">
   <input id="layer-comp-name" type="text" maxlength="120" placeholder="Layer Comp名" aria-label="保存するLayer Comp名" />
@@ -200,6 +202,20 @@
         <button id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false" disabled><span aria-hidden="true">⇩</span><small>書出</small></button>
       </nav>
     </div>
+    <dialog id="mask-effect-dialog" class="document-dialog" aria-labelledby="mask-effect-title">
+    <form id="mask-effect-form" method="dialog" class="document-dialog-form">
+      <header><h2 id="mask-effect-title">マスク境界ぼかし</h2></header>
+      <p class="document-dialog-help">Mask coverageへ非破壊効果として保存します。</p>
+      <div class="document-dialog-grid">
+        <label>半径 (px)<input id="mask-effect-radius" type="number" min="0" step="0.1" value="0" /></label>
+      </div>
+      <output id="mask-effect-status" class="document-dialog-status" aria-live="polite"></output>
+      <footer>
+        <button id="mask-effect-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+        <button type="submit" class="document-dialog-primary">適用</button>
+      </footer>
+    </form>
+  </dialog>
     <dialog id="mask-transform-dialog" class="document-dialog" aria-labelledby="mask-transform-title">
     <form id="mask-transform-form" method="dialog" class="document-dialog-form">
       <header><h2 id="mask-transform-title">マスクを独立変形</h2></header>

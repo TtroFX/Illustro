@@ -126,6 +126,7 @@ export interface MaskBaseV1<Kind extends MaskAttachmentV1['kind']> {
   readonly inverted: boolean;
   readonly linkedToLayer?: boolean;
   readonly transformStack: readonly TransformNodeV1[];
+  readonly effectStack?: readonly EffectNodeV1[];
   readonly metadata: NamespacedMetadataV1;
 }
 
@@ -329,6 +330,7 @@ function createMaskBase<Kind extends MaskAttachmentV1['kind']>(
     readonly inverted?: boolean;
     readonly linkedToLayer?: boolean;
     readonly transformStack?: readonly TransformNodeV1[];
+    readonly effectStack?: readonly EffectNodeV1[];
     readonly metadata?: NamespacedMetadataV1;
   },
 ): MaskBaseV1<Kind> {
@@ -340,6 +342,7 @@ function createMaskBase<Kind extends MaskAttachmentV1['kind']>(
     inverted: input.inverted ?? false,
     linkedToLayer: input.linkedToLayer ?? true,
     transformStack: freezeArray(input.transformStack ?? []),
+    effectStack: freezeArray(input.effectStack ?? []),
     metadata: Object.freeze({ ...(input.metadata ?? {}) }),
   });
 }
@@ -408,6 +411,7 @@ export function createRasterMask(
     tiles?: readonly RasterTileReferenceV1[];
     enabled?: boolean;
     inverted?: boolean;
+    effectStack?: readonly EffectNodeV1[];
   } = {},
 ): RasterMaskAttachmentV1 {
   return Object.freeze({
