@@ -11,7 +11,13 @@ import {
 } from '../domain/color.js';
 import type { DocumentV1 } from '../domain/document.js';
 import type { PointerInputBatchV1, PointerInputSampleV1 } from '../input/pointer-input.js';
+import { convertEncodedRgbV1 } from '../domain/color-management.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
+import {
+  approximateColorGridV1,
+  intermediateColorGridV1,
+  type ApproximateColorAxisV1,
+} from './color-helper-grid.js';
 import {
   ColorMixingSurfaceV1,
   type ColorMixingPointV1,
@@ -140,6 +146,26 @@ export function installColorWorkflowControllerV1(input: {
   const mixingUndo = requireElement('#color-mixing-undo', HTMLButtonElement);
   const mixingRedo = requireElement('#color-mixing-redo', HTMLButtonElement);
   const mixingClear = requireElement('#color-mixing-clear', HTMLButtonElement);
+  const colorHelper = requireElement('#color-helper', HTMLDetailsElement);
+  const helperIntermediateTab = requireElement('#color-helper-intermediate-tab', HTMLButtonElement);
+  const helperApproximateTab = requireElement('#color-helper-approximate-tab', HTMLButtonElement);
+  const helperIntermediatePanel = requireElement(
+    '#color-helper-intermediate-panel',
+    HTMLDivElement,
+  );
+  const helperApproximatePanel = requireElement('#color-helper-approximate-panel', HTMLDivElement);
+  const intermediateGridCanvas = requireElement('#color-intermediate-grid', HTMLCanvasElement);
+  const approximateGridCanvas = requireElement('#color-approximate-grid', HTMLCanvasElement);
+  const intermediateCornerButtons = [
+    requireElement('#color-intermediate-tl', HTMLButtonElement),
+    requireElement('#color-intermediate-tr', HTMLButtonElement),
+    requireElement('#color-intermediate-bl', HTMLButtonElement),
+    requireElement('#color-intermediate-br', HTMLButtonElement),
+  ] as const;
+  const approximateXAxis = requireElement('#color-approximate-x-axis', HTMLSelectElement);
+  const approximateYAxis = requireElement('#color-approximate-y-axis', HTMLSelectElement);
+  const approximateXAmount = requireElement('#color-approximate-x-amount', HTMLInputElement);
+  const approximateYAmount = requireElement('#color-approximate-y-amount', HTMLInputElement);
   const redInput = requireElement('#color-r', HTMLInputElement);
   const greenInput = requireElement('#color-g', HTMLInputElement);
   const blueInput = requireElement('#color-b', HTMLInputElement);
@@ -163,6 +189,22 @@ export function installColorWorkflowControllerV1(input: {
   let mixingGestureStart: ColorMixingSurfaceSnapshotV1 | null = null;
   let mixingUndoStack: ColorMixingSurfaceSnapshotV1[] = [];
   let mixingRedoStack: ColorMixingSurfaceSnapshotV1[] = [];
+  type ColorHelperModeV1 = 'intermediate' | 'approximate';
+  let colorHelperMode: ColorHelperModeV1 = 'intermediate';
+  let colorHelperWorkingSpace = input.paintSession.currentDocument()?.color.workingSpace ?? 'srgb';
+  let intermediateCorners: readonly [
+    RgbUnitColorV1,
+    RgbUnitColorV1,
+    RgbUnitColorV1,
+    RgbUnitColorV1,
+  ] = Object.freeze([
+    state.current,
+    state.previous,
+    Object.freeze([0, 0, 0] as const),
+    Object.freeze([1, 1, 1] as const),
+  ]);
+  let intermediateGridColors: readonly RgbUnitColorV1[] = [];
+  let approximateGridColors: readonly RgbUnitColorV1[] = [];
 
   const workingSpace = () => input.paintSession.currentDocument()?.color.workingSpace ?? 'srgb';
   const mixingSurface = new ColorMixingSurfaceV1(
@@ -270,6 +312,7 @@ export function installColorWorkflowControllerV1(input: {
     input.root.dataset.illustroColorWorkingSpace = workingSpace();
     publishSamplingState();
     publishMixingState(activePalette.colors);
+    publishColorHelperState();
   };
 
   function renderMixingSurface(): void {
@@ -316,6 +359,107 @@ export function installColorWorkflowControllerV1(input: {
     input.root.dataset.illustroColorMixingWorkingSpace = mixingSurface.workingSpace();
     input.root.dataset.illustroColorMixingUndo = String(mixingUndoStack.length);
     input.root.dataset.illustroColorMixingRedo = String(mixingRedoStack.length);
+  }
+
+  const COLOR_HELPER_GRID_COLUMNS = 9;
+  const COLOR_HELPER_GRID_ROWS = 9;
+  const approximateAxis = (value: string): ApproximateColorAxisV1 => {
+    switch (value) {
+      case 'hue':
+      case 'saturation':
+      case 'value':
+      case 'lightness':
+      case 'red':
+      case 'green':
+      case 'blue':
+        return value;
+      default:
+        return 'hue';
+    }
+  };
+  function drawHelperGrid(canvas: HTMLCanvasElement, colors: readonly RgbUnitColorV1[]): void {
+    const context = canvas.getContext('2d');
+    if (context === null) return;
+    const cellWidth = canvas.width / COLOR_HELPER_GRID_COLUMNS;
+    const cellHeight = canvas.height / COLOR_HELPER_GRID_ROWS;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    colors.forEach((color, index) => {
+      const column = index % COLOR_HELPER_GRID_COLUMNS;
+      const row = Math.floor(index / COLOR_HELPER_GRID_COLUMNS);
+      context.fillStyle = cssEncodedRgbV1(color, workingSpace());
+      context.fillRect(
+        column * cellWidth + 0.5,
+        row * cellHeight + 0.5,
+        Math.max(0, cellWidth - 1),
+        Math.max(0, cellHeight - 1),
+      );
+    });
+  }
+  function ensureHelperWorkingSpace(): void {
+    const next = workingSpace();
+    if (next === colorHelperWorkingSpace) return;
+    intermediateCorners = Object.freeze(
+      intermediateCorners.map((color) => convertEncodedRgbV1(color, colorHelperWorkingSpace, next)),
+    ) as readonly [RgbUnitColorV1, RgbUnitColorV1, RgbUnitColorV1, RgbUnitColorV1];
+    colorHelperWorkingSpace = next;
+  }
+  function publishColorHelperState(force = false): void {
+    ensureHelperWorkingSpace();
+    helperIntermediateTab.setAttribute('aria-pressed', String(colorHelperMode === 'intermediate'));
+    helperApproximateTab.setAttribute('aria-pressed', String(colorHelperMode === 'approximate'));
+    helperIntermediatePanel.hidden = colorHelperMode !== 'intermediate';
+    helperApproximatePanel.hidden = colorHelperMode !== 'approximate';
+    intermediateCornerButtons.forEach((button, index) => {
+      const color = intermediateCorners[index] ?? state.current;
+      button.style.background = cssEncodedRgbV1(color, workingSpace());
+      button.title = `中間色コーナー ${index + 1}: ${formatHexRgbV1(color)}（タップで現在色を登録）`;
+      button.setAttribute('aria-label', button.title);
+    });
+    input.root.dataset.illustroColorHelperMode = colorHelperMode;
+    input.root.dataset.illustroColorHelperWorkingSpace = colorHelperWorkingSpace;
+    input.root.dataset.illustroApproximateAxes = `${approximateXAxis.value}:${approximateYAxis.value}`;
+    if (!colorHelper.open && !force) return;
+    if (colorHelperMode === 'intermediate') {
+      intermediateGridColors = intermediateColorGridV1(
+        {
+          topLeft: intermediateCorners[0],
+          topRight: intermediateCorners[1],
+          bottomLeft: intermediateCorners[2],
+          bottomRight: intermediateCorners[3],
+        },
+        COLOR_HELPER_GRID_COLUMNS,
+        COLOR_HELPER_GRID_ROWS,
+      );
+      drawHelperGrid(intermediateGridCanvas, intermediateGridColors);
+      return;
+    }
+    approximateGridColors = approximateColorGridV1({
+      base: state.current,
+      xAxis: approximateAxis(approximateXAxis.value),
+      yAxis: approximateAxis(approximateYAxis.value),
+      xAmount: Number(approximateXAmount.value),
+      yAmount: Number(approximateYAmount.value),
+      columns: COLOR_HELPER_GRID_COLUMNS,
+      rows: COLOR_HELPER_GRID_ROWS,
+    });
+    drawHelperGrid(approximateGridCanvas, approximateGridColors);
+  }
+
+  function helperGridColorAt(
+    event: PointerEvent,
+    canvas: HTMLCanvasElement,
+    colors: readonly RgbUnitColorV1[],
+  ): RgbUnitColorV1 | null {
+    const [x, y] = canvasPoint(event, canvas);
+    const column = Math.min(
+      COLOR_HELPER_GRID_COLUMNS - 1,
+      Math.floor((x / Math.max(1, canvas.width)) * COLOR_HELPER_GRID_COLUMNS),
+    );
+    const row = Math.min(
+      COLOR_HELPER_GRID_ROWS - 1,
+      Math.floor((y / Math.max(1, canvas.height)) * COLOR_HELPER_GRID_ROWS),
+    );
+    return colors[row * COLOR_HELPER_GRID_COLUMNS + column] ?? null;
   }
 
   function publishSamplingState(): void {
@@ -786,6 +930,47 @@ export function installColorWorkflowControllerV1(input: {
     publishMixingState(activeColorPaletteV1(state).colors);
   };
 
+  const selectColorHelperMode = (mode: ColorHelperModeV1): void => {
+    colorHelperMode = mode;
+    publishColorHelperState(true);
+  };
+  const onHelperIntermediateTab = (): void => selectColorHelperMode('intermediate');
+  const onHelperApproximateTab = (): void => selectColorHelperMode('approximate');
+  const onColorHelperToggle = (): void => {
+    if (colorHelper.open) publishColorHelperState(true);
+  };
+  const onIntermediateCorner = (index: number): void => {
+    const next = [...intermediateCorners] as [
+      RgbUnitColorV1,
+      RgbUnitColorV1,
+      RgbUnitColorV1,
+      RgbUnitColorV1,
+    ];
+    next[index] = state.current;
+    intermediateCorners = Object.freeze(next);
+    status.value = `中間色コーナー ${index + 1} に ${formatHexRgbV1(state.current)} を登録`;
+    publishColorHelperState(true);
+  };
+  const onIntermediateTopLeft = (): void => onIntermediateCorner(0);
+  const onIntermediateTopRight = (): void => onIntermediateCorner(1);
+  const onIntermediateBottomLeft = (): void => onIntermediateCorner(2);
+  const onIntermediateBottomRight = (): void => onIntermediateCorner(3);
+  const onIntermediateGrid = (event: PointerEvent): void => {
+    const color = helperGridColorAt(event, intermediateGridCanvas, intermediateGridColors);
+    if (color === null) return;
+    commit(color);
+    status.value = `中間色 ${formatHexRgbV1(color)}`;
+    event.preventDefault();
+  };
+  const onApproximateSettings = (): void => publishColorHelperState(true);
+  const onApproximateGrid = (event: PointerEvent): void => {
+    const color = helperGridColorAt(event, approximateGridCanvas, approximateGridColors);
+    if (color === null) return;
+    commit(color);
+    status.value = `近似色 ${formatHexRgbV1(color)}`;
+    event.preventDefault();
+  };
+
   const paletteUpdate = (next: ColorWorkspaceStateV1, message: string): void => {
     state = next;
     interactionStart = null;
@@ -969,6 +1154,19 @@ export function installColorWorkflowControllerV1(input: {
   mixingCanvas.addEventListener('pointermove', onMixingMove);
   mixingCanvas.addEventListener('pointerup', finishMixingGesture);
   mixingCanvas.addEventListener('pointercancel', cancelMixingGesture);
+  colorHelper.addEventListener('toggle', onColorHelperToggle);
+  helperIntermediateTab.addEventListener('click', onHelperIntermediateTab);
+  helperApproximateTab.addEventListener('click', onHelperApproximateTab);
+  intermediateCornerButtons[0].addEventListener('click', onIntermediateTopLeft);
+  intermediateCornerButtons[1].addEventListener('click', onIntermediateTopRight);
+  intermediateCornerButtons[2].addEventListener('click', onIntermediateBottomLeft);
+  intermediateCornerButtons[3].addEventListener('click', onIntermediateBottomRight);
+  intermediateGridCanvas.addEventListener('pointerdown', onIntermediateGrid);
+  approximateXAxis.addEventListener('change', onApproximateSettings);
+  approximateYAxis.addEventListener('change', onApproximateSettings);
+  approximateXAmount.addEventListener('input', onApproximateSettings);
+  approximateYAmount.addEventListener('input', onApproximateSettings);
+  approximateGridCanvas.addEventListener('pointerdown', onApproximateGrid);
   eyedropper.addEventListener('click', onEyedropperToggle);
   samplingSourceSelect.addEventListener('change', onSamplingSourceChange);
   document.addEventListener('keydown', onQuickEyedropperKeyDown);
@@ -1016,6 +1214,19 @@ export function installColorWorkflowControllerV1(input: {
       mixingCanvas.removeEventListener('pointermove', onMixingMove);
       mixingCanvas.removeEventListener('pointerup', finishMixingGesture);
       mixingCanvas.removeEventListener('pointercancel', cancelMixingGesture);
+      colorHelper.removeEventListener('toggle', onColorHelperToggle);
+      helperIntermediateTab.removeEventListener('click', onHelperIntermediateTab);
+      helperApproximateTab.removeEventListener('click', onHelperApproximateTab);
+      intermediateCornerButtons[0].removeEventListener('click', onIntermediateTopLeft);
+      intermediateCornerButtons[1].removeEventListener('click', onIntermediateTopRight);
+      intermediateCornerButtons[2].removeEventListener('click', onIntermediateBottomLeft);
+      intermediateCornerButtons[3].removeEventListener('click', onIntermediateBottomRight);
+      intermediateGridCanvas.removeEventListener('pointerdown', onIntermediateGrid);
+      approximateXAxis.removeEventListener('change', onApproximateSettings);
+      approximateYAxis.removeEventListener('change', onApproximateSettings);
+      approximateXAmount.removeEventListener('input', onApproximateSettings);
+      approximateYAmount.removeEventListener('input', onApproximateSettings);
+      approximateGridCanvas.removeEventListener('pointerdown', onApproximateGrid);
       eyedropper.removeEventListener('click', onEyedropperToggle);
       samplingSourceSelect.removeEventListener('change', onSamplingSourceChange);
       document.removeEventListener('keydown', onQuickEyedropperKeyDown);

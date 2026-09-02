@@ -184,9 +184,36 @@
                   <button id="color-mixing-clear" type="button">クリア</button>
                 </div>
               </div>
-            </details>
-          </section>
-          <section class="shell-inspector-card shell-reference-panel" aria-label="Reference / Sub View">
+  </details>
+  <details id="color-helper" class="shell-color-helper">
+    <summary>中間・近似色</summary>
+    <div class="shell-color-helper-body">
+      <fieldset class="shell-color-helper-tabs" aria-label="色候補モード">
+        <button id="color-helper-intermediate-tab" type="button" aria-pressed="true">中間</button>
+        <button id="color-helper-approximate-tab" type="button" aria-pressed="false">近似</button>
+      </fieldset>
+      <div id="color-helper-intermediate-panel" class="shell-color-helper-panel">
+        <div class="shell-color-intermediate-corners">
+          <button id="color-intermediate-tl" type="button"></button>
+          <button id="color-intermediate-tr" type="button"></button>
+          <button id="color-intermediate-bl" type="button"></button>
+          <button id="color-intermediate-br" type="button"></button>
+        </div>
+        <canvas id="color-intermediate-grid" width="180" height="180" aria-label="4隅の登録色から作る中間色。タップして色を選択"></canvas>
+      </div>
+      <div id="color-helper-approximate-panel" class="shell-color-helper-panel" hidden>
+        <div class="shell-color-approximate-axes">
+          <label>横軸<select id="color-approximate-x-axis"><option value="hue">H</option><option value="saturation">S</option><option value="value">V</option><option value="lightness">L</option><option value="red">R</option><option value="green">G</option><option value="blue">B</option></select></label>
+          <label>縦軸<select id="color-approximate-y-axis"><option value="saturation">S</option><option value="hue">H</option><option value="value">V</option><option value="lightness">L</option><option value="red">R</option><option value="green">G</option><option value="blue">B</option></select></label>
+        </div>
+        <label class="shell-color-approximate-amount">横の変化量<input id="color-approximate-x-amount" type="range" min="0.1" max="1" step="0.05" value="0.5" /></label>
+        <label class="shell-color-approximate-amount">縦の変化量<input id="color-approximate-y-amount" type="range" min="0.1" max="1" step="0.05" value="0.5" /></label>
+        <canvas id="color-approximate-grid" width="180" height="180" aria-label="現在色を基準にした近似色。タップして色を選択"></canvas>
+      </div>
+    </div>
+  </details>
+</section>
+<section class="shell-inspector-card shell-reference-panel" aria-label="Reference / Sub View">
             <header class="shell-reference-header"><strong>Reference / Sub View</strong><output id="reference-status" aria-live="polite"></output></header>
             <div class="shell-reference-toolbar">
               <select id="reference-select" aria-label="参照画像" disabled></select>
