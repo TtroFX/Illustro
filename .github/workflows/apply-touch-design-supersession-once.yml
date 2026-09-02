@@ -1,0 +1,37 @@
+name: Apply touch design supersession once
+
+on:
+  push:
+    branches:
+      - work/touch-design-m5d-sampling-20260902
+    paths:
+      - .github/workflows/apply-touch-design-supersession-once.yml
+      - scripts/apply-touch-design-supersession.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply-persist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Apply canonical touch supersession
+        run: python scripts/apply-touch-design-supersession.py
+      - name: Verify canonical wording
+        run: |
+          grep -F '## Unified touch drawing ownership supersession — 2026-09-02' ILLUSTRO_DESIGN_MEMO.md
+          grep -F 'one Touch = active drawing tool; two or more Touch contacts = canvas navigation after atomic stroke cancellation' ILLUSTRO_DESIGN_MEMO.md
+      - name: Persist memo-only change
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f scripts/apply-touch-design-supersession.py
+          git checkout HEAD -- .github/workflows/apply-touch-design-supersession-once.yml
+          git config user.name "TtroFX"
+          git config user.email "ttro0419@gmail.com"
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m "docs: unify touch drawing ownership"
+          git push origin HEAD:work/touch-design-m5d-sampling-20260902
