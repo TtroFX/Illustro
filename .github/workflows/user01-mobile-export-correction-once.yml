@@ -1,0 +1,118 @@
+name: USER-01 mobile export correction once
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/user01-mobile-export-correction-once.yml']
+permissions:
+  contents: write
+env:
+  USER01_MEMO_B64: IyMgVVNFUi0wMSBwaHlzaWNhbC1kZXZpY2UgY2hhbmdlIGxvZyBhbmQgdmVyaWZpY2F0aW9uIGd1YXJkcmFpbHMg4oCUIDIwMjYtMDktMDIKCioqU3RhdHVzOiBBVVRIT1JJVEFUSVZFIC8gVVNFUi1URVNUIEVWSURFTkNFIC8gSU1QTEVNRU5UQVRJT04gR1VBUkRSQUlMLioqCgpUaGlzIHNlY3Rpb24gcmVjb3JkcyBwcm9kdWN0IGFuZCBhcmNoaXRlY3R1cmUgY29ycmVjdGlvbnMgZXN0YWJsaXNoZWQgZHVyaW5nIFVTRVItMDEgc21hcnRwaG9uZSBwaHlzaWNhbC1kZXZpY2UgdGVzdGluZy4gSXQgbXVzdCBiZSByZWFkIHRvZ2V0aGVyIHdpdGggdGhlIGF1dGhvcml0YXRpdmUgYE1vYmlsZSBmdWxsLWVkaXRvciB0YXJnZXQgc3VwZXJzZXNzaW9uYCBhbmQgYFBob25lIHRvdWNoIGFuZCBuYXJyb3ctZWRpdG9yIFVYIHN1cGVyc2Vzc2lvbmAgc2VjdGlvbnMuIExhdGVyIGltcGxlbWVudGF0aW9uIG11c3Qgbm90IHNpbGVudGx5IHJlZ3Jlc3MgdGhlc2UgZGVjaXNpb25zLgoKMS4gKipQaG9uZSBmdWxsIGVkaXRvciByZW1haW5zIG1hbmRhdG9yeS4qKiBQaG9uZS1jbGFzcyBkZXZpY2VzIGFyZSBmdWxsIGVkaXRvciB0YXJnZXRzLiBWaWV3cG9ydCB3aWR0aCBhbmQgcHJlZmVycmVkIEdQVSBhdmFpbGFiaWxpdHkgbWF5IGFsdGVyIHByZXNlbnRhdGlvbiBvciBhY2NlbGVyYXRpb24gcG9saWN5LCBidXQgbWF5IG5vdCByZW1vdmUgYWRvcHRlZCBzaW5nbGUtaWxsdXN0cmF0aW9uIGVkaXRpbmcgY2FwYWJpbGl0aWVzLgoyLiAqKlBob25lIHRvdWNoIG93bmVyc2hpcCBpcyBmaXhlZCBieSBwaHlzaWNhbCB0ZXN0aW5nLioqIE9uIHRoZSBwaG9uZSBuYXJyb3cgZWRpdG9yLCBvbmUgVG91Y2ggZHJhd3Mgd2l0aCB0aGUgYWN0aXZlIGRyYXdpbmctY2FwYWJsZSB0b29sOyBtdWx0aS10b3VjaCBvd25zIGNhbnZhcyBuYXZpZ2F0aW9uLiBBcnJpdmFsIG9mIGEgc2Vjb25kIFRvdWNoIGNhbmNlbHMgdGhlIHByb3Zpc2lvbmFsIG9uZS1maW5nZXIgc3Ryb2tlIGJlZm9yZSBuYXZpZ2F0aW9uIHRha2VzIG93bmVyc2hpcCBzbyBubyBwYXJ0aWFsIHN0cm9rZSBpcyBjb21taXR0ZWQgYWNjaWRlbnRhbGx5LgozLiAqKlBob25lIENhbnZhcyBGaXJzdCBzaGVsbCBpcyByZXF1aXJlZC4qKiBGcmVxdWVudCBhY3Rpb25zIG11c3QgcmVtYWluIHJlYWNoYWJsZSBmcm9tIHRoZSBuYXJyb3cgZWRpdG9yLCBMYXllcnMgbXVzdCByZW1haW4gYWNjZXNzaWJsZSB0aHJvdWdoIGEgc2hlZXQvb3ZlcmxheSByYXRoZXIgdGhhbiBkaXNhcHBlYXJpbmcsIHNhZmUtYXJlYSBpbnNldHMgbXVzdCBiZSBob25vcmVkLCBhbmQgcmVxdWlyZWQgdG91Y2ggdGFyZ2V0cyB1c2UgYXQgbGVhc3QgNDQgQ1NTIHB4IGVmZmVjdGl2ZSB0YXJnZXQgc2l6ZS4KNC4gKipXZWJHUFUgcmVtYWlucyB0aGUgcHJlZmVycmVkIGFjY2VsZXJhdG9yLCBuZXZlciB0aGUgc29sZSBlZGl0b3ItYWRtaXNzaW9uIGNvbmRpdGlvbi4qKiBXZWJHUFUgV29ya2VyLCB0aGVuIG1haW4tdGhyZWFkIFdlYkdQVSwgcmVtYWluIHByZWZlcnJlZCB3aGVuZXZlciB1c2FibGUuIGBuYXZpZ2F0b3IuZ3B1YCB3aXRoIGByZXF1ZXN0QWRhcHRlcigpID09IG51bGxgIGlzIGEgc3VwcG9ydGVkIGNvbXBhdGliaWxpdHkgY2FzZS4gQ29tcGF0aWJpbGl0eSBwcmVzZW50YXRpb24gbXVzdCBwcmVzZXJ2ZSB0aGUgc2FtZSBjYW5vbmljYWwgUmFzdGVyIFRpbGVzLCBUaWxlIEhpc3RvcnksIHBlcnNpc3RlbmNlLCByZWNvdmVyeSBhbmQgZXhwb3J0IHNlbWFudGljcy4KNS4gKipVU0VSLTAxIHNtYXJ0cGhvbmUgcGVyZm9ybWFuY2UgZXZpZGVuY2UgaXMgc2NvcGVkLioqIFBoeXNpY2FsIHRlc3RpbmcgZXhwbGljaXRseSBhY2NlcHRlZCB0aGUgY3VycmVudCBkcmF3aW5nLCBjYW52YXMtbmF2aWdhdGlvbiBhbmQgc3Ryb2tlLWZpbmFsaXphdGlvbiBsaWdodG5lc3MuIFRoaXMgaXMgYSBwZXJmb3JtYW5jZS1vbmx5IFBBU1M7IGl0IGRvZXMgbm90IGJ5IGl0c2VsZiBjb21wbGV0ZSBVU0VSLTAxIG9yIGFueSB1bnJlbGF0ZWQgZnVuY3Rpb25hbCBjaGVjay4KNi4gKipWaXNpYmxlIHJlcXVpcmVkIHBob25lIGNvbW1hbmRzIG11c3QgcmVtYWluIGFjdGlvbmFibGUuKiogVVNFUi0wMSBleHBvc2VkIHRoYXQgdGhlIHZpc2libGUgbW9iaWxlIFBORyBFeHBvcnQgYWN0aW9uIGNvdWxkIGJlY29tZSB1bnRhcHBhYmxlIGJlY2F1c2UgYSBkZXJpdmVkIGF2YWlsYWJpbGl0eSBmbGFnIGFuZCBpbml0aWFsIGBkaXNhYmxlZGAgc3RhdGUgam9pbnRseSBsb2NrZWQgaXQuIEEgcmVxdWlyZWQgcGhvbmUgY29tbWFuZCBtdXN0IG5vdCBiZSBtYWRlIG5vbi1pbnRlcmFjdGl2ZSBzb2xlbHkgYmVjYXVzZSBhIGRlcml2ZWQgb3Igc3RhbGUgYXZhaWxhYmlsaXR5IHNpZ25hbCBzYXlzIGB1bmF2YWlsYWJsZWAuIE1vYmlsZSBQTkcgRXhwb3J0IG1heSBiZSB0ZW1wb3JhcmlseSBkaXNhYmxlZCB3aGlsZSBhbiBleHBvcnQgaXMgYWN0dWFsbHkgaW4gZmxpZ2h0LiBJZiBubyBkb2N1bWVudCBpcyByZWFkeSwgdGFwcGluZyB0aGUgdmlzaWJsZSBhY3Rpb24gbXVzdCBwcm9kdWNlIGV4cGxpY2l0IHVuYXZhaWxhYmxlL25vdC1yZWFkeSBmZWVkYmFjayBpbnN0ZWFkIG9mIHNpbGVudGx5IGRvaW5nIG5vdGhpbmcuCjcuICoqUE5HIEV4cG9ydCBoYXMgb25lIHByb2R1Y3Rpb24gY29tbWFuZCBwYXRoLioqIERlc2t0b3AgRXhwb3J0LCBGaWxlLW1lbnUgRXhwb3J0IGFuZCBwaG9uZSBFeHBvcnQgaW52b2tlIHRoZSBzYW1lIHByb2R1Y3Rpb24gZXhwb3J0IGhhbmRsZXIgZGlyZWN0bHkuIEhpZGRlbi1idXR0b24gZm9yd2FyZGluZyBhbmQgZHVwbGljYXRlIGNvbnRyb2xsZXIgb3duZXJzaGlwIG9mIHRoZSBzYW1lIGV4cG9ydCBjb21tYW5kIGFyZSBwcm9oaWJpdGVkLiBQTkcgZmxhdHRlbmluZyBjb250aW51ZXMgdG8gY29uc3VtZSBjYW5vbmljYWwgQ29tcG9zaXRlIFJhc3RlciBUaWxlcyByYXRoZXIgdGhhbiByZXBsYXlpbmcgdGhlIFN0cm9rZS9FdmVudCBMb2cuCjguICoqVVNFUi0qIHRydXRoIGNvbWVzIG9ubHkgZnJvbSBleHBsaWNpdCB1c2VyIGV2aWRlbmNlLioqIENJLCB1bml0IHRlc3RzLCBpbnRlZ3JhdGlvbiB0ZXN0cywgYnVpbGQgY2hlY2tzLCBib3RzIGFuZCBpbXBsZW1lbnRhdGlvbiBjb21wbGV0aW9uIG1heSBjbG9zZSBpbnRlcm5hbCBpbXBsZW1lbnRhdGlvbi9jaGVjayBpdGVtcywgYnV0IG11c3QgbmV2ZXIgbWFyayBhIGBVU0VSLSpgIGdhdGUgUEFTUy4gQSBgVVNFUi0qYCBpdGVtIGJlY29tZXMgY29tcGxldGUgb25seSBhZnRlciBleHBsaWNpdCB1c2VyIGNvbmZpcm1hdGlvbi4gQSBsYXRlciBjb250cmFkaWN0b3J5IHBoeXNpY2FsLWRldmljZSByZXBvcnQgcmVvcGVucyB0aGUgYWZmZWN0ZWQgVVNFUi0qIGdhdGUgZXZlbiBpZiBhbiBhdXRvbWF0aW9uIHByZXZpb3VzbHkgbWFya2VkIGl0IGNvbXBsZXRlLgo5LiAqKlVTRVItMDEgc3RhdGUgYXQgdGhpcyBjb3JyZWN0aW9uLioqIFNtYXJ0cGhvbmUgbmV3LWRvY3VtZW50IGNyZWF0aW9uLCBvbmUtZmluZ2VyIGRyYXdpbmcgYW5kIHBlcmZvcm1hbmNlL2xpZ2h0bmVzcyBoYXZlIGV4cGxpY2l0IHVzZXIgUEFTUy4gVW5kby9SZWRvLCBwZXJzaXN0ZW5jZSBhY3Jvc3MgcmVsb2FkIGFuZCBQTkcgRXhwb3J0IGRvIG5vdCB5ZXQgaGF2ZSBleHBsaWNpdCB1c2VyIFBBU1MgaW4gdGhlIGN1cnJlbnQgdmVyaWZpY2F0aW9uIGN5Y2xlLiBUaGVyZWZvcmUgVVNFUi0wMSByZW1haW5zIG9wZW4gdW50aWwgdGhvc2UgcmVtYWluaW5nIGNoZWNrcyBhcmUgZXhwbGljaXRseSBhY2NlcHRlZCBieSB0aGUgdXNlci4K
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Patch implementation and canonical records
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import base64, os
+          from pathlib import Path
+
+          def one(path, old, new):
+              p = Path(path); s = p.read_text()
+              if s.count(old) != 1: raise SystemExit(f'anchor mismatch: {path}: {old[:90]!r}')
+              p.write_text(s.replace(old, new, 1))
+
+          one('src/app/main.ts', 'mobileExportButton.disabled = disabled;', 'mobileExportButton.disabled = pngExportInFlight;')
+          one('src/app/main.ts',
+              "root.dataset.illustroPngExport = 'unavailable';\n    setPngExportControlsDisabled(true);\n    return;",
+              "root.dataset.illustroPngExport = 'unavailable';\n    setMobilePngExportLabel('未準備');\n    restoreMobilePngExportLabel();\n    setPngExportControlsDisabled(true);\n    return;")
+          one('src/index.html',
+              '<button id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false" disabled>',
+              '<button id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false">')
+          one('public/mobile-shell.css',
+              "  html[data-illustro-png-export='unavailable'] #mobile-export,\n", '')
+
+          p = Path('src/app/document-workflow-controller.ts'); s = p.read_text()
+          for old in [
+              "  const exportMenuButton = requireElement<HTMLButtonElement>('#export-png-menu');\n",
+              "  const exportButton = document.querySelector<HTMLButtonElement>('#export-png');\n",
+              "  const onExportMenuClick = (): void => {\n    closeContainingMenu(exportMenuButton);\n    exportButton?.click();\n  };\n",
+              "  exportMenuButton.addEventListener('click', onExportMenuClick);\n",
+              "      exportMenuButton.removeEventListener('click', onExportMenuClick);\n",
+          ]:
+              if s.count(old) != 1: raise SystemExit(f'forwarding anchor mismatch: {old[:90]!r}')
+              s = s.replace(old, '', 1)
+          p.write_text(s)
+
+          p = Path('ILLUSTRO_DESIGN_MEMO.md'); s = p.read_text()
+          heading = '## USER-01 physical-device change log and verification guardrails — 2026-09-02'
+          if heading not in s:
+              addition = base64.b64decode(os.environ['USER01_MEMO_B64']).decode()
+              p.write_text(s.rstrip() + '\n\n' + addition)
+
+          p = Path('IMPLEMENTATION_PROGRESS.md'); s = p.read_text()
+          changes = [
+              ('USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:完了',
+               'USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了'),
+              ('USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:完了',
+               'USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:未完了'),
+              ('USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:完了',
+               'USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:未完了'),
+              ('USER-01は2026-09-02のスマホ実機確認で明示PASS済み。',
+               'USER-01は2026-09-02のスマホ実機確認を継続中。新規作成・1本指描画・性能は明示PASS済みだが、Undo/Redo・保存再読込・PNG Exportは未PASSのためUSER-01全体は未完了。'),
+              ('MOBILE-007 smartphone実機・最低限のcompatibility regression確認:完了',
+               'MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完了'),
+              ('MOBILE-007のスマホ実機確認とUSER-01明示PASSまで完了。通常の実装順序へ復帰済み。',
+               'MOBILE-007はスマホ新規作成・描画・性能のみ実機PASS。Undo/Redo・保存再読込・PNG Exportの明示PASSが残るため未完了。USER-01を閉じるまで通常の後続実装へ自動復帰しない。'),
+              ('USER-01はスマホ実機で新規作成・描画・Undo/Redo・保存再読込・PNG Export・性能確認まで明示PASS済み。',
+               'USER-01はスマホ実機で新規作成・1本指描画・性能確認のみ明示PASS済み。Undo/Redo・保存再読込・PNG Exportは引き続きユーザー確認待ち。'),
+          ]
+          for old, new in changes:
+              if s.count(old) != 1: raise SystemExit(f'progress anchor mismatch: {old}')
+              s = s.replace(old, new, 1)
+          anchor = 'USER-01-EXPORT-001 スマホPNG Export direct handler接続・hidden button中継除去・Exportのcheckpoint依存除去・可視status feedback:完了\n'
+          if 'USER-01-EXPORT-003 ' not in s:
+              extra = (
+                  'USER-01-MOBILE-001 スマホ新規キャンバス作成ユーザー実機PASS:完了\n'
+                  'USER-01-MOBILE-002 スマホ1本指描画ユーザー実機PASS:完了\n'
+                  'USER-01-PERF-008 スマホ描画・キャンバス移動・ストローク確定の軽さユーザー実機PASS:完了\n'
+                  'USER-01-EXPORT-003 スマホ書出ボタンstale availability lockout除去・single production handler ownership:完了\n')
+              if s.count(anchor) != 1: raise SystemExit('missing USER-01 export anchor')
+              s = s.replace(anchor, anchor + extra, 1)
+          p.write_text(s)
+          PY
+      - run: npx biome format --write src/app/main.ts src/app/document-workflow-controller.ts src/index.html public/mobile-shell.css
+      - name: Focused checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "mobileExportButton?.addEventListener('click', onExportPngClick)" src/app/main.ts
+          ! grep -F "html[data-illustro-png-export='unavailable'] #mobile-export" public/mobile-shell.css
+          ! grep -F 'id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false" disabled' src/index.html
+          ! grep -F 'exportButton?.click()' src/app/document-workflow-controller.ts
+          grep -F 'USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了' IMPLEMENTATION_PROGRESS.md
+          grep -F '## USER-01 physical-device change log and verification guardrails — 2026-09-02' ILLUSTRO_DESIGN_MEMO.md
+      - run: npm run typecheck
+      - run: npx vitest run tests/unit/png-export.test.ts
+      - run: npm run build
+      - name: Commit and remove one-shot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/user01-mobile-export-correction-once.yml
+          git rm -f .github/workflows/reopen-user01-mobile-export-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/main.ts src/app/document-workflow-controller.ts src/index.html public/mobile-shell.css ILLUSTRO_DESIGN_MEMO.md IMPLEMENTATION_PROGRESS.md
+          git commit -m 'fix: keep mobile export actionable and reopen USER-01'
+          git push origin HEAD:main
