@@ -10,6 +10,112 @@ export type BrushSchemaVersion = typeof BRUSH_SCHEMA_VERSION;
 export type BrushBehaviorV1 = 'paint' | 'erase' | 'smudge' | 'blur';
 export type BrushPresetSectionV1 = Readonly<Record<string, JsonValue>>;
 
+export interface BrushParameterRangeV1 {
+  readonly min: number;
+  readonly max: number;
+}
+
+export interface BrushParameterLimitsV1 {
+  readonly sizePx: BrushParameterRangeV1;
+  readonly opacity: BrushParameterRangeV1;
+  readonly flow: BrushParameterRangeV1;
+}
+
+export interface BrushParameterValuesV1 {
+  readonly sizePx: number;
+  readonly opacity: number;
+  readonly flow: number;
+}
+
+export const DEFAULT_BRUSH_PARAMETER_LIMITS_V1: BrushParameterLimitsV1 = Object.freeze({
+  sizePx: Object.freeze({ min: 1, max: 4096 }),
+  opacity: Object.freeze({ min: 0.01, max: 1 }),
+  flow: Object.freeze({ min: 0.01, max: 1 }),
+});
+
+export const DEFAULT_BRUSH_PARAMETER_VALUES_V1: BrushParameterValuesV1 = Object.freeze({
+  sizePx: 16,
+  opacity: 1,
+  flow: 1,
+});
+
+function jsonRecord(value: JsonValue | undefined): Readonly<Record<string, JsonValue>> | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Readonly<Record<string, JsonValue>>)
+    : null;
+}
+
+function finiteRange(
+  value: JsonValue | undefined,
+  fallback: BrushParameterRangeV1,
+  absoluteMin: number,
+  absoluteMax: number,
+): BrushParameterRangeV1 {
+  const record = jsonRecord(value);
+  const rawMin = record?.min;
+  const rawMax = record?.max;
+  if (
+    typeof rawMin !== 'number' ||
+    typeof rawMax !== 'number' ||
+    !Number.isFinite(rawMin) ||
+    !Number.isFinite(rawMax)
+  ) {
+    return fallback;
+  }
+  const min = Math.max(absoluteMin, Math.min(absoluteMax, rawMin));
+  const max = Math.max(absoluteMin, Math.min(absoluteMax, rawMax));
+  if (max < min) return fallback;
+  return Object.freeze({ min, max });
+}
+
+export function brushParameterLimitsV1(preset: BrushPresetV1): BrushParameterLimitsV1 {
+  const limits = jsonRecord(preset.extensions.parameterLimits);
+  return Object.freeze({
+    sizePx: finiteRange(limits?.sizePx, DEFAULT_BRUSH_PARAMETER_LIMITS_V1.sizePx, 1, 4096),
+    opacity: finiteRange(limits?.opacity, DEFAULT_BRUSH_PARAMETER_LIMITS_V1.opacity, 0.01, 1),
+    flow: finiteRange(limits?.flow, DEFAULT_BRUSH_PARAMETER_LIMITS_V1.flow, 0.01, 1),
+  });
+}
+
+function clampToRange(value: number, range: BrushParameterRangeV1): number {
+  return Math.min(range.max, Math.max(range.min, value));
+}
+
+function numericSectionValue(section: BrushPresetSectionV1, key: string, fallback: number): number {
+  const value = section[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+export function brushParameterValuesV1(preset: BrushPresetV1): BrushParameterValuesV1 {
+  const limits = brushParameterLimitsV1(preset);
+  return Object.freeze({
+    sizePx: clampToRange(preset.defaultSizePx, limits.sizePx),
+    opacity: clampToRange(numericSectionValue(preset.ink, 'opacity', 1), limits.opacity),
+    flow: clampToRange(numericSectionValue(preset.ink, 'flow', 1), limits.flow),
+  });
+}
+
+export function withBrushParameterValuesV1(
+  preset: BrushPresetV1,
+  patch: Partial<BrushParameterValuesV1>,
+): BrushPresetV1 {
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value))) {
+      throw new TypeError(`brush ${key} must be finite`);
+    }
+  }
+  const limits = brushParameterLimitsV1(preset);
+  const current = brushParameterValuesV1(preset);
+  const sizePx = clampToRange(patch.sizePx ?? current.sizePx, limits.sizePx);
+  const opacity = clampToRange(patch.opacity ?? current.opacity, limits.opacity);
+  const flow = clampToRange(patch.flow ?? current.flow, limits.flow);
+  return normalizeBrushPresetV1({
+    ...preset,
+    defaultSizePx: sizePx,
+    ink: { ...preset.ink, opacity, flow },
+  });
+}
+
 export interface BrushPresetV1 {
   readonly schema: typeof BRUSH_V1_SCHEMA;
   readonly id: string;
@@ -131,6 +237,12 @@ export function createBaselineBrushPresetV1(input: {
     antiAlias: { quality: 'high' },
     provenance: { source: 'illustro-runtime-baseline' },
     importCompatibility: {},
-    extensions: {},
+    extensions: {
+      parameterLimits: {
+        sizePx: { min: 1, max: 4096 },
+        opacity: { min: 0.01, max: 1 },
+        flow: { min: 0.01, max: 1 },
+      },
+    },
   });
 }

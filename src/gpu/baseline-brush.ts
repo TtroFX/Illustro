@@ -36,6 +36,8 @@ export interface BaselineBrushDabV1 {
   readonly radiusX?: number;
   readonly radiusY?: number;
   readonly opacity: number;
+  readonly flow?: number;
+  readonly strokeOpacity?: number;
   readonly color?: BaselineBrushColorV1;
 }
 
@@ -51,6 +53,18 @@ export function baselineDabRadiusYV1(dab: BaselineBrushDabV1): number {
   return dab.radiusY ?? dab.radius;
 }
 
+export function baselineDabFlowV1(dab: BaselineBrushDabV1): number {
+  return dab.flow ?? dab.opacity;
+}
+
+export function baselineDabStrokeOpacityV1(dab: BaselineBrushDabV1): number {
+  return dab.strokeOpacity ?? 1;
+}
+
+export function baselineDabUsesFlowOpacityV1(dab: BaselineBrushDabV1): boolean {
+  return dab.flow !== undefined || dab.strokeOpacity !== undefined;
+}
+
 export interface BaselineBrushTilePlanV1 {
   readonly coordinate: TileCoordinateV1;
   readonly dirtyRect: RectV1;
@@ -63,13 +77,22 @@ function assertFinitePoint(sample: BaselineBrushSampleV1): void {
   }
 }
 
-function freezeDab(x: number, y: number, color: BaselineBrushColorV1): BaselineBrushDabV1 {
+function freezeDab(
+  x: number,
+  y: number,
+  radius: number,
+  flow: number,
+  strokeOpacity: number,
+  color: BaselineBrushColorV1,
+): BaselineBrushDabV1 {
   return Object.freeze({
     schema: 'illustro.baseline-brush-dab/1' as const,
     x,
     y,
-    radius: BASELINE_BRUSH_RADIUS_PX,
-    opacity: BASELINE_BRUSH_OPACITY,
+    radius,
+    opacity: flow * strokeOpacity,
+    flow,
+    strokeOpacity,
     color,
   });
 }
@@ -77,15 +100,43 @@ function freezeDab(x: number, y: number, color: BaselineBrushColorV1): BaselineB
 export class BaselineBrushDabBuilderV1 {
   readonly #dabs: BaselineBrushDabV1[] = [];
   readonly #color: BaselineBrushColorV1;
+  readonly #radius: number;
+  readonly #spacing: number;
+  readonly #flow: number;
+  readonly #strokeOpacity: number;
   #lastPoint: { x: number; y: number } | null = null;
-  #distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
+  #distanceUntilNext: number;
   #finished = false;
 
-  constructor(options: { readonly color?: BaselineBrushColorV1 } = {}) {
+  constructor(
+    options: {
+      readonly color?: BaselineBrushColorV1;
+      readonly sizePx?: number;
+      readonly opacity?: number;
+      readonly flow?: number;
+    } = {},
+  ) {
     this.#color =
       options.color === undefined
         ? DEFAULT_BASELINE_BRUSH_COLOR_V1
         : freezeBaselineBrushColorV1(options.color);
+    const sizePx = options.sizePx ?? BASELINE_BRUSH_RADIUS_PX * 2;
+    const opacity = options.opacity ?? BASELINE_BRUSH_OPACITY;
+    const flow = options.flow ?? 1;
+    if (!Number.isFinite(sizePx) || sizePx <= 0 || sizePx > 4096) {
+      throw new RangeError('baseline brush size must be finite and within 0..4096 px');
+    }
+    if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) {
+      throw new RangeError('baseline brush opacity must be within 0..1');
+    }
+    if (!Number.isFinite(flow) || flow < 0 || flow > 1) {
+      throw new RangeError('baseline brush flow must be within 0..1');
+    }
+    this.#radius = sizePx / 2;
+    this.#spacing = Math.max(0.25, sizePx * 0.25);
+    this.#flow = flow;
+    this.#strokeOpacity = opacity;
+    this.#distanceUntilNext = this.#spacing;
   }
 
   begin(sample: BaselineBrushSampleV1): readonly BaselineBrushDabV1[] {
@@ -99,8 +150,17 @@ export class BaselineBrushDabBuilderV1 {
     assertFinitePoint(sample);
     const start = this.#dabs.length;
     this.#lastPoint = { x: sample.documentX, y: sample.documentY };
-    this.#dabs.push(freezeDab(sample.documentX, sample.documentY, this.#color));
-    this.#distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
+    this.#dabs.push(
+      freezeDab(
+        sample.documentX,
+        sample.documentY,
+        this.#radius,
+        this.#flow,
+        this.#strokeOpacity,
+        this.#color,
+      ),
+    );
+    this.#distanceUntilNext = this.#spacing;
     return this.#deltaFrom(start);
   }
 
@@ -143,7 +203,18 @@ export class BaselineBrushDabBuilderV1 {
     const lastDab = this.#dabs.at(-1);
     if (lastPoint !== null && lastDab !== undefined) {
       const distance = Math.hypot(lastPoint.x - lastDab.x, lastPoint.y - lastDab.y);
-      if (distance > 1e-6) this.#dabs.push(freezeDab(lastPoint.x, lastPoint.y, this.#color));
+      if (distance > 1e-6) {
+        this.#dabs.push(
+          freezeDab(
+            lastPoint.x,
+            lastPoint.y,
+            this.#radius,
+            this.#flow,
+            this.#strokeOpacity,
+            this.#color,
+          ),
+        );
+      }
     }
     return this.#deltaFrom(start);
   }
@@ -172,9 +243,11 @@ export class BaselineBrushDabBuilderV1 {
       const ratio = this.#distanceUntilNext / remaining;
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
-      this.#dabs.push(freezeDab(cursorX, cursorY, this.#color));
+      this.#dabs.push(
+        freezeDab(cursorX, cursorY, this.#radius, this.#flow, this.#strokeOpacity, this.#color),
+      );
       remaining = Math.hypot(x - cursorX, y - cursorY);
-      this.#distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
+      this.#distanceUntilNext = this.#spacing;
     }
 
     if (remaining > 0) this.#distanceUntilNext -= remaining;
@@ -255,6 +328,9 @@ export function planBaselineBrushTilesV1(
       !Number.isFinite(dab.opacity) ||
       dab.opacity < 0 ||
       dab.opacity > 1 ||
+      (dab.flow !== undefined && (!Number.isFinite(dab.flow) || dab.flow < 0 || dab.flow > 1)) ||
+      (dab.strokeOpacity !== undefined &&
+        (!Number.isFinite(dab.strokeOpacity) || dab.strokeOpacity < 0 || dab.strokeOpacity > 1)) ||
       (dab.color !== undefined &&
         (dab.color.length !== 3 ||
           dab.color.some(
