@@ -28,6 +28,7 @@ import {
   type BaselineBrushColorV1,
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
+  type BaselineBrushTipShapeV1,
 } from '../gpu/baseline-brush.js';
 import {
   canonicalBrushCompositeOperationV1,
@@ -190,6 +191,7 @@ export interface PaintSessionSnapshotV1 {
   readonly selectionAnchorLayerId: LayerId | null;
   readonly brushMode: CanonicalBrushModeV1;
   readonly brushParameters: BrushParameterValuesV1;
+  readonly brushTipShape: BaselineBrushTipShapeV1;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
   readonly activeStrokeId: string | null;
   readonly activeStrokeSampleCount: number;
@@ -251,6 +253,10 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     value.strokeOpacity === undefined
       ? undefined
       : finiteNumber(value.strokeOpacity, 'baseline dab strokeOpacity');
+  const tipShape = value.tipShape === undefined ? undefined : value.tipShape;
+  if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square') {
+    throw new TypeError('invalid baseline dab tip shape');
+  }
   const color =
     value.color === undefined
       ? undefined
@@ -281,6 +287,7 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     opacity,
     ...(flow === undefined ? {} : { flow }),
     ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
+    ...(tipShape === undefined ? {} : { tipShape }),
     ...(color === undefined ? {} : { color }),
   });
 }
@@ -551,6 +558,7 @@ export class PaintSessionControllerV1 {
   #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
   #brushMode: CanonicalBrushModeV1 = 'raster';
   #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
+  #brushTipShape: BaselineBrushTipShapeV1 = 'round';
   #disposed = false;
 
   constructor(
@@ -570,6 +578,7 @@ export class PaintSessionControllerV1 {
       selectionAnchorLayerId: this.#selectionAnchorLayerId,
       brushMode: this.#brushMode,
       brushParameters: this.#brushParameters,
+      brushTipShape: this.#brushTipShape,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeStrokeSampleCount: this.#activeSamples.length,
@@ -620,6 +629,18 @@ export class PaintSessionControllerV1 {
     }
     this.#brushParameters = Object.freeze({ ...parameters });
     return this.#brushParameters;
+  }
+
+  setBrushTipShape(shape: BaselineBrushTipShapeV1): BaselineBrushTipShapeV1 {
+    if (shape !== 'round' && shape !== 'square')
+      throw new TypeError('unsupported runtime brush tip shape');
+    if (shape !== this.#brushTipShape) this.#clearActiveStroke();
+    this.#brushTipShape = shape;
+    return this.#brushTipShape;
+  }
+
+  brushTipShape(): BaselineBrushTipShapeV1 {
+    return this.#brushTipShape;
   }
 
   setBrushMode(mode: CanonicalBrushModeIdV1): CanonicalBrushModeV1 {
@@ -1313,6 +1334,7 @@ export class PaintSessionControllerV1 {
       sizePx: parameters.sizePx,
       opacity: parameters.opacity,
       flow: parameters.flow,
+      tipShape: this.#brushTipShape,
     });
     this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
     this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));

@@ -224,6 +224,7 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         opacity: dab.opacity,
         ...(dab.flow === undefined ? {} : { flow: dab.flow }),
         ...(dab.strokeOpacity === undefined ? {} : { strokeOpacity: dab.strokeOpacity }),
+        ...(dab.tipShape === undefined ? {} : { tipShape: dab.tipShape }),
         ...(dab.color === undefined
           ? {}
           : { color: Object.freeze([...dab.color]) as readonly [number, number, number] }),
@@ -248,7 +249,8 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
     dab.opacity <= 1 &&
     (dab.flow === undefined || (Number.isFinite(dab.flow) && dab.flow >= 0 && dab.flow <= 1)) &&
     (dab.strokeOpacity === undefined ||
-      (Number.isFinite(dab.strokeOpacity) && dab.strokeOpacity >= 0 && dab.strokeOpacity <= 1))
+      (Number.isFinite(dab.strokeOpacity) && dab.strokeOpacity >= 0 && dab.strokeOpacity <= 1)) &&
+    (dab.tipShape === undefined || dab.tipShape === 'round' || dab.tipShape === 'square')
   );
 }
 
@@ -263,6 +265,7 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
     left.opacity === right.opacity &&
     baselineDabFlowV1(left) === baselineDabFlowV1(right) &&
     baselineDabStrokeOpacityV1(left) === baselineDabStrokeOpacityV1(right) &&
+    (left.tipShape ?? 'round') === (right.tipShape ?? 'round') &&
     baselineDabColorV1(left).every(
       (component, index) => component === baselineDabColorV1(right)[index],
     )
@@ -272,8 +275,9 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
 function requiresCanonicalPaintPreview(dabs: readonly BaselineBrushDabV1[]): boolean {
   return dabs.some(
     (dab) =>
-      baselineDabUsesFlowOpacityV1(dab) &&
-      (baselineDabFlowV1(dab) < 1 || baselineDabStrokeOpacityV1(dab) < 1),
+      dab.tipShape === 'square' ||
+      (baselineDabUsesFlowOpacityV1(dab) &&
+        (baselineDabFlowV1(dab) < 1 || baselineDabStrokeOpacityV1(dab) < 1)),
   );
 }
 

@@ -422,7 +422,7 @@ M6A-013 brush size:完了
 M6A-014 opacity:完了
 M6A-015 flow/density:完了
 M6A-016 per-brush parameter limits:完了
-M6A-017 procedural tip:未完了
+M6A-017 procedural tip:完了
 M6A-018 sampled image tip:未完了
 M6A-019 custom tip creation:未完了
 M6A-020 multiple tip assets without Dual Brush semantics:未完了

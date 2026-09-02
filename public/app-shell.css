@@ -1939,3 +1939,21 @@ body {
   cursor: default;
   opacity: 0.48;
 }
+
+/* M6A procedural brush tip */
+.shell-brush-tip-property-row select {
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  padding: 0 8px;
+  background: #fff;
+  color: #38445d;
+  font: inherit;
+}
+
+.shell-brush-tip-kind {
+  color: #8792a6;
+  font-size: 9px;
+  text-align: right;
+}

@@ -202,6 +202,27 @@ requireText(
   'caps accumulated paint alpha',
   'brush opacity/flow regression coverage missing',
 );
+requireText(progress, 'M6A-017 procedural tip:完了', 'M6A-017 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushProceduralTipShapeV1',
+  'procedural tip descriptor normalization missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'baselineProceduralTipCoverageV1',
+  'procedural tip raster coverage missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-shape"',
+  'reachable procedural tip control missing',
+);
+requireText(
+  read('tests/unit/procedural-brush-tip.test.ts'),
+  'square corners',
+  'procedural tip raster regression coverage missing',
+);
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

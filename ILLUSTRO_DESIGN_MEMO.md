@@ -5554,3 +5554,10 @@ Verification must cover at minimum:
 - For Eraser/Smudge/Blur at this stage, the same captured opacity and flow values combine into the per-dab effect strength. Their deeper pickup/dynamics semantics remain assigned to later dedicated M6A items.
 - Each `illustro.brush/1` preset may carry independent size/opacity/flow min/max limits in `extensions.parameterLimits`. Runtime controls and preset mutation clamp to those limits. Missing/invalid limits fall back to safe canonical defaults, preserving compatibility with older stored/imported presets.
 - Tool Properties UI follows the canonical visual reference: compact white Inspector card, thin separators, blue local slider accents, numeric entry beside direct manipulation, and no Android-native color/control surface substituted for application UI.
+
+#### M6A procedural-tip boundary — 2026-09-03
+
+- Procedural brush tips are canonical brush-preset data, not UI-only choices. M6A-017 initially supports generated `round` and `square` tip geometry while retaining old `procedural-round` presets as backward-compatible round tips.
+- The selected procedural tip is captured when a stroke begins and is carried by each deterministic dab so Worker/Main/recovery paths cannot reinterpret an existing stroke after the preset changes.
+- Canonical Raster Tile coverage is authoritative. A square paint tip uses incremental affected-tile recomposition rather than the older round-only provisional stamp path, preserving visible/canonical agreement without replaying the full stroke/history.
+- Sampled/custom/multiple tip assets remain separate M6A-018..020 work; M6A-017 does not create a competing resource manager ahead of M6A-072.
