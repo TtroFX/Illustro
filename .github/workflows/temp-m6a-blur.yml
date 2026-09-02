@@ -1,0 +1,56 @@
+name: Temporary M6A Blur
+
+on:
+  push:
+    branches:
+      - work/m6a-blur-20260902
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: work/m6a-blur-20260902
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply M6A Blur
+        run: |
+          python scripts/apply-m6a-blur.py
+          rm scripts/apply-m6a-blur.py .github/workflows/temp-m6a-blur.yml
+      - name: Formatting
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Focused M6A Blur tests
+        run: npx vitest run tests/unit/canonical-raster-brush.test.ts tests/unit/eraser-mode.test.ts tests/unit/smudge-mode.test.ts tests/unit/blur-brush-mode.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5D compatibility inspection
+        run: npm run verify:m5d
+      - name: M6A contract inspection
+        run: npm run verify:m6a
+      - name: Full unit suite
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Persist verified implementation
+        run: |
+          git checkout -- src/generated || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: implement M6A Blur brush mode"
+          git push origin HEAD:work/m6a-blur-20260902
