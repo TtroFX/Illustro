@@ -9,6 +9,12 @@ const requireText = (path, markers) => {
 };
 
 requireText('src/domain/color.ts', ['rgbToHsvV1', 'hsvToRgbV1', 'parseHexRgbV1', 'formatHexRgbV1']);
+requireText('src/app/color-helper-grid.ts', [
+  'intermediateColorGridV1',
+  'approximateColorGridV1',
+  'ApproximateColorAxisV1',
+  "'lightness'",
+]);
 requireText('src/app/color-mixing-surface.ts', [
   'ColorMixingSurfaceV1',
   'paintLine(',
@@ -72,6 +78,11 @@ requireText('src/app/color-workflow-controller.ts', [
   '#color-mixing-eyedropper',
   'mixingSurface.paintLine',
   'mixingSurface.blendLine',
+  '#color-helper',
+  '#color-intermediate-grid',
+  '#color-approximate-grid',
+  'intermediateColorGridV1',
+  'approximateColorGridV1',
   'setPaintColor',
 ]);
 requireText('src/gpu/baseline-brush.ts', [
@@ -169,6 +180,11 @@ requireText('src/index.html', [
   'id="color-mixing-undo"',
   'id="color-mixing-redo"',
   'id="color-mixing-clear"',
+  'id="color-helper"',
+  'id="color-intermediate-grid"',
+  'id="color-approximate-grid"',
+  'id="color-approximate-x-axis"',
+  'id="color-approximate-y-axis"',
 ]);
 requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-001 Color Wheel:完了',
@@ -197,5 +213,6 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-024 profile-aware conversion:完了',
   'M5D-025 ICC/profile-aware preview boundary:完了',
   'M5D-026 Color Mixing Palette:完了',
+  'M5D-027 Intermediate/Approximate Color helper:完了',
 ]);
 console.log('M5D color/palette verification passed');

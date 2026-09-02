@@ -1469,3 +1469,103 @@ body {
   border: 0;
   padding: 0;
 }
+
+
+/* M5D intermediate / approximate color helper */
+.shell-color-helper {
+  border: 1px solid var(--border-default, #e4e9f1);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.shell-color-helper > summary {
+  min-height: 32px;
+  padding: 8px;
+  cursor: pointer;
+  color: #4b5870;
+  font-size: 10px;
+  font-weight: 760;
+  list-style-position: inside;
+}
+
+.shell-color-helper-body {
+  display: grid;
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+
+.shell-color-helper-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.shell-color-helper-tabs button,
+.shell-color-intermediate-corners button,
+.shell-color-approximate-axes select {
+  min-height: 32px;
+  border: 1px solid var(--border-default, #e4e9f1);
+  border-radius: 8px;
+  background: #fff;
+  color: #38445d;
+  font: inherit;
+  font-size: 10px;
+}
+
+.shell-color-helper-tabs button[aria-pressed='true'] {
+  border-color: #8b5cf6;
+  background: rgb(139 92 246 / 10%);
+  box-shadow: inset 0 0 0 1px #8b5cf6;
+}
+
+.shell-color-helper-panel {
+  display: grid;
+  gap: 7px;
+}
+
+.shell-color-helper-panel[hidden] { display: none; }
+
+.shell-color-intermediate-corners {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.shell-color-intermediate-corners button {
+  min-height: 44px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 75%);
+  cursor: pointer;
+}
+
+#color-intermediate-grid,
+#color-approximate-grid {
+  width: min(100%, 180px);
+  aspect-ratio: 1;
+  justify-self: center;
+  border: 1px solid var(--border-default, #e4e9f1);
+  border-radius: 8px;
+  background: #f6f8fb;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.shell-color-approximate-axes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.shell-color-approximate-axes label,
+.shell-color-approximate-amount {
+  display: grid;
+  gap: 3px;
+  color: var(--text-secondary, #667085);
+  font-size: 9px;
+}
+
+.shell-color-approximate-axes select {
+  width: 100%;
+  padding: 0 6px;
+}
+
+.shell-color-approximate-amount input { width: 100%; }
