@@ -39,6 +39,8 @@ jobs:
           PY
       - name: Format
         run: npx biome format --write src/app/paint-session-controller.ts
+      - name: Prepare generated assets
+        run: npm run prepare:generated
       - name: Regression tests
         run: npx vitest run tests/unit/document-workflow-foundation.test.ts tests/unit/draft-final-output.test.ts tests/unit/renderer-controller.test.ts
       - name: Typecheck
