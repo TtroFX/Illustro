@@ -63,6 +63,30 @@ jobs:
           t = t.replace('Math.floor(y / 128)', 'Math.floor(y / CANONICAL_TILE_SIZE_PX)')
           t = t.replace('x - tx * 128', 'x - tx * CANONICAL_TILE_SIZE_PX')
           t = t.replace('y - ty * 128', 'y - ty * CANONICAL_TILE_SIZE_PX')
+          t = t.replace(
+              '          result[pixel] *= sampleEffectiveMaskCoverage(',
+              '          result[pixel] = (result[pixel] ?? 1) * sampleEffectiveMaskCoverage(',
+          )
+          p.write_text(t)
+
+          p = Path('src/app/renderer-controller.ts')
+          t = p.read_text()
+          import_anchor = "import type {\n  BaselineRasterLayerDescriptorV1,"
+          if t.count(import_anchor) != 1:
+              raise SystemExit('renderer descriptor import anchor mismatch')
+          t = t.replace(
+              import_anchor,
+              "import type {\n  BaselineAffineMatrixV1,\n  BaselineRasterLayerDescriptorV1,",
+              1,
+          )
+          matrix_anchor = '{ documentToMask: Object.freeze([...mask.documentToMask]) }'
+          if t.count(matrix_anchor) != 1:
+              raise SystemExit(f'renderer matrix anchor mismatch: {t.count(matrix_anchor)}')
+          t = t.replace(
+              matrix_anchor,
+              '{ documentToMask: Object.freeze([...mask.documentToMask]) as BaselineAffineMatrixV1 }',
+              1,
+          )
           p.write_text(t)
           PY
       - name: Format
