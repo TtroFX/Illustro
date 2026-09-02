@@ -409,14 +409,14 @@ M6A-003 Smudge/Finger mode:完了
 再開メモ: M6A-003 Smudge/Finger modeはactive Raster Layer内だけを対象に、連続dabの移動差で直前位置側のpixelを現在位置へ引くdisplacement型として実装。各dabは変更前source tile snapshotを使い、premultiplied RGBAでbilinear sampleしてalpha縁の色にじみと同一dab内feedbackを避ける。Tile境界を跨いでsamplingでき、変更Tileだけcanonical patch化してWorker/Main/Canvas2D fallbackを再compositeする。wet/pickup型の混色はM6A-063として別途未完了。次はM6A-004 Blur brush modeから再開する。
 M6A-004 Blur brush mode:完了
 再開メモ: M6A-004 Blur brush modeはactive Raster Layerのcanonical pixelだけを対象に、各dab開始時のimmutable source tile snapshotへ5×5 binomial Gaussian近似を適用し、premultiplied RGBAで局所blurした結果をbrush coverage/opacityで戻す。kernel workはradiusに対して固定上限で、source samplingはTile境界を跨ぎ、実際に変化したdestination TileだけをHistory patch化する。Worker/Main/Canvas2D fallbackは既存non-paint再composite経路を共有。次はM6A-005 preset createから再開する。
-M6A-005 preset create:未完了
-M6A-006 preset duplicate:未完了
-M6A-007 preset rename:未完了
-M6A-008 preset delete:未完了
-M6A-009 preset search:未完了
-M6A-010 preset categories:未完了
-M6A-011 preset lock:未完了
-M6A-012 preset reset:未完了
+M6A-005 preset create:完了
+M6A-006 preset duplicate:完了
+M6A-007 preset rename:完了
+M6A-008 preset delete:完了
+M6A-009 preset search:完了
+M6A-010 preset categories:完了
+M6A-011 preset lock:完了
+M6A-012 preset reset:完了
 M6A-013 brush size:未完了
 M6A-014 opacity:未完了
 M6A-015 flow/density:未完了

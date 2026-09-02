@@ -117,6 +117,23 @@
           <div class="shell-inspector-tabs" aria-hidden="true">
             <span class="is-active"></span><span></span><span></span><span></span><span></span>
           </div>
+          <section class="shell-inspector-card shell-brush-presets-panel" aria-label="ブラシプリセット">
+            <header class="shell-brush-presets-header"><strong>ブラシプリセット</strong><output id="brush-preset-status" aria-live="polite"></output></header>
+            <div class="shell-brush-preset-filters">
+              <input id="brush-preset-search" type="search" autocomplete="off" spellcheck="false" placeholder="ブラシを検索" aria-label="ブラシプリセットを検索" />
+              <select id="brush-preset-category" aria-label="ブラシカテゴリ"><option value="">すべて</option></select>
+            </div>
+            <fieldset id="brush-preset-list" class="shell-brush-preset-list"><legend class="shell-brush-preset-legend">ブラシプリセット一覧</legend></fieldset>
+            <label class="shell-brush-preset-name-edit">名前<input id="brush-preset-name" type="text" maxlength="120" /></label>
+            <fieldset class="shell-brush-preset-actions"><legend class="shell-brush-preset-legend">ブラシプリセット操作</legend>
+              <button id="brush-preset-create" type="button" title="新規プリセット">＋</button>
+              <button id="brush-preset-duplicate" type="button" title="複製">複製</button>
+              <button id="brush-preset-rename" type="button" title="名前を保存">名前</button>
+              <button id="brush-preset-delete" type="button" title="削除">削除</button>
+              <button id="brush-preset-lock" type="button" aria-pressed="false" title="ロック切替">ロック</button>
+              <button id="brush-preset-reset" type="button" title="保存基準へリセット">Reset</button>
+            </fieldset>
+          </section>
           <section class="shell-inspector-card shell-color-panel" aria-label="カラー">
             <header class="shell-color-header"><strong>カラー</strong><output id="color-status" aria-live="polite"></output></header>
             <div class="shell-color-picker">

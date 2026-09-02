@@ -349,6 +349,174 @@ body {
 }
 
 
+.shell-brush-presets-panel {
+  gap: 9px;
+  padding: 12px;
+  border-bottom: 1px solid #eef1f6;
+}
+
+.shell-brush-presets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shell-brush-presets-header strong {
+  color: #27314a;
+  font-size: 12px;
+}
+
+.shell-brush-presets-header output {
+  color: #7b879d;
+  font-size: 9px;
+}
+
+.shell-brush-preset-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  gap: 6px;
+}
+
+.shell-brush-preset-filters input,
+.shell-brush-preset-filters select,
+.shell-brush-preset-name-edit input {
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid #dfe5ef;
+  border-radius: 9px;
+  padding: 0 9px;
+  background: #fbfcff;
+  color: #26324b;
+  font: inherit;
+  font-size: 10px;
+}
+
+.shell-brush-preset-filters input:focus,
+.shell-brush-preset-filters select:focus,
+.shell-brush-preset-name-edit input:focus {
+  border-color: #a9c8ff;
+  outline: 2px solid rgb(59 130 246 / 10%);
+}
+
+.shell-brush-preset-list,
+.shell-brush-preset-actions {
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.shell-brush-preset-legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.shell-brush-preset-list {
+  display: grid;
+  gap: 5px;
+  max-height: 196px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.shell-brush-preset-row {
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 6px 9px;
+  background: #fff;
+  color: #1f2942;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shell-brush-preset-row:hover {
+  background: #f8faff;
+}
+
+.shell-brush-preset-row.is-selected {
+  border-color: #ffd1e3;
+  background: linear-gradient(90deg, #ff4e9a 0 4px, #fff0f6 4px 100%);
+}
+
+.shell-brush-preset-row:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 1px;
+}
+
+.shell-brush-preset-name {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-brush-preset-meta,
+.shell-brush-preset-empty {
+  margin: 0;
+  color: #7b879d;
+  font-size: 9px;
+}
+
+.shell-brush-preset-empty {
+  padding: 10px 4px;
+  text-align: center;
+}
+
+.shell-brush-preset-name-edit {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  color: #718096;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.shell-brush-preset-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.shell-brush-preset-actions button {
+  min-height: 44px;
+  border: 1px solid #e1e6ef;
+  border-radius: 9px;
+  background: #f8faff;
+  color: #46536c;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.shell-brush-preset-actions button:hover:not(:disabled),
+.shell-brush-preset-actions button:focus-visible:not(:disabled) {
+  border-color: #ffc0d8;
+  background: #fff0f6;
+  outline: none;
+}
+
+.shell-brush-preset-actions button[aria-pressed='true'] {
+  border-color: #ffc0d8;
+  background: #ffe5ef;
+  color: #a61b58;
+}
+
+.shell-brush-preset-actions button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
 .shell-color-panel {
   gap: 10px;
   padding: 12px;
