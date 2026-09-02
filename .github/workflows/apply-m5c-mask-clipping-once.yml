@@ -38,6 +38,33 @@ jobs:
           PY
       - name: Apply M5C-028 compositor integration
         run: python scripts/apply-m5c-mask-clipping.py
+      - name: Normalize generated compositor details
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/app/raster-compositor-descriptors.ts')
+          t = p.read_text()
+          before = """  const inverse = 1 / determinant;\n  return Object.freeze([\n    d * inverse,\n    -b * inverse,\n    -c * inverse,\n    a * inverse,\n    (c * f - d * e) * inverse,\n    (b * e - a * f) * inverse,\n  ]);\n"""
+          after = """  const inverse = 1 / determinant;\n  const canonical = (value: number): number => (Object.is(value, -0) ? 0 : value);\n  return Object.freeze([\n    canonical(d * inverse),\n    canonical(-b * inverse),\n    canonical(-c * inverse),\n    canonical(a * inverse),\n    canonical((c * f - d * e) * inverse),\n    canonical((b * e - a * f) * inverse),\n  ]);\n"""
+          if t.count(before) != 1:
+              raise SystemExit('inverse affine anchor mismatch')
+          p.write_text(t.replace(before, after, 1))
+
+          p = Path('src/gpu/baseline-raster-tile-store.ts')
+          t = p.read_text()
+          old_import = "import { tileBoundsForDocumentV1, tileKeyV1, type TileCoordinateV1 } from './sparse-tile-model.js';"
+          new_import = "import { CANONICAL_TILE_SIZE_PX, tileBoundsForDocumentV1, tileKeyV1, type TileCoordinateV1 } from './sparse-tile-model.js';"
+          if t.count(old_import) != 1:
+              raise SystemExit('sparse tile import anchor mismatch')
+          t = t.replace(old_import, new_import, 1)
+          t = t.replace('Math.floor(x / 128)', 'Math.floor(x / CANONICAL_TILE_SIZE_PX)')
+          t = t.replace('Math.floor(y / 128)', 'Math.floor(y / CANONICAL_TILE_SIZE_PX)')
+          t = t.replace('x - tx * 128', 'x - tx * CANONICAL_TILE_SIZE_PX')
+          t = t.replace('y - ty * 128', 'y - ty * CANONICAL_TILE_SIZE_PX')
+          p.write_text(t)
+          PY
       - name: Format
         run: npm run format
       - name: Lint
