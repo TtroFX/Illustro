@@ -1,0 +1,96 @@
+name: Retry M5C nonseparable blend modes
+
+on:
+  push:
+    branches:
+      - work/m5c-nonseparable-color-space-20260902
+    paths:
+      - '.github/workflows/retry-m5c-nonseparable-color-space.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify-persist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply corrected M5C patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/apply-m5c-nonseparable-color-space-once.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          block = workflow.split(marker, 1)[1].split("\n          PY\n", 1)[0]
+          script = textwrap.dedent(block)
+
+          old = '''replace_once(
+              'src/gpu/baseline-paint-renderer.ts',
+              """    this.#canonicalTiles = new BaselineRasterTileStoreV1(width, height, precision, this.#layers);\\n""",
+              """    this.#canonicalTiles = new BaselineRasterTileStoreV1(\\n      width,\\n      height,\\n      precision,\\n      this.#layers,\\n      workingSpace,\\n    );\\n""",
+          )'''
+          new = '''replace_once(
+              'src/gpu/baseline-paint-renderer.ts',
+              """  #documentHeight: number | null = null;\\n  #activeStroke: ActiveBaselineStrokeV1 | null = null;\\n""",
+              """  #documentHeight: number | null = null;\\n  #workingSpace: DocumentColorSpace = 'srgb';\\n  #activeStroke: ActiveBaselineStrokeV1 | null = null;\\n""",
+          )
+          replace_once(
+              'src/gpu/baseline-paint-renderer.ts',
+              """    this.#documentHeight = height;\\n    this.#layers =\\n""",
+              """    this.#documentHeight = height;\\n    this.#workingSpace = workingSpace;\\n    this.#layers =\\n""",
+          )
+          p = Path('src/gpu/baseline-paint-renderer.ts')
+          text = p.read_text()
+          before = "    this.#canonicalTiles = new BaselineRasterTileStoreV1(width, height, precision, this.#layers);\\n"
+          if text.count(before) != 2:
+              raise SystemExit(f'baseline renderer expected two tile-store constructors, found {text.count(before)}')
+          after = "    this.#canonicalTiles = new BaselineRasterTileStoreV1(\\n      width,\\n      height,\\n      precision,\\n      this.#layers,\\n      this.#workingSpace,\\n    );\\n"
+          p.write_text(text.replace(before, after))'''
+          if script.count(old) != 1:
+              raise SystemExit(f'embedded baseline renderer patch anchor count: {script.count(old)}')
+          script = script.replace(old, new, 1)
+          exec(compile(script, '<m5c-patch>', 'exec'), {'__name__': '__main__'})
+          PY
+      - name: Format
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Prepare generated assets
+        run: npm run prepare:generated
+      - name: Focused M5C tests
+        run: npx vitest run tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts tests/unit/baseline-paint-renderer.test.ts tests/unit/renderer-controller.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5C contract inspection
+        run: npm run verify:m5c
+      - name: Full unit regression
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration regression
+        run: npm run test:integration
+      - name: Persist verified implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/gpu/blend-modes.ts src/gpu/baseline-raster-tile-store.ts src/gpu/baseline-paint-renderer.ts src/app/renderer-controller.ts src/workers/render.worker.ts src/index.html tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts scripts/verify-m5c-compositor.mjs IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: implement M5C nonseparable blend modes [skip ci]'
+          git push origin HEAD:work/m5c-nonseparable-color-space-20260902
