@@ -19,6 +19,14 @@ const expected: Readonly<Record<M5cBaseBlendModeIdV1, readonly [number, number, 
   screen: [0.8, 0.55, 0.84],
   'color-dodge': [1, 0.5333333333333333, 1],
   'linear-dodge': [1, 0.65, 1],
+  'lighter-color': source,
+  overlay: [0.6, 0.2, 0.32],
+  'soft-light': [0.6, 0.28, 0.3488],
+  'hard-light': [0.6, 0.2, 0.68],
+  'vivid-light': [0.6, 0, 0.5],
+  'linear-light': [0.6, 0, 0.8],
+  'pin-light': [0.6, 0.4, 0.6],
+  'hard-mix': [1, 0, 1],
 };
 
 describe('M5C base blend kernels', () => {
@@ -44,8 +52,10 @@ describe('M5C base blend kernels', () => {
     expect(result[2]).toBeCloseTo(0.2, 8);
   });
 
-  it('selects a complete RGB tuple for Darker Color instead of mixing channels', () => {
+  it('selects complete RGB tuples for Darker/Lighter Color instead of mixing channels', () => {
     expect(blendRgbV1('darker-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([0.9, 0.1, 0.1]);
     expect(blendRgbV1('darker-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.2, 0.2, 0.2]);
+    expect(blendRgbV1('lighter-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([0.4, 0.4, 0.4]);
+    expect(blendRgbV1('lighter-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.8, 0.8, 0.1]);
   });
 });

@@ -49,5 +49,11 @@ describe('M5C baseline tile compositor integration', () => {
       { layerId: 'top', visible: true, opacity: 1, blendMode: 'screen' },
     ]);
     expect([...store.compositeTiles()[0]!.bytes]).toEqual([192, 192, 192, 255]);
+
+    store.setLayers([
+      { layerId: 'bottom', visible: true, opacity: 1 },
+      { layerId: 'top', visible: true, opacity: 1, blendMode: 'hard-mix' },
+    ]);
+    expect([...store.compositeTiles()[0]!.bytes]).toEqual([255, 255, 255, 255]);
   });
 });
