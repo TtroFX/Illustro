@@ -54,6 +54,8 @@ jobs:
         run: npm run verify:m5a
       - name: M5B layer creation inspection
         run: npm run verify:m5b
+      - name: M5C blend compositor inspection
+        run: npm run verify:m5c
       - name: Production build
         env:
           ILLUSTRO_BUILD_MODE: production
