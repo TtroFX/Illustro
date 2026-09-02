@@ -1,6 +1,7 @@
 import { parseLayerId, parseMaskId, type LayerId } from '../domain/identity.js';
 import type { LayerBaseV1 } from '../domain/layers.js';
 import { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from './layer-cleanup.js';
+import { setDraftLayerSnapshotV1, setReferenceLayerSnapshotV1 } from './layer-role-flags.js';
 import {
   CREATABLE_LAYER_KINDS_V1,
   attachRasterMaskSnapshotV1,
@@ -256,6 +257,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const moveDownButton = required<HTMLButtonElement>('#layer-move-down');
   const lockButton = required<HTMLButtonElement>('#layer-lock');
   const alphaLockButton = required<HTMLButtonElement>('#layer-alpha-lock');
+  const referenceButton = required<HTMLButtonElement>('#layer-reference');
+  const draftButton = required<HTMLButtonElement>('#layer-draft');
   const opacityInput = required<HTMLInputElement>('#layer-opacity');
   const renameForm = required<HTMLFormElement>('#layer-rename-editor');
   const renameInput = required<HTMLInputElement>('#layer-rename-input');
@@ -566,6 +569,10 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     renameButton.disabled = disabled;
     lockButton.disabled = disabled;
     alphaLockButton.disabled = disabled;
+    referenceButton.disabled =
+      disabled || active?.layer.type === 'lineartBoundary' || active?.layer.locks.all;
+    draftButton.disabled =
+      disabled || active?.layer.type === 'lineartBoundary' || active?.layer.locks.all;
     opacityInput.disabled = disabled;
     const roots = documentValue.layerTree.rootLayerIds;
     const selectedRoots = options.paintSession
@@ -583,12 +590,23 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       alphaLockButton.setAttribute('aria-pressed', active.layer.locks.alpha ? 'true' : 'false');
       lockButton.dataset.active = active.layer.locks.all ? 'true' : 'false';
       alphaLockButton.dataset.active = active.layer.locks.alpha ? 'true' : 'false';
+      referenceButton.setAttribute(
+        'aria-pressed',
+        active.layer.roleFlags.reference ? 'true' : 'false',
+      );
+      draftButton.setAttribute('aria-pressed', active.layer.roleFlags.draft ? 'true' : 'false');
+      referenceButton.dataset.active = active.layer.roleFlags.reference ? 'true' : 'false';
+      draftButton.dataset.active = active.layer.roleFlags.draft ? 'true' : 'false';
     } else {
       opacityInput.value = '100';
       lockButton.setAttribute('aria-pressed', 'false');
       alphaLockButton.setAttribute('aria-pressed', 'false');
       lockButton.dataset.active = 'false';
       alphaLockButton.dataset.active = 'false';
+      referenceButton.setAttribute('aria-pressed', 'false');
+      draftButton.setAttribute('aria-pressed', 'false');
+      referenceButton.dataset.active = 'false';
+      draftButton.dataset.active = 'false';
     }
     root.dataset.illustroLayerCount = String(Object.keys(documentValue.layerTree.layers).length);
     root.dataset.illustroSelectedLayerCount = String(selectedLayerIds.size);
@@ -1054,6 +1072,28 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const onRenameCancel = (): void => {
     renameForm.hidden = true;
     clearError();
+  };
+
+  const onReferenceToggle = (): void => {
+    const active = currentActive();
+    if (active === null) return;
+    const enabled = !active.layer.roleFlags.reference;
+    commitMutation(
+      enabled ? 'layer.reference.designate' : 'layer.reference.release',
+      (before, revision) => setReferenceLayerSnapshotV1(before, active.id, enabled, revision),
+      () => active.id,
+    );
+  };
+
+  const onDraftToggle = (): void => {
+    const active = currentActive();
+    if (active === null) return;
+    const enabled = !active.layer.roleFlags.draft;
+    commitMutation(
+      enabled ? 'layer.draft.enable' : 'layer.draft.disable',
+      (before, revision) => setDraftLayerSnapshotV1(before, active.id, enabled, revision),
+      () => active.id,
+    );
   };
 
   const onOpacity = (): void => {
@@ -1609,6 +1649,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   opacityInput.addEventListener('change', onOpacity);
   lockButton.addEventListener('click', onLock);
   alphaLockButton.addEventListener('click', onAlphaLock);
+  referenceButton.addEventListener('click', onReferenceToggle);
+  draftButton.addEventListener('click', onDraftToggle);
   moveUpButton.addEventListener('click', onMoveUp);
   moveDownButton.addEventListener('click', onMoveDown);
   searchInput.addEventListener('input', onLayerSearchInput);
@@ -1666,6 +1708,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       opacityInput.removeEventListener('change', onOpacity);
       lockButton.removeEventListener('click', onLock);
       alphaLockButton.removeEventListener('click', onAlphaLock);
+      referenceButton.removeEventListener('click', onReferenceToggle);
+      draftButton.removeEventListener('click', onDraftToggle);
       moveUpButton.removeEventListener('click', onMoveUp);
       moveDownButton.removeEventListener('click', onMoveDown);
       searchInput.removeEventListener('input', onLayerSearchInput);

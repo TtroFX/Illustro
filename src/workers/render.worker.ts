@@ -123,6 +123,7 @@ type RenderWorkerRequestV1 =
       readonly type: 'renderer.paint.exportTiles';
       readonly requestId: string;
       readonly composite: boolean;
+      readonly includeDraft?: boolean;
     }
   | {
       readonly type: 'renderer.paint.applyPatches';
@@ -203,6 +204,7 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
       seen.has(candidate.layerId) ||
       typeof candidate.visible !== 'boolean' ||
       typeof candidate.opacity !== 'number' ||
+      (candidate.draft !== undefined && typeof candidate.draft !== 'boolean') ||
       !Number.isFinite(candidate.opacity) ||
       candidate.opacity < 0 ||
       candidate.opacity > 1
@@ -215,6 +217,7 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
         layerId: candidate.layerId,
         visible: candidate.visible,
         opacity: candidate.opacity,
+        draft: candidate.draft ?? false,
       }),
     );
   }
@@ -505,12 +508,15 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
   if (
     value.type === 'renderer.paint.exportTiles' &&
     typeof value.requestId === 'string' &&
-    typeof value.composite === 'boolean'
+    typeof value.composite === 'boolean' &&
+    (value.includeDraft === undefined || typeof value.includeDraft === 'boolean')
   ) {
+    const includeDraft = value.includeDraft;
     return {
       type: value.type,
       requestId: value.requestId,
       composite: value.composite,
+      ...(typeof includeDraft === 'boolean' ? { includeDraft } : {}),
     };
   }
   if (
@@ -667,7 +673,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
     }
     if (request.type === 'renderer.paint.exportTiles') {
       const tiles = request.composite
-        ? baselinePaint.exportCompositeTiles()
+        ? baselinePaint.exportCompositeTiles({ includeDraft: request.includeDraft ?? true })
         : baselinePaint.exportCanonicalTiles();
       postResponse(
         request.requestId,

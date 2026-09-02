@@ -325,4 +325,40 @@ requireText('src/app/layer-workflow-controller.ts', [
   'setMaskLinkedToLayerSnapshotV1',
 ]);
 requireText('src/index.html', ['id="mask-link"']);
+requireText('src/app/layer-role-flags.ts', [
+  'setReferenceLayerSnapshotV1',
+  'setDraftLayerSnapshotV1',
+  "'reference'",
+  "'draft'",
+]);
+requireText('src/app/layer-workflow-controller.ts', [
+  "'#layer-reference'",
+  "'#layer-draft'",
+  "'layer.reference.designate'",
+  "'layer.reference.release'",
+  "'layer.draft.enable'",
+  "'layer.draft.disable'",
+]);
+requireText('src/index.html', ['id="layer-reference"', 'id="layer-draft"']);
+requireText('src/gpu/baseline-raster-tile-store.ts', [
+  'readonly draft?: boolean',
+  'readonly includeDraft?: boolean',
+  'layer.draft !== true',
+]);
+requireText('src/app/paint-session-controller.ts', ['draft: layer.roleFlags.draft']);
+requireText('src/app/renderer-controller.ts', ['includeDraft: false']);
+requireText('src/workers/render.worker.ts', [
+  'includeDraft?: boolean',
+  'includeDraft: request.includeDraft ?? true',
+]);
+requireText('src/domain/special-layers.ts', [
+  'createLinkedObjectLayer',
+  'embeddedSnapshot: DocumentV1',
+  'externalSource: LinkedObjectExternalSourceV1 | null',
+]);
+requireText('tests/unit/linked-object-canonical.test.ts', [
+  'canonical embedded representation',
+  'serializeJson',
+  'externalSource',
+]);
 console.log('M5B layer system verification passed');
