@@ -25,6 +25,17 @@ jobs:
         run: npm install --global npm@11.19.1
       - name: Restore locked dependencies
         run: npm ci --ignore-scripts
+      - name: Correct temporary patch helper
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/apply-m5c-mask-clipping.py')
+          t = p.read_text()
+          t = t.replace('"""  type BaselineRasterLayerDescriptorV1,\\n  type BaselineRasterTileImageV1,\\n"""', '"""  BaselineRasterLayerDescriptorV1,\\n  BaselineRasterTileImageV1,\\n"""')
+          t = t.replace('"""  type BaselineAffineMatrixV1,\\n  type BaselineRasterLayerDescriptorV1,\\n  type BaselineRasterMaskDescriptorV1,\\n  type BaselineRasterMaskTileImageV1,\\n  type BaselineRasterTileImageV1,\\n"""', '"""  BaselineAffineMatrixV1,\\n  BaselineRasterLayerDescriptorV1,\\n  BaselineRasterMaskDescriptorV1,\\n  BaselineRasterMaskTileImageV1,\\n  BaselineRasterTileImageV1,\\n"""')
+          p.write_text(t)
+          PY
       - name: Apply M5C-028 compositor integration
         run: python scripts/apply-m5c-mask-clipping.py
       - name: Format
