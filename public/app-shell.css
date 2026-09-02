@@ -1164,3 +1164,106 @@ body {
   background: #fff;
   font: inherit;
 }
+
+
+.shell-color-palettes {
+  border: 1px solid #e3e8f1;
+  border-radius: 9px;
+  background: #fbfcff;
+}
+
+.shell-color-palettes > summary {
+  min-height: 30px;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: #536079;
+  font-size: 10px;
+  font-weight: 760;
+  list-style-position: inside;
+}
+
+.shell-color-palette-body {
+  display: grid;
+  gap: 7px;
+  padding: 0 8px 8px;
+}
+
+#color-palette-select,
+#color-palette-name,
+.shell-color-palette-body button {
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #38445d;
+  font: inherit;
+  font-size: 10px;
+}
+
+#color-palette-select,
+#color-palette-name {
+  width: 100%;
+  padding: 0 7px;
+}
+
+.shell-color-palette-body button {
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.shell-color-palette-body button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.shell-color-palette-name-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px 34px;
+  gap: 5px;
+}
+
+.shell-color-palette-order,
+.shell-color-palette-actions,
+.shell-color-palette-io {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.shell-color-palette-order span {
+  margin-left: 2px;
+  color: #8792a6;
+  font-size: 9px;
+}
+
+.shell-color-palette-swatches {
+  display: flex;
+  gap: 5px;
+  min-height: 30px;
+  overflow-x: auto;
+  padding: 2px 1px 3px;
+  scrollbar-width: thin;
+}
+
+.shell-color-palette-swatches .shell-color-palette-swatch {
+  flex: 0 0 28px;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px #fff;
+}
+
+.shell-color-palette-swatch.is-selected {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
+
+.shell-color-palette-actions button:first-child {
+  margin-right: auto;
+}
+
+.shell-color-palette-io {
+  justify-content: flex-end;
+}

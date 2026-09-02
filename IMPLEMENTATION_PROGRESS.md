@@ -376,14 +376,14 @@ M5D-004 HEX entry:完了
 M5D-005 current color:完了
 M5D-006 previous color:完了
 M5D-007 color history:完了
-M5D-008 palette create:未完了
-M5D-009 palette rename:未完了
-M5D-010 palette delete:未完了
-M5D-011 multiple named palettes:未完了
-M5D-012 palette reorder:未完了
-M5D-013 palette-color reorder:未完了
-M5D-014 palette import:未完了
-M5D-015 palette export:未完了
+M5D-008 palette create:完了
+M5D-009 palette rename:完了
+M5D-010 palette delete:完了
+M5D-011 multiple named palettes:完了
+M5D-012 palette reorder:完了
+M5D-013 palette-color reorder:完了
+M5D-014 palette import:完了
+M5D-015 palette export:完了
 M5D-016 Eyedropper:未完了
 M5D-017 quick Eyedropper:未完了
 M5D-018 active-layer sampling:未完了
