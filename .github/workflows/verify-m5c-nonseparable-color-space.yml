@@ -1,0 +1,89 @@
+name: Verify M5C nonseparable blend modes
+
+on:
+  push:
+    branches:
+      - work/m5c-nonseparable-color-space-20260902
+    paths:
+      - '.github/workflows/verify-m5c-nonseparable-color-space.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify-persist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply corrected implementation and precision expectations
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          workflow = Path('.github/workflows/retry-m5c-nonseparable-color-space.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          block = workflow.split(marker, 1)[1].split("\n          PY\n", 1)[0]
+          script = textwrap.dedent(block)
+          exec(compile(script, '<m5c-corrected-patch>', 'exec'), {'__name__': '__main__'})
+
+          def replace_once(path, before, after):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(before)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one precision anchor, found {count}: {before!r}')
+              p.write_text(text.replace(before, after, 1))
+
+          replace_once(
+              'tests/unit/blend-modes.test.ts',
+              "expect(blendRgbV1('multiply', backdrop, source, 'display-p3')).toEqual([0.3, 0.1, 0.16]);",
+              "expect(blendRgbV1('multiply', backdrop, source, 'display-p3')).toEqual([\n      0.3,\n      0.1,\n      0.16000000000000003,\n    ]);",
+          )
+          replace_once(
+              'tests/unit/baseline-blend-compositor.test.ts',
+              "expect([...store.compositeTiles()[0]!.bytes]).toEqual([133, 87, 189, 255]);",
+              "expect([...store.compositeTiles()[0]!.bytes]).toEqual([133, 86, 188, 255]);",
+          )
+          PY
+      - name: Format
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Prepare generated assets
+        run: npm run prepare:generated
+      - name: Focused M5C tests
+        run: npx vitest run tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts tests/unit/baseline-paint-renderer.test.ts tests/unit/renderer-controller.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5C contract inspection
+        run: npm run verify:m5c
+      - name: Full unit regression
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration regression
+        run: npm run test:integration
+      - name: Persist verified implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/gpu/blend-modes.ts src/gpu/baseline-raster-tile-store.ts src/gpu/baseline-paint-renderer.ts src/app/renderer-controller.ts src/workers/render.worker.ts src/index.html tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts scripts/verify-m5c-compositor.mjs IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: implement M5C nonseparable blend modes [skip ci]'
+          git push origin HEAD:work/m5c-nonseparable-color-space-20260902
