@@ -1,0 +1,59 @@
+name: Apply M5C base blend modes v2
+
+on:
+  push:
+    branches:
+      - work/m5c-base-blend-modes-20260902
+    paths:
+      - '.github/workflows/apply-m5c-base-blend-modes-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply corrected M5C integration
+        run: python scripts/apply-m5c-base-blend-modes.py
+      - name: Format
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Focused M5C tests
+        run: npx vitest run tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts tests/unit/layer-blend-mode.test.ts tests/unit/document-workflow-foundation.test.ts tests/unit/renderer-controller.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5C contract inspection
+        run: npm run verify:m5c
+      - name: Full unit regression
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration regression
+        run: npm run test:integration
+      - name: Commit verified branch checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/apply-m5c-base-blend-modes.yml
+          git rm .github/workflows/apply-m5c-base-blend-modes-v2.yml
+          git rm scripts/apply-m5c-base-blend-modes.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: wire M5C base blend modes [skip ci]'
+          git push origin HEAD:work/m5c-base-blend-modes-20260902
