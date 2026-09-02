@@ -31,6 +31,8 @@ jobs:
         run: npm run format
       - name: Lint
         run: npm run lint
+      - name: Prepare generated assets
+        run: npm run prepare:generated
       - name: Focused M5C tests
         run: npx vitest run tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts tests/unit/layer-blend-mode.test.ts tests/unit/document-workflow-foundation.test.ts tests/unit/renderer-controller.test.ts
       - name: Typecheck
