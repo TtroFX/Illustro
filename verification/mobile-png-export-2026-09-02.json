@@ -1,0 +1,16 @@
+{
+  "schema": "illustro.mobile-png-export-verification/1",
+  "date": "2026-09-02",
+  "implementationCommit": "df24556556c146dfdeee08ccbb264202bb3500b2",
+  "progressCommit": "630620ba0650e9aecb282bf94b2e46967db02099",
+  "focusedChecks": [
+    "TypeScript typecheck",
+    "tests/unit/png-export.test.ts"
+  ],
+  "changes": [
+    "File menu PNG export uses the production export handler",
+    "PNG Blob object URLs remain valid for 60000 ms before revocation",
+    "canonical Composite Raster Tiles remain the PNG export source"
+  ],
+  "deviceStatus": "awaiting-user-real-device-recheck"
+}
