@@ -84,11 +84,11 @@ jobs:
         run: npm run build
       - name: Integration regression
         run: npm run test:integration
-      - name: Persist verified implementation
+      - name: Persist verified production implementation
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .github/workflows/apply-m5d-color-foundation-once.yml scripts/apply-m5d-color-foundation.py
+          git checkout HEAD -- .github/workflows/ci.yml .github/workflows/apply-m5d-color-foundation-once.yml scripts/apply-m5d-color-foundation.py
           git config user.name "TtroFX"
           git config user.email "ttro0419@gmail.com"
           git add -A
