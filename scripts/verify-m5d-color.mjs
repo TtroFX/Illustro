@@ -139,7 +139,11 @@ requireText('src/gpu/renderer-device-resources.ts', [
 ]);
 requireText('src/app/paint-session-controller.ts', [
   'setPaintColor',
-  'new BaselineBrushDabBuilderV1({ color: this.#paintColor })',
+  'new CanonicalRasterBrushStrokeV1({ color: this.#paintColor })',
+]);
+requireText('src/app/canonical-raster-brush.ts', [
+  'BaselineBrushDabBuilderV1',
+  'readonly color?: BaselineBrushColorV1',
 ]);
 requireText('src/workers/render.worker.ts', ['freezeBaselineBrushColorV1', 'candidate.color']);
 requireText('src/index.html', [
