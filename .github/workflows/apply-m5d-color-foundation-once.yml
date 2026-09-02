@@ -1,0 +1,60 @@
+name: Apply M5D color foundation once
+
+on:
+  push:
+    branches:
+      - work/m5d-color-foundation-20260902
+    paths:
+      - .github/workflows/apply-m5d-color-foundation-once.yml
+      - scripts/apply-m5d-color-foundation.py
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify-persist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply M5D color foundation
+        run: python scripts/apply-m5d-color-foundation.py
+      - name: Format
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Prepare generated assets
+        run: npm run prepare:generated
+      - name: Focused M5D tests
+        run: npx vitest run tests/unit/color-workflow.test.ts tests/unit/baseline-color-paint.test.ts tests/unit/baseline-brush.test.ts tests/unit/baseline-raster-tile-store.test.ts tests/unit/paint-session-controller.test.ts tests/unit/renderer-controller.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5D contract inspection
+        run: npm run verify:m5d
+      - name: Full unit regression
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration regression
+        run: npm run test:integration
+      - name: Persist verified implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/apply-m5d-color-foundation-once.yml scripts/apply-m5d-color-foundation.py
+          git config user.name "TtroFX"
+          git config user.email "ttro0419@gmail.com"
+          git add -A
+          git commit -m "feat: implement M5D color foundation"
+          git push origin HEAD:work/m5d-color-foundation-20260902
