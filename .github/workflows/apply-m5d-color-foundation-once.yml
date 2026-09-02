@@ -26,6 +26,20 @@ jobs:
         run: npm install --global npm@11.19.1
       - name: Restore locked dependencies
         run: npm ci --ignore-scripts
+      - name: Correct generated lint details
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/apply-m5d-color-foundation.py')
+          t = p.read_text()
+          t = t.replace('constructor: { new (...args: never[]): T },', 'elementType: { new (...args: never[]): T },')
+          t = t.replace('element instanceof constructor', 'element instanceof elementType')
+          t = t.replace('<div class=\\"shell-color-entry-grid shell-color-entry-rgb\\" aria-label=\\"RGB入力\\">', '<div class=\\"shell-color-entry-grid shell-color-entry-rgb\\" role=\\"group\\" aria-label=\\"RGB入力\\">')
+          t = t.replace('<div class=\\"shell-color-entry-grid shell-color-entry-hsv\\" aria-label=\\"HSV入力\\">', '<div class=\\"shell-color-entry-grid shell-color-entry-hsv\\" role=\\"group\\" aria-label=\\"HSV入力\\">')
+          t = t.replace('<div id=\\"color-history\\" class=\\"shell-color-history\\" aria-label=\\"色履歴\\"></div>', '<div id=\\"color-history\\" class=\\"shell-color-history\\" role=\\"group\\" aria-label=\\"色履歴\\"></div>')
+          p.write_text(t)
+          PY
       - name: Apply M5D color foundation
         run: python scripts/apply-m5d-color-foundation.py
       - name: Format
