@@ -10,7 +10,7 @@ export const BASELINE_BRUSH_RADIUS_PX = 8 as const;
 export const BASELINE_BRUSH_SPACING_PX = 4 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
-export type BaselineBrushCompositeOperationV1 = 'paint' | 'erase' | 'smudge';
+export type BaselineBrushCompositeOperationV1 = 'paint' | 'erase' | 'smudge' | 'blur';
 export const DEFAULT_BASELINE_BRUSH_COLOR_V1: BaselineBrushColorV1 = Object.freeze([0, 0, 0]);
 
 export function freezeBaselineBrushColorV1(color: readonly number[]): BaselineBrushColorV1 {

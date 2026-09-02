@@ -539,6 +539,114 @@ function rasterizeSmudgeDab(
   return changed;
 }
 
+const BLUR_BRUSH_WEIGHTS = Object.freeze([1, 4, 6, 4, 1] as const);
+const BLUR_BRUSH_WEIGHT_TOTAL = 256;
+
+function blurBrushRadiusV1(dab: BaselineBrushDabV1): number {
+  return Math.max(0.75, Math.min(baselineDabRadiusXV1(dab), baselineDabRadiusYV1(dab)) * 0.25);
+}
+
+function sampleBlurSnapshot(
+  snapshot: BaselineSmudgeSourceSnapshotV1,
+  documentWidth: number,
+  documentHeight: number,
+  documentX: number,
+  documentY: number,
+  radius: number,
+): readonly [number, number, number, number] {
+  const step = radius / 2;
+  let alpha = 0;
+  let redPremultiplied = 0;
+  let greenPremultiplied = 0;
+  let bluePremultiplied = 0;
+  for (let yi = 0; yi < BLUR_BRUSH_WEIGHTS.length; yi += 1) {
+    const wy = BLUR_BRUSH_WEIGHTS[yi] ?? 0;
+    for (let xi = 0; xi < BLUR_BRUSH_WEIGHTS.length; xi += 1) {
+      const wx = BLUR_BRUSH_WEIGHTS[xi] ?? 0;
+      const weight = wx * wy;
+      const sample = sampleSmudgeSnapshot(
+        snapshot,
+        documentWidth,
+        documentHeight,
+        documentX + (xi - 2) * step,
+        documentY + (yi - 2) * step,
+      );
+      alpha += sample[3] * weight;
+      redPremultiplied += sample[0] * sample[3] * weight;
+      greenPremultiplied += sample[1] * sample[3] * weight;
+      bluePremultiplied += sample[2] * sample[3] * weight;
+    }
+  }
+  const normalizedAlpha = clamp01(alpha / BLUR_BRUSH_WEIGHT_TOTAL);
+  if (normalizedAlpha <= 1e-9) return [0, 0, 0, 0];
+  return [
+    clamp01(redPremultiplied / alpha),
+    clamp01(greenPremultiplied / alpha),
+    clamp01(bluePremultiplied / alpha),
+    normalizedAlpha,
+  ];
+}
+
+function rasterizeBlurDab(
+  tile: BaselineRasterTileImageV1,
+  tileX: number,
+  tileY: number,
+  dab: BaselineBrushDabV1,
+  snapshot: BaselineSmudgeSourceSnapshotV1,
+  documentWidth: number,
+  documentHeight: number,
+): boolean {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const blurRadius = blurBrushRadiusV1(dab);
+  const minX = Math.max(tileX, Math.floor(dab.x - radiusX));
+  const minY = Math.max(tileY, Math.floor(dab.y - radiusY));
+  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + radiusX) - 1);
+  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
+  const opacity = clamp01(dab.opacity);
+  let changed = false;
+
+  for (let documentY = minY; documentY <= maxY; documentY += 1) {
+    const localY = (documentY + 0.5 - dab.y) / radiusY;
+    const localYSquared = localY * localY;
+    if (localYSquared >= 1) continue;
+    for (let documentX = minX; documentX <= maxX; documentX += 1) {
+      const localX = (documentX + 0.5 - dab.x) / radiusX;
+      const distanceSquared = localX * localX + localYSquared;
+      if (distanceSquared >= 1) continue;
+      const strength =
+        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
+          ? opacity
+          : clamp01(
+              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
+            );
+      if (strength <= 0) continue;
+      const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
+      const destination = readPixel(tile, pixel);
+      const blurred = sampleBlurSnapshot(
+        snapshot,
+        documentWidth,
+        documentHeight,
+        documentX + 0.5,
+        documentY + 0.5,
+        blurRadius,
+      );
+      const mixed = mixPremultipliedRgba(destination, blurred, strength);
+      if (
+        Math.abs(mixed[0] - destination[0]) <= 1e-9 &&
+        Math.abs(mixed[1] - destination[1]) <= 1e-9 &&
+        Math.abs(mixed[2] - destination[2]) <= 1e-9 &&
+        Math.abs(mixed[3] - destination[3]) <= 1e-9
+      ) {
+        continue;
+      }
+      writePixel(tile, pixel, mixed);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 const MASK_SOFTEN_WEIGHTS = Object.freeze([1, 4, 6, 4, 1] as const);
 const MASK_SOFTEN_WEIGHT_TOTAL = 256;
 
@@ -743,6 +851,10 @@ export class BaselineRasterTileStoreV1 {
       this.#applySmudgeDabs(layerId, dabs);
       return;
     }
+    if (operation === 'blur') {
+      this.#applyBlurDabs(layerId, dabs);
+      return;
+    }
 
     for (const plan of planBaselineBrushTilesV1(dabs, this.#documentWidth, this.#documentHeight)) {
       const coordinateKey = tileKeyV1(plan.coordinate);
@@ -846,6 +958,83 @@ export class BaselineRasterTileStoreV1 {
     const top = Math.max(0, Math.floor(dab.y - radiusY - deltaY) - 1);
     const right = Math.min(this.#documentWidth - 1, Math.ceil(dab.x + radiusX - deltaX) + 1);
     const bottom = Math.min(this.#documentHeight - 1, Math.ceil(dab.y + radiusY - deltaY) + 1);
+    const snapshot = new Map<string, BaselineRasterTileImageV1>();
+    if (right < left || bottom < top) return snapshot;
+    const minTx = Math.floor(left / CANONICAL_TILE_SIZE_PX);
+    const minTy = Math.floor(top / CANONICAL_TILE_SIZE_PX);
+    const maxTx = Math.floor(right / CANONICAL_TILE_SIZE_PX);
+    const maxTy = Math.floor(bottom / CANONICAL_TILE_SIZE_PX);
+    for (let ty = minTy; ty <= maxTy; ty += 1) {
+      for (let tx = minTx; tx <= maxTx; tx += 1) {
+        const coordinate = { tx, ty };
+        const source = this.#tiles.get(tileStateKey(layerId, coordinate));
+        if (source !== undefined) snapshot.set(tileKeyV1(coordinate), cloneTile(source));
+      }
+    }
+    return snapshot;
+  }
+
+  #applyBlurDabs(layerId: string, dabs: readonly BaselineBrushDabV1[]): void {
+    const active = this.#active;
+    if (active === null || active.operation !== 'blur') {
+      throw new Error('blur rasterization requires an active blur transaction');
+    }
+    for (const dab of dabs) {
+      const blurRadius = blurBrushRadiusV1(dab);
+      const snapshot = this.#snapshotBlurSourceTiles(layerId, dab, blurRadius);
+      for (const plan of planBaselineBrushTilesV1(
+        Object.freeze([dab]),
+        this.#documentWidth,
+        this.#documentHeight,
+      )) {
+        const key = tileStateKey(layerId, plan.coordinate);
+        const current = this.#tiles.get(key);
+        const working =
+          current === undefined
+            ? createTransparentTile(
+                layerId,
+                plan.coordinate,
+                this.#documentWidth,
+                this.#documentHeight,
+                this.#pixelFormat,
+              )
+            : cloneTile(current);
+        const bounds = tileBoundsForDocumentV1(
+          this.#documentWidth,
+          this.#documentHeight,
+          plan.coordinate,
+        );
+        const changed = rasterizeBlurDab(
+          working,
+          bounds.x,
+          bounds.y,
+          dab,
+          snapshot,
+          this.#documentWidth,
+          this.#documentHeight,
+        );
+        if (!changed) continue;
+        if (!active.before.has(key)) {
+          active.before.set(key, current === undefined ? null : cloneTile(current));
+          active.affected.set(key, freezeCoordinate(plan.coordinate));
+        }
+        this.#tiles.set(key, working);
+        this.#compositeCache.delete(tileKeyV1(plan.coordinate));
+      }
+    }
+  }
+
+  #snapshotBlurSourceTiles(
+    layerId: string,
+    dab: BaselineBrushDabV1,
+    blurRadius: number,
+  ): BaselineSmudgeSourceSnapshotV1 {
+    const radiusX = baselineDabRadiusXV1(dab);
+    const radiusY = baselineDabRadiusYV1(dab);
+    const left = Math.max(0, Math.floor(dab.x - radiusX - blurRadius) - 1);
+    const top = Math.max(0, Math.floor(dab.y - radiusY - blurRadius) - 1);
+    const right = Math.min(this.#documentWidth - 1, Math.ceil(dab.x + radiusX + blurRadius) + 1);
+    const bottom = Math.min(this.#documentHeight - 1, Math.ceil(dab.y + radiusY + blurRadius) + 1);
     const snapshot = new Map<string, BaselineRasterTileImageV1>();
     if (right < left || bottom < top) return snapshot;
     const minTx = Math.floor(left / CANONICAL_TILE_SIZE_PX);
