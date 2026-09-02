@@ -6,7 +6,7 @@ replacements = {
     "requireText('src/gpu/baseline-raster-tile-store.ts', 'rasterizeEraseDab'": "requireText(read('src/gpu/baseline-raster-tile-store.ts'), 'rasterizeEraseDab'",
     "requireText('src/app/renderer-controller.ts', \\\"operation === 'erase'\\\"": "requireText(read('src/app/renderer-controller.ts'), \\\"operation === 'erase'\\\"",
     "requireText('src/workers/render.worker.ts', \\\"value.operation === 'erase'\\\"": "requireText(read('src/workers/render.worker.ts'), \\\"value.operation === 'erase'\\\"",
-    "requireText('src/index.html', 'id=\\\\\\\"brush-mode-eraser\\\\\\\"'": "requireText(read('src/index.html'), 'id=\\\\\\\"brush-mode-eraser\\\\\\\"'",
+    "requireText('src/index.html',": "requireText(read('src/index.html'),",
 }
 for old, new in replacements.items():
     if old not in text:
