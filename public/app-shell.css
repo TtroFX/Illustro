@@ -1939,3 +1939,83 @@ body {
   cursor: default;
   opacity: 0.48;
 }
+
+/* M6A Brush Tip controls — compact inspector treatment matching the canonical brush settings card. */
+.shell-brush-tip-controls {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 2px 0 0;
+  padding: 9px;
+  border: 1px solid #e4eaf3;
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.shell-brush-tip-controls > legend {
+  padding: 0 5px;
+  color: #52627a;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.shell-brush-tip-kind {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: #24334b;
+  font-size: 11px;
+}
+
+.shell-brush-tip-kind select,
+.shell-brush-tip-actions button,
+.shell-brush-tip-import {
+  min-height: 34px;
+  border: 1px solid #dfe7f3;
+  border-radius: 9px;
+  background: #fff;
+  color: #30405a;
+  font: 650 10px/1 system-ui, sans-serif;
+}
+
+.shell-brush-tip-kind select {
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.shell-brush-tip-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+.shell-brush-tip-actions button,
+.shell-brush-tip-import {
+  display: grid;
+  place-items: center;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.shell-brush-tip-import input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shell-brush-tip-actions button:disabled,
+.shell-brush-tip-import:has(input:disabled),
+.shell-brush-tip-kind select:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.shell-brush-tip-status {
+  min-height: 12px;
+  color: #66758d;
+  font-size: 9px;
+}

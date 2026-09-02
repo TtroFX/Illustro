@@ -1,3 +1,4 @@
+import { withBrushTipDescriptorV1, type BrushTipDescriptorV1 } from '../domain/brush-tip.js';
 import {
   BRUSH_V1_SCHEMA,
   createBaselineBrushPresetV1,
@@ -268,6 +269,28 @@ export function updateBrushPresetParametersV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushParameterValuesV1(item.preset, patch);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({
+      ...current,
+      revision: item.preset.revision + 1,
+    });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetTipV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  tip: BrushTipDescriptorV1,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushTipDescriptorV1(item.preset, tip);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({
       ...current,

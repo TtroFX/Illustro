@@ -422,10 +422,11 @@ M6A-013 brush size:完了
 M6A-014 opacity:完了
 M6A-015 flow/density:完了
 M6A-016 per-brush parameter limits:完了
-M6A-017 procedural tip:未完了
-M6A-018 sampled image tip:未完了
-M6A-019 custom tip creation:未完了
-M6A-020 multiple tip assets without Dual Brush semantics:未完了
+M6A-017 procedural tip:完了
+M6A-018 sampled image tip:完了
+M6A-019 custom tip creation:完了
+M6A-020 multiple tip assets without Dual Brush semantics:完了
+再開メモ: M6A-017〜020 Brush Tipはstroke開始時にtip descriptorをcaptureし、procedural round/squareは解析的coverage、sampled imageは最大64×64の8-bit alpha maskとしてcanonical Raster Tileへ適用する。画像importは透過画像ではalpha、完全不透明画像では暗さをcoverageとしてmask化し、raw画像自体は保存しない。sampled assetは最大8個で、各dabは1 assetだけを決定論的に順送りするためDual Brushの同時合成にはしない。非default tipのinteractive previewはGPU丸ブラシshaderへ近似せずcanonical changed Tileをpatchして最終結果と一致させる。次はM6A-021 hardnessから再開する。
 M6A-021 hardness:未完了
 M6A-022 tip density:未完了
 M6A-023 spacing/gap:未完了

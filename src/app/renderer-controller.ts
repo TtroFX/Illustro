@@ -1,4 +1,5 @@
 import {
+  baselineDabRequiresCanonicalTilePresentationV1,
   planBaselineBrushTilesV1,
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
@@ -248,6 +249,7 @@ export class RendererControllerV1 {
   readonly #mainBaselinePaint = new BaselinePaintRendererV1();
   readonly #compatibilityPresenter: CompatibilityRasterPresenterV1;
   readonly #compatibilityActiveTiles = new Map<string, TileCoordinateV1>();
+  readonly #compatibilityCanonicalStrokeIds = new Set<string>();
   #owner: RendererOwnerV1 = 'pending';
   #deviceState: RendererDeviceStateV1 = 'idle';
   #generation = 0;
@@ -432,7 +434,10 @@ export class RendererControllerV1 {
     const paint = this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId, operation);
     if (snapshot.owner === 'compatibility') {
       this.#trackCompatibilityDabs(dabs);
-      if (operation !== 'paint') {
+      if (dabs.some(baselineDabRequiresCanonicalTilePresentationV1)) {
+        this.#compatibilityCanonicalStrokeIds.add(strokeId);
+      }
+      if (operation !== 'paint' || this.#compatibilityCanonicalStrokeIds.has(strokeId)) {
         const documentValue = this.#canonicalDocument;
         if (documentValue !== null) {
           this.#syncCompatibilityTiles(
@@ -464,6 +469,7 @@ export class RendererControllerV1 {
     const affected = Object.freeze([...this.#compatibilityActiveTiles.values()]);
     const paint = this.#mainBaselinePaint.cancelStroke(strokeId);
     this.#compatibilityActiveTiles.clear();
+    this.#compatibilityCanonicalStrokeIds.delete(strokeId);
     if (snapshot.owner === 'compatibility') this.#syncCompatibilityTiles(affected);
     return paint;
   }
@@ -493,6 +499,7 @@ export class RendererControllerV1 {
     }
     const finalization = this.#mainBaselinePaint.finalizeStroke(strokeId, dabs, layerId, operation);
     this.#compatibilityActiveTiles.clear();
+    this.#compatibilityCanonicalStrokeIds.delete(strokeId);
     if (snapshot.owner === 'compatibility') {
       this.#syncCompatibilityTiles(finalization.affectedTiles.map((entry) => entry.coordinate));
     }
@@ -630,6 +637,7 @@ export class RendererControllerV1 {
     this.#removeSizeSubscription = null;
     this.#compatibilityPresenter.dispose();
     this.#compatibilityActiveTiles.clear();
+    this.#compatibilityCanonicalStrokeIds.clear();
     this.#mainBaselinePaint.dispose();
     this.#mainTileState?.dispose();
     this.#mainTileState = null;

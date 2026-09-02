@@ -1,4 +1,13 @@
 import {
+  appendSampledBrushTipAssetsV1,
+  BRUSH_TIP_MAX_ASSETS_V1,
+  BRUSH_TIP_MAX_MASK_EDGE_V1,
+  brushTipDescriptorV1,
+  createBrushTipMaskAssetV1,
+  type BrushProceduralTipShapeV1,
+  type BrushTipMaskAssetV1,
+} from '../domain/brush-tip.js';
+import {
   brushParameterLimitsV1,
   brushParameterValuesV1,
   type BrushBehaviorV1,
@@ -22,6 +31,7 @@ import {
   setBrushPresetLockedV1,
   setBrushPresetSearchV1,
   updateBrushPresetParametersV1,
+  updateBrushPresetTipV1,
   type BrushPresetLibraryStateV1,
 } from './brush-preset-library.js';
 
@@ -48,6 +58,56 @@ function loadState(storage: Storage | null): BrushPresetLibraryStateV1 {
 
 function modeForBehavior(behavior: BrushBehaviorV1): 'raster' | 'eraser' | 'smudge' | 'blur' {
   return behavior === 'paint' ? 'raster' : behavior === 'erase' ? 'eraser' : behavior;
+}
+
+async function brushTipMaskFromFileV1(file: File): Promise<BrushTipMaskAssetV1> {
+  if (!file.type.startsWith('image/'))
+    throw new TypeError('ブラシ先端には画像ファイルを指定してください');
+  if (typeof globalThis.createImageBitmap !== 'function') {
+    throw new Error('このブラウザでは画像ブラシ先端を作成できません');
+  }
+  const bitmap = await globalThis.createImageBitmap(file);
+  try {
+    const scale = Math.min(
+      1,
+      BRUSH_TIP_MAX_MASK_EDGE_V1 / bitmap.width,
+      BRUSH_TIP_MAX_MASK_EDGE_V1 / bitmap.height,
+    );
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (context === null) throw new Error('ブラシ先端画像を読み取れません');
+    context.clearRect(0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height).data;
+    let hasTransparency = false;
+    for (let offset = 3; offset < pixels.length; offset += 4) {
+      if ((pixels[offset] ?? 255) < 250) {
+        hasTransparency = true;
+        break;
+      }
+    }
+    const alpha = new Uint8Array(width * height);
+    for (let pixel = 0; pixel < alpha.length; pixel += 1) {
+      const offset = pixel * 4;
+      const red = pixels[offset] ?? 0;
+      const green = pixels[offset + 1] ?? 0;
+      const blue = pixels[offset + 2] ?? 0;
+      const sourceAlpha = pixels[offset + 3] ?? 0;
+      const luminance = Math.round(red * 0.2126 + green * 0.7152 + blue * 0.0722);
+      alpha[pixel] = hasTransparency ? sourceAlpha : 255 - luminance;
+    }
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', alpha));
+    const hash = [...digest.slice(0, 10)]
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('');
+    return createBrushTipMaskAssetV1({ id: `user-tip-${hash}`, width, height, alpha });
+  } finally {
+    bitmap.close();
+  }
 }
 
 export interface BrushPresetControllerV1 {
@@ -81,6 +141,10 @@ export function installBrushPresetControllerV1(input: {
   const opacityNumber = requireElement('#brush-opacity-number', HTMLInputElement);
   const flowRange = requireElement('#brush-flow-range', HTMLInputElement);
   const flowNumber = requireElement('#brush-flow-number', HTMLInputElement);
+  const tipKind = requireElement('#brush-tip-kind', HTMLSelectElement);
+  const tipImport = requireElement('#brush-tip-import', HTMLInputElement);
+  const tipRemove = requireElement('#brush-tip-remove', HTMLButtonElement);
+  const tipStatus = requireElement('#brush-tip-status', HTMLOutputElement);
   let state = loadState(storage);
   let idCounter = 0;
 
@@ -101,6 +165,7 @@ export function installBrushPresetControllerV1(input: {
     const parameters = brushParameterValuesV1(item.preset);
     input.paintSession.setBrushMode(modeForBehavior(item.preset.behavior));
     input.paintSession.setBrushParameters(parameters);
+    input.paintSession.setBrushTip(brushTipDescriptorV1(item.preset));
     input.root.dataset.illustroBrushPreset = item.preset.id;
     input.root.dataset.illustroBrushPresetSource = item.source;
     input.root.dataset.illustroBrushPresetModified = String(item.modified);
@@ -200,6 +265,17 @@ export function installBrushPresetControllerV1(input: {
     );
     configurePair(flowRange, flowNumber, limits.flow.min, limits.flow.max, 0.01, parameters.flow);
     propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}%`;
+    const tip = brushTipDescriptorV1(selected.preset);
+    tipKind.value = tip.kind === 'sampled' ? 'sampled' : tip.shape;
+    tipStatus.textContent =
+      tip.kind === 'sampled'
+        ? `画像 ${tip.assets.length}/${BRUSH_TIP_MAX_ASSETS_V1} · dabごとに順送り`
+        : tip.shape === 'square'
+          ? '解析的・角型'
+          : '解析的・丸型';
+    tipRemove.disabled = selected.locked || tip.kind !== 'sampled';
+    tipImport.disabled = selected.locked;
+    tipKind.disabled = selected.locked;
 
     const locked = selected.locked;
     for (const control of [
@@ -262,6 +338,72 @@ export function installBrushPresetControllerV1(input: {
   const onOpacityNumber = (): void => updateParameter({ opacity: Number(opacityNumber.value) });
   const onFlowRange = (): void => updateParameter({ flow: Number(flowRange.value) });
   const onFlowNumber = (): void => updateParameter({ flow: Number(flowNumber.value) });
+  const onTipKind = (): void => {
+    const selected = selectedBrushPresetItemV1(state);
+    const current = brushTipDescriptorV1(selected.preset);
+    if (tipKind.value === 'sampled') {
+      if (current.kind !== 'sampled') {
+        tipStatus.textContent = '画像を追加すると画像先端へ切り替わります';
+        render();
+      }
+      return;
+    }
+    const shape = tipKind.value as BrushProceduralTipShapeV1;
+    const hardness = current.kind === 'procedural' ? current.hardness : 0.85;
+    mutate(() =>
+      updateBrushPresetTipV1(state, state.selectedPresetId, {
+        kind: 'procedural',
+        shape,
+        hardness,
+      }),
+    );
+  };
+  const onTipImport = async (): Promise<void> => {
+    const files = Array.from(tipImport.files ?? []);
+    if (files.length === 0) return;
+    try {
+      const selected = selectedBrushPresetItemV1(state);
+      if (selected.locked) throw new Error('locked brush preset cannot be edited');
+      const additions: BrushTipMaskAssetV1[] = [];
+      for (const file of files.slice(0, BRUSH_TIP_MAX_ASSETS_V1)) {
+        additions.push(await brushTipMaskFromFileV1(file));
+      }
+      const nextTip = appendSampledBrushTipAssetsV1(
+        brushTipDescriptorV1(selected.preset),
+        additions,
+      );
+      state = updateBrushPresetTipV1(state, selected.preset.id, nextTip);
+      persist();
+      applySelected();
+      render();
+    } catch (error) {
+      tipStatus.textContent =
+        error instanceof Error ? error.message : '画像先端の作成に失敗しました';
+    } finally {
+      tipImport.value = '';
+    }
+  };
+  const onTipRemove = (): void => {
+    const selected = selectedBrushPresetItemV1(state);
+    const current = brushTipDescriptorV1(selected.preset);
+    if (current.kind !== 'sampled') return;
+    if (current.assets.length <= 1) {
+      mutate(() =>
+        updateBrushPresetTipV1(state, selected.preset.id, {
+          kind: 'procedural',
+          shape: 'round',
+          hardness: 0.85,
+        }),
+      );
+      return;
+    }
+    mutate(() =>
+      updateBrushPresetTipV1(state, selected.preset.id, {
+        ...current,
+        assets: Object.freeze(current.assets.slice(0, -1)),
+      }),
+    );
+  };
 
   search.addEventListener('input', onSearch);
   category.addEventListener('change', onCategory);
@@ -277,6 +419,10 @@ export function installBrushPresetControllerV1(input: {
   opacityNumber.addEventListener('change', onOpacityNumber);
   flowRange.addEventListener('input', onFlowRange);
   flowNumber.addEventListener('change', onFlowNumber);
+  const onTipImportChange = (): void => void onTipImport();
+  tipKind.addEventListener('change', onTipKind);
+  tipImport.addEventListener('change', onTipImportChange);
+  tipRemove.addEventListener('click', onTipRemove);
 
   applySelected();
   render();
@@ -299,6 +445,9 @@ export function installBrushPresetControllerV1(input: {
       opacityNumber.removeEventListener('change', onOpacityNumber);
       flowRange.removeEventListener('input', onFlowRange);
       flowNumber.removeEventListener('change', onFlowNumber);
+      tipKind.removeEventListener('change', onTipKind);
+      tipImport.removeEventListener('change', onTipImportChange);
+      tipRemove.removeEventListener('click', onTipRemove);
     },
   });
 }

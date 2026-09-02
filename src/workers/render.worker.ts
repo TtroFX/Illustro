@@ -1,3 +1,4 @@
+import { normalizeBrushTipDescriptorV1 } from '../domain/brush-tip.js';
 import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
@@ -504,6 +505,23 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     ) {
       return null;
     }
+    let tip: ReturnType<typeof normalizeBrushTipDescriptorV1> | undefined;
+    if (candidate.tip !== undefined) {
+      try {
+        tip = normalizeBrushTipDescriptorV1(candidate.tip);
+      } catch {
+        return null;
+      }
+    }
+    const tipAssetIndex = candidate.tipAssetIndex;
+    if (
+      tipAssetIndex !== undefined &&
+      (!Number.isSafeInteger(tipAssetIndex) ||
+        (tipAssetIndex as number) < 0 ||
+        (tipAssetIndex as number) >= 8)
+    ) {
+      return null;
+    }
     let color: readonly [number, number, number] | undefined;
     if (candidate.color !== undefined) {
       if (!Array.isArray(candidate.color)) return null;
@@ -525,6 +543,8 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         ...(flow === undefined ? {} : { flow }),
         ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
         ...(color === undefined ? {} : { color }),
+        ...(tip === undefined ? {} : { tip }),
+        ...(tipAssetIndex === undefined ? {} : { tipAssetIndex: tipAssetIndex as number }),
       }),
     );
   }

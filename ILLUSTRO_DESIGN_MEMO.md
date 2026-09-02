@@ -5554,3 +5554,13 @@ Verification must cover at minimum:
 - For Eraser/Smudge/Blur at this stage, the same captured opacity and flow values combine into the per-dab effect strength. Their deeper pickup/dynamics semantics remain assigned to later dedicated M6A items.
 - Each `illustro.brush/1` preset may carry independent size/opacity/flow min/max limits in `extensions.parameterLimits`. Runtime controls and preset mutation clamp to those limits. Missing/invalid limits fall back to safe canonical defaults, preserving compatibility with older stored/imported presets.
 - Tool Properties UI follows the canonical visual reference: compact white Inspector card, thin separators, blue local slider accents, numeric entry beside direct manipulation, and no Android-native color/control surface substituted for application UI.
+
+#### M6A brush-tip semantic boundary — 2026-09-03
+
+- Brush-tip identity is captured at stroke start together with the existing size/opacity/flow state; changing a preset while a stroke is active does not reinterpret its stable dab prefix.
+- The canonical procedural-tip baseline supports analytic `round` and `square` coverage. The stored legacy `procedural-round` form remains readable and normalizes into this descriptor model.
+- A sampled image tip is stored as a bounded 8-bit coverage mask, currently at most 64×64 pixels per asset and at most 8 assets per preset. Raw imported image bytes are not retained in the brush preset.
+- Custom-tip image creation uses source alpha when the imported image contains transparency. For fully opaque source images, darkness is interpreted as brush coverage so conventional black-on-white brush-tip artwork imports predictably.
+- Multiple tip assets mean deterministic per-dab cycling: one sampled asset is selected for each dab. They are never composited together, so this capability does not reintroduce the explicitly excluded Dual Brush feature.
+- Default round/0.85-hardness paint may continue through the incremental GPU dab presentation path. Any non-default procedural or sampled tip presents from the canonical changed Raster Tiles rather than being approximated by the round preview shader; final and interactive semantics therefore remain identical across Worker, main-WebGPU and compatibility fallback paths.
+- The sampled mask payload is intentionally a bounded preset-embedded canonical representation at this stage. M6A-072 may deduplicate/externalize these masks into the final brush-tip resource manager without changing tip semantics or brush-preset identity.

@@ -1,4 +1,9 @@
 import {
+  DEFAULT_BRUSH_TIP_V1,
+  normalizeBrushTipDescriptorV1,
+  type BrushTipDescriptorV1,
+} from '../domain/brush-tip.js';
+import {
   CANONICAL_TILE_SIZE_PX,
   tileBoundsForDocumentV1,
   tileKeyV1,
@@ -39,6 +44,8 @@ export interface BaselineBrushDabV1 {
   readonly flow?: number;
   readonly strokeOpacity?: number;
   readonly color?: BaselineBrushColorV1;
+  readonly tip?: BrushTipDescriptorV1;
+  readonly tipAssetIndex?: number;
 }
 
 export function baselineDabColorV1(dab: BaselineBrushDabV1): BaselineBrushColorV1 {
@@ -65,6 +72,12 @@ export function baselineDabUsesFlowOpacityV1(dab: BaselineBrushDabV1): boolean {
   return dab.flow !== undefined || dab.strokeOpacity !== undefined;
 }
 
+export function baselineDabRequiresCanonicalTilePresentationV1(dab: BaselineBrushDabV1): boolean {
+  const tip = dab.tip;
+  if (tip === undefined) return false;
+  return tip.kind !== 'procedural' || tip.shape !== 'round' || Math.abs(tip.hardness - 0.85) > 1e-9;
+}
+
 export interface BaselineBrushTilePlanV1 {
   readonly coordinate: TileCoordinateV1;
   readonly dirtyRect: RectV1;
@@ -84,6 +97,8 @@ function freezeDab(
   flow: number,
   strokeOpacity: number,
   color: BaselineBrushColorV1,
+  tip?: BrushTipDescriptorV1,
+  tipAssetIndex?: number,
 ): BaselineBrushDabV1 {
   return Object.freeze({
     schema: 'illustro.baseline-brush-dab/1' as const,
@@ -94,6 +109,8 @@ function freezeDab(
     flow,
     strokeOpacity,
     color,
+    ...(tip === undefined ? {} : { tip }),
+    ...(tipAssetIndex === undefined ? {} : { tipAssetIndex }),
   });
 }
 
@@ -104,6 +121,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #spacing: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
+  readonly #tip: BrushTipDescriptorV1;
   #lastPoint: { x: number; y: number } | null = null;
   #distanceUntilNext: number;
   #finished = false;
@@ -114,6 +132,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
+      readonly tip?: BrushTipDescriptorV1;
     } = {},
   ) {
     this.#color =
@@ -136,6 +155,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#spacing = Math.max(0.25, sizePx * 0.25);
     this.#flow = flow;
     this.#strokeOpacity = opacity;
+    this.#tip = normalizeBrushTipDescriptorV1(options.tip ?? DEFAULT_BRUSH_TIP_V1);
     this.#distanceUntilNext = this.#spacing;
   }
 
@@ -150,16 +170,7 @@ export class BaselineBrushDabBuilderV1 {
     assertFinitePoint(sample);
     const start = this.#dabs.length;
     this.#lastPoint = { x: sample.documentX, y: sample.documentY };
-    this.#dabs.push(
-      freezeDab(
-        sample.documentX,
-        sample.documentY,
-        this.#radius,
-        this.#flow,
-        this.#strokeOpacity,
-        this.#color,
-      ),
-    );
+    this.#pushDab(sample.documentX, sample.documentY);
     this.#distanceUntilNext = this.#spacing;
     return this.#deltaFrom(start);
   }
@@ -204,16 +215,7 @@ export class BaselineBrushDabBuilderV1 {
     if (lastPoint !== null && lastDab !== undefined) {
       const distance = Math.hypot(lastPoint.x - lastDab.x, lastPoint.y - lastDab.y);
       if (distance > 1e-6) {
-        this.#dabs.push(
-          freezeDab(
-            lastPoint.x,
-            lastPoint.y,
-            this.#radius,
-            this.#flow,
-            this.#strokeOpacity,
-            this.#color,
-          ),
-        );
+        this.#pushDab(lastPoint.x, lastPoint.y);
       }
     }
     return this.#deltaFrom(start);
@@ -231,6 +233,24 @@ export class BaselineBrushDabBuilderV1 {
     return Object.freeze(this.#dabs.slice(start));
   }
 
+  #pushDab(x: number, y: number): void {
+    const sequence = this.#dabs.length;
+    const tipAssetIndex =
+      this.#tip.kind === 'sampled' ? sequence % this.#tip.assets.length : undefined;
+    this.#dabs.push(
+      freezeDab(
+        x,
+        y,
+        this.#radius,
+        this.#flow,
+        this.#strokeOpacity,
+        this.#color,
+        sequence === 0 ? this.#tip : undefined,
+        tipAssetIndex,
+      ),
+    );
+  }
+
   #appendPoint(x: number, y: number): void {
     const lastPoint = this.#lastPoint;
     if (lastPoint === null) return;
@@ -243,9 +263,7 @@ export class BaselineBrushDabBuilderV1 {
       const ratio = this.#distanceUntilNext / remaining;
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
-      this.#dabs.push(
-        freezeDab(cursorX, cursorY, this.#radius, this.#flow, this.#strokeOpacity, this.#color),
-      );
+      this.#pushDab(cursorX, cursorY);
       remaining = Math.hypot(x - cursorX, y - cursorY);
       this.#distanceUntilNext = this.#spacing;
     }

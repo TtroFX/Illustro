@@ -1,3 +1,4 @@
+import type { BrushTipDescriptorV1 } from '../domain/brush-tip.js';
 import {
   BaselineBrushDabBuilderV1,
   type BaselineBrushColorV1,
@@ -85,6 +86,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
+      readonly tip?: BrushTipDescriptorV1;
     } = {},
   ) {
     this.#mode = options.mode ?? 'raster';
@@ -93,6 +95,7 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.sizePx === undefined ? {} : { sizePx: options.sizePx }),
       ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
       ...(options.flow === undefined ? {} : { flow: options.flow }),
+      ...(options.tip === undefined ? {} : { tip: options.tip }),
     });
   }
 

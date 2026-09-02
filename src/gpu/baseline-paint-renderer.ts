@@ -2,6 +2,7 @@ import { baselineBrushShaderSource } from '../generated/baseline-brush-shader.js
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
   baselineDabColorV1,
+  baselineDabRequiresCanonicalTilePresentationV1,
   baselineDabFlowV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
@@ -201,6 +202,7 @@ export interface BaselinePaintFinalizationV1 {
 interface ActiveBaselineStrokeV1 {
   readonly strokeId: string;
   readonly operation: BaselineBrushCompositeOperationV1;
+  canonicalTilePresentation: boolean;
   readonly dabs: BaselineBrushDabV1[];
 }
 
@@ -227,6 +229,8 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         ...(dab.color === undefined
           ? {}
           : { color: Object.freeze([...dab.color]) as readonly [number, number, number] }),
+        ...(dab.tip === undefined ? {} : { tip: dab.tip }),
+        ...(dab.tipAssetIndex === undefined ? {} : { tipAssetIndex: dab.tipAssetIndex }),
       }),
     ),
   );
@@ -246,6 +250,10 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
     Number.isFinite(dab.opacity) &&
     dab.opacity >= 0 &&
     dab.opacity <= 1 &&
+    (dab.tipAssetIndex === undefined ||
+      (Number.isSafeInteger(dab.tipAssetIndex) &&
+        dab.tipAssetIndex >= 0 &&
+        dab.tipAssetIndex < 8)) &&
     (dab.flow === undefined || (Number.isFinite(dab.flow) && dab.flow >= 0 && dab.flow <= 1)) &&
     (dab.strokeOpacity === undefined ||
       (Number.isFinite(dab.strokeOpacity) && dab.strokeOpacity >= 0 && dab.strokeOpacity <= 1))
@@ -263,6 +271,8 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
     left.opacity === right.opacity &&
     baselineDabFlowV1(left) === baselineDabFlowV1(right) &&
     baselineDabStrokeOpacityV1(left) === baselineDabStrokeOpacityV1(right) &&
+    left.tipAssetIndex === right.tipAssetIndex &&
+    JSON.stringify(left.tip ?? null) === JSON.stringify(right.tip ?? null) &&
     baselineDabColorV1(left).every(
       (component, index) => component === baselineDabColorV1(right)[index],
     )
@@ -764,15 +774,27 @@ export class BaselinePaintRendererV1 {
       throw new Error('another baseline paint stroke is already active');
     }
     if (this.#activeStroke === null) {
-      this.#activeStroke = { strokeId, operation, dabs: [] };
+      this.#activeStroke = {
+        strokeId,
+        operation,
+        canonicalTilePresentation: delta.some(baselineDabRequiresCanonicalTilePresentationV1),
+        dabs: [],
+      };
     }
     if (this.#activeStroke.operation !== operation) {
       throw new Error('baseline paint stroke changed brush operation');
     }
     canonicalTiles.applyDabs(this.#resolveLayerId(layerId), strokeId, delta, operation);
     this.#activeStroke.dabs.push(...delta);
+    if (delta.some(baselineDabRequiresCanonicalTilePresentationV1)) {
+      this.#activeStroke.canonicalTilePresentation = true;
+    }
     if (delta.length > 0) {
-      if (operation !== 'paint' || requiresCanonicalPaintPreview(delta)) {
+      if (
+        operation !== 'paint' ||
+        this.#activeStroke.canonicalTilePresentation ||
+        requiresCanonicalPaintPreview(delta)
+      ) {
         const { width, height } = this.#requireDocument();
         this.#patchCompositeTiles(
           planBaselineBrushTilesV1(delta, width, height).map((plan) => plan.coordinate),
@@ -819,7 +841,11 @@ export class BaselinePaintRendererV1 {
       if (missingTail.length > 0) {
         canonicalTiles.applyDabs(resolvedLayerId, strokeId, missingTail, operation);
         active.dabs.push(...missingTail);
-        if (operation !== 'paint' || requiresCanonicalPaintPreview(missingTail)) {
+        if (
+          operation !== 'paint' ||
+          active.canonicalTilePresentation ||
+          requiresCanonicalPaintPreview(missingTail)
+        ) {
           this.#patchCompositeTiles(
             planBaselineBrushTilesV1(missingTail, width, height).map((plan) => plan.coordinate),
           );
@@ -830,10 +856,19 @@ export class BaselinePaintRendererV1 {
         this.#rebuildScene();
       }
     } else if (active === null) {
-      this.#activeStroke = { strokeId, operation, dabs: [...frozenDabs] };
+      this.#activeStroke = {
+        strokeId,
+        operation,
+        canonicalTilePresentation: frozenDabs.some(baselineDabRequiresCanonicalTilePresentationV1),
+        dabs: [...frozenDabs],
+      };
       canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs, operation);
       if (frozenDabs.length > 0) {
-        if (operation !== 'paint' || requiresCanonicalPaintPreview(frozenDabs)) {
+        if (
+          operation !== 'paint' ||
+          this.#activeStroke.canonicalTilePresentation ||
+          requiresCanonicalPaintPreview(frozenDabs)
+        ) {
           this.#patchCompositeTiles(
             planBaselineBrushTilesV1(frozenDabs, width, height).map((plan) => plan.coordinate),
           );

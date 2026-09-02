@@ -202,6 +202,40 @@ requireText(
   'caps accumulated paint alpha',
   'brush opacity/flow regression coverage missing',
 );
+for (const item of [
+  'M6A-017 procedural tip:完了',
+  'M6A-018 sampled image tip:完了',
+  'M6A-019 custom tip creation:完了',
+  'M6A-020 multiple tip assets without Dual Brush semantics:完了',
+]) {
+  requireText(progress, item, `${item.split(':')[0]} progress is not complete`);
+}
+requireText(
+  read('src/domain/brush-tip.ts'),
+  'BRUSH_TIP_MAX_MASK_EDGE_V1',
+  'bounded brush-tip mask contract missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'brushTipCoverageV1',
+  'canonical brush-tip coverage missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushTip',
+  'production brush-tip state is not connected',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-import"',
+  'reachable custom-tip image creation UI missing',
+);
+requireText(
+  read('tests/unit/brush-tip.test.ts'),
+  'without Dual Brush compositing',
+  'multiple-tip regression coverage missing',
+);
+requireText(progress, 'M6A-021 hardness:未完了', 'hardness was incorrectly advanced');
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

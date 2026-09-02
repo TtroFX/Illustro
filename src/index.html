@@ -153,6 +153,20 @@
                 <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-flow-number" type="number" inputmode="decimal" min="0.01" max="1" step="0.01" value="1" aria-label="ブラシ流量数値" /><span>×</span></span>
               </div>
             </div>
+            <fieldset class="shell-brush-tip-controls"><legend>ブラシ先端</legend>
+              <label class="shell-brush-tip-kind">種類
+                <select id="brush-tip-kind" aria-label="ブラシ先端の種類">
+                  <option value="round">丸</option>
+                  <option value="square">角</option>
+                  <option value="sampled">画像</option>
+                </select>
+              </label>
+              <div class="shell-brush-tip-actions">
+                <label class="shell-brush-tip-import">画像追加<input id="brush-tip-import" type="file" accept="image/png,image/jpeg,image/webp" multiple /></label>
+                <button id="brush-tip-remove" type="button">最後を削除</button>
+              </div>
+              <output id="brush-tip-status" class="shell-brush-tip-status" aria-live="polite"></output>
+            </fieldset>
           </section>
           <section class="shell-inspector-card shell-color-panel" aria-label="カラー">
             <header class="shell-color-header"><strong>カラー</strong><output id="color-status" aria-live="polite"></output></header>

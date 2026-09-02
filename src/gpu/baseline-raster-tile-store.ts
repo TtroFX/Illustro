@@ -1,3 +1,10 @@
+import {
+  decodeBrushTipMaskAlphaV1,
+  DEFAULT_BRUSH_TIP_V1,
+  normalizeBrushTipDescriptorV1,
+  type BrushTipDescriptorV1,
+  type BrushTipMaskAssetV1,
+} from '../domain/brush-tip.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import type { BlendModeId } from '../domain/layers.js';
 import {
@@ -73,6 +80,16 @@ export interface BaselineRasterTilePatchV1 {
 
 export type BaselineRasterTilePatchDirectionV1 = 'before' | 'after';
 
+interface BaselineBrushTipRasterAssetV1 {
+  readonly descriptor: BrushTipMaskAssetV1;
+  readonly alpha: Uint8Array<ArrayBuffer>;
+}
+
+interface BaselineBrushTipRasterContextV1 {
+  readonly tip: BrushTipDescriptorV1;
+  readonly sampledAssets: readonly BaselineBrushTipRasterAssetV1[];
+}
+
 interface ActiveTileTransactionV1 {
   readonly strokeId: string;
   readonly layerId: string;
@@ -80,6 +97,7 @@ interface ActiveTileTransactionV1 {
   readonly before: Map<string, BaselineRasterTileImageV1 | null>;
   readonly affected: Map<string, TileCoordinateV1>;
   readonly paintCoverage: Map<string, Float32Array>;
+  readonly tipContext: BaselineBrushTipRasterContextV1;
   paintStrokeOpacity: number | null;
   lastSmudgeDab: BaselineBrushDabV1 | null;
 }
@@ -252,14 +270,70 @@ function writePixel(
   view.setUint16(offset + 6, floatToHalf(rgba[3]), true);
 }
 
-const BASELINE_BRUSH_HARDNESS = 0.85;
-const BASELINE_BRUSH_HARDNESS_SQUARED = BASELINE_BRUSH_HARDNESS * BASELINE_BRUSH_HARDNESS;
+function createBrushTipRasterContextV1(
+  tipInput: BrushTipDescriptorV1,
+): BaselineBrushTipRasterContextV1 {
+  const tip = normalizeBrushTipDescriptorV1(tipInput);
+  const sampledAssets =
+    tip.kind === 'sampled'
+      ? Object.freeze(
+          tip.assets.map((descriptor) =>
+            Object.freeze({ descriptor, alpha: decodeBrushTipMaskAlphaV1(descriptor) }),
+          ),
+        )
+      : Object.freeze([]);
+  return Object.freeze({ tip, sampledAssets });
+}
+
+function sampleBrushTipMaskV1(
+  asset: BaselineBrushTipRasterAssetV1,
+  localX: number,
+  localY: number,
+): number {
+  if (Math.abs(localX) >= 1 || Math.abs(localY) >= 1) return 0;
+  const x = (localX + 1) * 0.5 * (asset.descriptor.width - 1);
+  const y = (localY + 1) * 0.5 * (asset.descriptor.height - 1);
+  const x0 = Math.floor(x);
+  const y0 = Math.floor(y);
+  const x1 = Math.min(asset.descriptor.width - 1, x0 + 1);
+  const y1 = Math.min(asset.descriptor.height - 1, y0 + 1);
+  const tx = x - x0;
+  const ty = y - y0;
+  const sample = (sx: number, sy: number): number =>
+    (asset.alpha[sy * asset.descriptor.width + sx] ?? 0) / 255;
+  const top = sample(x0, y0) + (sample(x1, y0) - sample(x0, y0)) * tx;
+  const bottom = sample(x0, y1) + (sample(x1, y1) - sample(x0, y1)) * tx;
+  return clamp01(top + (bottom - top) * ty);
+}
+
+function brushTipCoverageV1(
+  context: BaselineBrushTipRasterContextV1,
+  dab: BaselineBrushDabV1,
+  localX: number,
+  localY: number,
+): number {
+  if (Math.abs(localX) >= 1 || Math.abs(localY) >= 1) return 0;
+  if (context.tip.kind === 'sampled') {
+    const index = dab.tipAssetIndex ?? 0;
+    const asset = context.sampledAssets[index % context.sampledAssets.length];
+    return asset === undefined ? 0 : sampleBrushTipMaskV1(asset, localX, localY);
+  }
+  const distance =
+    context.tip.shape === 'square'
+      ? Math.max(Math.abs(localX), Math.abs(localY))
+      : Math.hypot(localX, localY);
+  if (distance >= 1) return 0;
+  const hardness = context.tip.hardness;
+  if (hardness >= 1 || distance <= hardness) return 1;
+  return clamp01(1 - smoothstep(hardness, 1, distance));
+}
 
 function rasterizeColorDab(
   tile: BaselineRasterTileImageV1,
   tileX: number,
   tileY: number,
   dab: BaselineBrushDabV1,
+  tipContext: BaselineBrushTipRasterContextV1,
   strokeCoverage: Float32Array | null = null,
 ): void {
   const radiusX = baselineDabRadiusXV1(dab);
@@ -289,16 +363,11 @@ function rasterizeColorDab(
     const bytes = tile.bytes;
     for (let documentY = minY; documentY <= maxY; documentY += 1) {
       const localY = (documentY + 0.5 - dab.y) / radiusY;
-      const localYSquared = localY * localY;
-      if (localYSquared >= 1) continue;
+      if (Math.abs(localY) >= 1) continue;
       for (let documentX = minX; documentX <= maxX; documentX += 1) {
         const localX = (documentX + 0.5 - dab.x) / radiusX;
-        const distanceSquared = localX * localX + localYSquared;
-        if (distanceSquared >= 1) continue;
-        const tipCoverage =
-          distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-            ? 1
-            : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared)));
+        const tipCoverage = brushTipCoverageV1(tipContext, dab, localX, localY);
+        if (tipCoverage <= 0) continue;
         const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
         const sourceAlpha = sourceAlphaForPixel(pixel, tipCoverage);
         if (sourceAlpha <= 0) continue;
@@ -335,16 +404,11 @@ function rasterizeColorDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const tipCoverage =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? 1
-          : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared)));
+      const tipCoverage = brushTipCoverageV1(tipContext, dab, localX, localY);
+      if (tipCoverage <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const sourceAlpha = sourceAlphaForPixel(pixel, tipCoverage);
       if (sourceAlpha <= 0) continue;
@@ -373,6 +437,7 @@ function rasterizeEraseDab(
   tileX: number,
   tileY: number,
   dab: BaselineBrushDabV1,
+  tipContext: BaselineBrushTipRasterContextV1,
 ): void {
   const radiusX = baselineDabRadiusXV1(dab);
   const radiusY = baselineDabRadiusYV1(dab);
@@ -384,18 +449,10 @@ function rasterizeEraseDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const eraseAlpha =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? opacity
-          : clamp01(
-              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-            );
+      const eraseAlpha = clamp01(opacity * brushTipCoverageV1(tipContext, dab, localX, localY));
       if (eraseAlpha <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const destination = readPixel(tile, pixel);
@@ -503,6 +560,7 @@ function rasterizeSmudgeDab(
   tileX: number,
   tileY: number,
   dab: BaselineBrushDabV1,
+  tipContext: BaselineBrushTipRasterContextV1,
   deltaX: number,
   deltaY: number,
   snapshot: BaselineSmudgeSourceSnapshotV1,
@@ -520,18 +578,10 @@ function rasterizeSmudgeDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const strength =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? opacity
-          : clamp01(
-              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-            );
+      const strength = clamp01(opacity * brushTipCoverageV1(tipContext, dab, localX, localY));
       if (strength <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const destination = readPixel(tile, pixel);
@@ -611,6 +661,7 @@ function rasterizeBlurDab(
   tileX: number,
   tileY: number,
   dab: BaselineBrushDabV1,
+  tipContext: BaselineBrushTipRasterContextV1,
   snapshot: BaselineSmudgeSourceSnapshotV1,
   documentWidth: number,
   documentHeight: number,
@@ -627,18 +678,10 @@ function rasterizeBlurDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const strength =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? opacity
-          : clamp01(
-              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-            );
+      const strength = clamp01(opacity * brushTipCoverageV1(tipContext, dab, localX, localY));
       if (strength <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const destination = readPixel(tile, pixel);
@@ -853,6 +896,7 @@ export class BaselineRasterTileStoreV1 {
     if (this.#active !== null && this.#active.strokeId !== strokeId) {
       throw new Error('another baseline raster tile transaction is active');
     }
+    const declaredTip = dabs.find((dab) => dab.tip !== undefined)?.tip;
     if (this.#active === null) {
       this.#active = {
         strokeId,
@@ -861,6 +905,7 @@ export class BaselineRasterTileStoreV1 {
         before: new Map(),
         affected: new Map(),
         paintCoverage: new Map(),
+        tipContext: createBrushTipRasterContextV1(declaredTip ?? DEFAULT_BRUSH_TIP_V1),
         paintStrokeOpacity: null,
         lastSmudgeDab: null,
       };
@@ -868,6 +913,13 @@ export class BaselineRasterTileStoreV1 {
     if (this.#active.layerId !== layerId) throw new Error('active stroke changed raster layer');
     if (this.#active.operation !== operation)
       throw new Error('active stroke changed brush operation');
+    if (
+      declaredTip !== undefined &&
+      JSON.stringify(normalizeBrushTipDescriptorV1(declaredTip)) !==
+        JSON.stringify(this.#active.tipContext.tip)
+    ) {
+      throw new Error('active stroke changed brush tip');
+    }
     if (operation === 'smudge') {
       this.#applySmudgeDabs(layerId, dabs);
       return;
@@ -916,8 +968,9 @@ export class BaselineRasterTileStoreV1 {
         this.#active.paintCoverage.set(key, coverage);
       }
       for (const dab of plan.dabs) {
-        if (operation === 'erase') rasterizeEraseDab(tile, bounds.x, bounds.y, dab);
-        else rasterizeColorDab(tile, bounds.x, bounds.y, dab, coverage);
+        if (operation === 'erase')
+          rasterizeEraseDab(tile, bounds.x, bounds.y, dab, this.#active.tipContext);
+        else rasterizeColorDab(tile, bounds.x, bounds.y, dab, this.#active.tipContext, coverage);
       }
     }
   }
@@ -962,6 +1015,7 @@ export class BaselineRasterTileStoreV1 {
           bounds.x,
           bounds.y,
           dab,
+          active.tipContext,
           deltaX,
           deltaY,
           snapshot,
@@ -1042,6 +1096,7 @@ export class BaselineRasterTileStoreV1 {
           bounds.x,
           bounds.y,
           dab,
+          active.tipContext,
           snapshot,
           this.#documentWidth,
           this.#documentHeight,

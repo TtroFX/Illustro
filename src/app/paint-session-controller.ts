@@ -1,4 +1,9 @@
 import {
+  DEFAULT_BRUSH_TIP_V1,
+  normalizeBrushTipDescriptorV1,
+  type BrushTipDescriptorV1,
+} from '../domain/brush-tip.js';
+import {
   createCanvasSpec,
   createDocumentV1,
   type CanvasBackgroundSpec,
@@ -251,6 +256,11 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     value.strokeOpacity === undefined
       ? undefined
       : finiteNumber(value.strokeOpacity, 'baseline dab strokeOpacity');
+  const tip = value.tip === undefined ? undefined : normalizeBrushTipDescriptorV1(value.tip);
+  const tipAssetIndex =
+    value.tipAssetIndex === undefined
+      ? undefined
+      : finiteNumber(value.tipAssetIndex, 'baseline dab tipAssetIndex');
   const color =
     value.color === undefined
       ? undefined
@@ -267,7 +277,9 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     opacity < 0 ||
     opacity > 1 ||
     (flow !== undefined && (flow < 0 || flow > 1)) ||
-    (strokeOpacity !== undefined && (strokeOpacity < 0 || strokeOpacity > 1))
+    (strokeOpacity !== undefined && (strokeOpacity < 0 || strokeOpacity > 1)) ||
+    (tipAssetIndex !== undefined &&
+      (!Number.isSafeInteger(tipAssetIndex) || tipAssetIndex < 0 || tipAssetIndex >= 8))
   ) {
     throw new RangeError('invalid baseline dab range');
   }
@@ -282,6 +294,8 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     ...(flow === undefined ? {} : { flow }),
     ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
     ...(color === undefined ? {} : { color }),
+    ...(tip === undefined ? {} : { tip }),
+    ...(tipAssetIndex === undefined ? {} : { tipAssetIndex }),
   });
 }
 
@@ -551,6 +565,7 @@ export class PaintSessionControllerV1 {
   #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
   #brushMode: CanonicalBrushModeV1 = 'raster';
   #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
+  #brushTip: BrushTipDescriptorV1 = DEFAULT_BRUSH_TIP_V1;
   #disposed = false;
 
   constructor(
@@ -602,6 +617,15 @@ export class PaintSessionControllerV1 {
 
   brushParameters(): BrushParameterValuesV1 {
     return this.#brushParameters;
+  }
+
+  brushTip(): BrushTipDescriptorV1 {
+    return this.#brushTip;
+  }
+
+  setBrushTip(tip: BrushTipDescriptorV1): BrushTipDescriptorV1 {
+    this.#brushTip = normalizeBrushTipDescriptorV1(tip);
+    return this.#brushTip;
   }
 
   setBrushParameters(parameters: BrushParameterValuesV1): BrushParameterValuesV1 {
@@ -1313,6 +1337,7 @@ export class PaintSessionControllerV1 {
       sizePx: parameters.sizePx,
       opacity: parameters.opacity,
       flow: parameters.flow,
+      tip: this.#brushTip,
     });
     this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
     this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));
