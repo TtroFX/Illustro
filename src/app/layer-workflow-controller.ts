@@ -1,5 +1,6 @@
 import { parseLayerId, parseMaskId, type LayerId } from '../domain/identity.js';
 import type { LayerBaseV1 } from '../domain/layers.js';
+import { isM5cBaseBlendModeV1 } from '../gpu/blend-modes.js';
 import { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from './layer-cleanup.js';
 import { setDraftLayerSnapshotV1, setReferenceLayerSnapshotV1 } from './layer-role-flags.js';
 import {
@@ -34,6 +35,7 @@ import {
   reorderRootLayerSnapshotV1,
   setLayerAllLockSnapshotV1,
   setLayerAlphaLockSnapshotV1,
+  setLayerBlendModeSnapshotV1,
   setLayerClippingSnapshotV1,
   setLayerOpacitySnapshotV1,
   setLayerVisibilitySnapshotV1,
@@ -260,6 +262,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const referenceButton = required<HTMLButtonElement>('#layer-reference');
   const draftButton = required<HTMLButtonElement>('#layer-draft');
   const opacityInput = required<HTMLInputElement>('#layer-opacity');
+  const blendModeSelect = required<HTMLSelectElement>('#layer-blend-mode');
   const renameForm = required<HTMLFormElement>('#layer-rename-editor');
   const renameInput = required<HTMLInputElement>('#layer-rename-input');
   const renameCancel = required<HTMLButtonElement>('#layer-rename-cancel');
@@ -574,6 +577,11 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     draftButton.disabled =
       disabled || active?.layer.type === 'lineartBoundary' || active?.layer.locks.all;
     opacityInput.disabled = disabled;
+    blendModeSelect.disabled =
+      disabled ||
+      active?.layer.type !== 'raster' ||
+      active.layer.locks.all ||
+      options.paintSession.activeStrokeId() !== null;
     const roots = documentValue.layerTree.rootLayerIds;
     const selectedRoots = options.paintSession
       .selectedLayerIds()
@@ -586,6 +594,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, -1);
     if (active !== null) {
       opacityInput.value = String(Math.round(active.layer.opacity * 100));
+      blendModeSelect.value = active.layer.blendMode;
       lockButton.setAttribute('aria-pressed', active.layer.locks.all ? 'true' : 'false');
       alphaLockButton.setAttribute('aria-pressed', active.layer.locks.alpha ? 'true' : 'false');
       lockButton.dataset.active = active.layer.locks.all ? 'true' : 'false';
@@ -599,6 +608,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       draftButton.dataset.active = active.layer.roleFlags.draft ? 'true' : 'false';
     } else {
       opacityInput.value = '100';
+      blendModeSelect.value = 'normal';
       lockButton.setAttribute('aria-pressed', 'false');
       alphaLockButton.setAttribute('aria-pressed', 'false');
       lockButton.dataset.active = 'false';
@@ -611,6 +621,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     root.dataset.illustroLayerCount = String(Object.keys(documentValue.layerTree.layers).length);
     root.dataset.illustroSelectedLayerCount = String(selectedLayerIds.size);
     root.dataset.illustroActiveLayerId = activeLayerId ?? '';
+    root.dataset.illustroLayerBlendMode = active?.layer.blendMode ?? '';
     root.dataset.illustroLayerWorkflow = 'ready';
   };
 
@@ -1109,6 +1120,22 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       'layer.opacity',
       (before, revision) => setLayerOpacitySnapshotV1(before, layerId, percent / 100, revision),
       () => layerId,
+    );
+  };
+
+  const onBlendMode = (): void => {
+    const active = currentActive();
+    if (active === null || active.layer.type !== 'raster') return;
+    const blendMode = blendModeSelect.value;
+    if (!isM5cBaseBlendModeV1(blendMode)) {
+      publishError(new Error(`unsupported blend mode: ${blendMode}`));
+      refresh();
+      return;
+    }
+    commitMutation(
+      'layer.blend-mode',
+      (before, revision) => setLayerBlendModeSnapshotV1(before, active.id, blendMode, revision),
+      () => active.id,
     );
   };
 
@@ -1647,6 +1674,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   renameForm.addEventListener('submit', onRenameSubmit);
   renameCancel.addEventListener('click', onRenameCancel);
   opacityInput.addEventListener('change', onOpacity);
+  blendModeSelect.addEventListener('change', onBlendMode);
   lockButton.addEventListener('click', onLock);
   alphaLockButton.addEventListener('click', onAlphaLock);
   referenceButton.addEventListener('click', onReferenceToggle);
@@ -1706,6 +1734,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       renameForm.removeEventListener('submit', onRenameSubmit);
       renameCancel.removeEventListener('click', onRenameCancel);
       opacityInput.removeEventListener('change', onOpacity);
+      blendModeSelect.removeEventListener('change', onBlendMode);
       lockButton.removeEventListener('click', onLock);
       alphaLockButton.removeEventListener('click', onAlphaLock);
       referenceButton.removeEventListener('click', onReferenceToggle);

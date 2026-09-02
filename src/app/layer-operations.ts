@@ -9,6 +9,7 @@ import {
 } from '../domain/identity.js';
 import type {
   AdjustmentLayerV1,
+  BlendModeId,
   EffectMaskAttachmentV1,
   EffectNodeV1,
   FillLayerV1,
@@ -581,6 +582,22 @@ export function setLayerOpacitySnapshotV1(
   return replaceLayerV1(snapshot, layerId, revision, now, (layer) => {
     if (layer.opacity === opacity) throw new Error('layer opacity has no changes');
     return Object.freeze({ ...layer, revision, opacity });
+  });
+}
+
+export function setLayerBlendModeSnapshotV1(
+  snapshot: PaintProjectSnapshotV1,
+  layerId: LayerId,
+  blendMode: BlendModeId,
+  revision: Revision,
+  now: Date = new Date(),
+): PaintProjectSnapshotV1 {
+  if (blendMode === 'pass-through') {
+    throw new Error('Folder Pass Through uses the dedicated folder blend command');
+  }
+  return replaceLayerV1(snapshot, layerId, revision, now, (layer) => {
+    if (layer.blendMode === blendMode) throw new Error('layer blend mode has no changes');
+    return Object.freeze({ ...layer, revision, blendMode });
   });
 }
 

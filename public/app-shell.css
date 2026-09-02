@@ -1026,3 +1026,26 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+
+.shell-layer-blend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 10.5rem;
+}
+
+.shell-layer-blend > span {
+  font-size: 0.72rem;
+  color: var(--shell-muted, #5b6475);
+}
+
+.shell-layer-blend select {
+  min-width: 0;
+  max-width: 11rem;
+  height: 2rem;
+  border: 1px solid rgba(83, 94, 122, 0.24);
+  border-radius: 0.5rem;
+  background: #fff;
+  font: inherit;
+}

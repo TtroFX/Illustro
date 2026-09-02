@@ -4,7 +4,10 @@ import {
   type BaselineRasterTileImageV1,
 } from '../../src/gpu/baseline-raster-tile-store.js';
 
-function pixelTile(layerId: string, rgba: readonly [number, number, number, number]): BaselineRasterTileImageV1 {
+function pixelTile(
+  layerId: string,
+  rgba: readonly [number, number, number, number],
+): BaselineRasterTileImageV1 {
   return Object.freeze({
     schema: 'illustro.baseline-raster-tile/1' as const,
     layerId,

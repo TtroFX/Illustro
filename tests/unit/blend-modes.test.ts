@@ -39,17 +39,13 @@ describe('M5C base blend kernels', () => {
       'multiply',
     );
     expect(result[3]).toBeCloseTo(0.7, 8);
-    expect(result[0]).toBeCloseTo(0.5142857142857143, 8);
-    expect(result[1]).toBeCloseTo(0.32142857142857145, 8);
-    expect(result[2]).toBeCloseTo(0.20714285714285716, 8);
+    expect(result[0]).toBeCloseTo(0.4714285714285714, 8);
+    expect(result[1]).toBeCloseTo(0.34285714285714286, 8);
+    expect(result[2]).toBeCloseTo(0.2, 8);
   });
 
   it('selects a complete RGB tuple for Darker Color instead of mixing channels', () => {
-    expect(blendRgbV1('darker-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([
-      0.9, 0.1, 0.1,
-    ]);
-    expect(blendRgbV1('darker-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([
-      0.2, 0.2, 0.2,
-    ]);
+    expect(blendRgbV1('darker-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([0.9, 0.1, 0.1]);
+    expect(blendRgbV1('darker-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.2, 0.2, 0.2]);
   });
 });

@@ -1,6 +1,7 @@
 import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import { isM5cBaseBlendModeV1 } from '../gpu/blend-modes.js';
 import {
   BaselinePaintRendererV1,
   type BaselinePaintCommittedStrokeV1,
@@ -205,6 +206,7 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
       typeof candidate.visible !== 'boolean' ||
       typeof candidate.opacity !== 'number' ||
       (candidate.draft !== undefined && typeof candidate.draft !== 'boolean') ||
+      (candidate.blendMode !== undefined && !isM5cBaseBlendModeV1(candidate.blendMode)) ||
       !Number.isFinite(candidate.opacity) ||
       candidate.opacity < 0 ||
       candidate.opacity > 1
@@ -218,6 +220,7 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
         visible: candidate.visible,
         opacity: candidate.opacity,
         draft: candidate.draft ?? false,
+        ...(candidate.blendMode === undefined ? {} : { blendMode: candidate.blendMode }),
       }),
     );
   }
