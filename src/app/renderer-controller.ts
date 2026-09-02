@@ -432,7 +432,7 @@ export class RendererControllerV1 {
     const paint = this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId, operation);
     if (snapshot.owner === 'compatibility') {
       this.#trackCompatibilityDabs(dabs);
-      if (operation !== 'paint') {
+      if (operation !== 'paint' || dabs.some((dab) => dab.tipShape === 'square')) {
         const documentValue = this.#canonicalDocument;
         if (documentValue !== null) {
           this.#syncCompatibilityTiles(

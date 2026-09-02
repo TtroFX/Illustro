@@ -10,6 +10,7 @@ export const BASELINE_BRUSH_RADIUS_PX = 8 as const;
 export const BASELINE_BRUSH_SPACING_PX = 4 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
+export type BaselineBrushTipShapeV1 = 'round' | 'square';
 export type BaselineBrushCompositeOperationV1 = 'paint' | 'erase' | 'smudge' | 'blur';
 export const DEFAULT_BASELINE_BRUSH_COLOR_V1: BaselineBrushColorV1 = Object.freeze([0, 0, 0]);
 
@@ -38,6 +39,7 @@ export interface BaselineBrushDabV1 {
   readonly opacity: number;
   readonly flow?: number;
   readonly strokeOpacity?: number;
+  readonly tipShape?: BaselineBrushTipShapeV1;
   readonly color?: BaselineBrushColorV1;
 }
 
@@ -84,6 +86,7 @@ function freezeDab(
   flow: number,
   strokeOpacity: number,
   color: BaselineBrushColorV1,
+  tipShape: BaselineBrushTipShapeV1,
 ): BaselineBrushDabV1 {
   return Object.freeze({
     schema: 'illustro.baseline-brush-dab/1' as const,
@@ -93,6 +96,7 @@ function freezeDab(
     opacity: flow * strokeOpacity,
     flow,
     strokeOpacity,
+    tipShape,
     color,
   });
 }
@@ -104,6 +108,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #spacing: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
+  readonly #tipShape: BaselineBrushTipShapeV1;
   #lastPoint: { x: number; y: number } | null = null;
   #distanceUntilNext: number;
   #finished = false;
@@ -114,6 +119,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
+      readonly tipShape?: BaselineBrushTipShapeV1;
     } = {},
   ) {
     this.#color =
@@ -136,6 +142,10 @@ export class BaselineBrushDabBuilderV1 {
     this.#spacing = Math.max(0.25, sizePx * 0.25);
     this.#flow = flow;
     this.#strokeOpacity = opacity;
+    this.#tipShape = options.tipShape ?? 'round';
+    if (this.#tipShape !== 'round' && this.#tipShape !== 'square') {
+      throw new TypeError('unsupported baseline brush tip shape');
+    }
     this.#distanceUntilNext = this.#spacing;
   }
 
@@ -158,6 +168,7 @@ export class BaselineBrushDabBuilderV1 {
         this.#flow,
         this.#strokeOpacity,
         this.#color,
+        this.#tipShape,
       ),
     );
     this.#distanceUntilNext = this.#spacing;
@@ -212,6 +223,7 @@ export class BaselineBrushDabBuilderV1 {
             this.#flow,
             this.#strokeOpacity,
             this.#color,
+            this.#tipShape,
           ),
         );
       }
@@ -244,7 +256,15 @@ export class BaselineBrushDabBuilderV1 {
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
       this.#dabs.push(
-        freezeDab(cursorX, cursorY, this.#radius, this.#flow, this.#strokeOpacity, this.#color),
+        freezeDab(
+          cursorX,
+          cursorY,
+          this.#radius,
+          this.#flow,
+          this.#strokeOpacity,
+          this.#color,
+          this.#tipShape,
+        ),
       );
       remaining = Math.hypot(x - cursorX, y - cursorY);
       this.#distanceUntilNext = this.#spacing;

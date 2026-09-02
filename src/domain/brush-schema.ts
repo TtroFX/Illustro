@@ -8,6 +8,7 @@ export const ILLBRUSH_MIME_TYPE = 'application/x-illustro-brush+zip' as const;
 export type BrushSchemaIdentifier = typeof BRUSH_V1_SCHEMA;
 export type BrushSchemaVersion = typeof BRUSH_SCHEMA_VERSION;
 export type BrushBehaviorV1 = 'paint' | 'erase' | 'smudge' | 'blur';
+export type BrushProceduralTipShapeV1 = 'round' | 'square';
 export type BrushPresetSectionV1 = Readonly<Record<string, JsonValue>>;
 
 export interface BrushParameterRangeV1 {
@@ -113,6 +114,22 @@ export function withBrushParameterValuesV1(
     ...preset,
     defaultSizePx: sizePx,
     ink: { ...preset.ink, opacity, flow },
+  });
+}
+
+export function brushProceduralTipShapeV1(preset: BrushPresetV1): BrushProceduralTipShapeV1 {
+  return preset.tip.kind === 'procedural-square' ? 'square' : 'round';
+}
+
+export function withBrushProceduralTipShapeV1(
+  preset: BrushPresetV1,
+  shape: BrushProceduralTipShapeV1,
+): BrushPresetV1 {
+  if (shape !== 'round' && shape !== 'square')
+    throw new TypeError('unsupported procedural tip shape');
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: { ...preset.tip, kind: shape === 'square' ? 'procedural-square' : 'procedural-round' },
   });
 }
 

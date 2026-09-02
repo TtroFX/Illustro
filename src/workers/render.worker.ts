@@ -504,6 +504,8 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     ) {
       return null;
     }
+    const tipShape = candidate.tipShape === undefined ? undefined : candidate.tipShape;
+    if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square') return null;
     let color: readonly [number, number, number] | undefined;
     if (candidate.color !== undefined) {
       if (!Array.isArray(candidate.color)) return null;
@@ -524,6 +526,7 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         opacity: candidate.opacity,
         ...(flow === undefined ? {} : { flow }),
         ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
+        ...(tipShape === undefined ? {} : { tipShape }),
         ...(color === undefined ? {} : { color }),
       }),
     );

@@ -1,6 +1,7 @@
 import {
   brushParameterLimitsV1,
   brushParameterValuesV1,
+  brushProceduralTipShapeV1,
   type BrushBehaviorV1,
   type BrushParameterValuesV1,
 } from '../domain/brush-schema.js';
@@ -22,6 +23,7 @@ import {
   setBrushPresetLockedV1,
   setBrushPresetSearchV1,
   updateBrushPresetParametersV1,
+  updateBrushPresetProceduralTipV1,
   type BrushPresetLibraryStateV1,
 } from './brush-preset-library.js';
 
@@ -81,6 +83,7 @@ export function installBrushPresetControllerV1(input: {
   const opacityNumber = requireElement('#brush-opacity-number', HTMLInputElement);
   const flowRange = requireElement('#brush-flow-range', HTMLInputElement);
   const flowNumber = requireElement('#brush-flow-number', HTMLInputElement);
+  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   let state = loadState(storage);
   let idCounter = 0;
 
@@ -101,6 +104,7 @@ export function installBrushPresetControllerV1(input: {
     const parameters = brushParameterValuesV1(item.preset);
     input.paintSession.setBrushMode(modeForBehavior(item.preset.behavior));
     input.paintSession.setBrushParameters(parameters);
+    input.paintSession.setBrushTipShape(brushProceduralTipShapeV1(item.preset));
     input.root.dataset.illustroBrushPreset = item.preset.id;
     input.root.dataset.illustroBrushPresetSource = item.source;
     input.root.dataset.illustroBrushPresetModified = String(item.modified);
@@ -108,6 +112,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushSize = String(parameters.sizePx);
     input.root.dataset.illustroBrushOpacity = String(parameters.opacity);
     input.root.dataset.illustroBrushFlow = String(parameters.flow);
+    input.root.dataset.illustroBrushTipShape = brushProceduralTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
 
@@ -199,6 +204,7 @@ export function installBrushPresetControllerV1(input: {
       parameters.opacity,
     );
     configurePair(flowRange, flowNumber, limits.flow.min, limits.flow.max, 0.01, parameters.flow);
+    tipShape.value = brushProceduralTipShapeV1(selected.preset);
     propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}%`;
 
     const locked = selected.locked;
@@ -209,6 +215,7 @@ export function installBrushPresetControllerV1(input: {
       opacityNumber,
       flowRange,
       flowNumber,
+      tipShape,
     ]) {
       control.disabled = locked;
     }
@@ -262,6 +269,14 @@ export function installBrushPresetControllerV1(input: {
   const onOpacityNumber = (): void => updateParameter({ opacity: Number(opacityNumber.value) });
   const onFlowRange = (): void => updateParameter({ flow: Number(flowRange.value) });
   const onFlowNumber = (): void => updateParameter({ flow: Number(flowNumber.value) });
+  const onTipShape = (): void =>
+    mutate(() =>
+      updateBrushPresetProceduralTipV1(
+        state,
+        state.selectedPresetId,
+        tipShape.value === 'square' ? 'square' : 'round',
+      ),
+    );
 
   search.addEventListener('input', onSearch);
   category.addEventListener('change', onCategory);
@@ -277,6 +292,7 @@ export function installBrushPresetControllerV1(input: {
   opacityNumber.addEventListener('change', onOpacityNumber);
   flowRange.addEventListener('input', onFlowRange);
   flowNumber.addEventListener('change', onFlowNumber);
+  tipShape.addEventListener('change', onTipShape);
 
   applySelected();
   render();
@@ -299,6 +315,7 @@ export function installBrushPresetControllerV1(input: {
       opacityNumber.removeEventListener('change', onOpacityNumber);
       flowRange.removeEventListener('input', onFlowRange);
       flowNumber.removeEventListener('change', onFlowNumber);
+      tipShape.removeEventListener('change', onTipShape);
     },
   });
 }

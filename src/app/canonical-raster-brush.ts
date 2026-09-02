@@ -3,6 +3,7 @@ import {
   type BaselineBrushColorV1,
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
+  type BaselineBrushTipShapeV1,
 } from '../gpu/baseline-brush.js';
 
 export const CANONICAL_BRUSH_ENGINE_SCHEMA_V1 = 'illustro.canonical-brush-engine/1' as const;
@@ -85,6 +86,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
+      readonly tipShape?: BaselineBrushTipShapeV1;
     } = {},
   ) {
     this.#mode = options.mode ?? 'raster';
@@ -93,6 +95,7 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.sizePx === undefined ? {} : { sizePx: options.sizePx }),
       ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
       ...(options.flow === undefined ? {} : { flow: options.flow }),
+      ...(options.tipShape === undefined ? {} : { tipShape: options.tipShape }),
     });
   }
 

@@ -3,8 +3,10 @@ import {
   createBaselineBrushPresetV1,
   normalizeBrushPresetV1,
   withBrushParameterValuesV1,
+  withBrushProceduralTipShapeV1,
   type BrushBehaviorV1,
   type BrushParameterValuesV1,
+  type BrushProceduralTipShapeV1,
   type BrushPresetV1,
 } from '../domain/brush-schema.js';
 
@@ -273,6 +275,25 @@ export function updateBrushPresetParametersV1(
       ...current,
       revision: item.preset.revision + 1,
     });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetProceduralTipV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  shape: BrushProceduralTipShapeV1,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushProceduralTipShapeV1(item.preset, shape);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({
       source: item.source,
       baseline: item.baseline,

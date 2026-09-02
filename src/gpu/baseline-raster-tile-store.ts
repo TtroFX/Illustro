@@ -253,7 +253,28 @@ function writePixel(
 }
 
 const BASELINE_BRUSH_HARDNESS = 0.85;
-const BASELINE_BRUSH_HARDNESS_SQUARED = BASELINE_BRUSH_HARDNESS * BASELINE_BRUSH_HARDNESS;
+
+function baselineProceduralTipDistanceV1(
+  dab: BaselineBrushDabV1,
+  localX: number,
+  localY: number,
+): number {
+  return dab.tipShape === 'square'
+    ? Math.max(Math.abs(localX), Math.abs(localY))
+    : Math.hypot(localX, localY);
+}
+
+function baselineProceduralTipCoverageV1(
+  dab: BaselineBrushDabV1,
+  localX: number,
+  localY: number,
+): number {
+  const distance = baselineProceduralTipDistanceV1(dab, localX, localY);
+  if (distance >= 1) return 0;
+  return distance <= BASELINE_BRUSH_HARDNESS
+    ? 1
+    : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, distance));
+}
 
 function rasterizeColorDab(
   tile: BaselineRasterTileImageV1,
@@ -289,16 +310,11 @@ function rasterizeColorDab(
     const bytes = tile.bytes;
     for (let documentY = minY; documentY <= maxY; documentY += 1) {
       const localY = (documentY + 0.5 - dab.y) / radiusY;
-      const localYSquared = localY * localY;
-      if (localYSquared >= 1) continue;
+      if (Math.abs(localY) >= 1) continue;
       for (let documentX = minX; documentX <= maxX; documentX += 1) {
         const localX = (documentX + 0.5 - dab.x) / radiusX;
-        const distanceSquared = localX * localX + localYSquared;
-        if (distanceSquared >= 1) continue;
-        const tipCoverage =
-          distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-            ? 1
-            : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared)));
+        const tipCoverage = baselineProceduralTipCoverageV1(dab, localX, localY);
+        if (tipCoverage <= 0) continue;
         const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
         const sourceAlpha = sourceAlphaForPixel(pixel, tipCoverage);
         if (sourceAlpha <= 0) continue;
@@ -335,16 +351,11 @@ function rasterizeColorDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const tipCoverage =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? 1
-          : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared)));
+      const tipCoverage = baselineProceduralTipCoverageV1(dab, localX, localY);
+      if (tipCoverage <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const sourceAlpha = sourceAlphaForPixel(pixel, tipCoverage);
       if (sourceAlpha <= 0) continue;
@@ -384,18 +395,10 @@ function rasterizeEraseDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const eraseAlpha =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? opacity
-          : clamp01(
-              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-            );
+      const eraseAlpha = opacity * baselineProceduralTipCoverageV1(dab, localX, localY);
       if (eraseAlpha <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const destination = readPixel(tile, pixel);
@@ -520,18 +523,10 @@ function rasterizeSmudgeDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const strength =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? opacity
-          : clamp01(
-              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-            );
+      const strength = opacity * baselineProceduralTipCoverageV1(dab, localX, localY);
       if (strength <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const destination = readPixel(tile, pixel);
@@ -627,18 +622,10 @@ function rasterizeBlurDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    const localYSquared = localY * localY;
-    if (localYSquared >= 1) continue;
+    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
-      const distanceSquared = localX * localX + localYSquared;
-      if (distanceSquared >= 1) continue;
-      const strength =
-        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? opacity
-          : clamp01(
-              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-            );
+      const strength = opacity * baselineProceduralTipCoverageV1(dab, localX, localY);
       if (strength <= 0) continue;
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
       const destination = readPixel(tile, pixel);
