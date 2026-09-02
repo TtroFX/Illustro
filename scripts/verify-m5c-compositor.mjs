@@ -20,6 +20,14 @@ requireText('src/gpu/blend-modes.ts', [
   "'screen'",
   "'color-dodge'",
   "'linear-dodge'",
+  "'lighter-color'",
+  "'overlay'",
+  "'soft-light'",
+  "'hard-light'",
+  "'vivid-light'",
+  "'linear-light'",
+  "'pin-light'",
+  "'hard-mix'",
   'compositeBlendRgbaV1',
   'sourceAlpha + backdropAlpha * (1 - sourceAlpha)',
 ]);
@@ -64,6 +72,14 @@ requireText('src/index.html', [
   'value="screen"',
   'value="color-dodge"',
   'value="linear-dodge"',
+  'value="lighter-color"',
+  'value="overlay"',
+  'value="soft-light"',
+  'value="hard-light"',
+  'value="vivid-light"',
+  'value="linear-light"',
+  'value="pin-light"',
+  'value="hard-mix"',
 ]);
 requireText('tests/unit/blend-modes.test.ts', ['M5C base blend kernels']);
 requireText('tests/unit/baseline-blend-compositor.test.ts', [
@@ -80,7 +96,15 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5C-008 Screen:完了',
   'M5C-009 Color Dodge:完了',
   'M5C-010 Linear Dodge/Add:完了',
-  'M5C-011 Lighter Color:未完了',
+  'M5C-011 Lighter Color:完了',
+  'M5C-012 Overlay:完了',
+  'M5C-013 Soft Light:完了',
+  'M5C-014 Hard Light:完了',
+  'M5C-015 Vivid Light:完了',
+  'M5C-016 Linear Light:完了',
+  'M5C-017 Pin Light:完了',
+  'M5C-018 Hard Mix:完了',
+  'M5C-019 Difference:未完了',
 ]);
 
-console.log('M5C base blend compositor verification passed');
+console.log('M5C blend compositor verification passed');

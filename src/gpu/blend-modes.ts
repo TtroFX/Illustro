@@ -11,6 +11,14 @@ export const M5C_BASE_BLEND_MODE_IDS_V1 = Object.freeze([
   'screen',
   'color-dodge',
   'linear-dodge',
+  'lighter-color',
+  'overlay',
+  'soft-light',
+  'hard-light',
+  'vivid-light',
+  'linear-light',
+  'pin-light',
+  'hard-mix',
 ] as const satisfies readonly BlendModeId[]);
 
 export type M5cBaseBlendModeIdV1 = (typeof M5C_BASE_BLEND_MODE_IDS_V1)[number];
@@ -40,6 +48,15 @@ function colorDodge(backdrop: number, source: number): number {
   return Math.min(1, backdrop / (1 - source));
 }
 
+function softLight(backdrop: number, source: number): number {
+  if (source <= 0.5) {
+    return backdrop - (1 - 2 * source) * backdrop * (1 - backdrop);
+  }
+  const d =
+    backdrop <= 0.25 ? ((16 * backdrop - 12) * backdrop + 4) * backdrop : Math.sqrt(backdrop);
+  return backdrop + (2 * source - 1) * (d - backdrop);
+}
+
 export function isM5cBaseBlendModeV1(value: unknown): value is M5cBaseBlendModeIdV1 {
   return typeof value === 'string' && BASE_BLEND_MODE_SET.has(value as BlendModeId);
 }
@@ -60,10 +77,11 @@ export function blendRgbV1(
     finiteUnit(source[2], 'blend source blue'),
   ];
 
-  if (mode === 'darker-color') {
+  if (mode === 'darker-color' || mode === 'lighter-color') {
     const backdropTotal = cb[0] + cb[1] + cb[2];
     const sourceTotal = cs[0] + cs[1] + cs[2];
-    return sourceTotal < backdropTotal ? cs : cb;
+    if (mode === 'darker-color') return sourceTotal < backdropTotal ? cs : cb;
+    return sourceTotal > backdropTotal ? cs : cb;
   }
 
   const blendChannel = (backdropChannel: number, sourceChannel: number): number => {
@@ -86,6 +104,28 @@ export function blendRgbV1(
         return colorDodge(backdropChannel, sourceChannel);
       case 'linear-dodge':
         return Math.min(1, backdropChannel + sourceChannel);
+      case 'overlay':
+        return backdropChannel <= 0.5
+          ? 2 * backdropChannel * sourceChannel
+          : 1 - 2 * (1 - backdropChannel) * (1 - sourceChannel);
+      case 'soft-light':
+        return softLight(backdropChannel, sourceChannel);
+      case 'hard-light':
+        return sourceChannel <= 0.5
+          ? 2 * backdropChannel * sourceChannel
+          : 1 - 2 * (1 - backdropChannel) * (1 - sourceChannel);
+      case 'vivid-light':
+        return sourceChannel < 0.5
+          ? colorBurn(backdropChannel, 2 * sourceChannel)
+          : colorDodge(backdropChannel, 2 * (sourceChannel - 0.5));
+      case 'linear-light':
+        return clamp01(backdropChannel + 2 * sourceChannel - 1);
+      case 'pin-light':
+        return sourceChannel < 0.5
+          ? Math.min(backdropChannel, 2 * sourceChannel)
+          : Math.max(backdropChannel, 2 * sourceChannel - 1);
+      case 'hard-mix':
+        return backdropChannel + sourceChannel >= 1 ? 1 : 0;
     }
   };
 
