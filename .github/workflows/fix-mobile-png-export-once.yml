@@ -1,0 +1,172 @@
+name: Fix mobile PNG export once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-mobile-png-export-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-mobile-png-export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Apply focused mobile PNG export fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          main_path = Path('src/app/main.ts')
+          main = main_path.read_text()
+
+          before = """const exportPngButton = document.querySelector<HTMLButtonElement>('#export-png');
+          const onExportPngClick = (): void => {
+            if (exportPngButton === null || exportPngButton.disabled) return;
+            exportPngButton.disabled = true;
+          """
+          after = """const exportPngButton = document.querySelector<HTMLButtonElement>('#export-png');
+          const exportPngMenuButton = document.querySelector<HTMLButtonElement>('#export-png-menu');
+
+          function setPngExportControlsDisabled(disabled: boolean): void {
+            if (exportPngButton !== null) exportPngButton.disabled = disabled;
+            if (exportPngMenuButton !== null) exportPngMenuButton.disabled = disabled;
+          }
+
+          const onExportPngClick = (): void => {
+            if (exportPngButton === null || exportPngButton.disabled) return;
+            setPngExportControlsDisabled(true);
+          """
+          if main.count(before) != 1:
+            raise SystemExit('expected one PNG export handler preamble')
+          main = main.replace(before, after, 1)
+
+          before = """    } finally {
+                exportPngButton.disabled = false;
+              }
+          """
+          after = """    } finally {
+                setPngExportControlsDisabled(false);
+              }
+          """
+          if main.count(before) != 1:
+            raise SystemExit('expected one PNG export finally block')
+          main = main.replace(before, after, 1)
+
+          before = """exportPngButton?.addEventListener('click', onExportPngClick);
+          root.dataset.illustroPngExport = exportPngButton === null ? 'unavailable' : 'ready';
+          """
+          after = """exportPngButton?.addEventListener('click', onExportPngClick);
+          exportPngMenuButton?.addEventListener('click', () => {
+            exportPngMenuButton.closest('details')?.removeAttribute('open');
+            onExportPngClick();
+          });
+          if (exportPngMenuButton !== null) exportPngMenuButton.disabled = true;
+          root.dataset.illustroPngExport = exportPngButton === null ? 'unavailable' : 'ready';
+          """
+          if main.count(before) != 1:
+            raise SystemExit('expected one PNG export event binding')
+          main = main.replace(before, after, 1)
+
+          before = """    if (exportPngButton !== null) exportPngButton.disabled = false;
+          """
+          after = """    setPngExportControlsDisabled(false);
+          """
+          if main.count(before) != 1:
+            raise SystemExit('expected one PNG export initialization enable')
+          main = main.replace(before, after, 1)
+          main_path.write_text(main)
+
+          png_path = Path('src/export/png-export.ts')
+          png = png_path.read_text()
+          before = """export const PNG_SIGNATURE = Object.freeze([137, 80, 78, 71, 13, 10, 26, 10] as const);
+          """
+          after = """export const PNG_SIGNATURE = Object.freeze([137, 80, 78, 71, 13, 10, 26, 10] as const);
+          export const PNG_DOWNLOAD_URL_REVOKE_DELAY_MS = 60_000 as const;
+          """
+          if png.count(before) != 1:
+            raise SystemExit('expected PNG signature declaration')
+          png = png.replace(before, after, 1)
+          before = """    globalThis.setTimeout(() => URL.revokeObjectURL(url), 0);
+          """
+          after = """    globalThis.setTimeout(
+                () => URL.revokeObjectURL(url),
+                PNG_DOWNLOAD_URL_REVOKE_DELAY_MS,
+              );
+          """
+          if png.count(before) != 1:
+            raise SystemExit('expected immediate PNG object URL revocation')
+          png = png.replace(before, after, 1)
+          png_path.write_text(png)
+
+          test_path = Path('tests/unit/png-export.test.ts')
+          test = test_path.read_text()
+          before = """  PNG_SIGNATURE,
+            encodeCompositeRasterTilesToPngV1,
+          """
+          after = """  PNG_DOWNLOAD_URL_REVOKE_DELAY_MS,
+            PNG_SIGNATURE,
+            encodeCompositeRasterTilesToPngV1,
+          """
+          if test.count(before) != 1:
+            raise SystemExit('expected PNG export test import')
+          test = test.replace(before, after, 1)
+          before = """  it('normalizes exported filenames without path/control characters', () => {
+              expect(normalizePngFilenameV1(' Illustration ')).toBe('Illustration.png');
+              expect(normalizePngFilenameV1('../bad:name.png')).toBe('..-bad-name.png');
+            });
+          """
+          after = """  it('keeps download object URLs alive for asynchronous mobile download handling', () => {
+              expect(PNG_DOWNLOAD_URL_REVOKE_DELAY_MS).toBeGreaterThanOrEqual(30_000);
+            });
+
+            it('normalizes exported filenames without path/control characters', () => {
+              expect(normalizePngFilenameV1(' Illustration ')).toBe('Illustration.png');
+              expect(normalizePngFilenameV1('../bad:name.png')).toBe('..-bad-name.png');
+            });
+          """
+          if test.count(before) != 1:
+            raise SystemExit('expected PNG filename test block')
+          test = test.replace(before, after, 1)
+          test_path.write_text(test)
+          PY
+
+      - name: Format focused changes
+        run: npx biome format --write src/app/main.ts src/export/png-export.ts tests/unit/png-export.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: PNG export unit test
+        run: npx vitest run tests/unit/png-export.test.ts
+
+      - name: Commit focused fix and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/fix-mobile-png-export-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/main.ts src/export/png-export.ts tests/unit/png-export.test.ts
+          git commit -m 'fix: harden mobile PNG export'
+          git push origin HEAD:main
