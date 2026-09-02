@@ -167,6 +167,24 @@
                 </div>
               </div>
             </details>
+            <details class="shell-color-mixing">
+              <summary>色混ぜ</summary>
+              <div class="shell-color-mixing-body">
+                <canvas id="color-mixing-canvas" width="192" height="112" aria-label="色混ぜパレット。ブラシ、混色、スポイトで操作"></canvas>
+                <div id="color-mixing-colors" class="shell-color-mixing-colors"></div>
+                <fieldset class="shell-color-mixing-tools" aria-label="色混ぜツール">
+                  <button id="color-mixing-brush" type="button" aria-pressed="true">ブラシ</button>
+                  <button id="color-mixing-blend" type="button" aria-pressed="false">混色</button>
+                  <button id="color-mixing-eyedropper" type="button" aria-pressed="false">採色</button>
+                </fieldset>
+                <label class="shell-color-mixing-size">サイズ <input id="color-mixing-size" type="range" min="4" max="40" step="1" value="16" /><output id="color-mixing-size-value">16</output></label>
+                <div class="shell-color-mixing-history">
+                  <button id="color-mixing-undo" type="button" disabled>戻す</button>
+                  <button id="color-mixing-redo" type="button" disabled>進む</button>
+                  <button id="color-mixing-clear" type="button">クリア</button>
+                </div>
+              </div>
+            </details>
           </section>
           <section class="shell-inspector-card shell-reference-panel" aria-label="Reference / Sub View">
             <header class="shell-reference-header"><strong>Reference / Sub View</strong><output id="reference-status" aria-live="polite"></output></header>
