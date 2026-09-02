@@ -1,0 +1,72 @@
+name: Retry M5B reference draft layer roles
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  retry-layer-roles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: npm install --global npm@11.19.1
+      - run: npm ci
+      - name: Reapply layer role batch with current import anchor
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/continue-m5b-layer-roles-once.yml').read_text()
+          marker = "          python - <<'PY'\n"
+          start = source.index(marker) + len(marker)
+          end = source.index("\n          PY\n", start)
+          body = source[start:end]
+          lines = []
+          for line in body.splitlines():
+              lines.append(line[10:] if line.startswith('          ') else line)
+          script = '\n'.join(lines)
+          script = script.replace(
+              '"import {\\n  applyLayerCleanupSnapshotV1,"',
+              '"import { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from \'./layer-cleanup.js\';"',
+              1,
+          )
+          script = script.replace(
+              '"import { setDraftLayerSnapshotV1, setReferenceLayerSnapshotV1 } from \'./layer-role-flags.js\';\\nimport {\\n  applyLayerCleanupSnapshotV1,"',
+              '"import { setDraftLayerSnapshotV1, setReferenceLayerSnapshotV1 } from \'./layer-role-flags.js\';\\nimport { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from \'./layer-cleanup.js\';"',
+              1,
+          )
+          exec(compile(script, '<layer-roles>', 'exec'))
+          PY
+      - name: Format
+        run: npm run format
+      - name: Focused tests
+        run: npx vitest run tests/unit/layer-role-flags.test.ts tests/unit/draft-final-output.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Verify progress
+        shell: bash
+        run: |
+          grep -F 'M5B-045 Reference Layer designation:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F 'M5B-046 Reference Layer解除:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F 'M5B-047 Draft/Sketch Layer attribute:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F 'M5B-048 Draftをfinal outputから除外:完了' IMPLEMENTATION_PROGRESS.md
+      - name: Commit checkpoint
+        shell: bash
+        run: |
+          rm .github/workflows/continue-m5b-layer-roles-once.yml
+          rm .github/workflows/continue-m5b-layer-roles-retry.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/layer-role-flags.ts src/app/layer-workflow-controller.ts src/app/paint-session-controller.ts src/app/renderer-controller.ts src/gpu/baseline-raster-tile-store.ts src/gpu/baseline-paint-renderer.ts src/workers/render.worker.ts src/index.html tests/unit/layer-role-flags.test.ts tests/unit/draft-final-output.test.ts IMPLEMENTATION_PROGRESS.md .github/workflows/continue-m5b-layer-roles-once.yml .github/workflows/continue-m5b-layer-roles-retry.yml
+          git commit -m 'feat: add reference and draft layer roles'
+          git push origin HEAD:main
