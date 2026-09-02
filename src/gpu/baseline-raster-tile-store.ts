@@ -76,6 +76,7 @@ interface ActiveTileTransactionV1 {
   readonly operation: BaselineBrushCompositeOperationV1;
   readonly before: Map<string, BaselineRasterTileImageV1 | null>;
   readonly affected: Map<string, TileCoordinateV1>;
+  lastSmudgeDab: BaselineBrushDabV1 | null;
 }
 
 function clamp01(value: number): number {
@@ -392,6 +393,152 @@ function rasterizeEraseDab(
   }
 }
 
+type BaselineSmudgeSourceSnapshotV1 = ReadonlyMap<string, BaselineRasterTileImageV1>;
+
+function sampleSmudgeSnapshotInteger(
+  snapshot: BaselineSmudgeSourceSnapshotV1,
+  documentWidth: number,
+  documentHeight: number,
+  x: number,
+  y: number,
+): readonly [number, number, number, number] {
+  if (x < 0 || y < 0 || x >= documentWidth || y >= documentHeight) return [0, 0, 0, 0];
+  const tx = Math.floor(x / CANONICAL_TILE_SIZE_PX);
+  const ty = Math.floor(y / CANONICAL_TILE_SIZE_PX);
+  const tile = snapshot.get(tileKeyV1({ tx, ty }));
+  if (tile === undefined) return [0, 0, 0, 0];
+  const localX = x - tx * CANONICAL_TILE_SIZE_PX;
+  const localY = y - ty * CANONICAL_TILE_SIZE_PX;
+  if (localX < 0 || localY < 0 || localX >= tile.width || localY >= tile.height) {
+    return [0, 0, 0, 0];
+  }
+  return readPixel(tile, localY * tile.width + localX);
+}
+
+function sampleSmudgeSnapshot(
+  snapshot: BaselineSmudgeSourceSnapshotV1,
+  documentWidth: number,
+  documentHeight: number,
+  documentX: number,
+  documentY: number,
+): readonly [number, number, number, number] {
+  const sampleX = documentX - 0.5;
+  const sampleY = documentY - 0.5;
+  const x0 = Math.floor(sampleX);
+  const y0 = Math.floor(sampleY);
+  const tx = sampleX - x0;
+  const ty = sampleY - y0;
+  const samples = [
+    sampleSmudgeSnapshotInteger(snapshot, documentWidth, documentHeight, x0, y0),
+    sampleSmudgeSnapshotInteger(snapshot, documentWidth, documentHeight, x0 + 1, y0),
+    sampleSmudgeSnapshotInteger(snapshot, documentWidth, documentHeight, x0, y0 + 1),
+    sampleSmudgeSnapshotInteger(snapshot, documentWidth, documentHeight, x0 + 1, y0 + 1),
+  ] as const;
+  const weights = [(1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty] as const;
+  let alpha = 0;
+  let redPremultiplied = 0;
+  let greenPremultiplied = 0;
+  let bluePremultiplied = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    const sample = samples[index] ?? [0, 0, 0, 0];
+    const weight = weights[index] ?? 0;
+    alpha += sample[3] * weight;
+    redPremultiplied += sample[0] * sample[3] * weight;
+    greenPremultiplied += sample[1] * sample[3] * weight;
+    bluePremultiplied += sample[2] * sample[3] * weight;
+  }
+  if (alpha <= 1e-9) return [0, 0, 0, 0];
+  return [
+    clamp01(redPremultiplied / alpha),
+    clamp01(greenPremultiplied / alpha),
+    clamp01(bluePremultiplied / alpha),
+    clamp01(alpha),
+  ];
+}
+
+function mixPremultipliedRgba(
+  destination: readonly [number, number, number, number],
+  source: readonly [number, number, number, number],
+  strength: number,
+): readonly [number, number, number, number] {
+  const amount = clamp01(strength);
+  const destinationWeight = 1 - amount;
+  const alpha = destination[3] * destinationWeight + source[3] * amount;
+  const redPremultiplied =
+    destination[0] * destination[3] * destinationWeight + source[0] * source[3] * amount;
+  const greenPremultiplied =
+    destination[1] * destination[3] * destinationWeight + source[1] * source[3] * amount;
+  const bluePremultiplied =
+    destination[2] * destination[3] * destinationWeight + source[2] * source[3] * amount;
+  if (alpha <= 1e-9) return [0, 0, 0, 0];
+  return [
+    clamp01(redPremultiplied / alpha),
+    clamp01(greenPremultiplied / alpha),
+    clamp01(bluePremultiplied / alpha),
+    clamp01(alpha),
+  ];
+}
+
+function rasterizeSmudgeDab(
+  tile: BaselineRasterTileImageV1,
+  tileX: number,
+  tileY: number,
+  dab: BaselineBrushDabV1,
+  deltaX: number,
+  deltaY: number,
+  snapshot: BaselineSmudgeSourceSnapshotV1,
+  documentWidth: number,
+  documentHeight: number,
+): boolean {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const minX = Math.max(tileX, Math.floor(dab.x - radiusX));
+  const minY = Math.max(tileY, Math.floor(dab.y - radiusY));
+  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + radiusX) - 1);
+  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
+  const opacity = clamp01(dab.opacity);
+  let changed = false;
+
+  for (let documentY = minY; documentY <= maxY; documentY += 1) {
+    const localY = (documentY + 0.5 - dab.y) / radiusY;
+    const localYSquared = localY * localY;
+    if (localYSquared >= 1) continue;
+    for (let documentX = minX; documentX <= maxX; documentX += 1) {
+      const localX = (documentX + 0.5 - dab.x) / radiusX;
+      const distanceSquared = localX * localX + localYSquared;
+      if (distanceSquared >= 1) continue;
+      const strength =
+        distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
+          ? opacity
+          : clamp01(
+              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
+            );
+      if (strength <= 0) continue;
+      const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
+      const destination = readPixel(tile, pixel);
+      const source = sampleSmudgeSnapshot(
+        snapshot,
+        documentWidth,
+        documentHeight,
+        documentX + 0.5 - deltaX,
+        documentY + 0.5 - deltaY,
+      );
+      const mixed = mixPremultipliedRgba(destination, source, strength);
+      if (
+        Math.abs(mixed[0] - destination[0]) <= 1e-9 &&
+        Math.abs(mixed[1] - destination[1]) <= 1e-9 &&
+        Math.abs(mixed[2] - destination[2]) <= 1e-9 &&
+        Math.abs(mixed[3] - destination[3]) <= 1e-9
+      ) {
+        continue;
+      }
+      writePixel(tile, pixel, mixed);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 const MASK_SOFTEN_WEIGHTS = Object.freeze([1, 4, 6, 4, 1] as const);
 const MASK_SOFTEN_WEIGHT_TOTAL = 256;
 
@@ -586,11 +733,16 @@ export class BaselineRasterTileStoreV1 {
         operation,
         before: new Map(),
         affected: new Map(),
+        lastSmudgeDab: null,
       };
     }
     if (this.#active.layerId !== layerId) throw new Error('active stroke changed raster layer');
     if (this.#active.operation !== operation)
       throw new Error('active stroke changed brush operation');
+    if (operation === 'smudge') {
+      this.#applySmudgeDabs(layerId, dabs);
+      return;
+    }
 
     for (const plan of planBaselineBrushTilesV1(dabs, this.#documentWidth, this.#documentHeight)) {
       const coordinateKey = tileKeyV1(plan.coordinate);
@@ -623,6 +775,91 @@ export class BaselineRasterTileStoreV1 {
         else rasterizeColorDab(tile, bounds.x, bounds.y, dab);
       }
     }
+  }
+
+  #applySmudgeDabs(layerId: string, dabs: readonly BaselineBrushDabV1[]): void {
+    const active = this.#active;
+    if (active === null || active.operation !== 'smudge') {
+      throw new Error('smudge rasterization requires an active smudge transaction');
+    }
+    for (const dab of dabs) {
+      const previous = active.lastSmudgeDab;
+      active.lastSmudgeDab = dab;
+      if (previous === null) continue;
+      const deltaX = dab.x - previous.x;
+      const deltaY = dab.y - previous.y;
+      if (Math.hypot(deltaX, deltaY) <= 1e-9) continue;
+      const snapshot = this.#snapshotSmudgeSourceTiles(layerId, dab, deltaX, deltaY);
+      for (const plan of planBaselineBrushTilesV1(
+        Object.freeze([dab]),
+        this.#documentWidth,
+        this.#documentHeight,
+      )) {
+        const key = tileStateKey(layerId, plan.coordinate);
+        const current = this.#tiles.get(key);
+        const working =
+          current === undefined
+            ? createTransparentTile(
+                layerId,
+                plan.coordinate,
+                this.#documentWidth,
+                this.#documentHeight,
+                this.#pixelFormat,
+              )
+            : cloneTile(current);
+        const bounds = tileBoundsForDocumentV1(
+          this.#documentWidth,
+          this.#documentHeight,
+          plan.coordinate,
+        );
+        const changed = rasterizeSmudgeDab(
+          working,
+          bounds.x,
+          bounds.y,
+          dab,
+          deltaX,
+          deltaY,
+          snapshot,
+          this.#documentWidth,
+          this.#documentHeight,
+        );
+        if (!changed) continue;
+        if (!active.before.has(key)) {
+          active.before.set(key, current === undefined ? null : cloneTile(current));
+          active.affected.set(key, freezeCoordinate(plan.coordinate));
+        }
+        this.#tiles.set(key, working);
+        this.#compositeCache.delete(tileKeyV1(plan.coordinate));
+      }
+    }
+  }
+
+  #snapshotSmudgeSourceTiles(
+    layerId: string,
+    dab: BaselineBrushDabV1,
+    deltaX: number,
+    deltaY: number,
+  ): BaselineSmudgeSourceSnapshotV1 {
+    const radiusX = baselineDabRadiusXV1(dab);
+    const radiusY = baselineDabRadiusYV1(dab);
+    const left = Math.max(0, Math.floor(dab.x - radiusX - deltaX) - 1);
+    const top = Math.max(0, Math.floor(dab.y - radiusY - deltaY) - 1);
+    const right = Math.min(this.#documentWidth - 1, Math.ceil(dab.x + radiusX - deltaX) + 1);
+    const bottom = Math.min(this.#documentHeight - 1, Math.ceil(dab.y + radiusY - deltaY) + 1);
+    const snapshot = new Map<string, BaselineRasterTileImageV1>();
+    if (right < left || bottom < top) return snapshot;
+    const minTx = Math.floor(left / CANONICAL_TILE_SIZE_PX);
+    const minTy = Math.floor(top / CANONICAL_TILE_SIZE_PX);
+    const maxTx = Math.floor(right / CANONICAL_TILE_SIZE_PX);
+    const maxTy = Math.floor(bottom / CANONICAL_TILE_SIZE_PX);
+    for (let ty = minTy; ty <= maxTy; ty += 1) {
+      for (let tx = minTx; tx <= maxTx; tx += 1) {
+        const coordinate = { tx, ty };
+        const source = this.#tiles.get(tileStateKey(layerId, coordinate));
+        if (source !== undefined) snapshot.set(tileKeyV1(coordinate), cloneTile(source));
+      }
+    }
+    return snapshot;
   }
 
   finalize(strokeId: string): readonly BaselineRasterTilePatchV1[] {

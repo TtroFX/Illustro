@@ -542,7 +542,8 @@ function parseBaselineCommittedStrokes(
     if (
       candidate.operation !== undefined &&
       candidate.operation !== 'paint' &&
-      candidate.operation !== 'erase'
+      candidate.operation !== 'erase' &&
+      candidate.operation !== 'smudge'
     ) {
       return null;
     }
@@ -632,7 +633,10 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     value.strokeId.length > 0 &&
     typeof value.layerId === 'string' &&
     value.layerId.length > 0 &&
-    (value.operation === undefined || value.operation === 'paint' || value.operation === 'erase')
+    (value.operation === undefined ||
+      value.operation === 'paint' ||
+      value.operation === 'erase' ||
+      value.operation === 'smudge')
   ) {
     const dabs = parseBaselineDabs(value.dabs);
     return dabs === null

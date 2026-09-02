@@ -18,8 +18,8 @@ const progress = read('IMPLEMENTATION_PROGRESS.md');
 
 requireText(
   canonical,
-  "export type CanonicalBrushModeV1 = 'raster' | 'eraser';",
-  'Raster/Eraser mode identity missing',
+  "export type CanonicalBrushModeV1 = 'raster' | 'eraser' | 'smudge';",
+  'Raster/Eraser/Smudge mode identity missing',
 );
 requireText(
   canonical,
@@ -56,11 +56,7 @@ requireText(main, 'illustroBrushMode', 'runtime Raster Brush diagnostics are not
 requireText(tests, 'long stable prefix', 'stable-prefix regression coverage missing');
 requireText(progress, 'M6A-001 Raster Brush mode:完了', 'M6A-001 progress is not complete');
 requireText(progress, 'M6A-002 Eraser mode:完了', 'M6A-002 progress is not complete');
-requireText(
-  progress,
-  'M6A-003 Smudge/Finger mode:未完了',
-  'future mode status was incorrectly advanced',
-);
+requireText(progress, 'M6A-003 Smudge/Finger mode:完了', 'M6A-003 progress is not complete');
 requireText(
   read('src/gpu/baseline-raster-tile-store.ts'),
   'rasterizeEraseDab',
@@ -68,8 +64,8 @@ requireText(
 );
 requireText(
   read('src/app/renderer-controller.ts'),
-  "operation === 'erase'",
-  'eraser recomposite presentation path missing',
+  "operation !== 'paint'",
+  'tile-changing brush recomposite presentation path missing',
 );
 requireText(
   read('src/workers/render.worker.ts'),
@@ -77,6 +73,37 @@ requireText(
   'worker eraser protocol missing',
 );
 requireText(read('src/index.html'), 'id="brush-mode-eraser"', 'reachable Eraser control missing');
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'rasterizeSmudgeDab',
+  'canonical Smudge rasterization missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'sampleSmudgeSnapshot',
+  'Smudge snapshot sampling missing',
+);
+requireText(
+  read('src/app/renderer-controller.ts'),
+  "operation !== 'paint'",
+  'tile-changing brush modes do not use canonical recomposite presentation',
+);
+requireText(
+  read('src/workers/render.worker.ts'),
+  "value.operation === 'smudge'",
+  'worker Smudge protocol missing',
+);
+requireText(read('src/index.html'), 'id="brush-mode-smudge"', 'reachable Smudge control missing');
+requireText(
+  read('tests/unit/smudge-mode.test.ts'),
+  'immutable pre-dab snapshot',
+  'Smudge snapshot regression coverage missing',
+);
+requireText(
+  progress,
+  'M6A-004 Blur brush mode:未完了',
+  'future Blur mode status was incorrectly advanced',
+);
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

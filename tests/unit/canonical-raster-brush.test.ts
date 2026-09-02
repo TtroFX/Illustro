@@ -6,11 +6,13 @@ import {
 } from '../../src/app/canonical-raster-brush.js';
 
 describe('M6A-001 canonical Raster Brush mode', () => {
-  it('exposes Raster and Eraser as implemented canonical brush modes', () => {
+  it('exposes Raster, Eraser and Smudge as implemented canonical brush modes', () => {
     expect(isImplementedCanonicalBrushModeV1('raster')).toBe(true);
     expect(isImplementedCanonicalBrushModeV1('eraser')).toBe(true);
+    expect(isImplementedCanonicalBrushModeV1('smudge')).toBe(true);
     expect(requireImplementedCanonicalBrushModeV1('raster')).toBe('raster');
     expect(requireImplementedCanonicalBrushModeV1('eraser')).toBe('eraser');
+    expect(requireImplementedCanonicalBrushModeV1('smudge')).toBe('smudge');
   });
 
   it('emits only newly generated dabs while retaining the stable prefix', () => {

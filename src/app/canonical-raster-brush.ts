@@ -8,15 +8,16 @@ import {
 export const CANONICAL_BRUSH_ENGINE_SCHEMA_V1 = 'illustro.canonical-brush-engine/1' as const;
 
 export type CanonicalBrushModeIdV1 = 'raster' | 'eraser' | 'smudge' | 'blur';
-export type CanonicalBrushModeV1 = 'raster' | 'eraser';
+export type CanonicalBrushModeV1 = 'raster' | 'eraser' | 'smudge';
 
 export const IMPLEMENTED_CANONICAL_BRUSH_MODES_V1 = Object.freeze([
   'raster',
   'eraser',
+  'smudge',
 ] as const satisfies readonly CanonicalBrushModeV1[]);
 
 export function isImplementedCanonicalBrushModeV1(value: unknown): value is CanonicalBrushModeV1 {
-  return value === 'raster' || value === 'eraser';
+  return value === 'raster' || value === 'eraser' || value === 'smudge';
 }
 
 export function requireImplementedCanonicalBrushModeV1(
@@ -31,7 +32,9 @@ export function requireImplementedCanonicalBrushModeV1(
 export function canonicalBrushCompositeOperationV1(
   mode: CanonicalBrushModeV1,
 ): BaselineBrushCompositeOperationV1 {
-  return mode === 'eraser' ? 'erase' : 'paint';
+  if (mode === 'eraser') return 'erase';
+  if (mode === 'smudge') return 'smudge';
+  return 'paint';
 }
 
 export interface CanonicalRasterBrushSampleV1 {
