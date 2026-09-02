@@ -36,7 +36,8 @@
     "verify:m3": "node scripts/verify-m3-foundation.mjs",
     "verify:m4": "node scripts/verify-m4-vertical-slice.mjs",
     "verify:m5a": "node scripts/verify-m5a-document-foundation.mjs",
-    "verify:m5b": "node scripts/verify-m5b-layer-foundation.mjs"
+    "verify:m5b": "node scripts/verify-m5b-layer-foundation.mjs",
+    "verify:m5c": "node scripts/verify-m5c-compositor.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",

@@ -448,6 +448,7 @@ export function paintRasterLayerDescriptorsV1(
         visible: layer.visible,
         opacity: layer.opacity,
         ...(layer.roleFlags.draft ? { draft: true } : {}),
+        ...(layer.blendMode === 'normal' ? {} : { blendMode: layer.blendMode }),
       }),
     );
   }

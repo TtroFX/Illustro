@@ -247,7 +247,7 @@ USER-01-PERF-008 スマホ描画・キャンバス移動・ストローク確定
 USER-01-EXPORT-003 スマホ書出ボタンstale availability lockout除去・single production handler ownership:完了
 USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:完了
 USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:完了
-再開メモ: Raster Tile canonical state性能修正はmainへ統合済み。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。format、lint（既存warningのみ）、typecheck、unit 80 files / 302 tests、integration 2 files / 4 tests、production build、M4 contractがPASS。GitHub Pages `https://ttrofx.github.io/Illustro/` のbuild-infoとmain SHAの一致を確認済み。USER-01は2026-09-02のスマホ実機確認で新規作成・1本指描画・性能・Undo/Redo・保存再読込・PNG Exportまで全項目明示PASS済み。M5B-045〜050 Reference/Draft roles・Draft final-output除外・Linked Object canonical embedded snapshotまで完了。次はM5C-001 Normal blend modeから再開する。
+再開メモ: Raster Tile canonical state性能修正はmainへ統合済み。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。format、lint（既存warningのみ）、typecheck、unit 80 files / 302 tests、integration 2 files / 4 tests、production build、M4 contractがPASS。GitHub Pages `https://ttrofx.github.io/Illustro/` のbuild-infoとmain SHAの一致を確認済み。USER-01は2026-09-02のスマホ実機確認で新規作成・1本指描画・性能・Undo/Redo・保存再読込・PNG Exportまで全項目明示PASS済み。M5B-045〜050 Reference/Draft roles・Draft final-output除外・Linked Object canonical embedded snapshotまで完了。M5C-001〜010のbase blend modeはcanonical Raster Tile compositorへ接続済み。次はM5C-011 Lighter Colorから再開する。
 
 USER-01は2026-09-02のスマホ実機確認で全項目明示PASS済み。
 
@@ -338,16 +338,16 @@ M5B-050 Linked Object canonical embedded representation:完了
 M5B-検査 M5B内部検査:完了
 
 ## M5C — Blend Modes / Compositor
-M5C-001 Normal:未完了
-M5C-002 Darken:未完了
-M5C-003 Multiply:未完了
-M5C-004 Color Burn:未完了
-M5C-005 Linear Burn:未完了
-M5C-006 Darker Color:未完了
-M5C-007 Lighten:未完了
-M5C-008 Screen:未完了
-M5C-009 Color Dodge:未完了
-M5C-010 Linear Dodge/Add:未完了
+M5C-001 Normal:完了
+M5C-002 Darken:完了
+M5C-003 Multiply:完了
+M5C-004 Color Burn:完了
+M5C-005 Linear Burn:完了
+M5C-006 Darker Color:完了
+M5C-007 Lighten:完了
+M5C-008 Screen:完了
+M5C-009 Color Dodge:完了
+M5C-010 Linear Dodge/Add:完了
 M5C-011 Lighter Color:未完了
 M5C-012 Overlay:未完了
 M5C-013 Soft Light:未完了

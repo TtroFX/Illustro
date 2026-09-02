@@ -757,6 +757,7 @@ export class RendererControllerV1 {
             visible: layer.visible,
             opacity: layer.opacity,
             draft: layer.draft ?? false,
+            ...(layer.blendMode === undefined ? {} : { blendMode: layer.blendMode }),
           }),
         ),
       ),

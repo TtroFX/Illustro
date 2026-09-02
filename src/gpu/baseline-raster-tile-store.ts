@@ -1,10 +1,12 @@
 import type { DocumentPrecision } from '../domain/document.js';
+import type { BlendModeId } from '../domain/layers.js';
 import {
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   planBaselineBrushTilesV1,
   type BaselineBrushDabV1,
 } from './baseline-brush.js';
+import { compositeBlendRgbaV1, isM5cBaseBlendModeV1 } from './blend-modes.js';
 import { tileBoundsForDocumentV1, tileKeyV1, type TileCoordinateV1 } from './sparse-tile-model.js';
 
 export interface BaselineRasterLayerDescriptorV1 {
@@ -12,6 +14,7 @@ export interface BaselineRasterLayerDescriptorV1 {
   readonly visible: boolean;
   readonly opacity: number;
   readonly draft?: boolean;
+  readonly blendMode?: BlendModeId;
 }
 
 export interface BaselineRasterTileImageV1 {
@@ -514,24 +517,15 @@ export class BaselineRasterTileStoreV1 {
       for (let pixel = 0; pixel < output.width * output.height; pixel += 1) {
         const sourcePixel = readPixel(source, pixel);
         const destination = readPixel(output, pixel);
-        const sourceAlpha = sourcePixel[3] * layer.opacity;
-        const outputAlpha = sourceAlpha + destination[3] * (1 - sourceAlpha);
-        const red =
-          outputAlpha > 0
-            ? (sourcePixel[0] * sourceAlpha + destination[0] * destination[3] * (1 - sourceAlpha)) /
-              outputAlpha
-            : 0;
-        const green =
-          outputAlpha > 0
-            ? (sourcePixel[1] * sourceAlpha + destination[1] * destination[3] * (1 - sourceAlpha)) /
-              outputAlpha
-            : 0;
-        const blue =
-          outputAlpha > 0
-            ? (sourcePixel[2] * sourceAlpha + destination[2] * destination[3] * (1 - sourceAlpha)) /
-              outputAlpha
-            : 0;
-        writePixel(output, pixel, [red, green, blue, outputAlpha]);
+        const blendMode = layer.blendMode ?? 'normal';
+        if (!isM5cBaseBlendModeV1(blendMode)) {
+          throw new Error(`unsupported baseline blend mode: ${blendMode}`);
+        }
+        writePixel(
+          output,
+          pixel,
+          compositeBlendRgbaV1(destination, sourcePixel, layer.opacity, blendMode),
+        );
       }
     }
     return output;
@@ -549,12 +543,17 @@ export class BaselineRasterTileStoreV1 {
         if (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1) {
           throw new RangeError('baseline raster layer opacity must be between 0 and 1');
         }
+        const blendMode = layer.blendMode ?? 'normal';
+        if (!isM5cBaseBlendModeV1(blendMode)) {
+          throw new Error(`unsupported baseline blend mode: ${blendMode}`);
+        }
         seen.add(layer.layerId);
         return Object.freeze({
           layerId: layer.layerId,
           visible: layer.visible,
           opacity: layer.opacity,
           draft: layer.draft ?? false,
+          ...(blendMode === 'normal' ? {} : { blendMode }),
         });
       }),
     );
