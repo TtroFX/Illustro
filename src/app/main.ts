@@ -14,6 +14,7 @@ import {
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installColorWorkflowControllerV1 } from './color-workflow-controller.js';
+import { installReferenceWorkflowControllerV1 } from './reference-workflow-controller.js';
 import type { DocumentV1 } from '../domain/document.js';
 import { installDocumentWorkflowControllerV1 } from './document-workflow-controller.js';
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
@@ -62,6 +63,11 @@ const colorWorkflow = installColorWorkflowControllerV1({
   mapPointerToDocument: (sample, documentValue) =>
     viewport.mapPointerToDocument(sample, documentValue),
 });
+const referenceWorkflow = installReferenceWorkflowControllerV1({
+  root,
+  onSample: (color, label) => colorWorkflow.applyExternalSample(color, label),
+});
+void referenceWorkflow;
 const selectionCoverage = new SelectionCoverageControllerV1();
 const paintPersistence = new PaintPersistenceControllerV1(
   workers.storage,

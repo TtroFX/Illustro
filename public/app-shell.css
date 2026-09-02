@@ -1292,3 +1292,55 @@ body {
   gap: 0.2rem;
   font-size: 0.72rem;
 }
+
+
+/* M5D reference sampling */
+.shell-reference-panel {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.shell-reference-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.shell-reference-header output {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary, #667085);
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-reference-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.35rem;
+}
+
+.shell-reference-toolbar select,
+.shell-reference-toolbar button,
+.shell-reference-view-actions button {
+  min-height: 2.75rem;
+}
+
+#reference-canvas {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 14 / 9;
+  border: 1px solid var(--border-default, #e4e9f1);
+  border-radius: 8px;
+  background: #f6f8fb;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.shell-reference-view-actions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem;
+}

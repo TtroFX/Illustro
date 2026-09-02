@@ -63,7 +63,23 @@ requireText('src/app/color-sampling.ts', [
   'sampleActiveLayerColorV1',
   'sampleMergedCanvasColorV1',
 ]);
-requireText('src/app/main.ts', ['colorWorkflow.ingestPointerBatch', "'eyedropper'"]);
+requireText('src/app/main.ts', [
+  'colorWorkflow.ingestPointerBatch',
+  "'eyedropper'",
+  'installReferenceWorkflowControllerV1',
+  'colorWorkflow.applyExternalSample',
+]);
+requireText('src/app/reference-workflow-controller.ts', [
+  'putImmutableObject',
+  'readImmutableObject',
+  "kind: 'reference-image'",
+  'referenceViewSourcePointV1',
+  'referenceRgbaBytesToColorV1',
+]);
+requireText('src/app/reference-workspace-state.ts', [
+  'illustro.reference-workspace/1',
+  'REFERENCE_WORKSPACE_LIMIT_V1',
+]);
 
 requireText('src/gpu/shaders/baseline-brush.wgsl', [
   '@location(3) color: vec3f',
@@ -98,6 +114,9 @@ requireText('src/index.html', [
   'id="color-eyedropper"',
   'id="color-sampling-source"',
   'id="color-palette-select"',
+  'id="reference-select"',
+  'id="reference-import"',
+  'id="reference-canvas"',
   'id="color-palette-name"',
   'id="color-palette-create"',
   'id="color-palette-delete"',
@@ -131,6 +150,7 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-017 quick Eyedropper:完了',
   'M5D-018 active-layer sampling:完了',
   'M5D-019 merged-canvas sampling:完了',
-  'M5D-020 reference-image sampling:未完了',
+  'M5D-020 reference-image sampling:完了',
+  'M5D-021 sRGB processing:未完了',
 ]);
 console.log('M5D color/palette verification passed');
