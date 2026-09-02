@@ -1,4 +1,4 @@
-name: Append canonical input interaction design once
+name: Mark phone UX remediation complete once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  append-canonical-input-interaction-design:
+  mark-phone-ux-remediation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,350 +18,40 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Append authoritative input interaction design and align M8 tracking
+      - name: Mark implemented phone UX items complete
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-
-          memo_path = Path('ILLUSTRO_DESIGN_MEMO.md')
-          memo = memo_path.read_text()
-          marker = '# Post-freeze UX Design Change — Canonical Input / Parameter Interaction System — 2026-09-02'
-          appendix = r'''
-          # Post-freeze UX Design Change — Canonical Input / Parameter Interaction System — 2026-09-02
-
-          **Status: AUTHORITATIVE / DESIGN CHANGE / SUPERSESSION / CLOSED.**
-
-          This controlled post-freeze change defines the common interaction contract for user-entered parameters, choices, colors, geometry, targets, curves, assets and contextual commands across Illustro. It is based on a post-freeze interaction audit of mature creative applications including Procreate, Adobe Photoshop, CLIP STUDIO PAINT, Krita, ibisPaint, Affinity Photo, Adobe Fresco, SketchBook, Lightroom, Figma and Blender. Illustro adopts useful interaction ideas as independently designed behavior; it does not copy proprietary UI artwork, source code or assets.
-
-          This section supplements the closed Phase-2 and F/G interaction system and is authoritative where older wording can be read as requiring one generic slider/dropdown/numeric-field treatment for all parameters. Existing Canvas First, Direct Manipulation, Recognition over Recall, Progressive Disclosure, Contextual UI, Immediate Feedback, input-arbitration, Command Registry, accessibility, motion and Undo/Redo contracts remain in force unless explicitly refined below.
-
-          ## IP-1. Canonical interaction hierarchy
-
-          Ordinary parameter interaction uses three visible levels rather than forcing a separate mode for every degree of precision:
-
-          1. **Direct** — manipulate the artwork/object itself when the value has a genuine spatial or visual meaning.
-          2. **Quick** — expose only the highest-frequency controls needed during the active task, normally no more than about three controls at once.
-          3. **Detail** — Inspector/task-surface access to exact numeric values, mappings, curves, source/reference settings and specialist controls.
-
-          Precision is not a separate product mode. Exact entry and specialist controls live inside the relevant Detail surface. A gesture may accelerate an operation, but no required capability may depend on an undiscoverable gesture alone.
-
-          All presentations of one parameter operate on **one canonical parameter state**. Direct handles, Quick controls, Inspector fields, shortcuts and contextual surfaces are alternate interaction paths, not duplicated independent states.
-
-          ## IP-2. Canonical input families
-
-          Illustro uses a bounded shared component vocabulary selected by the semantics of the value:
-
-          - **Adaptive Scalar Control** for continuous scalar values.
-          - **Bipolar Scalar Control** for signed values with a meaningful neutral zero.
-          - **Range / Min-Max Control** only when two bounds are genuinely part of one concept.
-          - **Stepper / discrete scalar** for small integer/count domains.
-          - **Angle / circular control** for non-spatial angle values; spatial direction uses on-canvas geometry first.
-          - **XY / 2D field** only where two dimensions are simultaneously meaningful.
-          - **Curve Editor** for response/mapping functions such as pressure, velocity and tone curves.
-          - **Color field / wheel** for graphical color selection.
-          - **Toggle** for a true binary state.
-          - **Segmented Control** for a small, mutually exclusive set that can remain readable at once.
-          - **Popover / Sheet picker** for larger semantic choice sets.
-          - **Visual Asset Picker** for visually identifiable brushes, tips, textures, patterns, gradients and similar resources.
-          - **Layer / Object / Reference Picker** for document-semantic targets.
-          - **Context Mini Surface** for commands whose proximity to the active selection/object materially reduces travel.
-          - **Shortcut / stylus binding recorder** for physical input bindings.
-
-          A control is chosen by semantic fit, frequency, value distribution, error cost and current input device—not by a rule that every number must look alike.
-
-          ## IP-3. Adaptive scalar and value-distribution contract
-
-          A scalar control must map screen travel to useful perceptual control, rather than blindly mapping every numeric domain linearly.
-
-          ### Mapping classes
-
-          - Opacity, flow, strength, tolerance and ordinary normalized 0–100% values are normally **linear** unless physical QA demonstrates a clear perceptual reason otherwise.
-          - Brush/Eraser size and other very wide positive domains such as selected blur/scatter radii, texture scale and zoom use a **monotonic perceptual/log-like or piecewise-perceptual mapping**. Small values receive substantially more physical travel than they would under a linear full-range mapping, so line-art widths can be adjusted much more finely than very large brush diameters.
-          - Signed offsets such as hue shift, expansion/contraction and neutral rotation offsets use a **Bipolar** presentation with an explicit center/zero marker.
-          - Counts such as polygon sides or mesh subdivisions use a **discrete stepped** presentation.
-          - Angles that correspond to visible geometry are manipulated through the geometry itself; a compact angle control/numeric value remains the precision path.
-          - Response functions use the shared Curve Editor rather than approximating a nonlinear relationship with multiple unrelated sliders.
-
-          The exact perceptual coefficients may be tuned by physical-device QA without reopening this design, provided the mapping remains continuous/monotonic, preserves its exact endpoints, allocates clearly higher screen-space precision to small brush sizes, and passes the M8J interaction tests. A pure logarithm is not required when a piecewise curve produces better predictable control.
-
-          ### Soft interaction range versus hard range
-
-          Parameters with rare extreme values separate:
-
-          - **soft interaction range** — the normal direct/slider range optimized for common work;
-          - **hard validated range** — the complete safe range reachable through exact numeric/detail entry.
-
-          Rare extremes must not destroy precision over the range used most of the time. The UI must make an out-of-soft-range current value visible rather than silently clamping canonical state simply because the ordinary slider has a narrower soft range.
-
-          Brush presets may define meaningful per-brush soft size/opacity ranges using the already-adopted per-brush limit semantics. A fine line pen and a giant airbrush therefore do not have to waste the same slider travel on irrelevant sizes.
-
-          ### Semantic stepping
-
-          Increment/decrement step size follows the magnitude and parameter meaning. A 0.5 px brush and a 1500 px brush must not be forced to use the same one-pixel step. Keyboard arrows, precision controls and tap-step behavior use the same semantic step policy so the interaction remains consistent.
-
-          ## IP-4. Scalar direct-manipulation refinements
-
-          - Normal drag remains sufficient for ordinary use; fine control is an accelerator, not a hidden requirement.
-          - On Touch, moving the active contact farther **perpendicular away from the slider track** progressively lowers adjustment gain, allowing fine correction without lifting the finger.
-          - On Mouse/trackpad, an eligible value/label may use scrub interaction; vertical/perpendicular displacement and/or the standard precision modifier may reduce gain. This mouse affordance must not be the only way to edit a value.
-          - Keyboard Arrow changes one semantic step; a documented modifier provides larger/finer stepping as appropriate.
-          - Pen may operate ordinary UI controls, but pen pressure does not secretly change a UI scalar unless that behavior is explicitly mapped by the active tool.
-          - A high-frequency scalar may expose up to **four Saved Parameter Marks** per relevant preset/context. Marks stay visually restrained until the parameter is manipulated, can be selected directly, and may use gentle snap plus optional haptic feedback when the platform supports it.
-          - Haptics are reserved for meaningful boundaries such as a saved mark, neutral zero or geometric snap. Every slider tick must not vibrate.
-          - Default/reset state is recognizable. A changed value may expose a small reset affordance; double-tap reset may exist as a supplemental accelerator but cannot be the only reset path.
-
-          ## IP-5. Exact numeric entry
-
-          Numeric precision remains available wherever an exact value materially improves artwork or layout.
-
-          - The resting UI shows a compact **value label**, not a permanent spreadsheet-like text box for every parameter.
-          - Tapping/activating the value enters a proper numeric editor.
-          - Compatible fields may evaluate simple relative/arithmetic input such as `+10`, `-5`, `*2`, `/2` or `1200/3` and explicit units such as px, %, degrees or supported physical units where the underlying parameter has those semantics.
-          - Unit conversion never invents physical meaning for a pixel-only parameter.
-          - Invalid/unsafe results are rejected or explicitly clamped according to the parameter contract; they are never silently committed as a different value without feedback.
-          - Locale-facing decimal formatting follows P1 localization rules while canonical serialized numeric values remain locale-neutral.
-
-          ## IP-6. Choice, picker and long-list design
-
-          Illustro minimizes both dropdown overuse and permanent option clutter:
-
-          - true binary state → Toggle or binary icon/state control;
-          - roughly 2–4 short mutually exclusive choices → Segmented Control when they fit without compression;
-          - medium semantic sets → anchored Popover or responsive Sheet;
-          - visually distinguishable choices → Visual Grid/Asset Picker even when a text list could technically represent them;
-          - large sets → **Recent + Favorites + Category/Tag + optional Search**.
-
-          Search is available but is not forced as the first interaction. Users should usually recognize a recent/favorite/category item before they need to recall and type its name.
-
-          Blend Mode uses a categorized chooser (Normal, darkening, lightening, contrast, difference/component families as applicable) with current state, Recent/Favorites and search where useful. The compact layer row remains symbol-first under the existing Layer UI revision; full localized names appear in the chooser/tooltip/accessibility surface.
-
-          Brush Tips, Textures, Patterns, Gradients and similar resources use thumbnail/preview-first asset picking rather than a name-only dropdown. Layer/reference targeting uses semantic tree/list pickers rather than raw IDs.
-
-          ## IP-7. Color interaction
-
-          The existing canonical Color Workspace remains one shared color state. Its interaction is refined as follows:
-
-          - tapping the current/Main color opens the Color surface;
-          - an eligible long-press on the current color recalls the Previous color, with visible identification so this is not gesture-only knowledge;
-          - dragging a color/palette swatch onto an eligible canvas region may invoke Fill/ColorDrop semantics; canonical Fill/reference/tolerance rules still apply and release over an ineligible target makes no artwork mutation;
-          - the compact primary Color presentation favors the graphical Hue + saturation/value field and Main/Sub/Previous/History recognition;
-          - RGB/HSV/HEX/Alpha and profile-oriented precision controls remain progressively disclosed Detail controls and stay synchronized with the same canonical color state;
-          - Palette may remain open/detached independently through the existing Inspector/PiP system rather than being trapped as a page of one modal color picker.
-
-          ## IP-8. Eyedropper / sampled-content interaction
-
-          Eyedropper provides pre-commit visual evidence rather than sampling blindly:
-
-          - a magnified loupe shows the sampling point;
-          - the loupe clearly compares **current color and prospective sampled color** before/while committing the sample;
-          - Detail controls support the canonical source choices (active layer, merged canvas, reference image as available), sample radius/area and averaging where implemented;
-          - when sampled artwork can be traced to meaningful contributing layer content, the loupe/context may expose the candidate layer name(s) and allow an explicit jump/select action. It must never silently change the active layer merely because the user sampled a color;
-          - multiple contributing layers use a bounded stack picker rather than guessing one when ambiguity matters.
-
-          A hidden second-finger gesture is **not** adopted as the primary way to change sampling source because it conflicts with Illustro's current one-Touch drawing / two-or-more-Touch navigation ownership contract. Source remains visibly accessible through contextual/detail UI.
-
-          ## IP-9. Spatial direct manipulation + precision pairing
-
-          Spatially meaningful parameters use the artwork/canvas itself as the main controller:
-
-          - Transform uses bounds/pivot/mesh/warp handles; exact X/Y/W/H/scale/angle remain in Tool Properties.
-          - Gradient uses an on-canvas direction/extent line, editable stops and midpoint handles. Stops can be added directly; dragging a stop outside its valid line/track enters a visible pending-delete state and release commits deletion, while returning it cancels deletion.
-          - Vector/Shape uses nodes and Bézier handles directly; exact/style properties remain in Inspector controls.
-          - Ruler/Perspective/Assistant controls expose only the handles relevant to the currently selected/edited ruler rather than displaying every control point permanently.
-          - Lineart Boundary exposes endpoint/topology handles only in the relevant boundary context.
-          - Smart Shape adopts **draw → hold → recognized geometric correction → editable handles** as a direct accelerator while retaining explicit Shape tools for discoverability.
-
-          Direct manipulation never removes the exact/accessible non-canvas path. Conversely, a spatial value should not require numeric entry when the object itself can be manipulated safely and clearly.
-
-          ## IP-10. Selection, Fill and Quick Mask interaction
-
-          - Selection Launcher remains contextual and small; high-frequency actions appear near but not over the selected region while lower-frequency operations stay behind the relevant Inspector/More surface.
-          - Auto Select and Fill may support **tap/activate → continue holding → horizontal/direct drag to adjust threshold/tolerance** while the affected region updates live. A normal tap/release remains a complete simple operation; the hold-drag path is optional progressive disclosure.
-          - During threshold/tolerance adjustment, a clear numeric value and affected-region preview are shown near the operation without obscuring the pen/contact point.
-          - Quick Mask supports direct Brush/Eraser-style add/subtract editing with a configurable translucent selection overlay. Overlay color/opacity are presentation settings, not artwork pixels.
-
-          ## IP-11. Brush Studio / Dynamics interaction
-
-          Brush editing follows the existing Tool Properties → Brush Presets → Brush Studio hierarchy and adds these common behaviors:
-
-          - editing a preset creates an explicit **Modified** state rather than silently destroying the stored preset; Reset, Save/Update and Save As/Duplicate are explicit;
-          - Brush Studio contains one shared live Drawing Pad/stroke-preview area instead of adding a noisy miniature preview beside every scalar;
-          - Taper/start/end behavior should use an editable stroke/taper visualization as the primary conceptual control, with numeric/detail values available underneath rather than presenting a wall of unrelated sliders;
-          - a dynamically mappable parameter exposes a restrained dynamics indicator/entry attached to that parameter. Dynamics controls become visually prominent only when used or opened;
-          - Pressure/Tilt/Velocity/etc. use the shared Curve Editor, with reusable curve presets plus direct point editing and exact selected-point values;
-          - while configuring dynamics, available physical pen input may be shown as a live monitor/indicator so the user can see pressure/tilt values against the curve. Missing hardware inputs remain capability-aware and do not make the editor unusable.
-
-          ## IP-12. Shared Curve Editor contract
-
-          Tone Curve, pressure response and other compatible curve editors share one interaction grammar:
-
-          - tap/click valid curve area → add node when the curve type allows it;
-          - drag node → move node with live preview;
-          - select node → expose exact input/output values;
-          - explicit Delete → remove eligible selected node;
-          - Reset → canonical default;
-          - useful presets such as linear/soft/hard/S-curve families may be offered where semantically valid.
-
-          Different features may constrain endpoints or domains differently, but they must not invent contradictory basic curve-manipulation gestures.
-
-          ## IP-13. Layer/object multi-selection and reorder
-
-          - Multiple selected objects/layers with differing common values display a recognizable **Mixed Value** state rather than a fabricated average.
-          - Editing a mixed value through the ordinary shared control sets an explicit chosen value consistently. Relative/delta adjustment may exist through an explicit mode/modifier/command, but must not be an invisible surprise caused merely by touching a normal scalar control.
-          - Inspector content for multi-selection shows only properties that are meaningfully common/editable across the selection.
-          - Drag reorder for Layers, Effects, Inspector blocks, assets, Quick Access and similar ordered collections shows the candidate insertion target/gap **before drop**. Users must not need to drop first to discover the result.
-
-          ## IP-14. Contextual UI placement and Quick Controls
-
-          - Tool Properties changes immediately with active tool/context, while user-pinned/detached blocks retain their explicit workspace state.
-          - A task may expose no more than about three high-frequency Quick controls by default. Additional controls remain in Detail/Inspector surfaces so Canvas First is not defeated by a growing HUD.
-          - Context mini surfaces avoid covering the selected geometry, important transform handles, current pen/contact position and persistent inspector/rail surfaces. At screen edges they flip/reposition into usable space.
-          - Context controls disappear or reduce interference during active drawing when they are not required for the stroke.
-
-          ## IP-15. Quick Hole interaction refinement
-
-          Quick Hole remains a **command surface**, not a second parameter inspector.
-
-          - Tapping a visible command hex remains the canonical discoverable invocation path.
-          - While a pointer/contact already owns a visible Quick Hole command surface, press-slide across eligible hex targets may highlight a new target and release may execute that highlighted command. This provides a marking-menu-style accelerator without adding another radial UI.
-          - A dedicated shortcut/stylus binding may invoke an expert marking/flick interaction, but the visually empty Quick Hole center must **not** become a permanent invisible hit target that steals ordinary canvas drawing.
-          - No critical command becomes gesture-only; all six commands remain reachable through visible hexes and the shared Command Registry.
-          - Parameter controls such as Size/Opacity stay in Quick Controls/Inspector rather than being overloaded into Quick Hole.
-
-          Krita/SketchBook-style large popup/radial palettes are therefore not added as separate competing systems; useful concepts are absorbed into existing Quick Hole, Quick Controls, Color, Brush and Context surfaces.
-
-          ## IP-16. Responsive presentation and input-device specialization
-
-          One semantic control may change presentation without changing capability:
-
-          - Wide: label + full control + compact value where appropriate.
-          - Medium: icon/short label + control/value.
-          - Narrow: compact value/icon that opens a large touch-safe Popover/Sheet control.
-          - Large choice sets use an anchored popover when space permits and a Sheet when narrow/coarse-input space makes the popover unreliable.
-
-          Physical-role refinements follow the latest authoritative input supersessions:
-
-          - Pen: drawing and precise geometry/UI manipulation.
-          - Touch: one-finger drawing by default on the full-editor canvas under the current unified-touch rule; two or more Touch contacts own navigation only after atomic provisional-stroke cancellation; Touch also operates UI with coarse-target ergonomics.
-          - Mouse/trackpad: desktop precision, hover/context affordances and scrub acceleration.
-          - Keyboard: shortcuts, modifiers, semantic increments and explicit Commit/Cancel.
-
-          The same physical event must never be accepted by two document-mutating recognizers.
-
-          ## IP-17. Hit targets and discoverability
-
-          - Visual handles may remain compact so geometry is not obscured, while their effective Touch hit regions meet the existing approximately 44 CSS px target policy where required/practical.
-          - Enlarged hit regions must use deterministic ownership/priority so neighboring handles do not create ambiguous targets.
-          - Symbol-first controls retain localized tooltip/focus/long-press identification and semantic accessible names.
-          - Gesture accelerators are documented/discoverable through settings/help or contextual hints, but normal completion never depends on memorizing them.
-          - Custom controls expose correct keyboard focus, accessible roles/states/value semantics and visible focus treatment.
-
-          ## IP-18. Preview, Commit, Cancel and Undo contract
-
-          Parameter editing follows the already-adopted P3 history model consistently:
-
-          1. interaction start captures the pre-edit value/state;
-          2. movement/editing produces transient live preview whenever safe;
-          3. release/Apply/explicit Commit creates **one logical document transaction** when the parameter changes canonical document state;
-          4. Cancel/Esc restores the exact pre-interaction state and creates no document transaction;
-          5. workspace-only parameter/layout changes follow workspace persistence rather than polluting document Undo.
-
-          A drag through 30→31→…→84 must not create dozens of document Undo steps. Reduced-quality effect preview remains allowed under the existing renderer policy; the final committed parameter is canonical and later converges to full quality.
-
-          Immediate feedback should preferentially show the **visual result**, not only a number: brush size shows an actual brush outline, direction shows direction, Fill/Selection shows affected region, and Brush Studio shows representative stroke output.
-
-          ## IP-19. Explicit non-adoptions / avoided failure modes
-
-          The reference-app audit does **not** justify these patterns as Illustro defaults:
-
-          - no global Simple/Studio mode split merely to hide advanced controls; Progressive Disclosure in one coherent editor remains preferred;
-          - no separate giant popup palette duplicating Quick Hole/Color/Brush systems;
-          - no opaque transform puck whose rings require memorized meanings when visible bounds/handles are clearer;
-          - no name-only dropdown for visually identifiable assets;
-          - no permanently expanded wall of numeric fields for parameters normally controlled visually;
-          - no gesture-only source switch that conflicts with multi-touch navigation ownership;
-          - no haptic feedback on every trivial scalar tick;
-          - no direct-manipulation gesture for a parameter that has no spatial meaning merely because a gesture could technically be invented.
-
-          ## IP-20. Implementation and verification impact
-
-          This design change adds the dedicated **M8J — Canonical Input / Parameter Interaction System** implementation lane in `IMPLEMENTATION_PROGRESS.md`.
-
-          Verification must cover at minimum:
-
-          - semantic mapping selection and monotonic/end-point correctness;
-          - small-brush precision versus wide-range access;
-          - soft-range/hard-range behavior and exact entry outside the soft range;
-          - Touch fine adjustment, Mouse scrub, keyboard semantic stepping and no hidden mandatory path;
-          - Saved Parameter Marks/reset/snap feedback without excessive visual/haptic clutter;
-          - Direct/Quick/Detail synchronization to one canonical state;
-          - picker Recent/Favorites/category/search behavior and visual asset picking;
-          - Color/Eyedropper loupe, source/average/radius and explicit layer reverse lookup behavior;
-          - Gradient/Transform/Vector/Ruler direct-manipulation + numeric precision pairing;
-          - Fill/Selection hold-drag live threshold/tolerance adjustment;
-          - Mixed Value behavior and explicit relative-versus-absolute semantics;
-          - insertion-target preview before reorder drop;
-          - contextual placement/occlusion avoidance;
-          - Quick Hole visible-tap path plus optional press-slide/marking accelerator without center interception;
-          - one interaction → one transaction, Cancel exact restoration;
-          - Touch/Pen/Mouse/Keyboard physical-device behavior, accessibility, localization and responsive presentation.
-
-          ### Change-control impact / supersession boundary
-
-          - **Reopened and re-closed by this section:** the UI/input-interaction detail portion of Phase 2 + F/G shared-component semantics and the corresponding FI-3/M8 verification coverage.
-          - **Not changed:** document/layer/brush schemas, `.illustro`/`.illbrush` formats, renderer canonical pixels, brush mathematical meaning, Command Registry identities, persistence/recovery, existing Quick Hole geometry/mapping, or the latest unified Touch ownership semantics.
-          - **No file-format migration is required.** Saved Parameter Marks, UI presentation preferences and similar interaction preferences are workspace/user state unless an existing canonical preset field explicitly owns the value.
-          - Existing historical references to generic `slider`, `numeric field`, `dropdown` or `direct manipulation` are interpreted through this more specific semantic-selection contract where they overlap.
-          - Post-freeze Design Freeze remains in force outside this explicit delta. The delta itself is **CLOSED at specification level** by this section; implementation remains tracked as incomplete until M8J and its verification gates pass.
-
-          ### Input-system change-log entry
-
-          - 2026-09-02: Completed a post-freeze cross-application input/interaction audit and adopted a canonical Direct/Quick/Detail system; semantic adaptive scalar mapping with small-brush precision, soft/hard ranges, exact numeric expressions/units, parameter memory/reset/fine control, contextual and visual pickers, enhanced Color/Eyedropper behavior, on-canvas Gradient/Transform/Vector/Ruler editing, Smart Shape hold, live Fill/Selection threshold adjustment, shared curves/Dynamics, mixed-value and reorder-preview semantics, responsive/device-specific control presentation, and a non-conflicting Quick Hole marking accelerator. Added M8J implementation/verification tracking without changing canonical artwork/file-format semantics.
-          '''
-
-          if marker not in memo:
-              memo_path.write_text(memo.rstrip() + '\n\n' + appendix.strip() + '\n')
-
-          progress_path = Path('IMPLEMENTATION_PROGRESS.md')
-          progress = progress_path.read_text()
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
           replacements = {
-              'M8G-018 Touch=canvas/UI arbitration:未完了':
-                  'M8G-018 Touch one-finger draw / two-or-more navigation arbitration:未完了',
-              'M8I-003 Narrow compatibility shell:未完了':
-                  'M8I-003 Narrow full-editor responsive layout:未完了',
-              'M8I-004 narrow shell project listing/open metadata:未完了':
-                  'M8I-004 narrow full-editor compact top command surface:未完了',
-              'M8I-005 narrow shell compatibility diagnostics:未完了':
-                  'M8I-005 narrow full-editor persistent bottom action strip:未完了',
-              'M8I-006 narrow shell recovery/export/backup:未完了':
-                  'M8I-006 narrow full-editor Inspector sheet/overlay access:未完了',
-              'M8I-007 narrow shell settings/help:未完了':
-                  'M8I-007 narrow full-editor safe-area / capability-preserving access:未完了',
-              'M8J-052 multi-selection relative scrub vs explicit absolute numeric-set semantics:未完了':
-                  'M8J-052 multi-selection Mixed Value absolute edit + explicit/modifier relative-adjust semantics:未完了',
+              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
+                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
+              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
+                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
+              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
+                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
           }
+          changed = False
           for before, after in replacements.items():
-              if before in progress:
-                  progress = progress.replace(before, after, 1)
-
-          lasso_item = 'M8C-019 Lasso direct high-frequency entry in canonical Eyedropper→Lasso→Text interval:未完了'
-          if lasso_item not in progress:
-              anchor = 'M8C-018 Navigation family:未完了\n'
-              if anchor not in progress:
-                  raise SystemExit('M8C insertion anchor missing')
-              progress = progress.replace(anchor, anchor + lasso_item + '\n', 1)
-
-          progress_path.write_text(progress)
+              if before in text:
+                  if text.count(before) != 1:
+                      raise SystemExit(f'expected one progress line: {before}')
+                  text = text.replace(before, after, 1)
+                  changed = True
+              elif after not in text:
+                  raise SystemExit(f'progress line missing: {before}')
+          if changed:
+              path.write_text(text)
           PY
-
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ILLUSTRO_DESIGN_MEMO.md IMPLEMENTATION_PROGRESS.md
+          git add IMPLEMENTATION_PROGRESS.md
           if git diff --cached --quiet; then
-            echo 'Canonical input interaction design already applied.'
+            echo 'Phone UX implementation progress already complete.'
             exit 0
           fi
-          git commit -m 'docs: adopt canonical input interaction system'
+          git commit -m 'chore: mark phone drawing UX remediation complete'
           git push origin HEAD:main
