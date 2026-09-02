@@ -76,6 +76,14 @@ jobs:
               raise SystemExit('brush preset list CSS marker missing')
           s = s.replace(marker, reset + marker, 1)
           css.write_text(s)
+
+          schema = Path('src/domain/brush-schema.ts')
+          s = schema.read_text().replace(
+              '  return Object.freeze({ ...json });',
+              '  const record = json as { readonly [key: string]: JsonValue };\n  return Object.freeze({ ...record });',
+              1,
+          )
+          schema.write_text(s)
           PY
           rm scripts/apply-m6a-preset-management.py .github/workflows/temp-m6a-preset-management.yml
       - name: Formatting
