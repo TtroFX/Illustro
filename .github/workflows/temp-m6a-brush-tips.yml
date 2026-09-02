@@ -26,6 +26,8 @@ jobs:
         run: python scripts/fix-m6a-brush-tips-patcher.py
       - name: Apply M6A brush tips
         run: python scripts/apply-m6a-brush-tips.py
+      - name: Fix production typing
+        run: python scripts/fix-m6a-brush-tips-production.py
       - name: Formatting
         run: |
           npm run format
@@ -50,7 +52,7 @@ jobs:
         run: npm run test:integration
       - name: Persist verified implementation
         run: |
-          rm -f .github/workflows/temp-m6a-brush-tips.yml scripts/apply-m6a-brush-tips.py scripts/fix-m6a-brush-tips-patcher.py
+          rm -f .github/workflows/temp-m6a-brush-tips.yml scripts/apply-m6a-brush-tips.py scripts/fix-m6a-brush-tips-patcher.py scripts/fix-m6a-brush-tips-production.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
