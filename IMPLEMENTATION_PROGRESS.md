@@ -230,7 +230,7 @@ M4-017 PNG flatten/render:完了
 M4-018 PNG export:完了
 M4-検査 M4内部検査:完了
 PUB-01 ユーザー確認1用Preview公開:完了
-USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了
+USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:完了
 
 ### USER-01 performance remediation — Raster Tile canonical state
 USER-01-PERF-001 128×128 Raster Tile canonical state基盤（affected-tile before/after capture・CPU復元・GPU dirty-tile patch）:完了
@@ -242,7 +242,8 @@ USER-01-PERF-006 100/1,000/10,000 stroke scaling回帰確認・typecheck/test/bu
 USER-01-PERF-007 main統合・GitHub Pages preview更新:完了
 USER-01-EXPORT-001 スマホPNG Export direct handler接続・hidden button中継除去・Exportのcheckpoint依存除去・可視status feedback:完了
 USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:完了
-再開メモ: Raster Tile canonical state性能修正はmainへ統合済み。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。format、lint（既存warningのみ）、typecheck、unit 80 files / 302 tests、integration 2 files / 4 tests、production build、M4 contractがPASS。GitHub Pages `https://ttrofx.github.io/Illustro/` のbuild-infoとmain SHAの一致を確認済み。次はUSER-01のユーザー実機再確認を待つ。
+USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:完了
+再開メモ: Raster Tile canonical state性能修正はmainへ統合済み。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。format、lint（既存warningのみ）、typecheck、unit 80 files / 302 tests、integration 2 files / 4 tests、production build、M4 contractがPASS。GitHub Pages `https://ttrofx.github.io/Illustro/` のbuild-infoとmain SHAの一致を確認済み。USER-01はスマホ実機で新規作成・描画・Undo/Redo・保存再読込・PNG Export・性能確認まで明示PASS済み。次はM5B-041 Mask featherから再開する。
 
 USER-01は上記内部修正の完了後も、ユーザー実機で明示的にPASSされるまで未完了のままとする。
 
@@ -318,8 +319,8 @@ M5B-035 Layer Comps switch:完了
 M5B-036 Mask painting:完了
 M5B-037 Mask invert:完了
 M5B-038 Mask link/unlink:完了
-M5B-039 Mask independent move:未完了
-M5B-040 Mask independent transform:未完了
+M5B-039 Mask independent move:完了
+M5B-040 Mask independent transform:完了
 M5B-041 Mask feather:未完了
 M5B-042 Mask blur:未完了
 M5B-043 Mask→Selection:未完了
@@ -1212,5 +1213,5 @@ MOBILE-006 Canonical Raster Tile / History / Persistenceを全renderer backend�
 MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了
 MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了
 MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了
-MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完了
+MOBILE-007 smartphone実機・最低限のcompatibility regression確認:完了
 再開メモ: USER-01スマホdiagnosticsではmain/workerともWebGPU `requestAdapter()` が `adapter-unavailable`。viewport幅やIllustro独自core-limit gate以前の失敗であり、MOBILE-004だけでは編集可能にならない。MOBILE-005のWebGPU非依存compatibility rendererを実装済み。MOBILE-006ではWorker/Main WebGPUが復旧不能になった場合もcanonical Raster TileをStroke replayなしでcompatibility Canvas2Dへ引き継ぎ、History / Persistence / Exportの正本をrenderer backendから分離した。スマホPNG ExportはFile menu導線も共通handlerへ接続し、Androidの非同期download処理より先にBlob URLを破棄しないようobject URL保持を60秒へ延長した。MOBILE-007の実機確認とUSER-01の明示PASSは引き続き未完了。検査は必要最低限とし、実装を優先する。

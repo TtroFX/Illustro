@@ -72,6 +72,11 @@ import {
   setMaskLinkedToLayerSnapshotV1,
 } from './layer-mask-operations.js';
 import type { MaskPaintControllerV1 } from './layer-mask-paint.js';
+import {
+  applyIndependentMaskAffineTransformSnapshotV1,
+  applyIndependentMaskMoveSnapshotV1,
+  independentMaskTransformEligibilityV1,
+} from './layer-mask-transform.js';
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
@@ -198,6 +203,20 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const maskPaintRevealButton = required<HTMLButtonElement>('#mask-paint-reveal');
   const maskInvertButton = required<HTMLButtonElement>('#mask-invert');
   const maskLinkButton = required<HTMLButtonElement>('#mask-link');
+  const maskMoveButton = required<HTMLButtonElement>('#mask-move');
+  const maskTransformButton = required<HTMLButtonElement>('#mask-transform');
+  const maskTransformDialog = required<HTMLDialogElement>('#mask-transform-dialog');
+  const maskTransformForm = required<HTMLFormElement>('#mask-transform-form');
+  const maskTransformCancel = required<HTMLButtonElement>('#mask-transform-cancel');
+  const maskTransformX = required<HTMLInputElement>('#mask-transform-x');
+  const maskTransformY = required<HTMLInputElement>('#mask-transform-y');
+  const maskTransformScaleX = required<HTMLInputElement>('#mask-transform-scale-x');
+  const maskTransformScaleY = required<HTMLInputElement>('#mask-transform-scale-y');
+  const maskTransformRotation = required<HTMLInputElement>('#mask-transform-rotation');
+  const maskTransformPivotX = required<HTMLInputElement>('#mask-transform-pivot-x');
+  const maskTransformPivotY = required<HTMLInputElement>('#mask-transform-pivot-y');
+  const maskTransformStatus = required<HTMLOutputElement>('#mask-transform-status');
+  const maskTransformTitle = required<HTMLElement>('#mask-transform-title');
   const groupedTransformDialog = required<HTMLDialogElement>('#layer-group-transform-dialog');
   const groupedTransformForm = required<HTMLFormElement>('#layer-group-transform-form');
   const groupedTransformCancel = required<HTMLButtonElement>('#layer-group-transform-cancel');
@@ -387,6 +406,23 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     maskLinkButton.title = maskLinked
       ? 'マスクとレイヤーのリンクを解除'
       : 'マスクをレイヤーへリンク';
+    const maskIndependentTransformEnabled =
+      selectedRasterMask !== undefined &&
+      !maskLinked &&
+      active !== null &&
+      !active.layer.locks.all &&
+      !active.layer.locks.position;
+    maskMoveButton.disabled = !maskIndependentTransformEnabled;
+    maskTransformButton.disabled = !maskIndependentTransformEnabled;
+    maskMoveButton.title = maskLinked
+      ? '独立移動するには先にマスクのリンクを解除'
+      : 'マスクだけを移動';
+    maskTransformButton.title = maskLinked
+      ? '独立変形するには先にマスクのリンクを解除'
+      : 'マスクだけを非破壊変形';
+    root.dataset.illustroMaskIndependentTransform = maskIndependentTransformEnabled
+      ? 'enabled'
+      : 'disabled';
     root.dataset.illustroMaskPaintLayerId = maskPaintSnapshot.layerId ?? '';
     root.dataset.illustroMaskPaintMaskId = maskPaintSnapshot.maskId ?? '';
     root.dataset.illustroMaskPaintValue = String(maskPaintSnapshot.paintValue);
@@ -1115,6 +1151,109 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     );
   };
 
+  let maskTransformMode: 'move' | 'transform' = 'transform';
+
+  const finiteMaskTransformValue = (input: HTMLInputElement, label: string): number => {
+    const value = Number(input.value);
+    if (!Number.isFinite(value)) throw new RangeError(`${label} must be finite`);
+    return value;
+  };
+
+  const openMaskTransformDialog = (mode: 'move' | 'transform'): void => {
+    clearError();
+    const target = options.maskPaint.snapshot();
+    const current = options.paintSession.projectSnapshot();
+    if (current === null || target.layerId === null || target.maskId === null) return;
+    const check = independentMaskTransformEligibilityV1(current, target.layerId, target.maskId);
+    if (!check.eligible) {
+      publishError(new Error(check.reason ?? 'mask transform is unavailable'));
+      return;
+    }
+    maskTransformMode = mode;
+    maskTransformTitle.textContent = mode === 'move' ? 'マスクを独立移動' : 'マスクを独立変形';
+    maskTransformX.value = '0';
+    maskTransformY.value = '0';
+    maskTransformScaleX.value = '100';
+    maskTransformScaleY.value = '100';
+    maskTransformRotation.value = '0';
+    maskTransformPivotX.value = '0';
+    maskTransformPivotY.value = '0';
+    const moveOnly = mode === 'move';
+    maskTransformScaleX.disabled = moveOnly;
+    maskTransformScaleY.disabled = moveOnly;
+    maskTransformRotation.disabled = moveOnly;
+    maskTransformPivotX.disabled = moveOnly;
+    maskTransformPivotY.disabled = moveOnly;
+    maskTransformStatus.value = moveOnly
+      ? 'リンク解除済みマスクだけをX/Y方向へ移動します。'
+      : 'マスク画素を焼き直さずAffine変形を追加します。';
+    maskTransformDialog.showModal();
+  };
+
+  const onMaskMove = (): void => openMaskTransformDialog('move');
+  const onMaskTransform = (): void => openMaskTransformDialog('transform');
+  const onMaskTransformCancel = (): void => maskTransformDialog.close();
+  const onMaskTransformSubmit = (event: SubmitEvent): void => {
+    event.preventDefault();
+    try {
+      const target = options.maskPaint.snapshot();
+      const layerId = target.layerId;
+      const maskId = target.maskId;
+      if (layerId === null || maskId === null) return;
+      const translateX = finiteMaskTransformValue(maskTransformX, 'mask translateX');
+      const translateY = finiteMaskTransformValue(maskTransformY, 'mask translateY');
+      if (maskTransformMode === 'move') {
+        if (translateX === 0 && translateY === 0) {
+          throw new Error('mask move has no changes');
+        }
+        commitMutation(
+          'mask.move',
+          (before, revision) =>
+            applyIndependentMaskMoveSnapshotV1(
+              before,
+              layerId,
+              maskId,
+              translateX,
+              translateY,
+              revision,
+            ),
+          () => layerId,
+        );
+      } else {
+        const scaleX = finiteMaskTransformValue(maskTransformScaleX, 'mask scaleX') / 100;
+        const scaleY = finiteMaskTransformValue(maskTransformScaleY, 'mask scaleY') / 100;
+        const rotationDeg = finiteMaskTransformValue(maskTransformRotation, 'mask rotation');
+        const pivotX = finiteMaskTransformValue(maskTransformPivotX, 'mask pivotX');
+        const pivotY = finiteMaskTransformValue(maskTransformPivotY, 'mask pivotY');
+        if (
+          translateX === 0 &&
+          translateY === 0 &&
+          scaleX === 1 &&
+          scaleY === 1 &&
+          rotationDeg === 0
+        ) {
+          throw new Error('mask transform has no changes');
+        }
+        commitMutation(
+          'mask.transform',
+          (before, revision) =>
+            applyIndependentMaskAffineTransformSnapshotV1(
+              before,
+              layerId,
+              maskId,
+              { translateX, translateY, scaleX, scaleY, rotationDeg, pivotX, pivotY },
+              revision,
+            ),
+          () => layerId,
+        );
+      }
+      maskTransformDialog.close();
+    } catch (error) {
+      publishError(error);
+      maskTransformStatus.value = error instanceof Error ? error.message : String(error);
+    }
+  };
+
   const onLayerSearchInput = (): void => {
     layerSearchQuery = normalizeLayerSearchQueryV1(searchInput.value);
     refresh();
@@ -1337,6 +1476,10 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   maskPaintRevealButton.addEventListener('click', onMaskPaintReveal);
   maskInvertButton.addEventListener('click', onMaskInvert);
   maskLinkButton.addEventListener('click', onMaskLink);
+  maskMoveButton.addEventListener('click', onMaskMove);
+  maskTransformButton.addEventListener('click', onMaskTransform);
+  maskTransformCancel.addEventListener('click', onMaskTransformCancel);
+  maskTransformForm.addEventListener('submit', onMaskTransformSubmit);
   list.addEventListener('click', onListClick);
   list.addEventListener('pointerdown', onPointerDown);
   list.addEventListener('pointermove', onPointerMove);
@@ -1384,6 +1527,10 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       maskPaintRevealButton.removeEventListener('click', onMaskPaintReveal);
       maskInvertButton.removeEventListener('click', onMaskInvert);
       maskLinkButton.removeEventListener('click', onMaskLink);
+      maskMoveButton.removeEventListener('click', onMaskMove);
+      maskTransformButton.removeEventListener('click', onMaskTransform);
+      maskTransformCancel.removeEventListener('click', onMaskTransformCancel);
+      maskTransformForm.removeEventListener('submit', onMaskTransformSubmit);
       list.removeEventListener('click', onListClick);
       list.removeEventListener('pointerdown', onPointerDown);
       list.removeEventListener('pointermove', onPointerMove);

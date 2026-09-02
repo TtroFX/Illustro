@@ -167,6 +167,8 @@
               <button id="mask-paint-reveal" type="button" aria-label="マスクへ表示を描画" title="マスク: 表示" aria-pressed="false" disabled>M＋</button>
               <button id="mask-invert" type="button" aria-label="マスクを反転" title="マスクを反転" aria-pressed="false" disabled>±</button>
               <button id="mask-link" type="button" aria-label="マスクとレイヤーをリンク" title="マスクとレイヤーをリンク" aria-pressed="true" disabled>⌁</button>
+              <button id="mask-move" type="button" aria-label="マスクを独立移動" title="マスクを独立移動" disabled>↔</button>
+              <button id="mask-transform" type="button" aria-label="マスクを独立変形" title="マスクを独立変形" disabled>⤢</button>
             </div>
             <div class="shell-layer-comps">
   <input id="layer-comp-name" type="text" maxlength="120" placeholder="Layer Comp名" aria-label="保存するLayer Comp名" />
@@ -198,6 +200,27 @@
         <button id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false" disabled><span aria-hidden="true">⇩</span><small>書出</small></button>
       </nav>
     </div>
+    <dialog id="mask-transform-dialog" class="document-dialog" aria-labelledby="mask-transform-title">
+    <form id="mask-transform-form" method="dialog" class="document-dialog-form">
+      <header><h2 id="mask-transform-title">マスクを独立変形</h2></header>
+      <p class="document-dialog-help">リンク解除済みのRaster Maskだけを、画素を焼き直さず非破壊Affine変形します。</p>
+      <div class="document-dialog-grid">
+        <label>移動 X (px)<input id="mask-transform-x" type="number" step="0.1" value="0" /></label>
+        <label>移動 Y (px)<input id="mask-transform-y" type="number" step="0.1" value="0" /></label>
+        <label>回転 (°)<input id="mask-transform-rotation" type="number" step="0.1" value="0" /></label>
+        <span></span>
+        <label>拡大率 X (%)<input id="mask-transform-scale-x" type="number" min="0.01" step="0.1" value="100" /></label>
+        <label>拡大率 Y (%)<input id="mask-transform-scale-y" type="number" min="0.01" step="0.1" value="100" /></label>
+        <label>基準点 X<input id="mask-transform-pivot-x" type="number" step="0.1" value="0" /></label>
+        <label>基準点 Y<input id="mask-transform-pivot-y" type="number" step="0.1" value="0" /></label>
+      </div>
+      <output id="mask-transform-status" class="document-dialog-status" aria-live="polite"></output>
+      <footer>
+        <button id="mask-transform-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+        <button type="submit" class="document-dialog-primary">適用</button>
+      </footer>
+    </form>
+  </dialog>
     <dialog id="layer-group-transform-dialog" class="document-dialog" aria-labelledby="layer-group-transform-title">
       <form id="layer-group-transform-form" method="dialog" class="document-dialog-form">
         <header><h2 id="layer-group-transform-title">レイヤー変形</h2></header>
