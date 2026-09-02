@@ -273,7 +273,20 @@
 
   .shell-color-entry-grid input,
   .shell-color-hex input,
-  .shell-color-swatches button {
+  .shell-color-swatches button,
+  #color-palette-select,
+  #color-palette-name,
+  .shell-color-palette-body button {
+    min-height: 44px;
+  }
+
+  .shell-color-palette-name-row {
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+  }
+
+  .shell-color-palette-swatches .shell-color-palette-swatch {
+    flex-basis: 44px;
+    width: 44px;
     min-height: 44px;
   }
 

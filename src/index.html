@@ -130,6 +130,34 @@
             </div>
             <label class="shell-color-hex">HEX<input id="color-hex" type="text" inputmode="text" maxlength="7" value="#000000" /></label>
             <div id="color-history" class="shell-color-history"></div>
+            <details class="shell-color-palettes">
+              <summary>パレット</summary>
+              <div class="shell-color-palette-body">
+                <select id="color-palette-select" aria-label="カラーパレット"></select>
+                <div class="shell-color-palette-name-row">
+                  <input id="color-palette-name" type="text" maxlength="80" aria-label="パレット名" />
+                  <button id="color-palette-create" type="button" title="パレットを作成" aria-label="パレットを作成">＋</button>
+                  <button id="color-palette-delete" type="button" title="パレットを削除" aria-label="パレットを削除">×</button>
+                </div>
+                <div class="shell-color-palette-order">
+                  <button id="color-palette-up" type="button" aria-label="パレットを前へ">↑</button>
+                  <button id="color-palette-down" type="button" aria-label="パレットを後へ">↓</button>
+                  <span>順序</span>
+                </div>
+                <div id="color-palette-swatches" class="shell-color-palette-swatches"></div>
+                <div class="shell-color-palette-actions">
+                  <button id="color-palette-add-current" type="button">色＋</button>
+                  <button id="color-palette-color-left" type="button" aria-label="選択色を左へ">←</button>
+                  <button id="color-palette-color-right" type="button" aria-label="選択色を右へ">→</button>
+                  <button id="color-palette-color-delete" type="button" aria-label="選択色を削除">色−</button>
+                </div>
+                <div class="shell-color-palette-io">
+                  <button id="color-palette-import" type="button">読込</button>
+                  <button id="color-palette-export" type="button">書出</button>
+                  <input id="color-palette-file" type="file" accept="application/json,.json" hidden />
+                </div>
+              </div>
+            </details>
           </section>
           <div class="shell-layer-search">
             <span aria-hidden="true">⌕</span>
