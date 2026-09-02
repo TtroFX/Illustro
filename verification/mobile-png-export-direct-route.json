@@ -1,0 +1,18 @@
+{
+  "schema": "illustro.mobile-png-export-direct-route/1",
+  "status": "implemented",
+  "implementationCommit": "c34f13bc62c549fa3e09ffc4c5724e9904e64765",
+  "changes": [
+    "mobile-export directly invokes the production PNG export handler",
+    "hidden desktop export button proxy removed from the mobile route",
+    "PNG export no longer blocks on persistence checkpoint flush",
+    "mobile export button reports exporting, complete, and failure states"
+  ],
+  "focusedVerification": {
+    "directRouteContract": "pass",
+    "typecheck": "pass",
+    "pngExportUnit": "pass",
+    "productionBuild": "pass"
+  },
+  "userDevicePass": false
+}
