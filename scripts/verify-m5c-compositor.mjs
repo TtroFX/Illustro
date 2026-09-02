@@ -28,6 +28,10 @@ requireText('src/gpu/blend-modes.ts', [
   "'linear-light'",
   "'pin-light'",
   "'hard-mix'",
+  "'difference'",
+  "'exclusion'",
+  "'subtract'",
+  "'divide'",
   'compositeBlendRgbaV1',
   'sourceAlpha + backdropAlpha * (1 - sourceAlpha)',
 ]);
@@ -80,6 +84,10 @@ requireText('src/index.html', [
   'value="linear-light"',
   'value="pin-light"',
   'value="hard-mix"',
+  'value="difference"',
+  'value="exclusion"',
+  'value="subtract"',
+  'value="divide"',
 ]);
 requireText('tests/unit/blend-modes.test.ts', ['M5C base blend kernels']);
 requireText('tests/unit/baseline-blend-compositor.test.ts', [
@@ -104,7 +112,11 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5C-016 Linear Light:完了',
   'M5C-017 Pin Light:完了',
   'M5C-018 Hard Mix:完了',
-  'M5C-019 Difference:未完了',
+  'M5C-019 Difference:完了',
+  'M5C-020 Exclusion:完了',
+  'M5C-021 Subtract:完了',
+  'M5C-022 Divide:完了',
+  'M5C-023 Hue:未完了',
 ]);
 
 console.log('M5C blend compositor verification passed');

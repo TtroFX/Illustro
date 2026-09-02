@@ -27,6 +27,10 @@ const expected: Readonly<Record<M5cBaseBlendModeIdV1, readonly [number, number, 
   'linear-light': [0.6, 0, 0.8],
   'pin-light': [0.6, 0.4, 0.6],
   'hard-mix': [1, 0, 1],
+  difference: [0.1, 0.15, 0.6],
+  exclusion: [0.5, 0.45, 0.68],
+  subtract: [0.1, 0.15, 0],
+  divide: [1, 1, 0.25],
 };
 
 describe('M5C base blend kernels', () => {
@@ -57,5 +61,13 @@ describe('M5C base blend kernels', () => {
     expect(blendRgbV1('darker-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.2, 0.2, 0.2]);
     expect(blendRgbV1('lighter-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([0.4, 0.4, 0.4]);
     expect(blendRgbV1('lighter-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.8, 0.8, 0.1]);
+  });
+
+  it('keeps comparative arithmetic edge cases bounded', () => {
+    expect(blendRgbV1('difference', [0.2, 0.4, 0.6], [1, 0, 0.6])).toEqual([0.8, 0.4, 0]);
+    expect(blendRgbV1('subtract', [0.2, 0.4, 0.6], [0.8, 0.1, 1])).toEqual([
+      0, 0.30000000000000004, 0,
+    ]);
+    expect(blendRgbV1('divide', [0.2, 0.4, 0.6], [0, 1, 0.3])).toEqual([1, 0.4, 1]);
   });
 });

@@ -19,6 +19,10 @@ export const M5C_BASE_BLEND_MODE_IDS_V1 = Object.freeze([
   'linear-light',
   'pin-light',
   'hard-mix',
+  'difference',
+  'exclusion',
+  'subtract',
+  'divide',
 ] as const satisfies readonly BlendModeId[]);
 
 export type M5cBaseBlendModeIdV1 = (typeof M5C_BASE_BLEND_MODE_IDS_V1)[number];
@@ -126,6 +130,14 @@ export function blendRgbV1(
           : Math.max(backdropChannel, 2 * sourceChannel - 1);
       case 'hard-mix':
         return backdropChannel + sourceChannel >= 1 ? 1 : 0;
+      case 'difference':
+        return Math.abs(backdropChannel - sourceChannel);
+      case 'exclusion':
+        return backdropChannel + sourceChannel - 2 * backdropChannel * sourceChannel;
+      case 'subtract':
+        return Math.max(0, backdropChannel - sourceChannel);
+      case 'divide':
+        return sourceChannel <= 0 ? 1 : Math.min(1, backdropChannel / sourceChannel);
     }
   };
 
