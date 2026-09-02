@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   blendRgbV1,
   compositeBlendRgbaV1,
+  M5C_BLEND_COLOR_SPACE_SEMANTICS_V1,
   type M5cBaseBlendModeIdV1,
 } from '../../src/gpu/blend-modes.js';
 
@@ -31,6 +32,10 @@ const expected: Readonly<Record<M5cBaseBlendModeIdV1, readonly [number, number, 
   exclusion: [0.5, 0.45, 0.68],
   subtract: [0.1, 0.15, 0],
   divide: [1, 1, 0.25],
+  hue: [0.5212727272727272, 0.33945454545454545, 0.7394545454545454],
+  saturation: [0.66075, 0.38575, 0.11075],
+  color: [0.5525, 0.3025, 0.8525],
+  luminosity: [0.5475, 0.3475, 0.1475],
 };
 
 describe('M5C base blend kernels', () => {
@@ -69,5 +74,27 @@ describe('M5C base blend kernels', () => {
       0, 0.30000000000000004, 0,
     ]);
     expect(blendRgbV1('divide', [0.2, 0.4, 0.6], [0, 1, 0.3])).toEqual([1, 0.4, 1]);
+  });
+
+  it('declares and executes blend math in the selected document working RGB space', () => {
+    expect(M5C_BLEND_COLOR_SPACE_SEMANTICS_V1.supportedWorkingSpaces).toEqual([
+      'srgb',
+      'display-p3',
+    ]);
+    expect(M5C_BLEND_COLOR_SPACE_SEMANTICS_V1.componentDomain).toBe('normalized-document-rgb');
+    expect(M5C_BLEND_COLOR_SPACE_SEMANTICS_V1.transferDomain).toBe(
+      'encoded-working-space-components',
+    );
+    expect(blendRgbV1('multiply', backdrop, source, 'display-p3')).toEqual([
+      0.3, 0.1, 0.16000000000000003,
+    ]);
+  });
+
+  it('keeps W3C non-separable grayscale edge cases finite', () => {
+    for (const mode of ['hue', 'saturation', 'color', 'luminosity'] as const) {
+      const result = blendRgbV1(mode, [0.5, 0.5, 0.5], [0.2, 0.2, 0.2], 'display-p3');
+      expect(result.every(Number.isFinite)).toBe(true);
+      expect(result.every((value) => value >= 0 && value <= 1)).toBe(true);
+    }
   });
 });

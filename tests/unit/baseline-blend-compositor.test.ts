@@ -62,4 +62,22 @@ describe('M5C baseline tile compositor integration', () => {
     ]);
     expect([...store.compositeTiles()[0]!.bytes]).toEqual([0, 0, 0, 255]);
   });
+
+  it('uses document working-space semantics for non-separable modes', () => {
+    const store = new BaselineRasterTileStoreV1(
+      1,
+      1,
+      'rgba8-unorm',
+      [
+        { layerId: 'bottom', visible: true, opacity: 1 },
+        { layerId: 'top', visible: true, opacity: 1, blendMode: 'hue' },
+      ],
+      'display-p3',
+    );
+    store.restore([
+      pixelTile('bottom', [153, 102, 51, 255]),
+      pixelTile('top', [128, 64, 204, 255]),
+    ]);
+    expect([...store.compositeTiles()[0]!.bytes]).toEqual([133, 86, 188, 255]);
+  });
 });

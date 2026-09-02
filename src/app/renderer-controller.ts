@@ -351,6 +351,7 @@ export class RendererControllerV1 {
       input.height,
       input.precision,
       input.rasterLayers,
+      input.workingSpace,
     );
     this.#rememberDocumentConfiguration(input);
     this.#compatibilityActiveTiles.clear();

@@ -1,5 +1,5 @@
 import { baselineBrushShaderSource } from '../generated/baseline-brush-shader.js';
-import type { DocumentPrecision } from '../domain/document.js';
+import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
@@ -638,6 +638,7 @@ export class BaselinePaintRendererV1 {
   #layers: readonly BaselineRasterLayerDescriptorV1[] = Object.freeze([]);
   #documentWidth: number | null = null;
   #documentHeight: number | null = null;
+  #workingSpace: DocumentColorSpace = 'srgb';
   #activeStroke: ActiveBaselineStrokeV1 | null = null;
   #committedStrokeCount = 0;
   #committedDabCount = 0;
@@ -679,6 +680,7 @@ export class BaselinePaintRendererV1 {
     height: number,
     precision: DocumentPrecision = 'rgba8-unorm',
     layers: readonly BaselineRasterLayerDescriptorV1[] = Object.freeze([]),
+    workingSpace: DocumentColorSpace = 'srgb',
   ): BaselinePaintRendererSnapshotV1 {
     if (!Number.isSafeInteger(width) || width < 1 || !Number.isSafeInteger(height) || height < 1) {
       throw new RangeError('baseline paint document dimensions must be positive safe integers');
@@ -686,11 +688,18 @@ export class BaselinePaintRendererV1 {
     this.#tileState = tileState;
     this.#documentWidth = width;
     this.#documentHeight = height;
+    this.#workingSpace = workingSpace;
     this.#layers =
       layers.length > 0
         ? Object.freeze([...layers])
         : Object.freeze([Object.freeze({ layerId: '__baseline__', visible: true, opacity: 1 })]);
-    this.#canonicalTiles = new BaselineRasterTileStoreV1(width, height, precision, this.#layers);
+    this.#canonicalTiles = new BaselineRasterTileStoreV1(
+      width,
+      height,
+      precision,
+      this.#layers,
+      this.#workingSpace,
+    );
     this.#activeStroke = null;
     this.#committedStrokeCount = 0;
     this.#committedDabCount = 0;
@@ -800,7 +809,13 @@ export class BaselinePaintRendererV1 {
     const { tileState, width, height } = this.#requireDocument();
     tileState.resetContent();
     const precision = this.#canonicalTiles?.pixelFormat ?? 'rgba8-unorm';
-    this.#canonicalTiles = new BaselineRasterTileStoreV1(width, height, precision, this.#layers);
+    this.#canonicalTiles = new BaselineRasterTileStoreV1(
+      width,
+      height,
+      precision,
+      this.#layers,
+      this.#workingSpace,
+    );
     this.#activeStroke = null;
     this.#committedStrokeCount = 0;
     this.#committedDabCount = 0;
