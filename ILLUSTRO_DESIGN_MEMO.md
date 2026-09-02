@@ -5164,3 +5164,14 @@ This section supersedes earlier P2-6 / FG-1 wording that assigned one-finger Tou
 ### Supersession note
 
 The older rules stating `Touch = canvas navigation/UI by default`, `one-finger canvas drag → Pan`, or that wider Pen-capable tablet/desktop surfaces keep Finger Drawing disabled by default are historical where they conflict with this section. The current canonical default is **one Touch = active drawing tool; two or more Touch contacts = canvas navigation after atomic stroke cancellation**.
+
+
+
+#### M5D eyedropper sampling semantic boundary — 2026-09-02
+
+- M5D-016 through M5D-019 add a production-connected Eyedropper without creating a parallel input stack. Eyedropper ownership is evaluated after Pointer Arbitration and before Mask Paint / normal Paint ingestion, so a consumed sampling transaction cannot simultaneously create or finalize a paint stroke.
+- Explicit Eyedropper mode and quick Eyedropper (`Alt` / `Option` while held) use the same pointer-transaction ownership state. Once sampling owns a pointer-down transaction it retains that pointer until up/cancel; a cancellation restores the pre-sampling color and does not commit color history. This allows the existing second-Touch cancellation path to transfer ownership to multi-touch navigation atomically.
+- `active-layer` sampling reads the canonical sparse Raster Tile state for the active layer only. A fully transparent active-layer pixel produces no color sample. `merged-canvas` sampling reads the canonical compositor output after visibility, layer opacity, blend modes, masks and clipping; the document's solid canvas background is composited for the sampled display color when present.
+- Sampling supports both canonical `rgba8-unorm` and `rgba16-float` tile precision through one exported canonical raster-pixel reader. A per-gesture tile-coordinate index is built once so pointer-move sampling does not linearly rescan all sparse tiles on every sample.
+- Sampled RGB components remain encoded values in the active document working space. M5D-016 through M5D-019 do **not** claim sRGB/Display-P3 conversion or ICC/profile conversion; those semantics remain assigned to M5D-021 through M5D-025.
+- Reference-image sampling remains intentionally separate as M5D-020 and must not be marked complete until the Reference/Sub View resource path is production-connected.

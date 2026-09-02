@@ -56,7 +56,12 @@ const paintSession = new PaintSessionControllerV1(renderer, {
     viewport.mapPointerToDocument(sample, documentValue),
 });
 const paintHistory = new PaintHistoryControllerV1(paintSession);
-const colorWorkflow = installColorWorkflowControllerV1({ root, paintSession });
+const colorWorkflow = installColorWorkflowControllerV1({
+  root,
+  paintSession,
+  mapPointerToDocument: (sample, documentValue) =>
+    viewport.mapPointerToDocument(sample, documentValue),
+});
 const selectionCoverage = new SelectionCoverageControllerV1();
 const paintPersistence = new PaintPersistenceControllerV1(
   workers.storage,
@@ -213,89 +218,99 @@ const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
       incrementPerformanceCounter('viewport.navigation.batch');
     }
   } else if (arbitration.forwardBatch !== null) {
-    const maskPaintResult = maskPaint.ingestPointerBatch(arbitration.forwardBatch);
-    if (maskPaintResult.consumed) {
-      root.dataset.illustroPointerDisposition = 'mask-paint';
-      const maskState = maskPaint.snapshot();
-      root.dataset.illustroMaskPaintState = maskState.activePointerId === null ? 'idle' : 'active';
-      root.dataset.illustroMaskPaintDabs = String(maskState.activeDabCount);
-      if (maskPaintResult.completed !== null) {
-        const completed = maskPaintResult.completed;
-        root.dataset.illustroMaskPaintState = 'finalizing';
-        enqueuePaintRender(async () => {
-          const committed = await maskPaint.commitCompletedStroke(completed);
-          root.dataset.illustroMaskPaintState = 'committed';
-          root.dataset.illustroMaskPaintDirtyTiles = String(committed.affectedTileCount);
-          root.dataset.illustroHistoryTransaction = committed.transactionId;
-          const documentValue = paintSession.currentDocument();
-          if (documentValue !== null) publishDocumentState(documentValue);
-          publishPaintHistory();
-          incrementPerformanceCounter('mask.paint.stroke-finalized');
-        });
-      }
+    const colorSamplingConsumed = colorWorkflow.ingestPointerBatch(arbitration.forwardBatch);
+    if (colorSamplingConsumed) {
+      root.dataset.illustroPointerDisposition = 'eyedropper';
+      incrementPerformanceCounter('color.sampling.batch');
     } else {
-      const previousStrokeId = paintSession.activeStrokeId();
-      const paint = paintSession.ingestPointerBatch(arbitration.forwardBatch);
-      const activeStrokeId = paintSession.activeStrokeId();
-      root.dataset.illustroPaintStroke =
-        paint.activeStrokeId !== null
-          ? 'active'
-          : paint.pendingCompletedStrokeCount > 0
-            ? 'pending-commit'
-            : 'idle';
-      root.dataset.illustroPaintStrokeSamples = String(paint.activeStrokeSampleCount);
-      root.dataset.illustroPaintDabs = String(paint.activeDabCount);
-
-      if (activeStrokeId !== null) {
-        const activeLayerId = paintSession.activeStrokeLayerId();
-        if (activeLayerId === null) throw new Error('active paint stroke lost its raster layer');
-        const dabDelta = paintSession.takeActiveDabDelta();
-        root.dataset.illustroPaintVisible = 'provisional';
-        if (dabDelta.length > 0) {
-          enqueuePaintRender(() =>
-            renderer.presentBaselineStroke(activeStrokeId, dabDelta, activeLayerId),
-          );
-        }
-      } else if (
-        arbitration.forwardBatch.eventType === 'pointercancel' &&
-        previousStrokeId !== null
-      ) {
-        root.dataset.illustroPaintVisible = 'cancelled';
-        enqueuePaintRender(() => renderer.cancelBaselineStroke(previousStrokeId));
-      } else if (arbitration.forwardBatch.eventType === 'pointerup' && previousStrokeId !== null) {
-        const completed = paintSession.latestCompletedPaintStroke();
-        if (completed?.stroke.strokeId === previousStrokeId) {
-          const strokeId = completed.stroke.strokeId;
-          const dabs = completed.dabs;
-          root.dataset.illustroPaintVisible = 'finalizing';
+      const maskPaintResult = maskPaint.ingestPointerBatch(arbitration.forwardBatch);
+      if (maskPaintResult.consumed) {
+        root.dataset.illustroPointerDisposition = 'mask-paint';
+        const maskState = maskPaint.snapshot();
+        root.dataset.illustroMaskPaintState =
+          maskState.activePointerId === null ? 'idle' : 'active';
+        root.dataset.illustroMaskPaintDabs = String(maskState.activeDabCount);
+        if (maskPaintResult.completed !== null) {
+          const completed = maskPaintResult.completed;
+          root.dataset.illustroMaskPaintState = 'finalizing';
           enqueuePaintRender(async () => {
-            const finalization = await renderer.finalizeBaselineStroke(
-              strokeId,
-              dabs,
-              completed.stroke.layerId,
-            );
-            const transaction = paintHistory.commitCompletedStroke(
-              strokeId,
-              finalization.tilePatches,
-            );
-            paintPersistence.scheduleRasterTileTransaction({
-              transactionId: transaction.transactionId,
-              strokeId,
-              beforeRevision: transaction.beforeRevision,
-              afterRevision: transaction.afterRevision,
-              patches: finalization.tilePatches,
-            });
-            root.dataset.illustroHistoryTransaction = transaction.transactionId;
+            const committed = await maskPaint.commitCompletedStroke(completed);
+            root.dataset.illustroMaskPaintState = 'committed';
+            root.dataset.illustroMaskPaintDirtyTiles = String(committed.affectedTileCount);
+            root.dataset.illustroHistoryTransaction = committed.transactionId;
+            const documentValue = paintSession.currentDocument();
+            if (documentValue !== null) publishDocumentState(documentValue);
             publishPaintHistory();
-            root.dataset.illustroPaintVisible = 'committed';
-            root.dataset.illustroPaintDabs = String(finalization.dabCount);
-            root.dataset.illustroPaintDirtyTiles = String(finalization.affectedTiles.length);
-            incrementPerformanceCounter('renderer.paint.stroke-finalized');
+            incrementPerformanceCounter('mask.paint.stroke-finalized');
           });
         }
-      }
+      } else {
+        const previousStrokeId = paintSession.activeStrokeId();
+        const paint = paintSession.ingestPointerBatch(arbitration.forwardBatch);
+        const activeStrokeId = paintSession.activeStrokeId();
+        root.dataset.illustroPaintStroke =
+          paint.activeStrokeId !== null
+            ? 'active'
+            : paint.pendingCompletedStrokeCount > 0
+              ? 'pending-commit'
+              : 'idle';
+        root.dataset.illustroPaintStrokeSamples = String(paint.activeStrokeSampleCount);
+        root.dataset.illustroPaintDabs = String(paint.activeDabCount);
 
-      pointerTransport.enqueueBatch(arbitration.forwardBatch);
+        if (activeStrokeId !== null) {
+          const activeLayerId = paintSession.activeStrokeLayerId();
+          if (activeLayerId === null) throw new Error('active paint stroke lost its raster layer');
+          const dabDelta = paintSession.takeActiveDabDelta();
+          root.dataset.illustroPaintVisible = 'provisional';
+          if (dabDelta.length > 0) {
+            enqueuePaintRender(() =>
+              renderer.presentBaselineStroke(activeStrokeId, dabDelta, activeLayerId),
+            );
+          }
+        } else if (
+          arbitration.forwardBatch.eventType === 'pointercancel' &&
+          previousStrokeId !== null
+        ) {
+          root.dataset.illustroPaintVisible = 'cancelled';
+          enqueuePaintRender(() => renderer.cancelBaselineStroke(previousStrokeId));
+        } else if (
+          arbitration.forwardBatch.eventType === 'pointerup' &&
+          previousStrokeId !== null
+        ) {
+          const completed = paintSession.latestCompletedPaintStroke();
+          if (completed?.stroke.strokeId === previousStrokeId) {
+            const strokeId = completed.stroke.strokeId;
+            const dabs = completed.dabs;
+            root.dataset.illustroPaintVisible = 'finalizing';
+            enqueuePaintRender(async () => {
+              const finalization = await renderer.finalizeBaselineStroke(
+                strokeId,
+                dabs,
+                completed.stroke.layerId,
+              );
+              const transaction = paintHistory.commitCompletedStroke(
+                strokeId,
+                finalization.tilePatches,
+              );
+              paintPersistence.scheduleRasterTileTransaction({
+                transactionId: transaction.transactionId,
+                strokeId,
+                beforeRevision: transaction.beforeRevision,
+                afterRevision: transaction.afterRevision,
+                patches: finalization.tilePatches,
+              });
+              root.dataset.illustroHistoryTransaction = transaction.transactionId;
+              publishPaintHistory();
+              root.dataset.illustroPaintVisible = 'committed';
+              root.dataset.illustroPaintDabs = String(finalization.dabCount);
+              root.dataset.illustroPaintDirtyTiles = String(finalization.affectedTiles.length);
+              incrementPerformanceCounter('renderer.paint.stroke-finalized');
+            });
+          }
+        }
+
+        pointerTransport.enqueueBatch(arbitration.forwardBatch);
+      }
     }
   }
 });

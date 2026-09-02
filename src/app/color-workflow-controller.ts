@@ -9,7 +9,17 @@ import {
   type HsvColorV1,
   type RgbUnitColorV1,
 } from '../domain/color.js';
+import type { DocumentV1 } from '../domain/document.js';
+import type { PointerInputBatchV1, PointerInputSampleV1 } from '../input/pointer-input.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
+import {
+  ColorSamplingOwnershipV1,
+  createRasterTileSamplingIndexV1,
+  sampleActiveLayerColorV1,
+  sampleMergedCanvasColorV1,
+  type ColorSamplingSourceV1,
+  type RasterTileSamplingIndexV1,
+} from './color-sampling.js';
 import {
   activeColorPaletteV1,
   addColorToPaletteV1,
@@ -78,11 +88,16 @@ export interface ColorWorkflowControllerV1 {
   refresh(): void;
   dispose(): void;
   snapshot(): ColorWorkspaceStateV1;
+  ingestPointerBatch(batch: PointerInputBatchV1): boolean;
 }
 
 export function installColorWorkflowControllerV1(input: {
   readonly root: HTMLElement;
   readonly paintSession: PaintSessionControllerV1;
+  readonly mapPointerToDocument: (
+    sample: PointerInputSampleV1,
+    documentValue: DocumentV1,
+  ) => { readonly x: number; readonly y: number };
   readonly storage?: Storage | null;
 }): ColorWorkflowControllerV1 {
   const storage = input.storage === undefined ? globalThis.localStorage : input.storage;
@@ -90,6 +105,8 @@ export function installColorWorkflowControllerV1(input: {
   const sv = requireElement('#color-sv', HTMLCanvasElement);
   const currentSwatch = requireElement('#color-current', HTMLButtonElement);
   const previousSwatch = requireElement('#color-previous', HTMLButtonElement);
+  const eyedropper = requireElement('#color-eyedropper', HTMLButtonElement);
+  const samplingSourceSelect = requireElement('#color-sampling-source', HTMLSelectElement);
   const history = requireElement('#color-history', HTMLDivElement);
   const paletteSelect = requireElement('#color-palette-select', HTMLSelectElement);
   const paletteName = requireElement('#color-palette-name', HTMLInputElement);
@@ -117,6 +134,12 @@ export function installColorWorkflowControllerV1(input: {
   let interactionStart: RgbUnitColorV1 | null = null;
   let selectedPaletteColorIndex: number | null = null;
   let disposed = false;
+  const samplingOwnership = new ColorSamplingOwnershipV1();
+  let samplingStartColor: RgbUnitColorV1 | null = null;
+  let samplingDocument: DocumentV1 | null = null;
+  let samplingSource: ColorSamplingSourceV1 = 'merged-canvas';
+  let samplingIndexPromise: Promise<RasterTileSamplingIndexV1> | null = null;
+  let samplingRequestSequence = 0;
 
   const workingSpace = () => input.paintSession.currentDocument()?.color.workingSpace ?? 'srgb';
   const persist = (): void => {
@@ -212,7 +235,21 @@ export function installColorWorkflowControllerV1(input: {
     input.root.dataset.illustroActiveColorPalette = activePalette.id;
     input.root.dataset.illustroActiveColorPaletteSize = String(activePalette.colors.length);
     input.root.dataset.illustroColorWorkingSpace = workingSpace();
+    publishSamplingState();
   };
+
+  function publishSamplingState(): void {
+    const ownership = samplingOwnership.snapshot();
+    const mode = ownership.explicitEnabled
+      ? 'eyedropper'
+      : ownership.quickEnabled
+        ? 'quick-eyedropper'
+        : 'inactive';
+    eyedropper.classList.toggle('is-active', ownership.explicitEnabled);
+    eyedropper.setAttribute('aria-pressed', String(ownership.explicitEnabled));
+    input.root.dataset.illustroColorSamplingMode = mode;
+    input.root.dataset.illustroColorSamplingSource = samplingSourceSelect.value;
+  }
 
   const commit = (
     color: RgbUnitColorV1,
@@ -229,6 +266,23 @@ export function installColorWorkflowControllerV1(input: {
     state = previewColorWorkspaceCurrentV1(state, color);
     status.value = '';
     publish(redrawSv);
+  };
+
+  const publishSamplingPreview = (color: RgbUnitColorV1): void => {
+    state = previewColorWorkspaceCurrentV1(state, color);
+    const rgbBytes = rgbUnitToBytesV1(state.current);
+    const hsv = rgbToHsvV1(state.current);
+    redInput.value = String(rgbBytes[0]);
+    greenInput.value = String(rgbBytes[1]);
+    blueInput.value = String(rgbBytes[2]);
+    hueInput.value = String(Math.round(hsv.h));
+    saturationInput.value = String(Math.round(hsv.s * 100));
+    valueInput.value = String(Math.round(hsv.v * 100));
+    hexInput.value = formatHexRgbV1(state.current);
+    currentSwatch.style.background = cssEncodedRgbV1(state.current, workingSpace());
+    currentSwatch.title = `Current ${hexInput.value}`;
+    input.paintSession.setPaintColor(state.current);
+    input.root.dataset.illustroCurrentColor = hexInput.value;
   };
 
   function drawWheel(): void {
@@ -378,6 +432,133 @@ export function installColorWorkflowControllerV1(input: {
 
   const removeWheel = installCanvasGesture(wheel, updateWheel);
   const removeSv = installCanvasGesture(sv, updateSv);
+
+  const selectedSamplingSource = (): ColorSamplingSourceV1 =>
+    samplingSourceSelect.value === 'active-layer' ? 'active-layer' : 'merged-canvas';
+
+  const resetSamplingSession = (): void => {
+    samplingRequestSequence += 1;
+    samplingStartColor = null;
+    samplingDocument = null;
+    samplingIndexPromise = null;
+  };
+
+  const beginSamplingSession = (): void => {
+    if (samplingStartColor !== null) {
+      commit(state.current, samplingStartColor);
+      resetSamplingSession();
+    }
+    samplingStartColor = state.current;
+    samplingDocument = input.paintSession.currentDocument();
+    samplingSource = selectedSamplingSource();
+    const activeLayerId = input.paintSession.activeLayerId();
+    if (samplingDocument === null) {
+      samplingIndexPromise = null;
+      return;
+    }
+    samplingIndexPromise =
+      samplingSource === 'active-layer'
+        ? input.paintSession
+            .exportCanonicalRasterTiles()
+            .then((tiles) => createRasterTileSamplingIndexV1(tiles, activeLayerId ?? '__missing__'))
+        : input.paintSession
+            .exportCompositeRasterTiles()
+            .then((tiles) => createRasterTileSamplingIndexV1(tiles));
+  };
+
+  const cancelSamplingSession = (): void => {
+    const start = samplingStartColor;
+    samplingRequestSequence += 1;
+    if (start !== null) {
+      state = previewColorWorkspaceCurrentV1(state, start);
+      status.value = '採色をキャンセルしました';
+      publish();
+    }
+    resetSamplingSession();
+  };
+
+  const queueSampling = (sample: PointerInputSampleV1, finalize: boolean): void => {
+    const documentValue = samplingDocument;
+    const indexPromise = samplingIndexPromise;
+    const start = samplingStartColor;
+    if (documentValue === null || indexPromise === null || start === null) {
+      status.value = '採色には開いているドキュメントが必要です';
+      if (finalize) resetSamplingSession();
+      return;
+    }
+    const point = input.mapPointerToDocument(sample, documentValue);
+    const requestSequence = ++samplingRequestSequence;
+    const source = samplingSource;
+    void indexPromise
+      .then((index) => {
+        if (disposed || requestSequence !== samplingRequestSequence) return;
+        const color =
+          source === 'active-layer'
+            ? sampleActiveLayerColorV1(index, point.x, point.y)
+            : sampleMergedCanvasColorV1(index, point.x, point.y, documentValue.canvas.background);
+        if (color !== null) {
+          publishSamplingPreview(color);
+          status.value = `${source === 'active-layer' ? 'アクティブレイヤー' : '結合表示'}から採色 ${formatHexRgbV1(color)}`;
+        } else {
+          status.value = 'この位置には採色できる色がありません';
+        }
+        if (finalize) {
+          commit(state.current, start);
+          status.value =
+            color === null
+              ? '採色できる色がありませんでした'
+              : `採色 ${formatHexRgbV1(state.current)}`;
+          resetSamplingSession();
+          publishSamplingState();
+        }
+      })
+      .catch((error: unknown) => {
+        if (requestSequence !== samplingRequestSequence) return;
+        status.value = error instanceof Error ? error.message : String(error);
+        if (finalize) {
+          state = previewColorWorkspaceCurrentV1(state, start);
+          publish();
+          resetSamplingSession();
+        }
+      });
+  };
+
+  const onEyedropperToggle = (): void => {
+    const snapshot = samplingOwnership.snapshot();
+    samplingOwnership.setExplicitEnabled(!snapshot.explicitEnabled);
+    status.value = samplingOwnership.snapshot().explicitEnabled ? 'スポイト: ON' : 'スポイト: OFF';
+    publishSamplingState();
+  };
+
+  const onSamplingSourceChange = (): void => {
+    samplingSource = selectedSamplingSource();
+    status.value =
+      samplingSource === 'active-layer' ? '採色元: アクティブレイヤー' : '採色元: 結合表示';
+    publishSamplingState();
+  };
+
+  const isTextEditingTarget = (target: EventTarget | null): boolean =>
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable);
+
+  const onQuickEyedropperKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== 'Alt' || isTextEditingTarget(event.target)) return;
+    samplingOwnership.setQuickEnabled(true);
+    publishSamplingState();
+    event.preventDefault();
+  };
+  const onQuickEyedropperKeyUp = (event: KeyboardEvent): void => {
+    if (event.key !== 'Alt') return;
+    samplingOwnership.setQuickEnabled(false);
+    publishSamplingState();
+    event.preventDefault();
+  };
+  const onWindowBlur = (): void => {
+    samplingOwnership.setQuickEnabled(false);
+    publishSamplingState();
+  };
 
   const commitRgb = (): void => {
     try {
@@ -597,7 +778,13 @@ export function installColorWorkflowControllerV1(input: {
   paletteImport.addEventListener('click', onPaletteImportClick);
   paletteFile.addEventListener('change', onPaletteImportChange);
   paletteExport.addEventListener('click', onPaletteExport);
+  eyedropper.addEventListener('click', onEyedropperToggle);
+  samplingSourceSelect.addEventListener('change', onSamplingSourceChange);
+  document.addEventListener('keydown', onQuickEyedropperKeyDown);
+  document.addEventListener('keyup', onQuickEyedropperKeyUp);
+  window.addEventListener('blur', onWindowBlur);
 
+  samplingSource = selectedSamplingSource();
   publish();
   input.root.dataset.illustroColorWorkflow = 'ready';
 
@@ -627,10 +814,31 @@ export function installColorWorkflowControllerV1(input: {
       paletteImport.removeEventListener('click', onPaletteImportClick);
       paletteFile.removeEventListener('change', onPaletteImportChange);
       paletteExport.removeEventListener('click', onPaletteExport);
+      eyedropper.removeEventListener('click', onEyedropperToggle);
+      samplingSourceSelect.removeEventListener('change', onSamplingSourceChange);
+      document.removeEventListener('keydown', onQuickEyedropperKeyDown);
+      document.removeEventListener('keyup', onQuickEyedropperKeyUp);
+      window.removeEventListener('blur', onWindowBlur);
+      resetSamplingSession();
       input.root.dataset.illustroColorWorkflow = 'disposed';
     },
     snapshot(): ColorWorkspaceStateV1 {
       return state;
+    },
+    ingestPointerBatch(batch: PointerInputBatchV1): boolean {
+      if (disposed) return false;
+      const decision = samplingOwnership.route(batch);
+      if (!decision.consumed) return false;
+      input.root.dataset.illustroColorSamplingPointer = String(batch.pointerId);
+      if (decision.cancel) {
+        cancelSamplingSession();
+        return true;
+      }
+      const latest = batch.confirmed.at(-1);
+      if (latest === undefined) return true;
+      if (batch.eventType === 'pointerdown') beginSamplingSession();
+      if (decision.shouldSample) queueSampling(latest, decision.finalize);
+      return true;
     },
   };
 }

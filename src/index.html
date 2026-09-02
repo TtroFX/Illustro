@@ -118,6 +118,15 @@
               <button id="color-current" type="button" aria-label="現在の色"></button>
               <button id="color-previous" type="button" aria-label="前の色へ交換"></button>
             </div>
+            <div class="shell-color-sampling">
+              <button id="color-eyedropper" type="button" aria-pressed="false" title="スポイト（Alt / Optionで一時使用）">スポイト</button>
+              <label>採色元
+                <select id="color-sampling-source">
+                  <option value="merged-canvas">結合表示</option>
+                  <option value="active-layer">アクティブレイヤー</option>
+                </select>
+              </label>
+            </div>
             <div class="shell-color-entry-grid shell-color-entry-rgb">
               <label>R<input id="color-r" type="number" min="0" max="255" step="1" value="0" /></label>
               <label>G<input id="color-g" type="number" min="0" max="255" step="1" value="0" /></label>

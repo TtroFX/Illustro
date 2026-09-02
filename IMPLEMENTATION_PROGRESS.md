@@ -384,10 +384,10 @@ M5D-012 palette reorder:完了
 M5D-013 palette-color reorder:完了
 M5D-014 palette import:完了
 M5D-015 palette export:完了
-M5D-016 Eyedropper:未完了
-M5D-017 quick Eyedropper:未完了
-M5D-018 active-layer sampling:未完了
-M5D-019 merged-canvas sampling:未完了
+M5D-016 Eyedropper:完了
+M5D-017 quick Eyedropper:完了
+M5D-018 active-layer sampling:完了
+M5D-019 merged-canvas sampling:完了
 M5D-020 reference-image sampling:未完了
 M5D-021 sRGB processing:未完了
 M5D-022 Display-P3 processing:未完了

@@ -1267,3 +1267,28 @@ body {
 .shell-color-palette-io {
   justify-content: flex-end;
 }
+
+
+/* M5D eyedropper sampling */
+.shell-color-sampling {
+  display: grid;
+  grid-template-columns: minmax(5rem, auto) 1fr;
+  gap: 0.4rem;
+  align-items: end;
+}
+
+.shell-color-sampling > button,
+.shell-color-sampling select {
+  min-height: 2.75rem;
+}
+
+.shell-color-sampling > button.is-active {
+  box-shadow: inset 0 0 0 2px currentColor;
+  font-weight: 700;
+}
+
+.shell-color-sampling label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+}
