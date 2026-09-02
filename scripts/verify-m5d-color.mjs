@@ -9,6 +9,19 @@ const requireText = (path, markers) => {
 };
 
 requireText('src/domain/color.ts', ['rgbToHsvV1', 'hsvToRgbV1', 'parseHexRgbV1', 'formatHexRgbV1']);
+requireText('src/domain/color-management.ts', [
+  'decodeSrgbTransferComponentV1',
+  'convertEncodedRgbV1',
+  'parseIccRgbMatrixProfileV1',
+  'convertProfileEncodedRgbV1',
+  'XYZ_D50_TO_D65',
+  'previewOutputColorSpaceV1',
+]);
+requireText('src/domain/document.ts', [
+  'DocumentColorProfileV1',
+  'createDocumentColorProfileV1',
+  'resolveDocumentColorProfileV1',
+]);
 requireText('src/app/color-workspace-state.ts', [
   'illustro.color-workspace/1',
   'COLOR_HISTORY_LIMIT_V1',
@@ -92,6 +105,13 @@ requireText('src/gpu/baseline-paint-renderer.ts', [
 requireText('src/app/compatibility-raster-presenter.ts', [
   'baselineDabColorV1',
   'gradient.addColorStop',
+  'convertEncodedRgbV1',
+  'colorSpace',
+  'outputColorSpace',
+]);
+requireText('src/gpu/renderer-device-resources.ts', [
+  'RendererPreviewColorSpaceUnavailableErrorV1',
+  'colorSpace',
 ]);
 requireText('src/app/paint-session-controller.ts', [
   'setPaintColor',
@@ -151,6 +171,11 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-018 active-layer sampling:完了',
   'M5D-019 merged-canvas sampling:完了',
   'M5D-020 reference-image sampling:完了',
-  'M5D-021 sRGB processing:未完了',
+  'M5D-021 sRGB processing:完了',
+  'M5D-022 Display-P3 processing:完了',
+  'M5D-023 color-profile metadata:完了',
+  'M5D-024 profile-aware conversion:完了',
+  'M5D-025 ICC/profile-aware preview boundary:完了',
+  'M5D-026 Color Mixing Palette:未完了',
 ]);
 console.log('M5D color/palette verification passed');

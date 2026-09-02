@@ -1,3 +1,4 @@
+import type { DocumentColorSpace } from '../domain/document.js';
 import { bootstrapShaderSource } from '../generated/bootstrap-shader.js';
 import type { IllustroGpuDeviceV1 } from './webgpu-capability.js';
 
@@ -18,7 +19,19 @@ interface WebGpuCanvasContextLikeV1 {
     readonly format: string;
     readonly alphaMode: 'premultiplied';
     readonly usage: number;
+    readonly colorSpace: DocumentColorSpace;
   }): void;
+}
+
+export class RendererPreviewColorSpaceUnavailableErrorV1 extends Error {
+  readonly code = 'preview-color-space-unavailable' as const;
+  readonly requestedColorSpace: DocumentColorSpace;
+
+  constructor(requestedColorSpace: DocumentColorSpace, cause?: unknown) {
+    super(`renderer preview color space is unavailable: ${requestedColorSpace}`, { cause });
+    this.name = 'RendererPreviewColorSpaceUnavailableErrorV1';
+    this.requestedColorSpace = requestedColorSpace;
+  }
 }
 
 export interface RendererDeviceResourcesSnapshotV1 {
@@ -26,6 +39,7 @@ export interface RendererDeviceResourcesSnapshotV1 {
   readonly generation: number;
   readonly surfaceConfigured: boolean;
   readonly canvasFormat: string | null;
+  readonly canvasColorSpace: DocumentColorSpace | null;
 }
 
 function browserPreferredCanvasFormat(): string {
@@ -42,18 +56,32 @@ function browserPreferredCanvasFormat(): string {
 export function configureRendererSurfaceV1(
   surface: RendererSurfaceLikeV1,
   device: IllustroGpuDeviceV1,
+  colorSpace: DocumentColorSpace = 'srgb',
 ): string {
   const context = surface.getContext('webgpu') as WebGpuCanvasContextLikeV1 | null;
   if (context === null || typeof context.configure !== 'function') {
     throw new Error('WebGPU canvas context is unavailable');
   }
   const format = browserPreferredCanvasFormat();
-  context.configure({
-    device,
-    format,
-    alphaMode: 'premultiplied',
-    usage: ILLUSTRO_CANVAS_TEXTURE_USAGE,
-  });
+  const configure = (space: DocumentColorSpace): void =>
+    context.configure({
+      device,
+      format,
+      alphaMode: 'premultiplied',
+      usage: ILLUSTRO_CANVAS_TEXTURE_USAGE,
+      colorSpace: space,
+    });
+  try {
+    configure(colorSpace);
+  } catch (error) {
+    if (colorSpace !== 'display-p3') throw error;
+    try {
+      configure('srgb');
+    } catch {
+      // Preserve the original P3 failure as the actionable preview-boundary reason.
+    }
+    throw new RendererPreviewColorSpaceUnavailableErrorV1(colorSpace, error);
+  }
   return format;
 }
 
@@ -61,16 +89,19 @@ export function rebuildRendererDeviceResourcesV1(
   device: IllustroGpuDeviceV1,
   generation: number,
   surface: RendererSurfaceLikeV1 | null = null,
+  colorSpace: DocumentColorSpace = 'srgb',
 ): RendererDeviceResourcesSnapshotV1 {
   device.createShaderModule({
     label: `illustro-renderer-bootstrap-g${generation}`,
     code: bootstrapShaderSource,
   });
-  const canvasFormat = surface === null ? null : configureRendererSurfaceV1(surface, device);
+  const canvasFormat =
+    surface === null ? null : configureRendererSurfaceV1(surface, device, colorSpace);
   return Object.freeze({
     schema: 'illustro.renderer-device-resources/1',
     generation,
     surfaceConfigured: surface !== null,
     canvasFormat,
+    canvasColorSpace: surface === null ? null : colorSpace,
   });
 }

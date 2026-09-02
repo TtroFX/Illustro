@@ -20,7 +20,11 @@ import {
   type RendererDeviceSnapshotV1,
   type RendererDeviceStateV1,
 } from '../gpu/renderer-device-manager.js';
-import { rebuildRendererDeviceResourcesV1 } from '../gpu/renderer-device-resources.js';
+import {
+  configureRendererSurfaceV1,
+  rebuildRendererDeviceResourcesV1,
+  RendererPreviewColorSpaceUnavailableErrorV1,
+} from '../gpu/renderer-device-resources.js';
 import { RendererTileStateV1 } from '../gpu/renderer-tile-state.js';
 import { CompatibilityRasterPresenterV1 } from './compatibility-raster-presenter.js';
 import type { FoundationShell } from './shell.js';
@@ -68,6 +72,10 @@ const WORKER_RESPONSE_TIMEOUT_MS = 4_000;
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isPreviewColorSpaceFailureV1(value: unknown): boolean {
+  return isRecord(value) && value.code === 'preview-color-space-unavailable';
 }
 
 function tileCoordinateKey(coordinate: TileCoordinateV1): string {
@@ -243,7 +251,11 @@ export class RendererControllerV1 {
   #mainTileState: RendererTileStateV1 | null = null;
   #removeSizeSubscription: (() => void) | null = null;
   #startTask: Promise<RendererControllerSnapshotV1> | null = null;
-  #compatibilityDocument: { readonly width: number; readonly height: number } | null = null;
+  #compatibilityDocument: {
+    readonly width: number;
+    readonly height: number;
+    readonly workingSpace: DocumentColorSpace;
+  } | null = null;
   #canonicalDocument: RendererCanonicalDocumentV1 | null = null;
   #backendHandoffTask: Promise<void> | null = null;
   #fallbackReason: string | null = null;
@@ -318,6 +330,11 @@ export class RendererControllerV1 {
         rasterLayers: input.rasterLayers,
       });
       if (response?.ok !== true) {
+        if (isPreviewColorSpaceFailureV1(response?.result)) {
+          this.#worker.postMessage({ type: 'renderer.dispose' });
+          this.#startCompatibilityFallback('worker-preview-color-space-unavailable');
+          return this.configureDocument(input);
+        }
         throw new Error('Render Worker failed to configure document tile state');
       }
       this.#rememberDocumentConfiguration(input);
@@ -339,6 +356,22 @@ export class RendererControllerV1 {
     if (snapshot.owner === 'main' && device === null) {
       throw new Error('main renderer device is unavailable');
     }
+    if (snapshot.owner === 'main' && device !== null) {
+      try {
+        const canvasFormat = configureRendererSurfaceV1(
+          this.#shell.canvas,
+          device,
+          input.workingSpace,
+        );
+        this.#mainBaselinePaint.attachSurface(this.#shell.canvas, canvasFormat);
+      } catch (error) {
+        if (error instanceof RendererPreviewColorSpaceUnavailableErrorV1) {
+          this.#startCompatibilityFallback('main-preview-color-space-unavailable');
+          return this.configureDocument(input);
+        }
+        throw error;
+      }
+    }
     this.#mainTileState?.dispose();
     this.#mainTileState = new RendererTileStateV1(input.width, input.height);
     this.#mainTileState.attachGpuDevice(snapshot.owner === 'main' ? device : null);
@@ -357,7 +390,7 @@ export class RendererControllerV1 {
     this.#rememberDocumentConfiguration(input);
     this.#compatibilityActiveTiles.clear();
     if (snapshot.owner === 'compatibility') {
-      this.#compatibilityPresenter.configureDocument(input.width, input.height);
+      this.#compatibilityPresenter.configureDocument(input.width, input.height, input.workingSpace);
       this.#redrawCompatibilityAll();
     }
     this.#publishDocumentConfiguration(input);
@@ -665,7 +698,12 @@ export class RendererControllerV1 {
     this.#mainDeviceManager ??= new RendererDeviceManagerV1({
       acquire: acquireCoreWebGpuV1,
       rebuild: (device, generation) => {
-        const resources = rebuildRendererDeviceResourcesV1(device, generation, this.#shell.canvas);
+        const resources = rebuildRendererDeviceResourcesV1(
+          device,
+          generation,
+          this.#shell.canvas,
+          this.#canonicalDocument?.workingSpace ?? 'srgb',
+        );
         this.#mainTileState?.attachGpuDevice(device);
         this.#mainBaselinePaint.attachDevice(device);
         if (resources.canvasFormat === null) {
@@ -721,6 +759,7 @@ export class RendererControllerV1 {
       this.#compatibilityPresenter.configureDocument(
         this.#compatibilityDocument.width,
         this.#compatibilityDocument.height,
+        this.#compatibilityDocument.workingSpace,
       );
       this.#redrawCompatibilityAll();
     }
@@ -797,7 +836,11 @@ export class RendererControllerV1 {
         ),
       ),
     });
-    this.#compatibilityDocument = Object.freeze({ width: input.width, height: input.height });
+    this.#compatibilityDocument = Object.freeze({
+      width: input.width,
+      height: input.height,
+      workingSpace: input.workingSpace,
+    });
   }
 
   #scheduleWorkerCompatibilityHandoff(snapshot: RendererDeviceSnapshotV1): void {
@@ -862,6 +905,7 @@ export class RendererControllerV1 {
     this.#compatibilityDocument = Object.freeze({
       width: documentValue.width,
       height: documentValue.height,
+      workingSpace: documentValue.workingSpace,
     });
     this.#compatibilityActiveTiles.clear();
     this.#worker.postMessage({ type: 'renderer.dispose' });
@@ -916,6 +960,13 @@ export class RendererControllerV1 {
     this.#root.dataset.illustroRendererDocumentHeight = String(input.height);
     this.#root.dataset.illustroRendererWorkingSpace = input.workingSpace;
     this.#root.dataset.illustroRendererPrecision = input.precision;
+    const outputSpace =
+      this.#owner === 'compatibility'
+        ? this.#compatibilityPresenter.outputColorSpace()
+        : input.workingSpace;
+    this.#root.dataset.illustroRendererPreviewColorSpace = outputSpace;
+    this.#root.dataset.illustroRendererPreviewConversion =
+      outputSpace === input.workingSpace ? 'none' : `${input.workingSpace}-to-${outputSpace}`;
   }
 
   #publish(): void {

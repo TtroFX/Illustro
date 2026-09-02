@@ -15,7 +15,7 @@ import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
 import { installColorWorkflowControllerV1 } from './color-workflow-controller.js';
 import { installReferenceWorkflowControllerV1 } from './reference-workflow-controller.js';
-import type { DocumentV1 } from '../domain/document.js';
+import { resolveDocumentColorProfileV1, type DocumentV1 } from '../domain/document.js';
 import { installDocumentWorkflowControllerV1 } from './document-workflow-controller.js';
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
 import { installGridControllerV1 } from './grid-controller.js';
@@ -127,6 +127,10 @@ function publishDocumentState(documentValue: DocumentV1): void {
   root.dataset.illustroDocumentPpi = String(documentValue.canvas.resolution.ppi);
   root.dataset.illustroDocumentWorkingSpace = documentValue.color.workingSpace;
   root.dataset.illustroDocumentPrecision = documentValue.color.precision;
+  const colorProfile = resolveDocumentColorProfileV1(documentValue.color);
+  root.dataset.illustroDocumentColorProfile = colorProfile.space;
+  root.dataset.illustroDocumentColorTransfer = colorProfile.transfer;
+  root.dataset.illustroDocumentColorWhitePoint = colorProfile.whitePoint;
   root.dataset.illustroDocumentBackground = documentValue.canvas.background.kind;
   shell.canvas.dataset.backgroundKind = documentValue.canvas.background.kind;
   if (documentValue.canvas.background.kind === 'solid') {
