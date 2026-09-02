@@ -1,0 +1,154 @@
+name: Apply M5C contrast blend modes once
+
+on:
+  push:
+    branches:
+      - work/m5c-contrast-blends-20260902
+    paths:
+      - '.github/workflows/apply-m5c-contrast-blends-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-verify-persist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply M5C-011 through M5C-018
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, before, after):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(before)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one anchor, found {count}: {before[:120]!r}')
+              p.write_text(text.replace(before, after, 1))
+
+          # Extend the production-supported blend set without changing the document schema.
+          replace_once(
+              'src/gpu/blend-modes.ts',
+              """  'color-dodge',\n  'linear-dodge',\n] as const satisfies readonly BlendModeId[]);\n""",
+              """  'color-dodge',\n  'linear-dodge',\n  'lighter-color',\n  'overlay',\n  'soft-light',\n  'hard-light',\n  'vivid-light',\n  'linear-light',\n  'pin-light',\n  'hard-mix',\n] as const satisfies readonly BlendModeId[]);\n""",
+          )
+          replace_once(
+              'src/gpu/blend-modes.ts',
+              """function colorDodge(backdrop: number, source: number): number {\n  if (backdrop <= 0) return 0;\n  if (source >= 1) return 1;\n  return Math.min(1, backdrop / (1 - source));\n}\n\n""",
+              """function colorDodge(backdrop: number, source: number): number {\n  if (backdrop <= 0) return 0;\n  if (source >= 1) return 1;\n  return Math.min(1, backdrop / (1 - source));\n}\n\nfunction softLight(backdrop: number, source: number): number {\n  if (source <= 0.5) {\n    return backdrop - (1 - 2 * source) * backdrop * (1 - backdrop);\n  }\n  const d =\n    backdrop <= 0.25\n      ? ((16 * backdrop - 12) * backdrop + 4) * backdrop\n      : Math.sqrt(backdrop);\n  return backdrop + (2 * source - 1) * (d - backdrop);\n}\n\n""",
+          )
+          replace_once(
+              'src/gpu/blend-modes.ts',
+              """  if (mode === 'darker-color') {\n    const backdropTotal = cb[0] + cb[1] + cb[2];\n    const sourceTotal = cs[0] + cs[1] + cs[2];\n    return sourceTotal < backdropTotal ? cs : cb;\n  }\n""",
+              """  if (mode === 'darker-color' || mode === 'lighter-color') {\n    const backdropTotal = cb[0] + cb[1] + cb[2];\n    const sourceTotal = cs[0] + cs[1] + cs[2];\n    if (mode === 'darker-color') return sourceTotal < backdropTotal ? cs : cb;\n    return sourceTotal > backdropTotal ? cs : cb;\n  }\n""",
+          )
+          replace_once(
+              'src/gpu/blend-modes.ts',
+              """      case 'linear-dodge':\n        return Math.min(1, backdropChannel + sourceChannel);\n    }\n""",
+              """      case 'linear-dodge':\n        return Math.min(1, backdropChannel + sourceChannel);\n      case 'overlay':\n        return backdropChannel <= 0.5\n          ? 2 * backdropChannel * sourceChannel\n          : 1 - 2 * (1 - backdropChannel) * (1 - sourceChannel);\n      case 'soft-light':\n        return softLight(backdropChannel, sourceChannel);\n      case 'hard-light':\n        return sourceChannel <= 0.5\n          ? 2 * backdropChannel * sourceChannel\n          : 1 - 2 * (1 - backdropChannel) * (1 - sourceChannel);\n      case 'vivid-light':\n        return sourceChannel < 0.5\n          ? colorBurn(backdropChannel, 2 * sourceChannel)\n          : colorDodge(backdropChannel, 2 * (sourceChannel - 0.5));\n      case 'linear-light':\n        return clamp01(backdropChannel + 2 * sourceChannel - 1);\n      case 'pin-light':\n        return sourceChannel < 0.5\n          ? Math.min(backdropChannel, 2 * sourceChannel)\n          : Math.max(backdropChannel, 2 * sourceChannel - 1);\n      case 'hard-mix':\n        return backdropChannel + sourceChannel >= 1 ? 1 : 0;\n    }\n""",
+          )
+
+          # Kernel expectations cover every newly completed blend mode.
+          replace_once(
+              'tests/unit/blend-modes.test.ts',
+              """  'color-dodge': [1, 0.5333333333333333, 1],\n  'linear-dodge': [1, 0.65, 1],\n};\n""",
+              """  'color-dodge': [1, 0.5333333333333333, 1],\n  'linear-dodge': [1, 0.65, 1],\n  'lighter-color': source,\n  overlay: [0.6, 0.2, 0.32],\n  'soft-light': [0.6, 0.28, 0.3488],\n  'hard-light': [0.6, 0.2, 0.68],\n  'vivid-light': [0.6, 0, 0.5],\n  'linear-light': [0.6, 0, 0.8],\n  'pin-light': [0.6, 0.4, 0.6],\n  'hard-mix': [1, 0, 1],\n};\n""",
+          )
+          replace_once(
+              'tests/unit/blend-modes.test.ts',
+              """  it('selects a complete RGB tuple for Darker Color instead of mixing channels', () => {\n    expect(blendRgbV1('darker-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([0.9, 0.1, 0.1]);\n    expect(blendRgbV1('darker-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.2, 0.2, 0.2]);\n  });\n""",
+              """  it('selects complete RGB tuples for Darker/Lighter Color instead of mixing channels', () => {\n    expect(blendRgbV1('darker-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([0.9, 0.1, 0.1]);\n    expect(blendRgbV1('darker-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.2, 0.2, 0.2]);\n    expect(blendRgbV1('lighter-color', [0.9, 0.1, 0.1], [0.4, 0.4, 0.4])).toEqual([0.4, 0.4, 0.4]);\n    expect(blendRgbV1('lighter-color', [0.8, 0.8, 0.1], [0.2, 0.2, 0.2])).toEqual([0.8, 0.8, 0.1]);\n  });\n""",
+          )
+
+          # Prove one of the new modes traverses the canonical Raster Tile compositor.
+          replace_once(
+              'tests/unit/baseline-blend-compositor.test.ts',
+              """    store.setLayers([\n      { layerId: 'bottom', visible: true, opacity: 1 },\n      { layerId: 'top', visible: true, opacity: 1, blendMode: 'screen' },\n    ]);\n    expect([...store.compositeTiles()[0]!.bytes]).toEqual([192, 192, 192, 255]);\n  });\n""",
+              """    store.setLayers([\n      { layerId: 'bottom', visible: true, opacity: 1 },\n      { layerId: 'top', visible: true, opacity: 1, blendMode: 'screen' },\n    ]);\n    expect([...store.compositeTiles()[0]!.bytes]).toEqual([192, 192, 192, 255]);\n\n    store.setLayers([\n      { layerId: 'bottom', visible: true, opacity: 1 },\n      { layerId: 'top', visible: true, opacity: 1, blendMode: 'hard-mix' },\n    ]);\n    expect([...store.compositeTiles()[0]!.bytes]).toEqual([255, 255, 255, 255]);\n  });\n""",
+          )
+
+          # Expose only production-supported modes in the existing layer inspector.
+          replace_once(
+              'src/index.html',
+              """<option value=\"color-dodge\">覆い焼きカラー</option><option value=\"linear-dodge\">覆い焼き（リニア）/加算</option></select>""",
+              """<option value=\"color-dodge\">覆い焼きカラー</option><option value=\"linear-dodge\">覆い焼き（リニア）/加算</option><option value=\"lighter-color\">カラー比較（明）</option><option value=\"overlay\">オーバーレイ</option><option value=\"soft-light\">ソフトライト</option><option value=\"hard-light\">ハードライト</option><option value=\"vivid-light\">ビビッドライト</option><option value=\"linear-light\">リニアライト</option><option value=\"pin-light\">ピンライト</option><option value=\"hard-mix\">ハードミックス</option></select>""",
+          )
+
+          # Keep the contract inspection aligned with the completed production surface.
+          replace_once(
+              'scripts/verify-m5c-compositor.mjs',
+              """  \"'color-dodge'\",\n  \"'linear-dodge'\",\n  'compositeBlendRgbaV1',\n""",
+              """  \"'color-dodge'\",\n  \"'linear-dodge'\",\n  \"'lighter-color'\",\n  \"'overlay'\",\n  \"'soft-light'\",\n  \"'hard-light'\",\n  \"'vivid-light'\",\n  \"'linear-light'\",\n  \"'pin-light'\",\n  \"'hard-mix'\",\n  'compositeBlendRgbaV1',\n""",
+          )
+          replace_once(
+              'scripts/verify-m5c-compositor.mjs',
+              """  'value=\"color-dodge\"',\n  'value=\"linear-dodge\"',\n]);\n""",
+              """  'value=\"color-dodge\"',\n  'value=\"linear-dodge\"',\n  'value=\"lighter-color\"',\n  'value=\"overlay\"',\n  'value=\"soft-light\"',\n  'value=\"hard-light\"',\n  'value=\"vivid-light\"',\n  'value=\"linear-light\"',\n  'value=\"pin-light\"',\n  'value=\"hard-mix\"',\n]);\n""",
+          )
+          replace_once(
+              'scripts/verify-m5c-compositor.mjs',
+              """  'M5C-010 Linear Dodge/Add:完了',\n  'M5C-011 Lighter Color:未完了',\n]);\n\nconsole.log('M5C base blend compositor verification passed');\n""",
+              """  'M5C-010 Linear Dodge/Add:完了',\n  'M5C-011 Lighter Color:完了',\n  'M5C-012 Overlay:完了',\n  'M5C-013 Soft Light:完了',\n  'M5C-014 Hard Light:完了',\n  'M5C-015 Vivid Light:完了',\n  'M5C-016 Linear Light:完了',\n  'M5C-017 Pin Light:完了',\n  'M5C-018 Hard Mix:完了',\n  'M5C-019 Difference:未完了',\n]);\n\nconsole.log('M5C blend compositor verification passed');\n""",
+          )
+
+          # Advance only the items proved by this batch and update the restart cursor.
+          for item in [
+              'M5C-011 Lighter Color',
+              'M5C-012 Overlay',
+              'M5C-013 Soft Light',
+              'M5C-014 Hard Light',
+              'M5C-015 Vivid Light',
+              'M5C-016 Linear Light',
+              'M5C-017 Pin Light',
+              'M5C-018 Hard Mix',
+          ]:
+              replace_once('IMPLEMENTATION_PROGRESS.md', f'{item}:未完了', f'{item}:完了')
+          replace_once(
+              'IMPLEMENTATION_PROGRESS.md',
+              '次はM5C-011 Lighter Colorから再開する。',
+              'M5C-011〜018のLighter Color / contrast-light系blend modeはcanonical Raster Tile compositorへ接続済み。次はM5C-019 Differenceから再開する。',
+          )
+          PY
+      - name: Format
+        run: npm run format
+      - name: Lint
+        run: npm run lint
+      - name: Prepare generated assets
+        run: npm run prepare:generated
+      - name: Focused M5C tests
+        run: npx vitest run tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts tests/unit/layer-blend-mode.test.ts tests/unit/renderer-controller.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5C contract inspection
+        run: npm run verify:m5c
+      - name: Full unit regression
+        run: npm run test:unit
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration regression
+        run: npm run test:integration
+      - name: Persist verified implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/gpu/blend-modes.ts src/index.html tests/unit/blend-modes.test.ts tests/unit/baseline-blend-compositor.test.ts scripts/verify-m5c-compositor.mjs IMPLEMENTATION_PROGRESS.md
+          git commit -m 'feat: implement M5C contrast blend modes [skip ci]'
+          git push origin HEAD:work/m5c-contrast-blends-20260902
