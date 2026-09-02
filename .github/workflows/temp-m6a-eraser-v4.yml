@@ -32,6 +32,7 @@ jobs:
           python scripts/fix-m6a-eraser-patcher-v4.py
           python scripts/fix-m6a-eraser-patcher-v5.py
           python scripts/fix-m6a-eraser-patcher-v6.py
+          python scripts/fix-m6a-eraser-patcher-v7.py
       - name: Apply M6A Eraser
         run: python scripts/apply-m6a-eraser.py
       - name: Formatting
