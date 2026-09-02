@@ -24,6 +24,7 @@ jobs:
         run: |
           python3 scripts/fix-m6a-procedural-tip-patcher.py
           python3 scripts/fix-m6a-procedural-tip-patcher-v2.py
+          python3 scripts/fix-m6a-procedural-tip-test.py
       - name: Apply M6A procedural tip
         run: python3 scripts/apply-m6a-procedural-tip.py
       - name: Formatting
@@ -46,7 +47,7 @@ jobs:
         run: npm run test:integration
       - name: Persist verified implementation
         run: |
-          rm scripts/apply-m6a-procedural-tip.py scripts/fix-m6a-procedural-tip-patcher.py scripts/fix-m6a-procedural-tip-patcher-v2.py
+          rm scripts/apply-m6a-procedural-tip.py scripts/fix-m6a-procedural-tip-patcher.py scripts/fix-m6a-procedural-tip-patcher-v2.py scripts/fix-m6a-procedural-tip-test.py
           rm .github/workflows/temp-m6a-procedural-tip.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
