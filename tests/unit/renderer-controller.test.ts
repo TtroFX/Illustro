@@ -44,6 +44,8 @@ describe('M3 renderer execution ownership selection', () => {
     expect(shouldHandoffRendererToCompatibilityV1('main', 'recovery-required')).toBe(true);
     expect(shouldHandoffRendererToCompatibilityV1('worker', 'recovering')).toBe(false);
     expect(shouldHandoffRendererToCompatibilityV1('main', 'unavailable')).toBe(false);
-    expect(shouldHandoffRendererToCompatibilityV1('compatibility', 'recovery-required')).toBe(false);
+    expect(shouldHandoffRendererToCompatibilityV1('compatibility', 'recovery-required')).toBe(
+      false,
+    );
   });
 });
