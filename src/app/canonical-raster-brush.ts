@@ -1,20 +1,22 @@
 import {
   BaselineBrushDabBuilderV1,
   type BaselineBrushColorV1,
+  type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
 } from '../gpu/baseline-brush.js';
 
 export const CANONICAL_BRUSH_ENGINE_SCHEMA_V1 = 'illustro.canonical-brush-engine/1' as const;
 
 export type CanonicalBrushModeIdV1 = 'raster' | 'eraser' | 'smudge' | 'blur';
-export type CanonicalBrushModeV1 = 'raster';
+export type CanonicalBrushModeV1 = 'raster' | 'eraser';
 
 export const IMPLEMENTED_CANONICAL_BRUSH_MODES_V1 = Object.freeze([
   'raster',
+  'eraser',
 ] as const satisfies readonly CanonicalBrushModeV1[]);
 
 export function isImplementedCanonicalBrushModeV1(value: unknown): value is CanonicalBrushModeV1 {
-  return value === 'raster';
+  return value === 'raster' || value === 'eraser';
 }
 
 export function requireImplementedCanonicalBrushModeV1(
@@ -26,6 +28,12 @@ export function requireImplementedCanonicalBrushModeV1(
   return value;
 }
 
+export function canonicalBrushCompositeOperationV1(
+  mode: CanonicalBrushModeV1,
+): BaselineBrushCompositeOperationV1 {
+  return mode === 'eraser' ? 'erase' : 'paint';
+}
+
 export interface CanonicalRasterBrushSampleV1 {
   readonly documentX: number;
   readonly documentY: number;
@@ -33,7 +41,7 @@ export interface CanonicalRasterBrushSampleV1 {
 
 export interface CanonicalRasterBrushWorkSnapshotV1 {
   readonly schema: typeof CANONICAL_BRUSH_ENGINE_SCHEMA_V1;
-  readonly mode: 'raster';
+  readonly mode: CanonicalBrushModeV1;
   readonly confirmedSampleCount: number;
   readonly generatedDabCount: number;
   readonly emittedDabCount: number;
@@ -57,6 +65,7 @@ function freezeDelta(delta: readonly BaselineBrushDabV1[]): readonly BaselineBru
  */
 export class CanonicalRasterBrushStrokeV1 {
   readonly #kernel: BaselineBrushDabBuilderV1;
+  readonly #mode: CanonicalBrushModeV1;
   #confirmedSampleCount = 0;
   #generatedDabCount = 0;
   #emittedDabCount = 0;
@@ -64,8 +73,14 @@ export class CanonicalRasterBrushStrokeV1 {
   #begun = false;
   #finished = false;
 
-  constructor(options: { readonly color?: BaselineBrushColorV1 } = {}) {
-    this.#kernel = new BaselineBrushDabBuilderV1(options);
+  constructor(
+    options: { readonly color?: BaselineBrushColorV1; readonly mode?: CanonicalBrushModeV1 } = {},
+  ) {
+    this.#mode = options.mode ?? 'raster';
+    this.#kernel =
+      options.color === undefined
+        ? new BaselineBrushDabBuilderV1()
+        : new BaselineBrushDabBuilderV1({ color: options.color });
   }
 
   beginConfirmed(sample: CanonicalRasterBrushSampleV1): readonly BaselineBrushDabV1[] {
@@ -111,7 +126,7 @@ export class CanonicalRasterBrushStrokeV1 {
   snapshot(): CanonicalRasterBrushWorkSnapshotV1 {
     return Object.freeze({
       schema: CANONICAL_BRUSH_ENGINE_SCHEMA_V1,
-      mode: 'raster' as const,
+      mode: this.#mode,
       confirmedSampleCount: this.#confirmedSampleCount,
       generatedDabCount: this.#generatedDabCount,
       emittedDabCount: this.#emittedDabCount,
