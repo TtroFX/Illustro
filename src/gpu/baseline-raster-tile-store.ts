@@ -1,6 +1,7 @@
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import type { BlendModeId } from '../domain/layers.js';
 import {
+  baselineDabColorV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   planBaselineBrushTilesV1,
@@ -236,7 +237,7 @@ function writePixel(
 const BASELINE_BRUSH_HARDNESS = 0.85;
 const BASELINE_BRUSH_HARDNESS_SQUARED = BASELINE_BRUSH_HARDNESS * BASELINE_BRUSH_HARDNESS;
 
-function rasterizeBlackDab(
+function rasterizeColorDab(
   tile: BaselineRasterTileImageV1,
   tileX: number,
   tileY: number,
@@ -249,6 +250,7 @@ function rasterizeBlackDab(
   const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + radiusX) - 1);
   const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
   const opacity = clamp01(dab.opacity);
+  const sourceColor = baselineDabColorV1(dab);
 
   if (tile.pixelFormat === 'rgba8-unorm') {
     const bytes = tile.bytes;
@@ -272,11 +274,26 @@ function rasterizeBlackDab(
         const destinationAlpha = (bytes[pixelOffset + 3] ?? 0) / 255;
         const inverseSourceAlpha = 1 - sourceAlpha;
         const outputAlpha = sourceAlpha + destinationAlpha * inverseSourceAlpha;
-        const destinationScale =
-          outputAlpha > 0 ? (destinationAlpha * inverseSourceAlpha) / outputAlpha : 0;
-        bytes[pixelOffset] = Math.round((bytes[pixelOffset] ?? 0) * destinationScale);
-        bytes[pixelOffset + 1] = Math.round((bytes[pixelOffset + 1] ?? 0) * destinationScale);
-        bytes[pixelOffset + 2] = Math.round((bytes[pixelOffset + 2] ?? 0) * destinationScale);
+        const destinationRed = (bytes[pixelOffset] ?? 0) / 255;
+        const destinationGreen = (bytes[pixelOffset + 1] ?? 0) / 255;
+        const destinationBlue = (bytes[pixelOffset + 2] ?? 0) / 255;
+        const destinationWeight = destinationAlpha * inverseSourceAlpha;
+        const sourceWeight = sourceAlpha;
+        bytes[pixelOffset] = Math.round(
+          (outputAlpha > 0
+            ? (sourceColor[0] * sourceWeight + destinationRed * destinationWeight) / outputAlpha
+            : 0) * 255,
+        );
+        bytes[pixelOffset + 1] = Math.round(
+          (outputAlpha > 0
+            ? (sourceColor[1] * sourceWeight + destinationGreen * destinationWeight) / outputAlpha
+            : 0) * 255,
+        );
+        bytes[pixelOffset + 2] = Math.round(
+          (outputAlpha > 0
+            ? (sourceColor[2] * sourceWeight + destinationBlue * destinationWeight) / outputAlpha
+            : 0) * 255,
+        );
         bytes[pixelOffset + 3] = Math.round(outputAlpha * 255);
       }
     }
@@ -302,11 +319,17 @@ function rasterizeBlackDab(
       const destination = readPixel(tile, pixel);
       const destinationAlpha = destination[3];
       const outputAlpha = sourceAlpha + destinationAlpha * (1 - sourceAlpha);
-      const scale = outputAlpha > 0 ? (destinationAlpha * (1 - sourceAlpha)) / outputAlpha : 0;
+      const destinationWeight = destinationAlpha * (1 - sourceAlpha);
       writePixel(tile, pixel, [
-        destination[0] * scale,
-        destination[1] * scale,
-        destination[2] * scale,
+        outputAlpha > 0
+          ? (sourceColor[0] * sourceAlpha + destination[0] * destinationWeight) / outputAlpha
+          : 0,
+        outputAlpha > 0
+          ? (sourceColor[1] * sourceAlpha + destination[1] * destinationWeight) / outputAlpha
+          : 0,
+        outputAlpha > 0
+          ? (sourceColor[2] * sourceAlpha + destination[2] * destinationWeight) / outputAlpha
+          : 0,
         outputAlpha,
       ]);
     }
@@ -530,7 +553,7 @@ export class BaselineRasterTileStoreV1 {
         this.#documentHeight,
         plan.coordinate,
       );
-      for (const dab of plan.dabs) rasterizeBlackDab(tile, bounds.x, bounds.y, dab);
+      for (const dab of plan.dabs) rasterizeColorDab(tile, bounds.x, bounds.y, dab);
     }
   }
 

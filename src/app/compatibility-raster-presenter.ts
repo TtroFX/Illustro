@@ -1,4 +1,5 @@
 import {
+  baselineDabColorV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   type BaselineBrushDabV1,
@@ -198,10 +199,14 @@ export class CompatibilityRasterPresenterV1 {
       context.translate(dab.x * scaleX, dab.y * scaleY);
       context.scale(radiusX, radiusY);
       const gradient = context.createRadialGradient(0, 0, 0, 0, 0, 1);
-      gradient.addColorStop(0, 'rgb(0 0 0 / 1)');
-      gradient.addColorStop(0.85, 'rgb(0 0 0 / 1)');
-      gradient.addColorStop(0.93, 'rgb(0 0 0 / 0.5)');
-      gradient.addColorStop(1, 'rgb(0 0 0 / 0)');
+      const color = baselineDabColorV1(dab);
+      const red = Math.round(color[0] * 255);
+      const green = Math.round(color[1] * 255);
+      const blue = Math.round(color[2] * 255);
+      gradient.addColorStop(0, `rgb(${red} ${green} ${blue} / 1)`);
+      gradient.addColorStop(0.85, `rgb(${red} ${green} ${blue} / 1)`);
+      gradient.addColorStop(0.93, `rgb(${red} ${green} ${blue} / 0.5)`);
+      gradient.addColorStop(1, `rgb(${red} ${green} ${blue} / 0)`);
       context.globalAlpha = Math.min(1, Math.max(0, dab.opacity));
       context.fillStyle = gradient;
       context.beginPath();

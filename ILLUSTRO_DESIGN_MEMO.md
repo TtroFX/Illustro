@@ -234,6 +234,14 @@ Core capabilities include:
 
 ### 6. Color system — ADOPTED
 
+
+#### M5D color-control semantic boundary — 2026-09-02
+
+- Color Wheel, RGB, HSV/HSB and HEX controls share one canonical workspace color state with current/previous/history semantics; normal changes update all representations immediately rather than maintaining independent per-widget colors.
+- For M5D-001 through M5D-007, numeric RGB/HSV/HEX values are interpreted as **encoded component values in the active document working space**. This keeps UI state compatible with both sRGB and Display-P3 documents without falsely claiming profile conversion has already been completed.
+- The current color is production-connected to baseline raster painting and is captured at stroke start. Canonical CPU tile rasterization, WebGPU provisional presentation and Canvas2D compatibility presentation use the same per-dab encoded RGB value. Legacy recovered dabs without a color field retain black semantics.
+- Color workspace state (current/previous/history) is user/workspace state and may persist locally without changing the native document schema. Document color-profile conversion, ICC-aware preview boundaries and profile metadata remain the responsibility of M5D-021 through M5D-025.
+
 - Color wheel and direct RGB, HSV/HSB and HEX entry.
 - Current/previous color, color history, editable palettes, multiple named palettes, palette reordering and color reordering.
 - Palette import/export through normal data/file interchange. **QR-code palette sharing is explicitly excluded.**

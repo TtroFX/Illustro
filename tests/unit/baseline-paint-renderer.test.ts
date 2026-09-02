@@ -163,7 +163,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       textureCopies: 1,
       textureWrites: 0,
       instanceCounts: [3],
-      bufferWrites: [15],
+      bufferWrites: [24],
       loadOps: ['load'],
     });
   });
@@ -183,7 +183,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       textureCopies: 3,
       textureWrites: 0,
       instanceCounts: [2, 1, 1],
-      bufferWrites: [10, 5, 5],
+      bufferWrites: [16, 8, 8],
       loadOps: ['load', 'load', 'load'],
     });
     expect(harness.bufferCounts()).toEqual({ creates: 1, destroys: 0 });
@@ -223,7 +223,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       textureCopies: 1,
       textureWrites: 0,
       instanceCounts: [1],
-      bufferWrites: [5],
+      bufferWrites: [8],
       loadOps: ['load'],
     });
   });
@@ -248,7 +248,7 @@ describe('M4 baseline WebGPU paint renderer', () => {
       textureCopies: 2,
       textureWrites: 0,
       instanceCounts: [1, 1],
-      bufferWrites: [5, 5],
+      bufferWrites: [8, 8],
       loadOps: ['load', 'load'],
     });
   });

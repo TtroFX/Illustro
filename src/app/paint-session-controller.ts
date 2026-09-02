@@ -18,7 +18,13 @@ import {
   type RasterLayerV1,
   type RasterTileReferenceV1,
 } from '../domain/layers.js';
-import { BaselineBrushDabBuilderV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import {
+  BaselineBrushDabBuilderV1,
+  DEFAULT_BASELINE_BRUSH_COLOR_V1,
+  freezeBaselineBrushColorV1,
+  type BaselineBrushColorV1,
+  type BaselineBrushDabV1,
+} from '../gpu/baseline-brush.js';
 import type { BaselineRasterLayerDescriptorV1 } from '../gpu/baseline-raster-tile-store.js';
 import type {
   BaselineRasterTileImageV1,
@@ -222,6 +228,15 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
   const radiusY =
     value.radiusY === undefined ? radius : finiteNumber(value.radiusY, 'baseline dab radiusY');
   const opacity = finiteNumber(value.opacity, 'baseline dab opacity');
+  const color =
+    value.color === undefined
+      ? undefined
+      : Array.isArray(value.color)
+        ? freezeBaselineBrushColorV1(
+            value.color.map((component) => finiteNumber(component, 'baseline dab color')),
+          )
+        : null;
+  if (color === null) throw new TypeError('invalid baseline dab color');
   if (radius <= 0 || radiusX <= 0 || radiusY <= 0 || opacity < 0 || opacity > 1) {
     throw new RangeError('invalid baseline dab range');
   }
@@ -233,6 +248,7 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     radiusX,
     radiusY,
     opacity,
+    ...(color === undefined ? {} : { color }),
   });
 }
 
@@ -494,6 +510,7 @@ export class PaintSessionControllerV1 {
   readonly #canonicalRasterTileRefs = new Map<LayerId, Map<string, RasterTileReferenceV1>>();
   readonly #rasterMaskTileCache = new Map<string, RasterMaskTilePayloadV1>();
   #rasterMaskTileLoader: RasterMaskTileLoaderV1 | null = null;
+  #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
   #disposed = false;
 
   constructor(
@@ -526,6 +543,14 @@ export class PaintSessionControllerV1 {
   setRasterMaskTileLoader(loader: RasterMaskTileLoaderV1 | null): void {
     this.#rasterMaskTileLoader = loader;
     this.#rasterMaskTileCache.clear();
+  }
+
+  setPaintColor(color: BaselineBrushColorV1): void {
+    this.#paintColor = freezeBaselineBrushColorV1(color);
+  }
+
+  paintColor(): BaselineBrushColorV1 {
+    return this.#paintColor;
   }
 
   activeLayerId(): LayerId | null {
@@ -1201,7 +1226,7 @@ export class PaintSessionControllerV1 {
       layerId,
       samples: Object.freeze([]),
     });
-    const builder = new BaselineBrushDabBuilderV1();
+    const builder = new BaselineBrushDabBuilderV1({ color: this.#paintColor });
     this.#queueActiveDabDelta(builder.beginDelta(firstSample));
     this.#queueActiveDabDelta(builder.appendDelta(samples.slice(1)));
     this.#activeDabBuilder = builder;
