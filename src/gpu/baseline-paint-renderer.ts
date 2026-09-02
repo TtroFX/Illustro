@@ -754,7 +754,7 @@ export class BaselinePaintRendererV1 {
     canonicalTiles.applyDabs(this.#resolveLayerId(layerId), strokeId, delta, operation);
     this.#activeStroke.dabs.push(...delta);
     if (delta.length > 0) {
-      if (operation === 'erase') {
+      if (operation !== 'paint') {
         const { width, height } = this.#requireDocument();
         this.#patchCompositeTiles(
           planBaselineBrushTilesV1(delta, width, height).map((plan) => plan.coordinate),
@@ -801,7 +801,7 @@ export class BaselinePaintRendererV1 {
       if (missingTail.length > 0) {
         canonicalTiles.applyDabs(resolvedLayerId, strokeId, missingTail, operation);
         active.dabs.push(...missingTail);
-        if (operation === 'erase') {
+        if (operation !== 'paint') {
           this.#patchCompositeTiles(
             planBaselineBrushTilesV1(missingTail, width, height).map((plan) => plan.coordinate),
           );
@@ -815,7 +815,7 @@ export class BaselinePaintRendererV1 {
       this.#activeStroke = { strokeId, operation, dabs: [...frozenDabs] };
       canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs, operation);
       if (frozenDabs.length > 0) {
-        if (operation === 'erase') {
+        if (operation !== 'paint') {
           this.#patchCompositeTiles(
             planBaselineBrushTilesV1(frozenDabs, width, height).map((plan) => plan.coordinate),
           );
