@@ -1000,7 +1000,77 @@ M8I-023 shortcut-label localization:未完了
 M8I-024 `Intl` date/time formatting:未完了
 M8I-025 `Intl` locale-facing number formatting:未完了
 M8I-026 dynamic text overflow handling:未完了
-M8I-検査 M8全体内部検査:未完了
+M8I-検査 M8I内部検査:未完了
+
+## M8J — Canonical Input / Parameter Interaction System
+M8J-001 Direct / Quick / Detail 3-layer input hierarchy:未完了
+M8J-002 one canonical parameter state with multiple presentation/input paths:未完了
+M8J-003 canonical input-component taxonomy and parameter metadata registry:未完了
+M8J-004 semantic value-mapping policy（linear / perceptual / bipolar / stepped / circular / range / curve）:未完了
+M8J-005 Adaptive Scalar Control shared component:未完了
+M8J-006 Brush Size small-value-priority perceptual mapping:未完了
+M8J-007 Eraser/Blur/Scatter/Texture Scale wide-range perceptual mapping where applicable:未完了
+M8J-008 soft interaction range / hard numeric range separation:未完了
+M8J-009 per-tool/per-brush meaningful soft-range limits:未完了
+M8J-010 Bipolar Slider with explicit neutral-zero marker/reset:未完了
+M8J-011 stepped integer / semantic-step controls:未完了
+M8J-012 Range/Min-Max control with touch-safe handle ownership:未完了
+M8J-013 angle/circular parameter control policy:未完了
+M8J-014 shared Curve Editor component:未完了
+M8J-015 XY/2D field control for genuinely two-dimensional parameters:未完了
+M8J-016 tap-to-edit numeric value editor:未完了
+M8J-017 numeric expression and compatible unit entry（+/-/*//, px, %, degree, physical units where valid）:未完了
+M8J-018 Touch slider-distance Fine Adjustment:未完了
+M8J-019 Mouse/trackpad label/value scrub with variable precision:未完了
+M8J-020 Keyboard Arrow/modifier precision stepping:未完了
+M8J-021 magnitude-aware semantic step sizing:未完了
+M8J-022 Saved Parameter Marks / per-preset quick-value memory:未完了
+M8J-023 saved/neutral/snap-point feedback and optional restrained haptics:未完了
+M8J-024 per-parameter modified/default indication and one-action reset:未完了
+M8J-025 transient live preview→release/Apply single history transaction:未完了
+M8J-026 Cancel/Esc restores exact pre-interaction parameter state:未完了
+M8J-027 parameter-specific visual result preview（brush outline / affected region / direction / stroke preview）:未完了
+M8J-028 tool Quick Controls limited to highest-frequency ~3 controls:未完了
+M8J-029 Tool Properties automatic contextual content switching:未完了
+M8J-030 responsive parameter-control compaction without capability loss:未完了
+M8J-031 choice-control taxonomy（toggle / segmented / popover / sheet / visual grid）:未完了
+M8J-032 large picker Recent / Favorites / Category-Tag / Search hierarchy:未完了
+M8J-033 categorized searchable Blend Mode chooser with Recent/Favorites:未完了
+M8J-034 Brush Tip/Texture/Pattern/Gradient visual Asset Picker:未完了
+M8J-035 Layer/Object/Reference semantic picker:未完了
+M8J-036 Color direct interactions（current-color tap, previous-color recall, swatch drag-to-fill）:未完了
+M8J-037 Eyedropper split current/new loupe and magnified sampling feedback:未完了
+M8J-038 Eyedropper source/radius/averaging + sampled-content layer reverse lookup:未完了
+M8J-039 Color compact primary selector + progressive RGB/HSV/HEX/Alpha detail:未完了
+M8J-040 Gradient on-canvas line/stop/midpoint editing and drag-out delete preview:未完了
+M8J-041 Transform direct handles paired with exact numeric Inspector editing:未完了
+M8J-042 Vector/Ruler/Lineart controls show only contextually relevant handles:未完了
+M8J-043 Draw-and-Hold Smart Shape interaction:未完了
+M8J-044 Fill/Auto Select hold-drag threshold/tolerance adjustment with live region feedback:未完了
+M8J-045 Quick Mask direct brush add/subtract editing with configurable overlay:未完了
+M8J-046 Dynamics entry attached to applicable parameter without permanent visual clutter:未完了
+M8J-047 Pressure/Tilt/Velocity shared curve editing + reusable curve presets:未完了
+M8J-048 live stylus-input monitor during dynamics setup where capability exists:未完了
+M8J-049 Brush preset temporary Modified state / Reset / Save / Save As workflow:未完了
+M8J-050 Brush Studio shared Drawing Pad/live stroke preview:未完了
+M8J-051 multi-selection Mixed Value presentation:未完了
+M8J-052 multi-selection relative scrub vs explicit absolute numeric-set semantics:未完了
+M8J-053 layer/filter/panel/asset reorder insertion target live preview before drop:未完了
+M8J-054 contextual mini-surface placement avoids target, active pen, handles and workspace boundaries:未完了
+M8J-055 Quick Hole tap + press-slide/marking accelerator without making empty center a canvas-blocking permanent hit target:未完了
+M8J-056 gesture accelerators remain supplemental; every required action has discoverable UI/command path:未完了
+M8J-057 shortcut/stylus binding recorder captures actual key/button input and reports conflicts:未完了
+M8J-058 input-device specialization（Pen precision, Touch UI/direct, Mouse scrub, Keyboard acceleration）:未完了
+M8J-059 visual handle size separated from >=44 CSS px effective touch target where required:未完了
+M8J-060 responsive Popover/Sheet selection based on available space/input modality:未完了
+M8J-061 accessibility semantics/labels/focus for symbolic and custom controls:未完了
+M8J-062 locale-safe numeric display, entry and unit parsing:未完了
+M8J-063 interaction-state consistency across slider/curve/gradient/transform/context controls:未完了
+M8J-064 no independent duplicate state between Direct/Quick/Detail controls:未完了
+M8J-065 Canonical Input System component/integration regression suite:未完了
+M8J-066 Touch/Pen/Mouse/Keyboard physical-device interaction verification:未完了
+M8J-検査 M8J内部検査:未完了
+M8-検査 M8全体内部検査:未完了
 
 ## M9A — Local Project Library
 M9A-001 local Project Library:未完了
