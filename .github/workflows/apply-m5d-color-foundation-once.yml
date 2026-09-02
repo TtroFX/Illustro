@@ -45,6 +45,25 @@ jobs:
           PY
       - name: Apply M5D color foundation
         run: python scripts/apply-m5d-color-foundation.py
+      - name: Update retained-scene instance expectations
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tests/unit/baseline-paint-renderer.test.ts')
+          t = p.read_text()
+          replacements = [
+              ('instanceCounts: [3],\n      bufferWrites: [15],', 'instanceCounts: [3],\n      bufferWrites: [24],'),
+              ('instanceCounts: [2, 1, 1],\n      bufferWrites: [10, 5, 5],', 'instanceCounts: [2, 1, 1],\n      bufferWrites: [16, 8, 8],'),
+              ('instanceCounts: [1],\n      bufferWrites: [5],', 'instanceCounts: [1],\n      bufferWrites: [8],'),
+              ('instanceCounts: [1, 1],\n      bufferWrites: [5, 5],', 'instanceCounts: [1, 1],\n      bufferWrites: [8, 8],'),
+          ]
+          for before, after in replacements:
+              if t.count(before) != 1:
+                  raise SystemExit(f'expected one renderer test anchor: {before!r}')
+              t = t.replace(before, after, 1)
+          p.write_text(t)
+          PY
       - name: Format
         run: npm run format
       - name: Lint
@@ -52,7 +71,7 @@ jobs:
       - name: Prepare generated assets
         run: npm run prepare:generated
       - name: Focused M5D tests
-        run: npx vitest run tests/unit/color-workflow.test.ts tests/unit/baseline-color-paint.test.ts tests/unit/baseline-brush.test.ts tests/unit/baseline-raster-tile-store.test.ts tests/unit/paint-session-controller.test.ts tests/unit/renderer-controller.test.ts
+        run: npx vitest run tests/unit/color-workflow.test.ts tests/unit/baseline-color-paint.test.ts tests/unit/baseline-brush.test.ts tests/unit/baseline-raster-tile-store.test.ts tests/unit/paint-session-controller.test.ts tests/unit/renderer-controller.test.ts tests/unit/baseline-paint-renderer.test.ts
       - name: Typecheck
         run: npm run typecheck
       - name: M5D contract inspection
