@@ -79,13 +79,21 @@ export class CanonicalRasterBrushStrokeV1 {
   #finished = false;
 
   constructor(
-    options: { readonly color?: BaselineBrushColorV1; readonly mode?: CanonicalBrushModeV1 } = {},
+    options: {
+      readonly color?: BaselineBrushColorV1;
+      readonly mode?: CanonicalBrushModeV1;
+      readonly sizePx?: number;
+      readonly opacity?: number;
+      readonly flow?: number;
+    } = {},
   ) {
     this.#mode = options.mode ?? 'raster';
-    this.#kernel =
-      options.color === undefined
-        ? new BaselineBrushDabBuilderV1()
-        : new BaselineBrushDabBuilderV1({ color: options.color });
+    this.#kernel = new BaselineBrushDabBuilderV1({
+      ...(options.color === undefined ? {} : { color: options.color }),
+      ...(options.sizePx === undefined ? {} : { sizePx: options.sizePx }),
+      ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
+      ...(options.flow === undefined ? {} : { flow: options.flow }),
+    });
   }
 
   beginConfirmed(sample: CanonicalRasterBrushSampleV1): readonly BaselineBrushDabV1[] {

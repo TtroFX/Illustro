@@ -417,10 +417,11 @@ M6A-009 preset search:完了
 M6A-010 preset categories:完了
 M6A-011 preset lock:完了
 M6A-012 preset reset:完了
-M6A-013 brush size:未完了
-M6A-014 opacity:未完了
-M6A-015 flow/density:未完了
-M6A-016 per-brush parameter limits:未完了
+再開メモ: M6A-005〜012 Brush Preset管理はfactory baselineを不変reset anchorとして保持し、user/factory overrideをlocal persistenceへ保存する構成で完了。M6A-013〜016ではTool Propertiesのsize/opacity/flowを選択presetへ保存し、stroke開始時に値をcaptureする。flowはdabごとのdeposit、opacityはpaint stroke全体のalpha上限としてcanonical Raster Tile上で累積し、低opacity/flow時のinteractive previewはcanonical changed Tileをpatchして最終結果と一致させる。各presetはextensions.parameterLimitsに独立したmin/maxを保持でき、UIと更新APIがその範囲を強制する。次はM6A-017 procedural tipから再開する。
+M6A-013 brush size:完了
+M6A-014 opacity:完了
+M6A-015 flow/density:完了
+M6A-016 per-brush parameter limits:完了
 M6A-017 procedural tip:未完了
 M6A-018 sampled image tip:未完了
 M6A-019 custom tip creation:未完了

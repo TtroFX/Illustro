@@ -134,6 +134,26 @@
               <button id="brush-preset-reset" type="button" title="保存基準へリセット">Reset</button>
             </fieldset>
           </section>
+          <section class="shell-inspector-card shell-brush-properties-panel" aria-label="ブラシ設定">
+            <header class="shell-brush-properties-header"><strong>ブラシ設定</strong><output id="brush-property-status" aria-live="polite"></output></header>
+            <div class="shell-brush-property-grid">
+              <div class="shell-brush-property-row">
+                <label for="brush-size-range">ブラシサイズ</label>
+                <input id="brush-size-range" type="range" min="1" max="4096" step="0.5" value="16" />
+                <span class="shell-brush-property-number"><input id="brush-size-number" type="number" inputmode="decimal" min="1" max="4096" step="0.5" value="16" aria-label="ブラシサイズ数値" /><span>px</span></span>
+              </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-opacity-range">不透明度</label>
+                <input id="brush-opacity-range" type="range" min="0.01" max="1" step="0.01" value="1" />
+                <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-opacity-number" type="number" inputmode="decimal" min="0.01" max="1" step="0.01" value="1" aria-label="ブラシ不透明度数値" /><span>×</span></span>
+              </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-flow-range">流量</label>
+                <input id="brush-flow-range" type="range" min="0.01" max="1" step="0.01" value="1" />
+                <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-flow-number" type="number" inputmode="decimal" min="0.01" max="1" step="0.01" value="1" aria-label="ブラシ流量数値" /><span>×</span></span>
+              </div>
+            </div>
+          </section>
           <section class="shell-inspector-card shell-color-panel" aria-label="カラー">
             <header class="shell-color-header"><strong>カラー</strong><output id="color-status" aria-live="polite"></output></header>
             <div class="shell-color-picker">

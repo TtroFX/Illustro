@@ -1822,3 +1822,120 @@ body {
   border-color: currentColor;
   background: color-mix(in srgb, currentColor 12%, transparent);
 }
+
+
+/* M6A Tool Properties — canonical white inspector card + blue local controls. */
+.shell-brush-properties-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.shell-brush-properties-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shell-brush-properties-header output {
+  color: var(--shell-muted, #5f6f89);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-brush-property-grid {
+  display: grid;
+  gap: 9px;
+}
+
+.shell-brush-property-row {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) minmax(90px, 1fr) 82px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.shell-brush-property-row > label {
+  color: #1f2e46;
+  white-space: nowrap;
+}
+
+.shell-brush-property-row > input[type='range'] {
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.shell-brush-property-row > input[type='range']::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: #acd0ff;
+}
+
+.shell-brush-property-row > input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border: 0;
+  border-radius: 50%;
+  background: #2d8cff;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.shell-brush-property-row > input[type='range']::-moz-range-track {
+  height: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: #acd0ff;
+}
+
+.shell-brush-property-row > input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #2d8cff;
+}
+
+.shell-brush-property-number {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid #dfe7f3;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #62718a;
+}
+
+.shell-brush-property-number input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  padding: 5px 0;
+  background: transparent;
+  color: #16243a;
+  font: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+
+.shell-brush-property-number input::-webkit-inner-spin-button,
+.shell-brush-property-number input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.shell-brush-property-row :disabled {
+  cursor: default;
+  opacity: 0.48;
+}

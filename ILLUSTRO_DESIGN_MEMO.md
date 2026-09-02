@@ -5544,3 +5544,13 @@ Verification must cover at minimum:
 - User preset persistence stores user entries plus only factory overrides/lock metadata, then merges them over the current factory baseline on load. This prevents persisted old factory copies from silently replacing later built-in pack updates.
 - The four current runtime factory entries are bridge defaults for already implemented Paint/Eraser/Smudge/Blur behavior. They are not the final J 48-preset Default Brush Pack and do not advance J-pack implementation status.
 - Brush Presets remains a compact Inspector block with search/category filtering and touch-reliable management controls; deep parameter editing stays in the separate Brush Studio progressive-disclosure surface.
+
+
+### M6A Brush Tool Properties semantic boundary — 2026-09-03
+
+- Brush size, opacity and flow are selected-brush parameters, persisted with the Brush Preset workspace library rather than document history. Selecting a preset applies its effective values to the production PaintSession; the values are captured when a stroke starts so later UI edits do not mutate an in-progress or already persisted stroke.
+- `sizePx` is brush diameter in document pixels. The current procedural round kernel derives radius as `sizePx / 2`; its baseline spacing remains the already-adopted 25% size ratio until the dedicated M6A-023 spacing control supersedes that default.
+- Paint `flow` is per-dab pigment/alpha deposit. Paint `opacity` is a whole-stroke alpha cap. Repeated overlapping dabs therefore build toward, but do not exceed, the selected stroke opacity. This distinction is canonical Raster Tile behavior, not merely UI labeling.
+- For Eraser/Smudge/Blur at this stage, the same captured opacity and flow values combine into the per-dab effect strength. Their deeper pickup/dynamics semantics remain assigned to later dedicated M6A items.
+- Each `illustro.brush/1` preset may carry independent size/opacity/flow min/max limits in `extensions.parameterLimits`. Runtime controls and preset mutation clamp to those limits. Missing/invalid limits fall back to safe canonical defaults, preserving compatibility with older stored/imported presets.
+- Tool Properties UI follows the canonical visual reference: compact white Inspector card, thin separators, blue local slider accents, numeric entry beside direct manipulation, and no Android-native color/control surface substituted for application UI.

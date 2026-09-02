@@ -2,8 +2,11 @@ import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.j
 import type { BlendModeId } from '../domain/layers.js';
 import {
   baselineDabColorV1,
+  baselineDabFlowV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
+  baselineDabStrokeOpacityV1,
+  baselineDabUsesFlowOpacityV1,
   planBaselineBrushTilesV1,
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
@@ -76,6 +79,8 @@ interface ActiveTileTransactionV1 {
   readonly operation: BaselineBrushCompositeOperationV1;
   readonly before: Map<string, BaselineRasterTileImageV1 | null>;
   readonly affected: Map<string, TileCoordinateV1>;
+  readonly paintCoverage: Map<string, Float32Array>;
+  paintStrokeOpacity: number | null;
   lastSmudgeDab: BaselineBrushDabV1 | null;
 }
 
@@ -255,6 +260,7 @@ function rasterizeColorDab(
   tileX: number,
   tileY: number,
   dab: BaselineBrushDabV1,
+  strokeCoverage: Float32Array | null = null,
 ): void {
   const radiusX = baselineDabRadiusXV1(dab);
   const radiusY = baselineDabRadiusYV1(dab);
@@ -264,6 +270,20 @@ function rasterizeColorDab(
   const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
   const opacity = clamp01(dab.opacity);
   const sourceColor = baselineDabColorV1(dab);
+  const flow = clamp01(baselineDabFlowV1(dab));
+  const strokeOpacity = clamp01(baselineDabStrokeOpacityV1(dab));
+  const semanticFlowOpacity = strokeCoverage !== null && baselineDabUsesFlowOpacityV1(dab);
+  const sourceAlphaForPixel = (pixel: number, coverage: number): number => {
+    if (!semanticFlowOpacity || strokeCoverage === null) return clamp01(opacity * coverage);
+    const deposit = clamp01(flow * coverage);
+    const previousCoverage = strokeCoverage[pixel] ?? 0;
+    const nextCoverage = previousCoverage + (1 - previousCoverage) * deposit;
+    strokeCoverage[pixel] = nextCoverage;
+    const previousEffective = clamp01(previousCoverage * strokeOpacity);
+    const nextEffective = clamp01(nextCoverage * strokeOpacity);
+    if (nextEffective <= previousEffective || previousEffective >= 1) return 0;
+    return clamp01((nextEffective - previousEffective) / (1 - previousEffective));
+  };
 
   if (tile.pixelFormat === 'rgba8-unorm') {
     const bytes = tile.bytes;
@@ -275,15 +295,15 @@ function rasterizeColorDab(
         const localX = (documentX + 0.5 - dab.x) / radiusX;
         const distanceSquared = localX * localX + localYSquared;
         if (distanceSquared >= 1) continue;
-        const sourceAlpha =
+        const tipCoverage =
           distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-            ? opacity
-            : clamp01(
-                opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-              );
+            ? 1
+            : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared)));
+        const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
+        const sourceAlpha = sourceAlphaForPixel(pixel, tipCoverage);
         if (sourceAlpha <= 0) continue;
 
-        const pixelOffset = ((documentY - tileY) * tile.width + (documentX - tileX)) * 4;
+        const pixelOffset = pixel * 4;
         const destinationAlpha = (bytes[pixelOffset + 3] ?? 0) / 255;
         const inverseSourceAlpha = 1 - sourceAlpha;
         const outputAlpha = sourceAlpha + destinationAlpha * inverseSourceAlpha;
@@ -321,14 +341,13 @@ function rasterizeColorDab(
       const localX = (documentX + 0.5 - dab.x) / radiusX;
       const distanceSquared = localX * localX + localYSquared;
       if (distanceSquared >= 1) continue;
-      const sourceAlpha =
+      const tipCoverage =
         distanceSquared <= BASELINE_BRUSH_HARDNESS_SQUARED
-          ? opacity
-          : clamp01(
-              opacity * (1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared))),
-            );
-      if (sourceAlpha <= 0) continue;
+          ? 1
+          : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, Math.sqrt(distanceSquared)));
       const pixel = (documentY - tileY) * tile.width + (documentX - tileX);
+      const sourceAlpha = sourceAlphaForPixel(pixel, tipCoverage);
+      if (sourceAlpha <= 0) continue;
       const destination = readPixel(tile, pixel);
       const destinationAlpha = destination[3];
       const outputAlpha = sourceAlpha + destinationAlpha * (1 - sourceAlpha);
@@ -841,6 +860,8 @@ export class BaselineRasterTileStoreV1 {
         operation,
         before: new Map(),
         affected: new Map(),
+        paintCoverage: new Map(),
+        paintStrokeOpacity: null,
         lastSmudgeDab: null,
       };
     }
@@ -882,9 +903,21 @@ export class BaselineRasterTileStoreV1 {
         this.#documentHeight,
         plan.coordinate,
       );
+      let coverage: Float32Array | null = null;
+      if (operation === 'paint' && plan.dabs.some(baselineDabUsesFlowOpacityV1)) {
+        const strokeOpacity = baselineDabStrokeOpacityV1(plan.dabs[0] ?? dabs[0]!);
+        if (this.#active.paintStrokeOpacity === null) {
+          this.#active.paintStrokeOpacity = strokeOpacity;
+        } else if (Math.abs(this.#active.paintStrokeOpacity - strokeOpacity) > 1e-9) {
+          throw new Error('active paint stroke changed opacity cap');
+        }
+        coverage =
+          this.#active.paintCoverage.get(key) ?? new Float32Array(tile.width * tile.height);
+        this.#active.paintCoverage.set(key, coverage);
+      }
       for (const dab of plan.dabs) {
         if (operation === 'erase') rasterizeEraseDab(tile, bounds.x, bounds.y, dab);
-        else rasterizeColorDab(tile, bounds.x, bounds.y, dab);
+        else rasterizeColorDab(tile, bounds.x, bounds.y, dab, coverage);
       }
     }
   }

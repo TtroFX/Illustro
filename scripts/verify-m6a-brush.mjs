@@ -164,10 +164,43 @@ requireText(
   'premultiplied blur',
   'Blur regression coverage missing',
 );
+for (const item of [
+  'M6A-013 brush size:完了',
+  'M6A-014 opacity:完了',
+  'M6A-015 flow/density:完了',
+  'M6A-016 per-brush parameter limits:完了',
+]) {
+  requireText(progress, item, `${item.split(':')[0]} progress is not complete`);
+}
 requireText(
-  progress,
-  'M6A-013 brush size:未完了',
-  'future brush-size status was incorrectly advanced',
+  read('src/domain/brush-schema.ts'),
+  'brushParameterLimitsV1',
+  'per-brush parameter limits are missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushParameters',
+  'brush properties are not connected to the production paint session',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'baselineDabStrokeOpacityV1',
+  'flow/stroke-opacity dab semantics are missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'paintCoverage',
+  'stroke-opacity accumulation state is missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-size-range"',
+  'reachable brush-size Tool Properties control missing',
+);
+requireText(
+  read('tests/unit/brush-properties.test.ts'),
+  'caps accumulated paint alpha',
+  'brush opacity/flow regression coverage missing',
 );
 requireText(
   progress,

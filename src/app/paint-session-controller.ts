@@ -5,6 +5,10 @@ import {
   type DocumentV1,
 } from '../domain/document.js';
 import {
+  DEFAULT_BRUSH_PARAMETER_VALUES_V1,
+  type BrushParameterValuesV1,
+} from '../domain/brush-schema.js';
+import {
   isUuid,
   parseDocumentId,
   parseLayerId,
@@ -185,6 +189,7 @@ export interface PaintSessionSnapshotV1 {
   readonly selectedLayerIds: readonly LayerId[];
   readonly selectionAnchorLayerId: LayerId | null;
   readonly brushMode: CanonicalBrushModeV1;
+  readonly brushParameters: BrushParameterValuesV1;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
   readonly activeStrokeId: string | null;
   readonly activeStrokeSampleCount: number;
@@ -241,6 +246,11 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
   const radiusY =
     value.radiusY === undefined ? radius : finiteNumber(value.radiusY, 'baseline dab radiusY');
   const opacity = finiteNumber(value.opacity, 'baseline dab opacity');
+  const flow = value.flow === undefined ? undefined : finiteNumber(value.flow, 'baseline dab flow');
+  const strokeOpacity =
+    value.strokeOpacity === undefined
+      ? undefined
+      : finiteNumber(value.strokeOpacity, 'baseline dab strokeOpacity');
   const color =
     value.color === undefined
       ? undefined
@@ -250,7 +260,15 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
           )
         : null;
   if (color === null) throw new TypeError('invalid baseline dab color');
-  if (radius <= 0 || radiusX <= 0 || radiusY <= 0 || opacity < 0 || opacity > 1) {
+  if (
+    radius <= 0 ||
+    radiusX <= 0 ||
+    radiusY <= 0 ||
+    opacity < 0 ||
+    opacity > 1 ||
+    (flow !== undefined && (flow < 0 || flow > 1)) ||
+    (strokeOpacity !== undefined && (strokeOpacity < 0 || strokeOpacity > 1))
+  ) {
     throw new RangeError('invalid baseline dab range');
   }
   return Object.freeze({
@@ -261,6 +279,8 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     radiusX,
     radiusY,
     opacity,
+    ...(flow === undefined ? {} : { flow }),
+    ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
     ...(color === undefined ? {} : { color }),
   });
 }
@@ -530,6 +550,7 @@ export class PaintSessionControllerV1 {
   #rasterMaskTileLoader: RasterMaskTileLoaderV1 | null = null;
   #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
   #brushMode: CanonicalBrushModeV1 = 'raster';
+  #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
   #disposed = false;
 
   constructor(
@@ -548,6 +569,7 @@ export class PaintSessionControllerV1 {
       selectedLayerIds: Object.freeze([...this.#selectedLayerIds]),
       selectionAnchorLayerId: this.#selectionAnchorLayerId,
       brushMode: this.#brushMode,
+      brushParameters: this.#brushParameters,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeStrokeSampleCount: this.#activeSamples.length,
@@ -576,6 +598,28 @@ export class PaintSessionControllerV1 {
 
   brushMode(): CanonicalBrushModeV1 {
     return this.#brushMode;
+  }
+
+  brushParameters(): BrushParameterValuesV1 {
+    return this.#brushParameters;
+  }
+
+  setBrushParameters(parameters: BrushParameterValuesV1): BrushParameterValuesV1 {
+    if (
+      !Number.isFinite(parameters.sizePx) ||
+      parameters.sizePx <= 0 ||
+      parameters.sizePx > 4096 ||
+      !Number.isFinite(parameters.opacity) ||
+      parameters.opacity < 0 ||
+      parameters.opacity > 1 ||
+      !Number.isFinite(parameters.flow) ||
+      parameters.flow < 0 ||
+      parameters.flow > 1
+    ) {
+      throw new RangeError('invalid runtime brush parameters');
+    }
+    this.#brushParameters = Object.freeze({ ...parameters });
+    return this.#brushParameters;
   }
 
   setBrushMode(mode: CanonicalBrushModeIdV1): CanonicalBrushModeV1 {
@@ -1262,9 +1306,13 @@ export class PaintSessionControllerV1 {
       brushMode: this.#brushMode,
       samples: Object.freeze([]),
     });
+    const parameters = this.#brushParameters;
     const builder = new CanonicalRasterBrushStrokeV1({
       color: this.#paintColor,
       mode: this.#brushMode,
+      sizePx: parameters.sizePx,
+      opacity: parameters.opacity,
+      flow: parameters.flow,
     });
     this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
     this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));

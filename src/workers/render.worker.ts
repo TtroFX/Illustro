@@ -487,11 +487,20 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     }
     const radiusX = candidate.radiusX;
     const radiusY = candidate.radiusY;
+    const flow = candidate.flow;
+    const strokeOpacity = candidate.strokeOpacity;
     if (
       (radiusX !== undefined &&
         (typeof radiusX !== 'number' || !Number.isFinite(radiusX) || radiusX <= 0)) ||
       (radiusY !== undefined &&
-        (typeof radiusY !== 'number' || !Number.isFinite(radiusY) || radiusY <= 0))
+        (typeof radiusY !== 'number' || !Number.isFinite(radiusY) || radiusY <= 0)) ||
+      (flow !== undefined &&
+        (typeof flow !== 'number' || !Number.isFinite(flow) || flow < 0 || flow > 1)) ||
+      (strokeOpacity !== undefined &&
+        (typeof strokeOpacity !== 'number' ||
+          !Number.isFinite(strokeOpacity) ||
+          strokeOpacity < 0 ||
+          strokeOpacity > 1))
     ) {
       return null;
     }
@@ -513,6 +522,8 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         ...(radiusX === undefined ? {} : { radiusX }),
         ...(radiusY === undefined ? {} : { radiusY }),
         opacity: candidate.opacity,
+        ...(flow === undefined ? {} : { flow }),
+        ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
         ...(color === undefined ? {} : { color }),
       }),
     );
