@@ -9,6 +9,13 @@ const requireText = (path, markers) => {
 };
 
 requireText('src/domain/color.ts', ['rgbToHsvV1', 'hsvToRgbV1', 'parseHexRgbV1', 'formatHexRgbV1']);
+requireText('src/app/color-mixing-surface.ts', [
+  'ColorMixingSurfaceV1',
+  'paintLine(',
+  'blendLine(',
+  'presentationRgba8(',
+  'convertWorkingSpace(',
+]);
 requireText('src/domain/color-management.ts', [
   'decodeSrgbTransferComponentV1',
   'convertEncodedRgbV1',
@@ -59,6 +66,12 @@ requireText('src/app/color-workflow-controller.ts', [
   '#color-palette-swatches',
   '#color-palette-import',
   '#color-palette-export',
+  '#color-mixing-canvas',
+  '#color-mixing-brush',
+  '#color-mixing-blend',
+  '#color-mixing-eyedropper',
+  'mixingSurface.paintLine',
+  'mixingSurface.blendLine',
   'setPaintColor',
 ]);
 requireText('src/gpu/baseline-brush.ts', [
@@ -149,6 +162,13 @@ requireText('src/index.html', [
   'id="color-palette-color-delete"',
   'id="color-palette-import"',
   'id="color-palette-export"',
+  'id="color-mixing-canvas"',
+  'id="color-mixing-brush"',
+  'id="color-mixing-blend"',
+  'id="color-mixing-eyedropper"',
+  'id="color-mixing-undo"',
+  'id="color-mixing-redo"',
+  'id="color-mixing-clear"',
 ]);
 requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-001 Color Wheel:完了',
@@ -176,6 +196,6 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-023 color-profile metadata:完了',
   'M5D-024 profile-aware conversion:完了',
   'M5D-025 ICC/profile-aware preview boundary:完了',
-  'M5D-026 Color Mixing Palette:未完了',
+  'M5D-026 Color Mixing Palette:完了',
 ]);
 console.log('M5D color/palette verification passed');

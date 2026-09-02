@@ -13,6 +13,12 @@ import type { DocumentV1 } from '../domain/document.js';
 import type { PointerInputBatchV1, PointerInputSampleV1 } from '../input/pointer-input.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import {
+  ColorMixingSurfaceV1,
+  type ColorMixingPointV1,
+  type ColorMixingSurfaceSnapshotV1,
+  type ColorMixingToolV1,
+} from './color-mixing-surface.js';
+import {
   ColorSamplingOwnershipV1,
   createRasterTileSamplingIndexV1,
   sampleActiveLayerColorV1,
@@ -124,6 +130,16 @@ export function installColorWorkflowControllerV1(input: {
   const paletteImport = requireElement('#color-palette-import', HTMLButtonElement);
   const paletteExport = requireElement('#color-palette-export', HTMLButtonElement);
   const paletteFile = requireElement('#color-palette-file', HTMLInputElement);
+  const mixingCanvas = requireElement('#color-mixing-canvas', HTMLCanvasElement);
+  const mixingColors = requireElement('#color-mixing-colors', HTMLDivElement);
+  const mixingBrush = requireElement('#color-mixing-brush', HTMLButtonElement);
+  const mixingBlend = requireElement('#color-mixing-blend', HTMLButtonElement);
+  const mixingEyedropper = requireElement('#color-mixing-eyedropper', HTMLButtonElement);
+  const mixingSize = requireElement('#color-mixing-size', HTMLInputElement);
+  const mixingSizeValue = requireElement('#color-mixing-size-value', HTMLOutputElement);
+  const mixingUndo = requireElement('#color-mixing-undo', HTMLButtonElement);
+  const mixingRedo = requireElement('#color-mixing-redo', HTMLButtonElement);
+  const mixingClear = requireElement('#color-mixing-clear', HTMLButtonElement);
   const redInput = requireElement('#color-r', HTMLInputElement);
   const greenInput = requireElement('#color-g', HTMLInputElement);
   const blueInput = requireElement('#color-b', HTMLInputElement);
@@ -142,8 +158,18 @@ export function installColorWorkflowControllerV1(input: {
   let samplingSource: ColorSamplingSourceV1 = 'merged-canvas';
   let samplingIndexPromise: Promise<RasterTileSamplingIndexV1> | null = null;
   let samplingRequestSequence = 0;
+  let mixingTool: ColorMixingToolV1 = 'brush';
+  let mixingLastPoint: ColorMixingPointV1 | null = null;
+  let mixingGestureStart: ColorMixingSurfaceSnapshotV1 | null = null;
+  let mixingUndoStack: ColorMixingSurfaceSnapshotV1[] = [];
+  let mixingRedoStack: ColorMixingSurfaceSnapshotV1[] = [];
 
   const workingSpace = () => input.paintSession.currentDocument()?.color.workingSpace ?? 'srgb';
+  const mixingSurface = new ColorMixingSurfaceV1(
+    mixingCanvas.width,
+    mixingCanvas.height,
+    workingSpace(),
+  );
   const persist = (): void => {
     try {
       storage?.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -153,6 +179,11 @@ export function installColorWorkflowControllerV1(input: {
   };
 
   const publish = (redrawSv = true): void => {
+    if (mixingSurface.workingSpace() !== workingSpace()) {
+      mixingSurface.convertWorkingSpace(workingSpace());
+      mixingUndoStack = [];
+      mixingRedoStack = [];
+    }
     const rgbBytes = rgbUnitToBytesV1(state.current);
     const hsv = rgbToHsvV1(state.current);
     redInput.value = String(rgbBytes[0]);
@@ -238,7 +269,54 @@ export function installColorWorkflowControllerV1(input: {
     input.root.dataset.illustroActiveColorPaletteSize = String(activePalette.colors.length);
     input.root.dataset.illustroColorWorkingSpace = workingSpace();
     publishSamplingState();
+    publishMixingState(activePalette.colors);
   };
+
+  function renderMixingSurface(): void {
+    const context = mixingCanvas.getContext('2d');
+    if (context === null) return;
+    const image = context.createImageData(mixingCanvas.width, mixingCanvas.height);
+    image.data.set(mixingSurface.presentationRgba8('srgb'));
+    context.putImageData(image, 0, 0);
+  }
+
+  function mixingQuickColors(paletteColors: readonly RgbUnitColorV1[]): readonly RgbUnitColorV1[] {
+    const result: RgbUnitColorV1[] = [];
+    const seen = new Set<string>();
+    for (const color of [state.current, state.previous, ...paletteColors]) {
+      const key = `${color[0]}:${color[1]}:${color[2]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(color);
+      if (result.length >= 10) break;
+    }
+    return Object.freeze(result);
+  }
+
+  function publishMixingState(paletteColors: readonly RgbUnitColorV1[]): void {
+    mixingBrush.setAttribute('aria-pressed', String(mixingTool === 'brush'));
+    mixingBlend.setAttribute('aria-pressed', String(mixingTool === 'blend'));
+    mixingEyedropper.setAttribute('aria-pressed', String(mixingTool === 'eyedropper'));
+    mixingUndo.disabled = mixingUndoStack.length === 0;
+    mixingRedo.disabled = mixingRedoStack.length === 0;
+    mixingSizeValue.value = mixingSize.value;
+    mixingColors.replaceChildren(
+      ...mixingQuickColors(paletteColors).map((color, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.style.background = cssEncodedRgbV1(color, workingSpace());
+        button.title = `色混ぜクイックカラー ${index + 1}: ${formatHexRgbV1(color)}`;
+        button.setAttribute('aria-label', button.title);
+        button.addEventListener('click', () => commit(color));
+        return button;
+      }),
+    );
+    renderMixingSurface();
+    input.root.dataset.illustroColorMixingTool = mixingTool;
+    input.root.dataset.illustroColorMixingWorkingSpace = mixingSurface.workingSpace();
+    input.root.dataset.illustroColorMixingUndo = String(mixingUndoStack.length);
+    input.root.dataset.illustroColorMixingRedo = String(mixingRedoStack.length);
+  }
 
   function publishSamplingState(): void {
     const ownership = samplingOwnership.snapshot();
@@ -610,6 +688,104 @@ export function installColorWorkflowControllerV1(input: {
   };
   previousSwatch.addEventListener('click', onPrevious);
 
+  const MIXING_HISTORY_LIMIT = 12;
+  const mixingPoint = (event: PointerEvent): ColorMixingPointV1 => {
+    const [x, y] = canvasPoint(event, mixingCanvas);
+    return Object.freeze({ x, y });
+  };
+  const pushMixingUndo = (snapshot: ColorMixingSurfaceSnapshotV1): void => {
+    mixingUndoStack = [...mixingUndoStack, snapshot].slice(-MIXING_HISTORY_LIMIT);
+  };
+  const applyMixingSegment = (from: ColorMixingPointV1, to: ColorMixingPointV1): void => {
+    const diameter = Number(mixingSize.value);
+    if (mixingTool === 'brush') {
+      mixingSurface.paintLine(from, to, state.current, diameter);
+    } else if (mixingTool === 'blend') {
+      mixingSurface.blendLine(from, to, diameter);
+    }
+    renderMixingSurface();
+  };
+  const selectMixingTool = (tool: ColorMixingToolV1): void => {
+    mixingTool = tool;
+    publishMixingState(activeColorPaletteV1(state).colors);
+  };
+  const onMixingBrush = (): void => selectMixingTool('brush');
+  const onMixingBlend = (): void => selectMixingTool('blend');
+  const onMixingEyedropper = (): void => selectMixingTool('eyedropper');
+  const onMixingSize = (): void => {
+    mixingSizeValue.value = mixingSize.value;
+    input.root.dataset.illustroColorMixingSize = mixingSize.value;
+  };
+  const onMixingDown = (event: PointerEvent): void => {
+    const point = mixingPoint(event);
+    if (mixingTool === 'eyedropper') {
+      const color = mixingSurface.sample(point.x, point.y);
+      commit(color);
+      status.value = `色混ぜパレットから採色 ${formatHexRgbV1(color)}`;
+      event.preventDefault();
+      return;
+    }
+    mixingGestureStart = mixingSurface.snapshot();
+    mixingLastPoint = point;
+    mixingCanvas.setPointerCapture(event.pointerId);
+    applyMixingSegment(point, point);
+    event.preventDefault();
+  };
+  const onMixingMove = (event: PointerEvent): void => {
+    if (!mixingCanvas.hasPointerCapture(event.pointerId) || mixingLastPoint === null) return;
+    const point = mixingPoint(event);
+    applyMixingSegment(mixingLastPoint, point);
+    mixingLastPoint = point;
+    event.preventDefault();
+  };
+  const finishMixingGesture = (event: PointerEvent): void => {
+    if (mixingCanvas.hasPointerCapture(event.pointerId)) {
+      mixingCanvas.releasePointerCapture(event.pointerId);
+    }
+    if (mixingGestureStart !== null) {
+      pushMixingUndo(mixingGestureStart);
+      mixingRedoStack = [];
+    }
+    mixingGestureStart = null;
+    mixingLastPoint = null;
+    publishMixingState(activeColorPaletteV1(state).colors);
+    event.preventDefault();
+  };
+  const cancelMixingGesture = (event: PointerEvent): void => {
+    if (mixingCanvas.hasPointerCapture(event.pointerId)) {
+      mixingCanvas.releasePointerCapture(event.pointerId);
+    }
+    if (mixingGestureStart !== null) mixingSurface.restore(mixingGestureStart);
+    mixingGestureStart = null;
+    mixingLastPoint = null;
+    renderMixingSurface();
+    publishMixingState(activeColorPaletteV1(state).colors);
+    event.preventDefault();
+  };
+  const onMixingUndo = (): void => {
+    const previous = mixingUndoStack.at(-1);
+    if (previous === undefined) return;
+    mixingRedoStack = [...mixingRedoStack, mixingSurface.snapshot()].slice(-MIXING_HISTORY_LIMIT);
+    mixingUndoStack = mixingUndoStack.slice(0, -1);
+    mixingSurface.restore(previous);
+    publishMixingState(activeColorPaletteV1(state).colors);
+  };
+  const onMixingRedo = (): void => {
+    const next = mixingRedoStack.at(-1);
+    if (next === undefined) return;
+    pushMixingUndo(mixingSurface.snapshot());
+    mixingRedoStack = mixingRedoStack.slice(0, -1);
+    mixingSurface.restore(next);
+    publishMixingState(activeColorPaletteV1(state).colors);
+  };
+  const onMixingClear = (): void => {
+    pushMixingUndo(mixingSurface.snapshot());
+    mixingRedoStack = [];
+    mixingSurface.clear();
+    status.value = '色混ぜパレットをクリアしました';
+    publishMixingState(activeColorPaletteV1(state).colors);
+  };
+
   const paletteUpdate = (next: ColorWorkspaceStateV1, message: string): void => {
     state = next;
     interactionStart = null;
@@ -782,6 +958,17 @@ export function installColorWorkflowControllerV1(input: {
   paletteImport.addEventListener('click', onPaletteImportClick);
   paletteFile.addEventListener('change', onPaletteImportChange);
   paletteExport.addEventListener('click', onPaletteExport);
+  mixingBrush.addEventListener('click', onMixingBrush);
+  mixingBlend.addEventListener('click', onMixingBlend);
+  mixingEyedropper.addEventListener('click', onMixingEyedropper);
+  mixingSize.addEventListener('input', onMixingSize);
+  mixingUndo.addEventListener('click', onMixingUndo);
+  mixingRedo.addEventListener('click', onMixingRedo);
+  mixingClear.addEventListener('click', onMixingClear);
+  mixingCanvas.addEventListener('pointerdown', onMixingDown);
+  mixingCanvas.addEventListener('pointermove', onMixingMove);
+  mixingCanvas.addEventListener('pointerup', finishMixingGesture);
+  mixingCanvas.addEventListener('pointercancel', cancelMixingGesture);
   eyedropper.addEventListener('click', onEyedropperToggle);
   samplingSourceSelect.addEventListener('change', onSamplingSourceChange);
   document.addEventListener('keydown', onQuickEyedropperKeyDown);
@@ -818,6 +1005,17 @@ export function installColorWorkflowControllerV1(input: {
       paletteImport.removeEventListener('click', onPaletteImportClick);
       paletteFile.removeEventListener('change', onPaletteImportChange);
       paletteExport.removeEventListener('click', onPaletteExport);
+      mixingBrush.removeEventListener('click', onMixingBrush);
+      mixingBlend.removeEventListener('click', onMixingBlend);
+      mixingEyedropper.removeEventListener('click', onMixingEyedropper);
+      mixingSize.removeEventListener('input', onMixingSize);
+      mixingUndo.removeEventListener('click', onMixingUndo);
+      mixingRedo.removeEventListener('click', onMixingRedo);
+      mixingClear.removeEventListener('click', onMixingClear);
+      mixingCanvas.removeEventListener('pointerdown', onMixingDown);
+      mixingCanvas.removeEventListener('pointermove', onMixingMove);
+      mixingCanvas.removeEventListener('pointerup', finishMixingGesture);
+      mixingCanvas.removeEventListener('pointercancel', cancelMixingGesture);
       eyedropper.removeEventListener('click', onEyedropperToggle);
       samplingSourceSelect.removeEventListener('change', onSamplingSourceChange);
       document.removeEventListener('keydown', onQuickEyedropperKeyDown);

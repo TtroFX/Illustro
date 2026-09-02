@@ -1294,6 +1294,127 @@ body {
 }
 
 
+/* M5D color mixing palette */
+.shell-color-mixing {
+  border: 1px solid #e3e8f1;
+  border-radius: 9px;
+  background: #fbfcff;
+}
+
+.shell-color-mixing > summary {
+  min-height: 30px;
+  padding: 7px 9px;
+  cursor: pointer;
+  color: #536079;
+  font-size: 10px;
+  font-weight: 760;
+  list-style-position: inside;
+}
+
+.shell-color-mixing-body {
+  display: grid;
+  gap: 7px;
+  padding: 0 8px 8px;
+}
+
+#color-mixing-canvas {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 12 / 7;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.shell-color-mixing-colors {
+  display: flex;
+  gap: 5px;
+  min-height: 30px;
+  overflow-x: auto;
+  padding: 2px 1px;
+  scrollbar-width: thin;
+}
+
+.shell-color-mixing-colors button {
+  flex: 0 0 28px;
+  width: 28px;
+  min-height: 28px;
+  border: 1px solid #dfe5ef;
+  border-radius: 7px;
+  padding: 0;
+  box-shadow: inset 0 0 0 1px #fff;
+  cursor: pointer;
+}
+
+.shell-color-mixing-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.shell-color-mixing-tools button,
+.shell-color-mixing-history button {
+  min-width: 0;
+  min-height: 36px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #38445d;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.shell-color-mixing-tools button[aria-pressed='true'] {
+  border-color: #a48af4;
+  background: rgb(139 92 246 / 10%);
+  color: #6542c6;
+  box-shadow: inset 0 0 0 1px rgb(139 92 246 / 24%);
+}
+
+.shell-color-mixing-size {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 2.2rem;
+  align-items: center;
+  gap: 6px;
+  color: #667085;
+  font-size: 10px;
+}
+
+.shell-color-mixing-size input {
+  width: 100%;
+  min-height: 32px;
+}
+
+.shell-color-mixing-size output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-color-mixing-history {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr;
+  gap: 5px;
+}
+
+.shell-color-mixing-history button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+@media (pointer: coarse) {
+  .shell-color-mixing-tools button,
+  .shell-color-mixing-history button {
+    min-height: 44px;
+  }
+}
+
 /* M5D reference sampling */
 .shell-reference-panel {
   display: grid;
