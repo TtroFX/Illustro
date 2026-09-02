@@ -18,12 +18,16 @@ jobs:
           ref: work/m5d-reference-sampling-20260902
       - uses: actions/setup-node@v5
         with:
-          node-version-file: .nvmrc
-          cache: npm
+          node-version: '22'
+          package-manager-cache: false
       - name: Pin npm toolchain
-        run: corepack enable
+        run: npm install --global npm@11.19.1
       - name: Restore locked dependencies
-        run: npm ci
+        run: |
+          if [ ! -f package-lock.json ]; then
+            npm install --package-lock-only --ignore-scripts
+          fi
+          npm ci --ignore-scripts
       - name: Apply M5D reference sampling
         run: python scripts/apply-m5d-reference-sampling.py
       - name: Formatting
@@ -37,8 +41,10 @@ jobs:
       - name: M5D contract inspection
         run: npm run verify:m5d
       - name: Full unit suite
-        run: npm test -- --run
+        run: npm run test:unit
       - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
         run: npm run build
       - name: Integration tests
         run: npm run test:integration
