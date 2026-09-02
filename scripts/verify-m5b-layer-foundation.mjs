@@ -345,7 +345,9 @@ requireText('src/gpu/baseline-raster-tile-store.ts', [
   'readonly includeDraft?: boolean',
   'layer.draft !== true',
 ]);
-requireText('src/app/paint-session-controller.ts', ['draft: layer.roleFlags.draft']);
+requireText('src/app/paint-session-controller.ts', [
+  'layer.roleFlags.draft ? { draft: true } : {}',
+]);
 requireText('src/app/renderer-controller.ts', ['includeDraft: false']);
 requireText('src/workers/render.worker.ts', [
   'includeDraft?: boolean',

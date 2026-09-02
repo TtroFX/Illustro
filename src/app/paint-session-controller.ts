@@ -447,7 +447,7 @@ export function paintRasterLayerDescriptorsV1(
         layerId: layer.id,
         visible: layer.visible,
         opacity: layer.opacity,
-        draft: layer.roleFlags.draft,
+        ...(layer.roleFlags.draft ? { draft: true } : {}),
       }),
     );
   }
