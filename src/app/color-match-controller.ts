@@ -31,22 +31,25 @@ interface OptionsV1 {
   readonly onDocumentChanged: (document: DocumentV1) => void;
 }
 
-function required<T extends Element>(
-  root: ParentNode,
-  selector: string,
-  ctor: { new (): T },
-): T {
+function required<T extends Element>(root: ParentNode, selector: string, ctor: { new (): T }): T {
   const element = root.querySelector(selector);
   if (!(element instanceof ctor)) throw new Error(`Color Match is missing ${selector}`);
   return element;
 }
 
-function drawPreview(canvas: HTMLCanvasElement, image: ReturnType<typeof colorMatchPreviewImageV1>): void {
+function drawPreview(
+  canvas: HTMLCanvasElement,
+  image: ReturnType<typeof colorMatchPreviewImageV1>,
+): void {
   canvas.width = image.width;
   canvas.height = image.height;
   const context = canvas.getContext('2d');
   if (context === null) throw new Error('Color Match preview canvas is unavailable');
-  context.putImageData(new ImageData(new Uint8ClampedArray(image.bytes), image.width, image.height), 0, 0);
+  context.putImageData(
+    new ImageData(new Uint8ClampedArray(image.bytes), image.width, image.height),
+    0,
+    0,
+  );
 }
 
 export function installColorMatchControllerV1(options: OptionsV1): ColorMatchControllerV1 {
@@ -86,14 +89,19 @@ export function installColorMatchControllerV1(options: OptionsV1): ColorMatchCon
   const refreshPrepared = (): void => {
     if (source === null || targetStatistics === null) return;
     const strengthPercent = Number(strengthInput.value);
-    const strength = Number.isFinite(strengthPercent) ? Math.min(100, Math.max(0, strengthPercent)) / 100 : 1;
+    const strength = Number.isFinite(strengthPercent)
+      ? Math.min(100, Math.max(0, strengthPercent)) / 100
+      : 1;
     strengthInput.value = String(Math.round(strength * 100));
     strengthOutput.value = `${Math.round(strength * 100)}%`;
     prepared = prepareLayerColorMatchV1(source, targetStatistics, strength);
     drawPreview(beforeCanvas, colorMatchPreviewImageV1(prepared, 'before'));
     drawPreview(afterCanvas, colorMatchPreviewImageV1(prepared, 'after'));
     applyButton.disabled = strength <= 0;
-    status.value = strength <= 0 ? '強度0%では変更されません。' : 'プレビュー中。適用するまでドキュメントは変更されません。';
+    status.value =
+      strength <= 0
+        ? '強度0%では変更されません。'
+        : 'プレビュー中。適用するまでドキュメントは変更されません。';
     options.root.dataset.illustroColorMatch = 'preview';
     options.root.dataset.illustroColorMatchStrength = String(strength);
   };
@@ -116,9 +124,11 @@ export function installColorMatchControllerV1(options: OptionsV1): ColorMatchCon
       }
       const snapshot = options.paintSession.projectSnapshot();
       const layerId = options.paintSession.activeLayerId();
-      if (snapshot === null || layerId === null) throw new Error('Color Matchにはアクティブドキュメントが必要です');
+      if (snapshot === null || layerId === null)
+        throw new Error('Color Matchにはアクティブドキュメントが必要です');
       const eligibility = layerColorMatchEligibilityV1(snapshot, layerId);
-      if (!eligibility.eligible) throw new Error(eligibility.reason ?? 'Color Match is unavailable');
+      if (!eligibility.eligible)
+        throw new Error(eligibility.reason ?? 'Color Match is unavailable');
       const referenceLabel = options.referenceWorkflow.activeReferenceLabel();
       if (referenceLabel === null) throw new Error('Color MatchにはSub Viewの参照画像が必要です');
       referenceOutput.value = referenceLabel;

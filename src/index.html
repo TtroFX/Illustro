@@ -72,7 +72,12 @@
               <button id="view-workspace" type="button">全画面ワークスペース</button>
             </div>
           </details>
-          <span>フィルター</span>
+          <details class="shell-menu-dropdown">
+            <summary>フィルター</summary>
+            <div class="shell-menu-popover">
+              <button id="color-match-command" type="button">Color Match…</button>
+            </div>
+          </details>
         </nav>
         <div class="shell-topbar-actions">
           <button id="history-undo" class="shell-history-button" type="button" aria-label="元に戻す" title="元に戻す (Ctrl/Cmd+Z)" disabled><span aria-hidden="true">↶</span><span class="shell-history-label">戻す</span></button>
@@ -324,6 +329,23 @@
         <button id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false"><span aria-hidden="true">⇩</span><small>書出</small></button>
       </nav>
     </div>
+    <dialog id="color-match-dialog" class="document-dialog" aria-labelledby="color-match-title">
+      <form id="color-match-form" method="dialog" class="document-dialog-form">
+        <header><h2 id="color-match-title">Color Match</h2></header>
+        <p class="document-dialog-help">Sub Viewのアクティブ参照画像の色分布を、アクティブRaster Layerへローカルかつ決定的に合わせます。プレビュー中はドキュメントを変更しません。</p>
+        <div class="color-match-reference-row"><span>参照</span><output id="color-match-reference">—</output></div>
+        <label class="color-match-strength">強度 <input id="color-match-strength" type="range" min="0" max="100" step="1" value="100" /><output id="color-match-strength-value">100%</output></label>
+        <div class="color-match-preview-grid">
+          <figure><figcaption>変更前</figcaption><canvas id="color-match-before" width="192" height="128" aria-label="Color Match変更前プレビュー"></canvas></figure>
+          <figure><figcaption>変更後</figcaption><canvas id="color-match-after" width="192" height="128" aria-label="Color Match変更後プレビュー"></canvas></figure>
+        </div>
+        <output id="color-match-status" class="document-dialog-status" aria-live="polite"></output>
+        <footer>
+          <button id="color-match-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+          <button id="color-match-apply" type="submit" class="document-dialog-primary" disabled>適用</button>
+        </footer>
+      </form>
+    </dialog>
     <dialog id="mask-effect-dialog" class="document-dialog" aria-labelledby="mask-effect-title">
     <form id="mask-effect-form" method="dialog" class="document-dialog-form">
       <header><h2 id="mask-effect-title">マスク境界ぼかし</h2></header>

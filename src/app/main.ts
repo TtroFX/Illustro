@@ -13,6 +13,7 @@ import {
 } from '../shared/performance.js';
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
+import { installColorMatchControllerV1 } from './color-match-controller.js';
 import { installColorWorkflowControllerV1 } from './color-workflow-controller.js';
 import { installReferenceWorkflowControllerV1 } from './reference-workflow-controller.js';
 import { resolveDocumentColorProfileV1, type DocumentV1 } from '../domain/document.js';
@@ -84,6 +85,16 @@ const paintPersistence = new PaintPersistenceControllerV1(
     },
   },
 );
+const colorMatch = installColorMatchControllerV1({
+  root,
+  paintSession,
+  paintHistory,
+  paintPersistence,
+  referenceWorkflow,
+  schedule: enqueuePaintRender,
+  onHistoryChanged: publishPaintHistory,
+  onDocumentChanged: publishDocumentState,
+});
 const maskPaint = new MaskPaintControllerV1({
   paintSession,
   paintHistory,
@@ -527,6 +538,8 @@ globalThis.addEventListener(
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
     layerComps.dispose();
     layerWorkflow.dispose();
+    colorMatch.dispose();
+    referenceWorkflow.dispose();
     colorWorkflow.dispose();
     maskPaint.dispose();
     documentGeometryWorkflow.dispose();

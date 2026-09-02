@@ -65,7 +65,10 @@ class MemoryRasterPersistence implements RasterMergePersistencePortV1 {
     const index = this.writes.length + 1;
     const objectHash = index.toString(16).padStart(64, '0');
     const payloadRef = `sha256:${objectHash}`;
-    const bytes = input.bytes instanceof Uint8Array ? new Uint8Array(input.bytes) : new Uint8Array(input.bytes.slice(0));
+    const bytes =
+      input.bytes instanceof Uint8Array
+        ? new Uint8Array(input.bytes)
+        : new Uint8Array(input.bytes.slice(0));
     this.tiles.set(
       payloadRef,
       Object.freeze({
@@ -205,7 +208,12 @@ describe('M5D Color Match', () => {
     expect([...afterPreview.bytes]).not.toEqual([...beforePreview.bytes]);
     const persisted = await persistPreparedLayerColorMatchV1(prepared, persistence);
     expect(persistence.writes).toHaveLength(1);
-    const after = applyPersistedLayerColorMatchV1(snapshot, persisted, parseRevision(1), new Date(0));
+    const after = applyPersistedLayerColorMatchV1(
+      snapshot,
+      persisted,
+      parseRevision(1),
+      new Date(0),
+    );
     expect(after.document.revision).toBe(1);
     expect(after.document.modifiedAt).toBe(new Date(0).toISOString());
     expect(after.document.layerTree.layers[raster.id]).toMatchObject({

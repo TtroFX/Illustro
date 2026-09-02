@@ -5220,3 +5220,10 @@ The older rules stating `Touch = canvas navigation/UI by default`, `one-finger c
 - If the active document working space changes between sRGB and Display-P3, registered intermediate corner colors are profile-aware converted through the centralized M5D color-management path before further interpolation. Candidate selection itself remains in the active document working space.
 - The behavior is an independent implementation informed by the public CLIP STUDIO PAINT Intermediate Color and Approximate Color palette interaction model; no third-party source code or assets are incorporated.
 
+### 2026-09-02 — M5D Color Match implementation boundary
+
+- Color Match is an explicit document/layer task, not a persistent rail tool. Its initial production source is the active Sub View/reference image and its target is the active editable Raster Layer.
+- Reference pixels are decoded locally, treated as the reference-workspace sRGB baseline, and converted through the existing Color Management path into the active document working space before statistics are computed. No cloud or generative-AI dependency is used.
+- The deterministic baseline uses alpha-weighted per-channel first/second moments (mean and standard deviation), with a bounded contrast-ratio transfer to avoid pathological amplification. This follows the classical statistical color-transfer family (Reinhard et al., 2001, DOI 10.1109/38.946629) as an algorithmic reference; no external implementation source code is copied.
+- Preview preparation reads canonical Raster Tiles and keeps transformed bytes in memory only. Strength changes recompute the in-memory preview. Cancel creates no document mutation and no History transaction.
+- Apply persists the prepared Raster Tiles, then commits exactly one `color.match` History transaction through the existing snapshot/history/persistence path. Existing layer identity/properties are preserved; pending compatible stroke content is materialized through the existing Rasterize path when required.

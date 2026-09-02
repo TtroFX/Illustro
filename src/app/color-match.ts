@@ -112,8 +112,9 @@ function accumulateColor(
   accumulator.weight += weight;
   for (let channel = 0; channel < 3; channel += 1) {
     const value = color[channel] ?? 0;
-    accumulator.sum[channel] += value * weight;
-    accumulator.sumSquares[channel] += value * value * weight;
+    accumulator.sum[channel] = (accumulator.sum[channel] ?? 0) + value * weight;
+    accumulator.sumSquares[channel] =
+      (accumulator.sumSquares[channel] ?? 0) + value * value * weight;
   }
 }
 
@@ -290,8 +291,9 @@ export function combineColorMatchStatisticsV1(
     for (let channel = 0; channel < 3; channel += 1) {
       const mean = sample.statistics.mean[channel] ?? 0;
       const stddev = sample.statistics.stddev[channel] ?? 0;
-      accumulator.sum[channel] += mean * weight;
-      accumulator.sumSquares[channel] += (stddev * stddev + mean * mean) * weight;
+      accumulator.sum[channel] = (accumulator.sum[channel] ?? 0) + mean * weight;
+      accumulator.sumSquares[channel] =
+        (accumulator.sumSquares[channel] ?? 0) + (stddev * stddev + mean * mean) * weight;
     }
   }
   return finishStatistics(accumulator);
@@ -430,7 +432,9 @@ export async function readLayerColorMatchSourceV1(
   const materialized = await materializedSourceTilesV1(snapshot, raster, persistence);
   const accumulator = createAccumulator();
   const tiles: LayerColorMatchSourceTileV1[] = [];
-  for (const tile of [...materialized].sort((left, right) => left.y - right.y || left.x - right.x)) {
+  for (const tile of [...materialized].sort(
+    (left, right) => left.y - right.y || left.x - right.x,
+  )) {
     const bounds = tileBoundsForDocumentV1(documentWidth, documentHeight, {
       tx: tile.x,
       ty: tile.y,
