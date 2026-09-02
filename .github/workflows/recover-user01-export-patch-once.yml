@@ -1,0 +1,53 @@
+name: Recover validated USER-01 export patch once
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/recover-user01-export-patch-once.yml']
+permissions:
+  contents: write
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Reuse already-validated patch script
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_workflow='.github/workflows/user01-mobile-export-correction-once.yml'
+          export USER01_MEMO_B64="$(sed -n 's/^  USER01_MEMO_B64: //p' "$source_workflow")"
+          python - <<'PY'
+          from pathlib import Path
+          source = Path('.github/workflows/user01-mobile-export-correction-once.yml').read_text()
+          start = "          python - <<'PY'\n"
+          end = "\n          PY\n"
+          block = source.split(start, 1)[1].split(end, 1)[0]
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in block.splitlines())
+          exec(compile(script, '<recovered-user01-patch>', 'exec'), {'__name__': '__main__'})
+          PY
+      - name: Format focused implementation files
+        run: npx --yes @biomejs/biome@2.2.0 format --write src/app/main.ts src/app/document-workflow-controller.ts src/index.html public/mobile-shell.css
+      - name: Verify recovered contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "mobileExportButton?.addEventListener('click', onExportPngClick)" src/app/main.ts
+          ! grep -F "html[data-illustro-png-export='unavailable'] #mobile-export" public/mobile-shell.css
+          ! grep -F 'id="mobile-export" type="button" aria-label="PNGを書き出す" aria-busy="false" disabled' src/index.html
+          ! grep -F 'exportButton?.click()' src/app/document-workflow-controller.ts
+          grep -F 'USER-01 新規作成・描画・Undo/Redo・保存再読込・PNG Exportユーザー確認PASS:未完了' IMPLEMENTATION_PROGRESS.md
+          grep -F '## USER-01 physical-device change log and verification guardrails — 2026-09-02' ILLUSTRO_DESIGN_MEMO.md
+          git diff --check
+      - name: Commit recovered patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/recover-user01-export-patch-once.yml
+          git rm .github/workflows/user01-mobile-export-correction-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/main.ts src/app/document-workflow-controller.ts src/index.html public/mobile-shell.css ILLUSTRO_DESIGN_MEMO.md IMPLEMENTATION_PROGRESS.md
+          git commit -m 'fix: keep mobile export actionable and reopen USER-01'
+          git push origin HEAD:main
