@@ -1,0 +1,502 @@
+name: Continue M5B mask effects once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  continue-m5b-mask-effects:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: npm install --global npm@11.19.1
+      - run: npm ci
+      - name: Implement mask feather and blur semantics
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f'anchor missing in {path}: {old[:120]!r}')
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              'src/domain/layers.ts',
+              "  readonly transformStack: readonly TransformNodeV1[];\n  readonly metadata: NamespacedMetadataV1;",
+              "  readonly transformStack: readonly TransformNodeV1[];\n  readonly effectStack?: readonly EffectNodeV1[];\n  readonly metadata: NamespacedMetadataV1;",
+          )
+          replace_once(
+              'src/domain/layers.ts',
+              "    readonly transformStack?: readonly TransformNodeV1[];\n    readonly metadata?: NamespacedMetadataV1;",
+              "    readonly transformStack?: readonly TransformNodeV1[];\n    readonly effectStack?: readonly EffectNodeV1[];\n    readonly metadata?: NamespacedMetadataV1;",
+          )
+          replace_once(
+              'src/domain/layers.ts',
+              "    transformStack: freezeArray(input.transformStack ?? []),\n    metadata: Object.freeze({ ...(input.metadata ?? {}) }),",
+              "    transformStack: freezeArray(input.transformStack ?? []),\n    effectStack: freezeArray(input.effectStack ?? []),\n    metadata: Object.freeze({ ...(input.metadata ?? {}) }),",
+          )
+          replace_once(
+              'src/domain/layers.ts',
+              "    inverted?: boolean;\n  } = {},\n): RasterMaskAttachmentV1 {",
+              "    inverted?: boolean;\n    effectStack?: readonly EffectNodeV1[];\n  } = {},\n): RasterMaskAttachmentV1 {",
+          )
+
+          Path('src/app/layer-mask-effects.ts').write_text(r'''import { createNodeId, type LayerId, type MaskId, type Revision } from '../domain/identity.js';
+          import type {
+            EffectNodeV1,
+            LayerBaseV1,
+            RasterMaskAttachmentV1,
+          } from '../domain/layers.js';
+          import type { PaintProjectSnapshotV1 } from './paint-session-controller.js';
+
+          export const MASK_FEATHER_EFFECT_ID_V1 = 'mask.feather';
+          export const MASK_BLUR_EFFECT_ID_V1 = 'mask.blur';
+          export type MaskCoverageEffectIdV1 =
+            | typeof MASK_FEATHER_EFFECT_ID_V1
+            | typeof MASK_BLUR_EFFECT_ID_V1;
+
+          export interface MaskCoverageEffectStateV1 {
+            readonly schema: 'illustro.mask-coverage-effect-state/1';
+            readonly effectId: MaskCoverageEffectIdV1;
+            readonly radiusPx: number;
+            readonly enabled: boolean;
+          }
+
+          export function maskEffectStackV1(
+            mask: RasterMaskAttachmentV1,
+          ): readonly EffectNodeV1[] {
+            return mask.effectStack ?? Object.freeze([]);
+          }
+
+          export function maskCoverageEffectStateV1(
+            mask: RasterMaskAttachmentV1,
+            effectId: MaskCoverageEffectIdV1,
+          ): MaskCoverageEffectStateV1 {
+            const node = maskEffectStackV1(mask).find((entry) => entry.effectId === effectId);
+            const radius = node?.parameters.radiusPx;
+            return Object.freeze({
+              schema: 'illustro.mask-coverage-effect-state/1' as const,
+              effectId,
+              radiusPx: typeof radius === 'number' && Number.isFinite(radius) && radius >= 0 ? radius : 0,
+              enabled: node?.enabled ?? false,
+            });
+          }
+
+          function requireRasterMask(
+            snapshot: PaintProjectSnapshotV1,
+            layerId: LayerId,
+            maskId: MaskId,
+          ): { readonly layer: LayerBaseV1; readonly mask: RasterMaskAttachmentV1 } {
+            const layer = snapshot.document.layerTree.layers[layerId];
+            if (layer === undefined) throw new Error(`mask layer is missing: ${layerId}`);
+            const mask = layer.masks.find((entry) => entry.id === maskId);
+            if (mask?.kind !== 'raster-mask') throw new Error('mask coverage effect requires a Raster Mask');
+            if (layer.type === 'lineartBoundary') {
+              throw new Error('Lineart Boundary mask effects are unavailable');
+            }
+            if (layer.locks.all) throw new Error('mask coverage effect is blocked by the layer lock');
+            return Object.freeze({ layer, mask });
+          }
+
+          function normalizeRadius(radiusPx: number): number {
+            if (!Number.isFinite(radiusPx) || radiusPx < 0) {
+              throw new RangeError('mask effect radius must be a finite value greater than or equal to zero');
+            }
+            return radiusPx;
+          }
+
+          function effectParameters(
+            effectId: MaskCoverageEffectIdV1,
+            radiusPx: number,
+          ): Readonly<Record<string, unknown>> {
+            return effectId === MASK_FEATHER_EFFECT_ID_V1
+              ? Object.freeze({
+                  schema: 'illustro.mask-feather/1',
+                  radiusPx,
+                  mode: 'symmetric-soft-edge',
+                })
+              : Object.freeze({
+                  schema: 'illustro.mask-blur/1',
+                  radiusPx,
+                  kernel: 'gaussian-separable',
+                });
+          }
+
+          export function setMaskCoverageEffectRadiusSnapshotV1(
+            snapshot: PaintProjectSnapshotV1,
+            layerId: LayerId,
+            maskId: MaskId,
+            effectId: MaskCoverageEffectIdV1,
+            radiusPx: number,
+            revision: Revision,
+            now: Date = new Date(),
+          ): PaintProjectSnapshotV1 {
+            const { layer, mask } = requireRasterMask(snapshot, layerId, maskId);
+            const radius = normalizeRadius(radiusPx);
+            const currentStack = maskEffectStackV1(mask);
+            const existing = currentStack.find((entry) => entry.effectId === effectId);
+            const current = maskCoverageEffectStateV1(mask, effectId);
+            if ((radius === 0 && existing === undefined) || (radius > 0 && current.enabled && current.radiusPx === radius)) {
+              throw new Error('mask coverage effect has no changes');
+            }
+
+            let nextStack: readonly EffectNodeV1[];
+            if (radius === 0) {
+              nextStack = Object.freeze(currentStack.filter((entry) => entry.effectId !== effectId));
+            } else if (existing === undefined) {
+              const node: EffectNodeV1 = Object.freeze({
+                id: createNodeId(),
+                revision,
+                effectId,
+                enabled: true,
+                parameters: effectParameters(effectId, radius),
+              });
+              nextStack = Object.freeze([...currentStack, node]);
+            } else {
+              const node: EffectNodeV1 = Object.freeze({
+                ...existing,
+                revision,
+                enabled: true,
+                parameters: effectParameters(effectId, radius),
+              });
+              nextStack = Object.freeze(
+                currentStack.map((entry) => (entry.id === existing.id ? node : entry)),
+              );
+            }
+
+            const nextMask: RasterMaskAttachmentV1 = Object.freeze({
+              ...mask,
+              revision,
+              effectStack: nextStack,
+            });
+            const nextLayer = Object.freeze({
+              ...layer,
+              revision,
+              masks: Object.freeze(layer.masks.map((entry) => (entry.id === maskId ? nextMask : entry))),
+            }) as LayerBaseV1;
+            return Object.freeze({
+              ...snapshot,
+              document: Object.freeze({
+                ...snapshot.document,
+                revision,
+                modifiedAt: now.toISOString(),
+                layerTree: Object.freeze({
+                  rootLayerIds: snapshot.document.layerTree.rootLayerIds,
+                  layers: Object.freeze({
+                    ...snapshot.document.layerTree.layers,
+                    [layerId]: nextLayer,
+                  }),
+                }),
+              }),
+              committedStrokes: snapshot.committedStrokes,
+            });
+          }
+          ''')
+
+          Path('tests/unit/layer-mask-effects.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import {
+            MASK_BLUR_EFFECT_ID_V1,
+            MASK_FEATHER_EFFECT_ID_V1,
+            maskCoverageEffectStateV1,
+            setMaskCoverageEffectRadiusSnapshotV1,
+          } from '../../src/app/layer-mask-effects.js';
+          import type { PaintProjectSnapshotV1 } from '../../src/app/paint-session-controller.js';
+          import { createDocumentV1 } from '../../src/domain/document.js';
+          import { parseRevision } from '../../src/domain/identity.js';
+          import { createRasterLayer, createRasterMask, createRasterTileReference } from '../../src/domain/layers.js';
+
+          function fixture() {
+            const tile = createRasterTileReference({ x: 0, y: 0, payloadRef: 'coverage' });
+            const mask = createRasterMask({ tiles: [tile] });
+            const layer = createRasterLayer({ name: 'Masked', masks: [mask] });
+            const document = createDocumentV1({ width: 128, height: 128 });
+            const snapshot: PaintProjectSnapshotV1 = Object.freeze({
+              schema: 'illustro.paint-project-snapshot/1' as const,
+              document: Object.freeze({
+                ...document,
+                layerTree: Object.freeze({
+                  rootLayerIds: Object.freeze([layer.id]),
+                  layers: Object.freeze({ [layer.id]: layer }),
+                }),
+              }),
+              committedStrokes: Object.freeze([]),
+            });
+            return { snapshot, layer, mask };
+          }
+
+          describe('M5B mask feather / blur', () => {
+            it('stores feather as a non-destructive mask coverage effect', () => {
+              const { snapshot, layer, mask } = fixture();
+              const changed = setMaskCoverageEffectRadiusSnapshotV1(
+                snapshot,
+                layer.id,
+                mask.id,
+                MASK_FEATHER_EFFECT_ID_V1,
+                6.5,
+                parseRevision(1),
+                new Date(0),
+              );
+              const changedLayer = changed.document.layerTree.layers[layer.id];
+              const changedMask = changedLayer?.masks.find((entry) => entry.id === mask.id);
+              expect(changedLayer?.effectStack).toEqual(layer.effectStack);
+              expect(changedMask?.transformStack).toEqual(mask.transformStack);
+              expect(changedMask?.kind === 'raster-mask' ? changedMask.tiles : []).toEqual(mask.tiles);
+              expect(changedMask?.kind).toBe('raster-mask');
+              if (changedMask?.kind !== 'raster-mask') throw new Error('expected Raster Mask');
+              expect(maskCoverageEffectStateV1(changedMask, MASK_FEATHER_EFFECT_ID_V1)).toMatchObject({
+                radiusPx: 6.5,
+                enabled: true,
+              });
+              expect(changedMask.effectStack?.[0]?.parameters).toMatchObject({
+                schema: 'illustro.mask-feather/1',
+                radiusPx: 6.5,
+                mode: 'symmetric-soft-edge',
+              });
+            });
+
+            it('stores blur independently and updates without duplicating the node', () => {
+              const { snapshot, layer, mask } = fixture();
+              const blurred = setMaskCoverageEffectRadiusSnapshotV1(
+                snapshot,
+                layer.id,
+                mask.id,
+                MASK_BLUR_EFFECT_ID_V1,
+                4,
+                parseRevision(1),
+              );
+              const updated = setMaskCoverageEffectRadiusSnapshotV1(
+                blurred,
+                layer.id,
+                mask.id,
+                MASK_BLUR_EFFECT_ID_V1,
+                9,
+                parseRevision(2),
+              );
+              const updatedMask = updated.document.layerTree.layers[layer.id]?.masks.find(
+                (entry) => entry.id === mask.id,
+              );
+              if (updatedMask?.kind !== 'raster-mask') throw new Error('expected Raster Mask');
+              expect(updatedMask.effectStack).toHaveLength(1);
+              expect(maskCoverageEffectStateV1(updatedMask, MASK_BLUR_EFFECT_ID_V1)).toMatchObject({
+                radiusPx: 9,
+                enabled: true,
+              });
+              expect(updatedMask.effectStack?.[0]?.parameters).toMatchObject({
+                schema: 'illustro.mask-blur/1',
+                kernel: 'gaussian-separable',
+              });
+            });
+
+            it('uses radius zero to remove an existing effect and rejects invalid values', () => {
+              const { snapshot, layer, mask } = fixture();
+              const feathered = setMaskCoverageEffectRadiusSnapshotV1(
+                snapshot,
+                layer.id,
+                mask.id,
+                MASK_FEATHER_EFFECT_ID_V1,
+                3,
+                parseRevision(1),
+              );
+              const cleared = setMaskCoverageEffectRadiusSnapshotV1(
+                feathered,
+                layer.id,
+                mask.id,
+                MASK_FEATHER_EFFECT_ID_V1,
+                0,
+                parseRevision(2),
+              );
+              const clearedMask = cleared.document.layerTree.layers[layer.id]?.masks.find(
+                (entry) => entry.id === mask.id,
+              );
+              if (clearedMask?.kind !== 'raster-mask') throw new Error('expected Raster Mask');
+              expect(clearedMask.effectStack).toEqual([]);
+              expect(() =>
+                setMaskCoverageEffectRadiusSnapshotV1(
+                  snapshot,
+                  layer.id,
+                  mask.id,
+                  MASK_BLUR_EFFECT_ID_V1,
+                  -1,
+                  parseRevision(1),
+                ),
+              ).toThrow(/greater than or equal to zero/);
+            });
+          });
+          ''')
+
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "import {\n  maskLinkedToLayerV1,",
+              "import {\n  MASK_BLUR_EFFECT_ID_V1,\n  MASK_FEATHER_EFFECT_ID_V1,\n  maskCoverageEffectStateV1,\n  setMaskCoverageEffectRadiusSnapshotV1,\n} from './layer-mask-effects.js';\nimport {\n  maskLinkedToLayerV1,",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  const maskTransformButton = required<HTMLButtonElement>('#mask-transform');\n  const maskTransformDialog",
+              "  const maskTransformButton = required<HTMLButtonElement>('#mask-transform');\n  const maskFeatherButton = required<HTMLButtonElement>('#mask-feather');\n  const maskBlurButton = required<HTMLButtonElement>('#mask-blur');\n  const maskEffectDialog = required<HTMLDialogElement>('#mask-effect-dialog');\n  const maskEffectForm = required<HTMLFormElement>('#mask-effect-form');\n  const maskEffectCancel = required<HTMLButtonElement>('#mask-effect-cancel');\n  const maskEffectTitle = required<HTMLElement>('#mask-effect-title');\n  const maskEffectRadius = required<HTMLInputElement>('#mask-effect-radius');\n  const maskEffectStatus = required<HTMLOutputElement>('#mask-effect-status');\n  const maskTransformDialog",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "    maskTransformButton.disabled = !maskIndependentTransformEnabled;\n    maskMoveButton.title",
+              "    maskTransformButton.disabled = !maskIndependentTransformEnabled;\n    const maskCoverageEffectEnabled =\n      selectedRasterMask !== undefined && active !== null && !active.layer.locks.all;\n    maskFeatherButton.disabled = !maskCoverageEffectEnabled;\n    maskBlurButton.disabled = !maskCoverageEffectEnabled;\n    if (selectedRasterMask !== undefined) {\n      const feather = maskCoverageEffectStateV1(selectedRasterMask, MASK_FEATHER_EFFECT_ID_V1);\n      const blur = maskCoverageEffectStateV1(selectedRasterMask, MASK_BLUR_EFFECT_ID_V1);\n      maskFeatherButton.title = `マスク境界ぼかし: ${feather.radiusPx}px`;\n      maskBlurButton.title = `マスクぼかし: ${blur.radiusPx}px`;\n      root.dataset.illustroMaskFeatherRadius = String(feather.radiusPx);\n      root.dataset.illustroMaskBlurRadius = String(blur.radiusPx);\n    } else {\n      root.dataset.illustroMaskFeatherRadius = '0';\n      root.dataset.illustroMaskBlurRadius = '0';\n    }\n    maskMoveButton.title",
+          )
+
+          controller = Path('src/app/layer-workflow-controller.ts').read_text()
+          anchor = "\n\n  let maskTransformMode: 'move' | 'transform' = 'transform';"
+          if anchor not in controller:
+              raise SystemExit('mask effect handler anchor missing')
+          handlers = r'''
+
+            let maskEffectMode: 'feather' | 'blur' = 'feather';
+
+            const openMaskEffectDialog = (mode: 'feather' | 'blur'): void => {
+              clearError();
+              const target = options.maskPaint.snapshot();
+              const current = options.paintSession.projectSnapshot();
+              if (current === null || target.layerId === null || target.maskId === null) return;
+              const layer = current.document.layerTree.layers[target.layerId];
+              const mask = layer?.masks.find((entry) => entry.id === target.maskId);
+              if (mask?.kind !== 'raster-mask') return;
+              if (layer?.locks.all) {
+                publishError(new Error('mask coverage effect is blocked by the layer lock'));
+                return;
+              }
+              maskEffectMode = mode;
+              const effectId = mode === 'feather' ? MASK_FEATHER_EFFECT_ID_V1 : MASK_BLUR_EFFECT_ID_V1;
+              const state = maskCoverageEffectStateV1(mask, effectId);
+              maskEffectTitle.textContent = mode === 'feather' ? 'マスク境界ぼかし' : 'マスクぼかし';
+              maskEffectRadius.value = String(state.radiusPx);
+              maskEffectStatus.value =
+                mode === 'feather'
+                  ? '境界を両側へ滑らかに遷移させます。0pxで解除します。'
+                  : 'Mask coverageへGaussian blurを非破壊適用します。0pxで解除します。';
+              maskEffectDialog.showModal();
+            };
+
+            const onMaskFeather = (): void => openMaskEffectDialog('feather');
+            const onMaskBlur = (): void => openMaskEffectDialog('blur');
+            const onMaskEffectCancel = (): void => maskEffectDialog.close();
+            const onMaskEffectSubmit = (event: SubmitEvent): void => {
+              event.preventDefault();
+              try {
+                const target = options.maskPaint.snapshot();
+                if (target.layerId === null || target.maskId === null) return;
+                const radiusPx = Number(maskEffectRadius.value);
+                if (!Number.isFinite(radiusPx) || radiusPx < 0) {
+                  throw new RangeError('mask effect radius must be zero or greater');
+                }
+                const effectId =
+                  maskEffectMode === 'feather' ? MASK_FEATHER_EFFECT_ID_V1 : MASK_BLUR_EFFECT_ID_V1;
+                commitMutation(
+                  maskEffectMode === 'feather' ? 'mask.feather' : 'mask.blur',
+                  (before, revision) =>
+                    setMaskCoverageEffectRadiusSnapshotV1(
+                      before,
+                      target.layerId!,
+                      target.maskId!,
+                      effectId,
+                      radiusPx,
+                      revision,
+                    ),
+                  () => target.layerId,
+                );
+                maskEffectDialog.close();
+              } catch (error) {
+                publishError(error);
+                maskEffectStatus.value = error instanceof Error ? error.message : String(error);
+              }
+            };
+          '''
+          Path('src/app/layer-workflow-controller.ts').write_text(controller.replace(anchor, handlers + anchor, 1))
+
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "  maskTransformButton.addEventListener('click', onMaskTransform);\n  maskTransformCancel.addEventListener('click', onMaskTransformCancel);",
+              "  maskTransformButton.addEventListener('click', onMaskTransform);\n  maskFeatherButton.addEventListener('click', onMaskFeather);\n  maskBlurButton.addEventListener('click', onMaskBlur);\n  maskEffectCancel.addEventListener('click', onMaskEffectCancel);\n  maskEffectForm.addEventListener('submit', onMaskEffectSubmit);\n  maskTransformCancel.addEventListener('click', onMaskTransformCancel);",
+          )
+          replace_once(
+              'src/app/layer-workflow-controller.ts',
+              "      maskTransformButton.removeEventListener('click', onMaskTransform);\n      maskTransformCancel.removeEventListener('click', onMaskTransformCancel);",
+              "      maskTransformButton.removeEventListener('click', onMaskTransform);\n      maskFeatherButton.removeEventListener('click', onMaskFeather);\n      maskBlurButton.removeEventListener('click', onMaskBlur);\n      maskEffectCancel.removeEventListener('click', onMaskEffectCancel);\n      maskEffectForm.removeEventListener('submit', onMaskEffectSubmit);\n      maskTransformCancel.removeEventListener('click', onMaskTransformCancel);",
+          )
+
+          replace_once(
+              'src/index.html',
+              '<button id="mask-transform" type="button" aria-label="マスクを独立変形" title="マスクを独立変形" disabled>⤢</button>',
+              '<button id="mask-transform" type="button" aria-label="マスクを独立変形" title="マスクを独立変形" disabled>⤢</button>\n              <button id="mask-feather" type="button" aria-label="マスク境界ぼかし" title="マスク境界ぼかし" disabled>≈</button>\n              <button id="mask-blur" type="button" aria-label="マスクぼかし" title="マスクぼかし" disabled>◌</button>',
+          )
+          effect_dialog = r'''    <dialog id="mask-effect-dialog" class="document-dialog" aria-labelledby="mask-effect-title">
+              <form id="mask-effect-form" method="dialog" class="document-dialog-form">
+                <header><h2 id="mask-effect-title">マスク境界ぼかし</h2></header>
+                <p class="document-dialog-help">Mask coverageへ非破壊効果として保存します。</p>
+                <div class="document-dialog-grid">
+                  <label>半径 (px)<input id="mask-effect-radius" type="number" min="0" step="0.1" value="0" /></label>
+                </div>
+                <output id="mask-effect-status" class="document-dialog-status" aria-live="polite"></output>
+                <footer>
+                  <button id="mask-effect-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+                  <button type="submit" class="document-dialog-primary">適用</button>
+                </footer>
+              </form>
+            </dialog>
+          '''
+          replace_once(
+              'src/index.html',
+              '    <dialog id="mask-transform-dialog" class="document-dialog"',
+              effect_dialog + '    <dialog id="mask-transform-dialog" class="document-dialog"',
+          )
+
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          progress = p.read_text()
+          progress = progress.replace('M5B-041 Mask feather:未完了', 'M5B-041 Mask feather:完了', 1)
+          progress = progress.replace('M5B-042 Mask blur:未完了', 'M5B-042 Mask blur:完了', 1)
+          progress = progress.replace(
+              'USER-01は上記内部修正の完了後も、ユーザー実機で明示的にPASSされるまで未完了のままとする。',
+              'USER-01は2026-09-02のスマホ実機確認で明示PASS済み。',
+              1,
+          )
+          progress = progress.replace(
+              'MOBILE-007の実機確認とUSER-01の明示PASSは引き続き未完了。検査は必要最低限とし、実装を優先する。',
+              'MOBILE-007のスマホ実機確認とUSER-01明示PASSまで完了。通常の実装順序へ復帰済み。検査は必要最低限とし、実装を優先する。',
+              1,
+          )
+          progress = progress.replace(
+              '次はM5B-041 Mask featherから再開する。',
+              'M5B-041/042 Mask feather/blurまで完了。次はM5B-043 Mask→Selectionから再開する。',
+              1,
+          )
+          p.write_text(progress)
+          PY
+      - name: Format
+        run: npm run format
+      - name: Focused tests
+        run: npx vitest run tests/unit/layer-mask-effects.test.ts tests/unit/layer-mask-transform.test.ts tests/unit/layer-mask-link.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+      - name: Verify progress
+        shell: bash
+        run: |
+          grep -F 'M5B-041 Mask feather:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F 'M5B-042 Mask blur:完了' IMPLEMENTATION_PROGRESS.md
+      - name: Commit checkpoint
+        shell: bash
+        run: |
+          rm .github/workflows/continue-m5b-mask-effects-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/domain/layers.ts src/app/layer-mask-effects.ts src/app/layer-workflow-controller.ts src/index.html tests/unit/layer-mask-effects.test.ts IMPLEMENTATION_PROGRESS.md .github/workflows/continue-m5b-mask-effects-once.yml
+          git commit -m 'feat: add non-destructive mask feather and blur'
+          git push origin HEAD:main
