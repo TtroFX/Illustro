@@ -30,6 +30,11 @@ import type {
   PointerInputSampleV1,
   PointerInputSourceV1,
 } from '../input/pointer-input.js';
+import {
+  hydratePaintRasterLayerDescriptorsV1,
+  type RasterMaskTileLoaderV1,
+  type RasterMaskTilePayloadV1,
+} from './raster-compositor-descriptors.js';
 
 export interface PaintRendererDocumentPortV1 {
   configureDocument(input: {
@@ -487,6 +492,8 @@ export class PaintSessionControllerV1 {
   readonly #presentCommittedStrokeIds = new Set<string>();
   readonly #unbakedCommittedStrokeIds = new Set<string>();
   readonly #canonicalRasterTileRefs = new Map<LayerId, Map<string, RasterTileReferenceV1>>();
+  readonly #rasterMaskTileCache = new Map<string, RasterMaskTilePayloadV1>();
+  #rasterMaskTileLoader: RasterMaskTileLoaderV1 | null = null;
   #disposed = false;
 
   constructor(
@@ -514,6 +521,11 @@ export class PaintSessionControllerV1 {
 
   currentDocument(): DocumentV1 | null {
     return this.#document;
+  }
+
+  setRasterMaskTileLoader(loader: RasterMaskTileLoaderV1 | null): void {
+    this.#rasterMaskTileLoader = loader;
+    this.#rasterMaskTileCache.clear();
   }
 
   activeLayerId(): LayerId | null {
@@ -801,12 +813,13 @@ export class PaintSessionControllerV1 {
   async restoreProjectSnapshot(snapshot: PaintProjectSnapshotV1): Promise<PaintProjectSnapshotV1> {
     if (this.#disposed) throw new Error('paint session is disposed');
     const normalized = parsePaintProjectSnapshotV1(snapshot);
+    const rasterLayers = await this.#renderRasterLayerDescriptors(normalized.document);
     await this.#renderer.configureDocument({
       width: normalized.document.canvas.width,
       height: normalized.document.canvas.height,
       workingSpace: normalized.document.color.workingSpace,
       precision: normalized.document.color.precision,
-      rasterLayers: paintRasterLayerDescriptorsV1(normalized.document),
+      rasterLayers,
     });
     await this.#renderer.restoreBaselineStrokes(
       normalized.committedStrokes.map((entry) => ({
@@ -824,7 +837,7 @@ export class PaintSessionControllerV1 {
   ): Promise<PaintProjectSnapshotV1> {
     if (this.#disposed) throw new Error('paint session is disposed');
     const normalized = parsePaintProjectSnapshotV1(snapshot);
-    const rasterLayers = paintRasterLayerDescriptorsV1(normalized.document);
+    const rasterLayers = await this.#renderRasterLayerDescriptors(normalized.document);
     await this.#renderer.configureDocument({
       width: normalized.document.canvas.width,
       height: normalized.document.canvas.height,
@@ -958,12 +971,13 @@ export class PaintSessionControllerV1 {
   async createNewDocument(input: PaintDocumentCreationInputV1): Promise<DocumentV1> {
     if (this.#disposed) throw new Error('paint session is disposed');
     const initial = withInitialRasterLayer(createDocumentV1(input));
+    const rasterLayers = await this.#renderRasterLayerDescriptors(initial.document);
     await this.#renderer.configureDocument({
       width: initial.document.canvas.width,
       height: initial.document.canvas.height,
       workingSpace: initial.document.color.workingSpace,
       precision: initial.document.color.precision,
-      rasterLayers: paintRasterLayerDescriptorsV1(initial.document),
+      rasterLayers,
     });
     this.#document = initial.document;
     this.#activeLayerId = initial.layer.id;
@@ -1050,6 +1064,41 @@ export class PaintSessionControllerV1 {
     this.#presentCommittedStrokeIds.clear();
     this.#unbakedCommittedStrokeIds.clear();
     this.#canonicalRasterTileRefs.clear();
+    this.#rasterMaskTileCache.clear();
+    this.#rasterMaskTileLoader = null;
+  }
+
+  async #renderRasterLayerDescriptors(
+    document: DocumentV1,
+  ): Promise<readonly BaselineRasterLayerDescriptorV1[]> {
+    const loader = this.#rasterMaskTileLoader;
+    return hydratePaintRasterLayerDescriptorsV1(
+      document,
+      loader === null
+        ? null
+        : async (payloadRef) => {
+            const cached = this.#rasterMaskTileCache.get(payloadRef);
+            if (cached !== undefined) {
+              this.#rasterMaskTileCache.delete(payloadRef);
+              this.#rasterMaskTileCache.set(payloadRef, cached);
+              return cached;
+            }
+            const loaded = await loader(payloadRef);
+            const owned: RasterMaskTilePayloadV1 = Object.freeze({
+              pixelFormat: loaded.pixelFormat,
+              width: loaded.width,
+              height: loaded.height,
+              bytes: new Uint8Array(loaded.bytes),
+            });
+            this.#rasterMaskTileCache.set(payloadRef, owned);
+            while (this.#rasterMaskTileCache.size > 128) {
+              const oldest = this.#rasterMaskTileCache.keys().next().value as string | undefined;
+              if (oldest === undefined) break;
+              this.#rasterMaskTileCache.delete(oldest);
+            }
+            return owned;
+          },
+    );
   }
 
   #adoptRestoredProjectSnapshot(normalized: PaintProjectSnapshotV1): PaintProjectSnapshotV1 {

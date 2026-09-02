@@ -7,7 +7,10 @@ import {
   type BaselinePaintCommittedStrokeV1,
 } from '../gpu/baseline-paint-renderer.js';
 import type {
+  BaselineAffineMatrixV1,
   BaselineRasterLayerDescriptorV1,
+  BaselineRasterMaskDescriptorV1,
+  BaselineRasterMaskTileImageV1,
   BaselineRasterTileImageV1,
   BaselineRasterTilePatchDirectionV1,
   BaselineRasterTilePatchV1,
@@ -193,6 +196,90 @@ function isDocumentPrecision(value: unknown): value is DocumentPrecision {
   return value === 'rgba8-unorm' || value === 'rgba16-float';
 }
 
+function parseMaskTile(value: unknown): BaselineRasterMaskTileImageV1 | null {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.coordinate) ||
+    !nonNegativeInteger(value.coordinate.tx) ||
+    !nonNegativeInteger(value.coordinate.ty) ||
+    !positiveDimension(value.width) ||
+    !positiveDimension(value.height) ||
+    !(value.bytes instanceof Uint8Array) ||
+    value.bytes.byteLength !== value.width * value.height * 4
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    coordinate: Object.freeze({ tx: value.coordinate.tx, ty: value.coordinate.ty }),
+    width: value.width,
+    height: value.height,
+    bytes: value.bytes as Uint8Array<ArrayBuffer>,
+  });
+}
+
+function parseRasterMasks(value: unknown): readonly BaselineRasterMaskDescriptorV1[] | null {
+  if (value === undefined) return Object.freeze([]);
+  if (!Array.isArray(value)) return null;
+  const result: BaselineRasterMaskDescriptorV1[] = [];
+  const seen = new Set<string>();
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.maskId !== 'string' ||
+      candidate.maskId.length === 0 ||
+      seen.has(candidate.maskId) ||
+      typeof candidate.enabled !== 'boolean' ||
+      typeof candidate.inverted !== 'boolean' ||
+      (candidate.defaultCoverage !== 0 && candidate.defaultCoverage !== 1) ||
+      !Array.isArray(candidate.effects) ||
+      !Array.isArray(candidate.tiles)
+    ) {
+      return null;
+    }
+    const effects = candidate.effects.map((effect) => {
+      if (
+        !isRecord(effect) ||
+        (effect.kind !== 'feather' && effect.kind !== 'blur') ||
+        typeof effect.radiusPx !== 'number' ||
+        !Number.isFinite(effect.radiusPx) ||
+        effect.radiusPx < 0
+      ) {
+        return null;
+      }
+      return Object.freeze({ kind: effect.kind, radiusPx: effect.radiusPx });
+    });
+    if (effects.some((effect) => effect === null)) return null;
+    const tiles = candidate.tiles.map(parseMaskTile);
+    if (tiles.some((tile) => tile === null)) return null;
+    let documentToMask: BaselineAffineMatrixV1 | undefined;
+    if (candidate.documentToMask !== undefined) {
+      if (
+        !Array.isArray(candidate.documentToMask) ||
+        candidate.documentToMask.length !== 6 ||
+        candidate.documentToMask.some(
+          (entry) => typeof entry !== 'number' || !Number.isFinite(entry),
+        )
+      ) {
+        return null;
+      }
+      documentToMask = Object.freeze([...candidate.documentToMask]) as BaselineAffineMatrixV1;
+    }
+    seen.add(candidate.maskId);
+    result.push(
+      Object.freeze({
+        maskId: candidate.maskId,
+        enabled: candidate.enabled,
+        inverted: candidate.inverted,
+        defaultCoverage: candidate.defaultCoverage,
+        effects: Object.freeze(effects as Exclude<(typeof effects)[number], null>[]),
+        tiles: Object.freeze(tiles as BaselineRasterMaskTileImageV1[]),
+        ...(documentToMask === undefined ? {} : { documentToMask }),
+      }),
+    );
+  }
+  return Object.freeze(result);
+}
+
 function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescriptorV1[] | null {
   if (!Array.isArray(value)) return null;
   const layers: BaselineRasterLayerDescriptorV1[] = [];
@@ -213,6 +300,15 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
     ) {
       return null;
     }
+    const masks = parseRasterMasks(candidate.masks);
+    if (
+      masks === null ||
+      (candidate.clippingBaseLayerId !== undefined &&
+        (typeof candidate.clippingBaseLayerId !== 'string' ||
+          candidate.clippingBaseLayerId.length === 0))
+    ) {
+      return null;
+    }
     seen.add(candidate.layerId);
     layers.push(
       Object.freeze({
@@ -221,6 +317,10 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
         opacity: candidate.opacity,
         draft: candidate.draft ?? false,
         ...(candidate.blendMode === undefined ? {} : { blendMode: candidate.blendMode }),
+        ...(masks.length === 0 ? {} : { masks }),
+        ...(candidate.clippingBaseLayerId === undefined
+          ? {}
+          : { clippingBaseLayerId: candidate.clippingBaseLayerId }),
       }),
     );
   }

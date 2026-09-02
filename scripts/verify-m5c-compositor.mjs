@@ -49,6 +49,16 @@ requireText('src/gpu/baseline-raster-tile-store.ts', [
   'compositeBlendRgbaV1',
   "layer.blendMode ?? 'normal'",
   'this.#workingSpace',
+  'BaselineRasterMaskDescriptorV1',
+  'clippingBaseLayerId',
+  'sampleEffectiveMaskCoverage',
+  'effectiveAlphaForLayer',
+]);
+requireText('src/app/raster-compositor-descriptors.ts', [
+  'hydratePaintRasterLayerDescriptorsV1',
+  'Raster Mask compositor requires a canonical mask tile loader',
+  'documentToMaskTransform',
+  "node.effectId !== 'mask.feather'",
 ]);
 requireText('src/app/paint-session-controller.ts', [
   "layer.blendMode === 'normal'",
@@ -63,6 +73,8 @@ requireText('src/app/renderer-controller.ts', [
   'layer.blendMode',
   '{ blendMode: layer.blendMode }',
   'input.workingSpace',
+  'layer.clippingBaseLayerId',
+  'layer.masks',
 ]);
 requireText('src/gpu/baseline-paint-renderer.ts', ['workingSpace: DocumentColorSpace']);
 requireText('src/app/layer-operations.ts', [
@@ -136,7 +148,11 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5C-025 Color:完了',
   'M5C-026 Luminosity:完了',
   'M5C-027 explicit color-space blend semantics:完了',
-  'M5C-028 mask/clipping compositor integration:未完了',
+  'M5C-028 mask/clipping compositor integration:完了',
+  'M5C-検査 M5C内部検査:完了',
+]);
+requireText('tests/unit/m5c-mask-clipping-compositor.test.ts', [
+  'M5C Raster Mask / clipping compositor integration',
 ]);
 
 console.log('M5C blend compositor verification passed');

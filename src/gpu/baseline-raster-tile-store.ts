@@ -7,7 +7,36 @@ import {
   type BaselineBrushDabV1,
 } from './baseline-brush.js';
 import { compositeBlendRgbaV1, isM5cBaseBlendModeV1 } from './blend-modes.js';
-import { tileBoundsForDocumentV1, tileKeyV1, type TileCoordinateV1 } from './sparse-tile-model.js';
+import {
+  CANONICAL_TILE_SIZE_PX,
+  tileBoundsForDocumentV1,
+  tileKeyV1,
+  type TileCoordinateV1,
+} from './sparse-tile-model.js';
+
+export type BaselineAffineMatrixV1 = readonly [number, number, number, number, number, number];
+
+export interface BaselineRasterMaskTileImageV1 {
+  readonly coordinate: TileCoordinateV1;
+  readonly width: number;
+  readonly height: number;
+  readonly bytes: Uint8Array<ArrayBuffer>;
+}
+
+export interface BaselineRasterMaskEffectV1 {
+  readonly kind: 'feather' | 'blur';
+  readonly radiusPx: number;
+}
+
+export interface BaselineRasterMaskDescriptorV1 {
+  readonly maskId: string;
+  readonly enabled: boolean;
+  readonly inverted: boolean;
+  readonly defaultCoverage: 0 | 1;
+  readonly documentToMask?: BaselineAffineMatrixV1;
+  readonly effects: readonly BaselineRasterMaskEffectV1[];
+  readonly tiles: readonly BaselineRasterMaskTileImageV1[];
+}
 
 export interface BaselineRasterLayerDescriptorV1 {
   readonly layerId: string;
@@ -15,6 +44,8 @@ export interface BaselineRasterLayerDescriptorV1 {
   readonly opacity: number;
   readonly draft?: boolean;
   readonly blendMode?: BlendModeId;
+  readonly clippingBaseLayerId?: string;
+  readonly masks?: readonly BaselineRasterMaskDescriptorV1[];
 }
 
 export interface BaselineRasterTileImageV1 {
@@ -282,6 +313,135 @@ function rasterizeBlackDab(
   }
 }
 
+const MASK_SOFTEN_WEIGHTS = Object.freeze([1, 4, 6, 4, 1] as const);
+const MASK_SOFTEN_WEIGHT_TOTAL = 256;
+
+function maskTileStateKey(coordinate: TileCoordinateV1): string {
+  return tileKeyV1(coordinate);
+}
+
+function validateMaskTileImage(
+  image: BaselineRasterMaskTileImageV1,
+  documentWidth: number,
+  documentHeight: number,
+): void {
+  const bounds = tileBoundsForDocumentV1(documentWidth, documentHeight, image.coordinate);
+  if (
+    image.width !== bounds.validWidth ||
+    image.height !== bounds.validHeight ||
+    image.bytes.byteLength !== image.width * image.height * 4
+  ) {
+    throw new Error('baseline Raster Mask tile violates the document tile contract');
+  }
+}
+
+function applyAffine(
+  matrix: BaselineAffineMatrixV1 | undefined,
+  x: number,
+  y: number,
+): readonly [number, number] {
+  if (matrix === undefined) return [x, y];
+  return [matrix[0] * x + matrix[2] * y + matrix[4], matrix[1] * x + matrix[3] * y + matrix[5]];
+}
+
+function sampleMaskInteger(
+  mask: BaselineRasterMaskDescriptorV1,
+  tileMap: ReadonlyMap<string, BaselineRasterMaskTileImageV1>,
+  documentWidth: number,
+  documentHeight: number,
+  x: number,
+  y: number,
+): number {
+  if (x < 0 || y < 0 || x >= documentWidth || y >= documentHeight) return mask.defaultCoverage;
+  const tx = Math.floor(x / CANONICAL_TILE_SIZE_PX);
+  const ty = Math.floor(y / CANONICAL_TILE_SIZE_PX);
+  const tile = tileMap.get(maskTileStateKey({ tx, ty }));
+  if (tile === undefined) return mask.defaultCoverage;
+  const localX = x - tx * CANONICAL_TILE_SIZE_PX;
+  const localY = y - ty * CANONICAL_TILE_SIZE_PX;
+  if (localX < 0 || localY < 0 || localX >= tile.width || localY >= tile.height) {
+    return mask.defaultCoverage;
+  }
+  return (tile.bytes[(localY * tile.width + localX) * 4] ?? mask.defaultCoverage * 255) / 255;
+}
+
+function sampleRawMaskCoverage(
+  mask: BaselineRasterMaskDescriptorV1,
+  tileMap: ReadonlyMap<string, BaselineRasterMaskTileImageV1>,
+  documentWidth: number,
+  documentHeight: number,
+  documentX: number,
+  documentY: number,
+): number {
+  const [maskX, maskY] = applyAffine(mask.documentToMask, documentX, documentY);
+  const sampleX = maskX - 0.5;
+  const sampleY = maskY - 0.5;
+  const x0 = Math.floor(sampleX);
+  const y0 = Math.floor(sampleY);
+  const tx = sampleX - x0;
+  const ty = sampleY - y0;
+  const c00 = sampleMaskInteger(mask, tileMap, documentWidth, documentHeight, x0, y0);
+  const c10 = sampleMaskInteger(mask, tileMap, documentWidth, documentHeight, x0 + 1, y0);
+  const c01 = sampleMaskInteger(mask, tileMap, documentWidth, documentHeight, x0, y0 + 1);
+  const c11 = sampleMaskInteger(mask, tileMap, documentWidth, documentHeight, x0 + 1, y0 + 1);
+  const top = c00 + (c10 - c00) * tx;
+  const bottom = c01 + (c11 - c01) * tx;
+  return clamp01(top + (bottom - top) * ty);
+}
+
+function effectiveMaskSoftRadius(mask: BaselineRasterMaskDescriptorV1): number {
+  let squared = 0;
+  for (const effect of mask.effects) {
+    if (effect.radiusPx <= 0) continue;
+    squared += effect.radiusPx * effect.radiusPx;
+  }
+  return Math.sqrt(squared);
+}
+
+function sampleEffectiveMaskCoverage(
+  mask: BaselineRasterMaskDescriptorV1,
+  tileMap: ReadonlyMap<string, BaselineRasterMaskTileImageV1>,
+  documentWidth: number,
+  documentHeight: number,
+  documentX: number,
+  documentY: number,
+): number {
+  const radius = effectiveMaskSoftRadius(mask);
+  let coverage: number;
+  if (radius <= 0) {
+    coverage = sampleRawMaskCoverage(
+      mask,
+      tileMap,
+      documentWidth,
+      documentHeight,
+      documentX,
+      documentY,
+    );
+  } else {
+    const step = radius / 2;
+    let weighted = 0;
+    for (let yi = 0; yi < MASK_SOFTEN_WEIGHTS.length; yi += 1) {
+      const wy = MASK_SOFTEN_WEIGHTS[yi] ?? 0;
+      for (let xi = 0; xi < MASK_SOFTEN_WEIGHTS.length; xi += 1) {
+        const wx = MASK_SOFTEN_WEIGHTS[xi] ?? 0;
+        weighted +=
+          sampleRawMaskCoverage(
+            mask,
+            tileMap,
+            documentWidth,
+            documentHeight,
+            documentX + (xi - 2) * step,
+            documentY + (yi - 2) * step,
+          ) *
+          wx *
+          wy;
+      }
+    }
+    coverage = weighted / MASK_SOFTEN_WEIGHT_TOTAL;
+  }
+  return mask.inverted ? 1 - coverage : coverage;
+}
+
 function isTransparent(image: BaselineRasterTileImageV1): boolean {
   const alphaStride = image.pixelFormat === 'rgba8-unorm' ? 4 : 8;
   const alphaOffset = image.pixelFormat === 'rgba8-unorm' ? 3 : 6;
@@ -484,8 +644,14 @@ export class BaselineRasterTileStoreV1 {
     coordinate: TileCoordinateV1,
     visibleLayers: readonly BaselineRasterLayerDescriptorV1[],
   ): BaselineRasterTileImageV1 {
-    if (visibleLayers.length === 1 && visibleLayers[0]?.opacity === 1) {
-      const source = this.#tiles.get(tileStateKey(visibleLayers[0].layerId, coordinate));
+    const only = visibleLayers[0];
+    if (
+      visibleLayers.length === 1 &&
+      only?.opacity === 1 &&
+      only.clippingBaseLayerId === undefined &&
+      (only.masks?.length ?? 0) === 0
+    ) {
+      const source = this.#tiles.get(tileStateKey(only.layerId, coordinate));
       if (source === undefined) {
         return createTransparentTile(
           '__composite__',
@@ -514,11 +680,104 @@ export class BaselineRasterTileStoreV1 {
       this.#documentHeight,
       this.#pixelFormat,
     );
+    const bounds = tileBoundsForDocumentV1(this.#documentWidth, this.#documentHeight, coordinate);
+    const eligibleLayerIds = new Set(visibleLayers.map((layer) => layer.layerId));
+    const layersById = new Map(this.#layers.map((layer) => [layer.layerId, layer] as const));
+    const maskCoverageMemo = new Map<string, Float32Array | null>();
+    const effectiveAlphaMemo = new Map<string, Float32Array>();
+
+    const maskCoverageForLayer = (layer: BaselineRasterLayerDescriptorV1): Float32Array | null => {
+      if (maskCoverageMemo.has(layer.layerId)) return maskCoverageMemo.get(layer.layerId) ?? null;
+      const masks = (layer.masks ?? []).filter((mask) => mask.enabled);
+      if (masks.length === 0) {
+        maskCoverageMemo.set(layer.layerId, null);
+        return null;
+      }
+      const result = new Float32Array(output.width * output.height);
+      result.fill(1);
+      const tileMaps = new Map(
+        masks.map(
+          (mask) =>
+            [
+              mask.maskId,
+              new Map(mask.tiles.map((tile) => [maskTileStateKey(tile.coordinate), tile] as const)),
+            ] as const,
+        ),
+      );
+      for (const mask of masks) {
+        const tileMap = tileMaps.get(mask.maskId);
+        if (tileMap === undefined) continue;
+        for (let pixel = 0; pixel < result.length; pixel += 1) {
+          const localX = pixel % output.width;
+          const localY = Math.floor(pixel / output.width);
+          result[pixel] =
+            (result[pixel] ?? 1) *
+            sampleEffectiveMaskCoverage(
+              mask,
+              tileMap,
+              this.#documentWidth,
+              this.#documentHeight,
+              bounds.x + localX + 0.5,
+              bounds.y + localY + 0.5,
+            );
+        }
+      }
+      maskCoverageMemo.set(layer.layerId, result);
+      return result;
+    };
+
+    const effectiveAlphaForLayer = (
+      layerId: string,
+      resolving: ReadonlySet<string> = new Set(),
+    ): Float32Array => {
+      const cached = effectiveAlphaMemo.get(layerId);
+      if (cached !== undefined) return cached;
+      if (resolving.has(layerId)) throw new Error(`cyclic baseline clipping chain at ${layerId}`);
+      const layer = layersById.get(layerId);
+      const result = new Float32Array(output.width * output.height);
+      if (layer === undefined || !eligibleLayerIds.has(layerId)) {
+        effectiveAlphaMemo.set(layerId, result);
+        return result;
+      }
+      const source = this.#tiles.get(tileStateKey(layerId, coordinate));
+      if (source === undefined) {
+        effectiveAlphaMemo.set(layerId, result);
+        return result;
+      }
+      const masks = maskCoverageForLayer(layer);
+      const nextResolving = new Set(resolving);
+      nextResolving.add(layerId);
+      const baseCoverage =
+        layer.clippingBaseLayerId === undefined
+          ? null
+          : effectiveAlphaForLayer(layer.clippingBaseLayerId, nextResolving);
+      for (let pixel = 0; pixel < result.length; pixel += 1) {
+        const sourceAlpha = readPixel(source, pixel)[3];
+        result[pixel] =
+          sourceAlpha * layer.opacity * (masks?.[pixel] ?? 1) * (baseCoverage?.[pixel] ?? 1);
+      }
+      effectiveAlphaMemo.set(layerId, result);
+      return result;
+    };
+
     for (const layer of visibleLayers) {
       const source = this.#tiles.get(tileStateKey(layer.layerId, coordinate));
       if (source === undefined) continue;
+      const masks = maskCoverageForLayer(layer);
+      const clippingCoverage =
+        layer.clippingBaseLayerId === undefined
+          ? null
+          : effectiveAlphaForLayer(layer.clippingBaseLayerId);
       for (let pixel = 0; pixel < output.width * output.height; pixel += 1) {
-        const sourcePixel = readPixel(source, pixel);
+        const rawSource = readPixel(source, pixel);
+        const coverage = (masks?.[pixel] ?? 1) * (clippingCoverage?.[pixel] ?? 1);
+        if (rawSource[3] <= 0 || coverage <= 0) continue;
+        const sourcePixel: [number, number, number, number] = [
+          rawSource[0],
+          rawSource[1],
+          rawSource[2],
+          rawSource[3] * coverage,
+        ];
         const destination = readPixel(output, pixel);
         const blendMode = layer.blendMode ?? 'normal';
         if (!isM5cBaseBlendModeV1(blendMode)) {
@@ -544,27 +803,90 @@ export class BaselineRasterTileStoreV1 {
     layers: readonly BaselineRasterLayerDescriptorV1[],
   ): readonly BaselineRasterLayerDescriptorV1[] {
     const seen = new Set<string>();
-    return Object.freeze(
-      layers.map((layer) => {
-        if (layer.layerId.length === 0 || seen.has(layer.layerId)) {
-          throw new TypeError('baseline raster layer IDs must be unique and non-empty');
-        }
-        if (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1) {
-          throw new RangeError('baseline raster layer opacity must be between 0 and 1');
-        }
-        const blendMode = layer.blendMode ?? 'normal';
-        if (!isM5cBaseBlendModeV1(blendMode)) {
-          throw new Error(`unsupported baseline blend mode: ${blendMode}`);
-        }
-        seen.add(layer.layerId);
-        return Object.freeze({
-          layerId: layer.layerId,
-          visible: layer.visible,
-          opacity: layer.opacity,
-          draft: layer.draft ?? false,
-          ...(blendMode === 'normal' ? {} : { blendMode }),
-        });
-      }),
-    );
+    const normalized = layers.map((layer) => {
+      if (layer.layerId.length === 0 || seen.has(layer.layerId)) {
+        throw new TypeError('baseline raster layer IDs must be unique and non-empty');
+      }
+      if (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1) {
+        throw new RangeError('baseline raster layer opacity must be between 0 and 1');
+      }
+      const blendMode = layer.blendMode ?? 'normal';
+      if (!isM5cBaseBlendModeV1(blendMode)) {
+        throw new Error(`unsupported baseline blend mode: ${blendMode}`);
+      }
+      const maskIds = new Set<string>();
+      const masks = Object.freeze(
+        (layer.masks ?? []).map((mask) => {
+          if (mask.maskId.length === 0 || maskIds.has(mask.maskId)) {
+            throw new TypeError('baseline Raster Mask IDs must be unique and non-empty per layer');
+          }
+          if (mask.defaultCoverage !== 0 && mask.defaultCoverage !== 1) {
+            throw new TypeError('baseline Raster Mask default coverage must be 0 or 1');
+          }
+          maskIds.add(mask.maskId);
+          const effects = Object.freeze(
+            mask.effects.map((effect) => {
+              if (
+                (effect.kind !== 'feather' && effect.kind !== 'blur') ||
+                !Number.isFinite(effect.radiusPx) ||
+                effect.radiusPx < 0
+              ) {
+                throw new Error('invalid baseline Raster Mask coverage effect');
+              }
+              return Object.freeze({ kind: effect.kind, radiusPx: effect.radiusPx });
+            }),
+          );
+          const matrix = mask.documentToMask;
+          if (
+            matrix !== undefined &&
+            (matrix.length !== 6 || matrix.some((entry) => !Number.isFinite(entry)))
+          ) {
+            throw new Error('invalid baseline Raster Mask affine matrix');
+          }
+          const tiles = Object.freeze(
+            mask.tiles.map((tile) => {
+              validateMaskTileImage(tile, this.#documentWidth, this.#documentHeight);
+              return Object.freeze({
+                coordinate: freezeCoordinate(tile.coordinate),
+                width: tile.width,
+                height: tile.height,
+                bytes: tile.bytes,
+              });
+            }),
+          );
+          return Object.freeze({
+            maskId: mask.maskId,
+            enabled: mask.enabled,
+            inverted: mask.inverted,
+            defaultCoverage: mask.defaultCoverage,
+            effects,
+            tiles,
+            ...(matrix === undefined
+              ? {}
+              : { documentToMask: Object.freeze([...matrix]) as BaselineAffineMatrixV1 }),
+          });
+        }),
+      );
+      seen.add(layer.layerId);
+      return Object.freeze({
+        layerId: layer.layerId,
+        visible: layer.visible,
+        opacity: layer.opacity,
+        draft: layer.draft ?? false,
+        ...(blendMode === 'normal' ? {} : { blendMode }),
+        ...(masks.length === 0 ? {} : { masks }),
+        ...(layer.clippingBaseLayerId === undefined
+          ? {}
+          : { clippingBaseLayerId: layer.clippingBaseLayerId }),
+      });
+    });
+    const layerIds = new Set(normalized.map((layer) => layer.layerId));
+    for (const layer of normalized) {
+      if (layer.clippingBaseLayerId === undefined) continue;
+      if (layer.clippingBaseLayerId === layer.layerId || !layerIds.has(layer.clippingBaseLayerId)) {
+        throw new Error('baseline clipping base must reference another configured Raster Layer');
+      }
+    }
+    return Object.freeze(normalized);
   }
 }
