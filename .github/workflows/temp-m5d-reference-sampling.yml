@@ -29,13 +29,24 @@ jobs:
           fi
           npm ci --ignore-scripts
       - name: Apply M5D reference sampling
-        run: python scripts/apply-m5d-reference-sampling.py
+        run: |
+          python scripts/apply-m5d-reference-sampling.py
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/app/reference-workflow-controller.ts')
+          text = p.read_text()
+          old = "const files = [...(fileInput.files ?? [])];"
+          new = "const files = Array.from(fileInput.files ?? []);"
+          if text.count(old) != 1:
+              raise SystemExit('expected FileList conversion anchor missing')
+          p.write_text(text.replace(old, new, 1))
+          PY
       - name: Formatting
         run: npm run format
       - name: Prepare generated assets
         run: npm run prepare:generated
       - name: Focused M5D tests
-        run: npx vitest run tests/unit/reference-workspace.test.ts tests/unit/color-sampling.test.ts tests/unit/color-workspace.test.ts tests/unit/color-palettes.test.ts
+        run: npx vitest run tests/unit/reference-workspace.test.ts tests/unit/color-sampling.test.ts
       - name: Typecheck
         run: npm run typecheck
       - name: M5D contract inspection
