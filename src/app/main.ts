@@ -78,6 +78,7 @@ const maskPaint = new MaskPaintControllerV1({
 });
 let paintRenderTask: Promise<void> = Promise.resolve();
 let refreshLayerUi = (): void => {};
+let syncPngExportAvailability = (): void => {};
 const historyUndoButton = document.querySelector<HTMLButtonElement>('#history-undo');
 const historyRedoButton = document.querySelector<HTMLButtonElement>('#history-redo');
 
@@ -124,6 +125,7 @@ function publishDocumentState(documentValue: DocumentV1): void {
     shell.canvas.style.removeProperty('--illustro-canvas-background');
   }
   refreshLayerUi();
+  syncPngExportAvailability();
 }
 
 const documentWorkflow = installDocumentWorkflowControllerV1({
@@ -366,6 +368,13 @@ function setPngExportControlsDisabled(disabled: boolean): void {
   }
 }
 
+syncPngExportAvailability = (): void => {
+  if (pngExportInFlight) return;
+  const available = paintSession.currentDocument() !== null;
+  setPngExportControlsDisabled(!available);
+  root.dataset.illustroPngExport = available ? 'ready' : 'unavailable';
+};
+
 const restoreMobilePngExportLabel = (): void => {
   globalThis.setTimeout(() => {
     if (!pngExportInFlight) setMobilePngExportLabel('書出');
@@ -402,7 +411,7 @@ const onExportPngClick = (): void => {
       logger.error('export.png-failed', error);
     } finally {
       pngExportInFlight = false;
-      setPngExportControlsDisabled(paintSession.currentDocument() === null);
+      syncPngExportAvailability();
     }
   });
 };
@@ -413,8 +422,7 @@ const onExportPngMenuClick = (): void => {
 exportPngButton?.addEventListener('click', onExportPngClick);
 exportPngMenuButton?.addEventListener('click', onExportPngMenuClick);
 mobileExportButton?.addEventListener('click', onExportPngClick);
-setPngExportControlsDisabled(true);
-root.dataset.illustroPngExport = 'unavailable';
+syncPngExportAvailability();
 
 const buildIdentityOutput = document.querySelector<HTMLOutputElement>('#build-identity');
 if (buildIdentityOutput) {
@@ -453,8 +461,7 @@ void renderer
     root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
     root.dataset.illustroPaintStroke = 'idle';
     root.dataset.illustroPaintStrokeSamples = '0';
-    setPngExportControlsDisabled(false);
-    root.dataset.illustroPngExport = 'ready';
+    syncPngExportAvailability();
     publishPaintHistory();
     logger.info('paint-session.document-ready', {
       documentId: document.documentId,
