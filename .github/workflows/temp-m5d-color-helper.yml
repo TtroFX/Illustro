@@ -29,7 +29,7 @@ jobs:
           fi
           npm ci --ignore-scripts
       - name: Apply M5D color helper
-        run: python scripts/apply-m5d-color-helper.py
+        run: python scripts/fix-m5d-color-helper-apply.py && python scripts/apply-m5d-color-helper.py
       - name: Formatting
         run: npm run format
       - name: Lint
