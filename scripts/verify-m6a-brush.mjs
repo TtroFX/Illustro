@@ -18,8 +18,8 @@ const progress = read('IMPLEMENTATION_PROGRESS.md');
 
 requireText(
   canonical,
-  "export type CanonicalBrushModeV1 = 'raster' | 'eraser' | 'smudge';",
-  'Raster/Eraser/Smudge mode identity missing',
+  "export type CanonicalBrushModeV1 = 'raster' | 'eraser' | 'smudge' | 'blur';",
+  'Raster/Eraser/Smudge/Blur mode identity missing',
 );
 requireText(
   canonical,
@@ -99,10 +99,32 @@ requireText(
   'immutable pre-dab snapshot',
   'Smudge snapshot regression coverage missing',
 );
+requireText(progress, 'M6A-004 Blur brush mode:完了', 'M6A-004 progress is not complete');
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'rasterizeBlurDab',
+  'canonical Blur rasterization missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'BLUR_BRUSH_WEIGHTS',
+  'bounded Blur kernel missing',
+);
+requireText(
+  read('src/workers/render.worker.ts'),
+  "value.operation === 'blur'",
+  'worker Blur protocol missing',
+);
+requireText(read('src/index.html'), 'id="brush-mode-blur"', 'reachable Blur control missing');
+requireText(
+  read('tests/unit/blur-brush-mode.test.ts'),
+  'premultiplied blur',
+  'Blur regression coverage missing',
+);
 requireText(
   progress,
-  'M6A-004 Blur brush mode:未完了',
-  'future Blur mode status was incorrectly advanced',
+  'M6A-005 preset create:未完了',
+  'future brush preset status was incorrectly advanced',
 );
 requireText(
   progress,

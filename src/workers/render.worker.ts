@@ -543,7 +543,8 @@ function parseBaselineCommittedStrokes(
       candidate.operation !== undefined &&
       candidate.operation !== 'paint' &&
       candidate.operation !== 'erase' &&
-      candidate.operation !== 'smudge'
+      candidate.operation !== 'smudge' &&
+      candidate.operation !== 'blur'
     ) {
       return null;
     }
@@ -636,7 +637,8 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     (value.operation === undefined ||
       value.operation === 'paint' ||
       value.operation === 'erase' ||
-      value.operation === 'smudge')
+      value.operation === 'smudge' ||
+      value.operation === 'blur')
   ) {
     const dabs = parseBaselineDabs(value.dabs);
     return dabs === null

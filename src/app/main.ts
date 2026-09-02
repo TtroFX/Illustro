@@ -61,12 +61,14 @@ const paintSession = new PaintSessionControllerV1(renderer, {
 const brushRasterButton = document.querySelector<HTMLButtonElement>('#brush-mode-raster');
 const brushEraserButton = document.querySelector<HTMLButtonElement>('#brush-mode-eraser');
 const brushSmudgeButton = document.querySelector<HTMLButtonElement>('#brush-mode-smudge');
+const brushBlurButton = document.querySelector<HTMLButtonElement>('#brush-mode-blur');
 function publishBrushMode(): void {
   const mode = paintSession.brushMode();
   root.dataset.illustroBrushMode = mode;
   brushRasterButton?.setAttribute('aria-pressed', String(mode === 'raster'));
   brushEraserButton?.setAttribute('aria-pressed', String(mode === 'eraser'));
   brushSmudgeButton?.setAttribute('aria-pressed', String(mode === 'smudge'));
+  brushBlurButton?.setAttribute('aria-pressed', String(mode === 'blur'));
 }
 brushRasterButton?.addEventListener('click', () => {
   paintSession.setBrushMode('raster');
@@ -78,6 +80,10 @@ brushEraserButton?.addEventListener('click', () => {
 });
 brushSmudgeButton?.addEventListener('click', () => {
   paintSession.setBrushMode('smudge');
+  publishBrushMode();
+});
+brushBlurButton?.addEventListener('click', () => {
+  paintSession.setBrushMode('blur');
   publishBrushMode();
 });
 publishBrushMode();
