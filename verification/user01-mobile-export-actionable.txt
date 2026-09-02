@@ -1,5 +1,6 @@
 USER-01 mobile export correction publication marker
 
 Canonical implementation parent: 6672edcfc532bd697246c79e003262b781cb537c
-Purpose: trigger normal CI and GitHub Pages after validated mobile Export actionability correction and USER-01 progress/design-memo reconciliation.
+Final USER-01 progress-gate alignment parent: 8f0bef901134286c7b16269ca5e4fad2249b7770
+Purpose: trigger normal CI and GitHub Pages after validated mobile Export actionability correction, USER-01 progress/design-memo reconciliation, and one-shot workflow cleanup.
 User verification remains required for PNG Export, Undo/Redo, and reload persistence.
