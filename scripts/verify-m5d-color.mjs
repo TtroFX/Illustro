@@ -38,6 +38,9 @@ requireText('src/app/color-workflow-controller.ts', [
   '#color-current',
   '#color-previous',
   '#color-history',
+  '#color-eyedropper',
+  '#color-sampling-source',
+  'ingestPointerBatch',
   '#color-palette-select',
   '#color-palette-name',
   '#color-palette-swatches',
@@ -49,7 +52,19 @@ requireText('src/gpu/baseline-brush.ts', [
   'readonly color?: BaselineBrushColorV1',
   'baselineDabColorV1',
 ]);
-requireText('src/gpu/baseline-raster-tile-store.ts', ['rasterizeColorDab', 'baselineDabColorV1']);
+requireText('src/gpu/baseline-raster-tile-store.ts', [
+  'rasterizeColorDab',
+  'baselineDabColorV1',
+  'readBaselineRasterTilePixelV1',
+]);
+requireText('src/app/color-sampling.ts', [
+  'ColorSamplingOwnershipV1',
+  'createRasterTileSamplingIndexV1',
+  'sampleActiveLayerColorV1',
+  'sampleMergedCanvasColorV1',
+]);
+requireText('src/app/main.ts', ['colorWorkflow.ingestPointerBatch', "'eyedropper'"]);
+
 requireText('src/gpu/shaders/baseline-brush.wgsl', [
   '@location(3) color: vec3f',
   'input.color * alpha',
@@ -80,6 +95,8 @@ requireText('src/index.html', [
   'id="color-current"',
   'id="color-previous"',
   'id="color-history"',
+  'id="color-eyedropper"',
+  'id="color-sampling-source"',
   'id="color-palette-select"',
   'id="color-palette-name"',
   'id="color-palette-create"',
@@ -110,6 +127,10 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5D-013 palette-color reorder:完了',
   'M5D-014 palette import:完了',
   'M5D-015 palette export:完了',
-  'M5D-016 Eyedropper:未完了',
+  'M5D-016 Eyedropper:完了',
+  'M5D-017 quick Eyedropper:完了',
+  'M5D-018 active-layer sampling:完了',
+  'M5D-019 merged-canvas sampling:完了',
+  'M5D-020 reference-image sampling:未完了',
 ]);
 console.log('M5D color/palette verification passed');

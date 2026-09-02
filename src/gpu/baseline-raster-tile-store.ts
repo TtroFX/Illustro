@@ -213,6 +213,16 @@ function readPixel(
   ];
 }
 
+export function readBaselineRasterTilePixelV1(
+  image: BaselineRasterTileImageV1,
+  pixel: number,
+): readonly [number, number, number, number] {
+  if (!Number.isSafeInteger(pixel) || pixel < 0 || pixel >= image.width * image.height) {
+    throw new RangeError('baseline raster tile pixel index is out of range');
+  }
+  return Object.freeze(readPixel(image, pixel));
+}
+
 function writePixel(
   image: BaselineRasterTileImageV1,
   pixel: number,
