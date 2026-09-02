@@ -25,6 +25,7 @@ import { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import { MaskPaintControllerV1 } from './layer-mask-paint.js';
 import { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
+import { SelectionCoverageControllerV1 } from './selection-coverage-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { installViewportControllerV1 } from './viewport-controller.js';
 import { startRendererController } from './renderer-controller.js';
@@ -54,6 +55,7 @@ const paintSession = new PaintSessionControllerV1(renderer, {
     viewport.mapPointerToDocument(sample, documentValue),
 });
 const paintHistory = new PaintHistoryControllerV1(paintSession);
+const selectionCoverage = new SelectionCoverageControllerV1();
 const paintPersistence = new PaintPersistenceControllerV1(
   workers.storage,
   paintSession,
@@ -156,6 +158,7 @@ const layerWorkflow = installLayerWorkflowControllerV1({
   paintHistory,
   paintPersistence,
   maskPaint,
+  selectionCoverage,
   schedule: enqueuePaintRender,
   onHistoryChanged: publishPaintHistory,
 });

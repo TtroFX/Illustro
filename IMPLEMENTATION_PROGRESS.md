@@ -243,7 +243,7 @@ USER-01-PERF-007 main統合・GitHub Pages preview更新:完了
 USER-01-EXPORT-001 スマホPNG Export direct handler接続・hidden button中継除去・Exportのcheckpoint依存除去・可視status feedback:完了
 USER-01-EXPORT-002 スマホPNG Exportユーザー実機PASS:完了
 USER-01-MOBILE-003 スマホUndo/Redo・保存再読込ユーザー実機PASS:完了
-再開メモ: Raster Tile canonical state性能修正はmainへ統合済み。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。format、lint（既存warningのみ）、typecheck、unit 80 files / 302 tests、integration 2 files / 4 tests、production build、M4 contractがPASS。GitHub Pages `https://ttrofx.github.io/Illustro/` のbuild-infoとmain SHAの一致を確認済み。USER-01はスマホ実機で新規作成・描画・Undo/Redo・保存再読込・PNG Export・性能確認まで明示PASS済み。M5B-041/042 Mask feather/blurまで完了。次はM5B-043 Mask→Selectionから再開する。
+再開メモ: Raster Tile canonical state性能修正はmainへ統合済み。Brush Undo/Redoはaffected Tileのbefore/after復元のみで動作し、Tile履歴はOPFS payloadRefから必要分だけ再読込できる。stroke確定は変更Tileのみ非同期保存し、Autosave snapshotには現在Tile参照・bounded履歴参照・未焼込strokeだけを含める。旧stroke snapshotはopen時に一度だけreplayしてTileへ移行し、PNG ExportもStroke LogではなくComposite Raster Tileを使用する。GPU dab instance bufferは容量拡張式で再利用する。100/1,000/10,000件のUndo/Redoは約0.02–0.19ms範囲、100-stroke finalize窓は約2.93/0.87/0.66msで線形悪化なし。format、lint（既存warningのみ）、typecheck、unit 80 files / 302 tests、integration 2 files / 4 tests、production build、M4 contractがPASS。GitHub Pages `https://ttrofx.github.io/Illustro/` のbuild-infoとmain SHAの一致を確認済み。USER-01はスマホ実機で新規作成・描画・Undo/Redo・保存再読込・PNG Export・性能確認まで明示PASS済み。M5B-043/044 Mask↔Selection conversionまで完了。次はM5B-045 Reference Layer designationから再開する。
 
 USER-01は2026-09-02のスマホ実機確認で明示PASS済み。
 
@@ -323,8 +323,8 @@ M5B-039 Mask independent move:完了
 M5B-040 Mask independent transform:完了
 M5B-041 Mask feather:完了
 M5B-042 Mask blur:完了
-M5B-043 Mask→Selection:未完了
-M5B-044 Selection→Mask:未完了
+M5B-043 Mask→Selection:完了
+M5B-044 Selection→Mask:完了
 M5B-045 Reference Layer designation:未完了
 M5B-046 Reference Layer解除:未完了
 M5B-047 Draft/Sketch Layer attribute:未完了

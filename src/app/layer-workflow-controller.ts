@@ -86,6 +86,10 @@ import {
 import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
+import {
+  attachRasterMaskFromSelectionSnapshotV1,
+  type SelectionCoverageControllerV1,
+} from './selection-coverage-controller.js';
 
 export interface LayerWorkflowControllerV1 {
   readonly schema: 'illustro.layer-workflow/1';
@@ -99,6 +103,7 @@ interface OptionsV1 {
   readonly paintHistory: PaintHistoryControllerV1;
   readonly paintPersistence: PaintPersistenceControllerV1;
   readonly maskPaint: MaskPaintControllerV1;
+  readonly selectionCoverage: SelectionCoverageControllerV1;
   readonly schedule: (operation: () => Promise<void>) => void;
   readonly onHistoryChanged: () => void;
 }
@@ -213,6 +218,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const maskTransformButton = required<HTMLButtonElement>('#mask-transform');
   const maskFeatherButton = required<HTMLButtonElement>('#mask-feather');
   const maskBlurButton = required<HTMLButtonElement>('#mask-blur');
+  const maskToSelectionButton = required<HTMLButtonElement>('#mask-to-selection');
+  const selectionToMaskButton = required<HTMLButtonElement>('#selection-to-mask');
   const maskEffectDialog = required<HTMLDialogElement>('#mask-effect-dialog');
   const maskEffectForm = required<HTMLFormElement>('#mask-effect-form');
   const maskEffectCancel = required<HTMLButtonElement>('#mask-effect-cancel');
@@ -432,6 +439,15 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       selectedRasterMask !== undefined && active !== null && !active.layer.locks.all;
     maskFeatherButton.disabled = !maskCoverageEffectEnabled;
     maskBlurButton.disabled = !maskCoverageEffectEnabled;
+    const selectionCoverageSnapshot = options.selectionCoverage.snapshot();
+    maskToSelectionButton.disabled = selectedRasterMask === undefined;
+    selectionToMaskButton.disabled =
+      selectionCoverageSnapshot.coverage === null ||
+      active === null ||
+      active.layer.type === 'lineartBoundary' ||
+      active.layer.locks.all;
+    root.dataset.illustroSelectionCoverage =
+      selectionCoverageSnapshot.coverage === null ? 'empty' : 'active';
     if (selectedRasterMask !== undefined) {
       const feather = maskCoverageEffectStateV1(selectedRasterMask, MASK_FEATHER_EFFECT_ID_V1);
       const blur = maskCoverageEffectStateV1(selectedRasterMask, MASK_BLUR_EFFECT_ID_V1);
@@ -1180,6 +1196,44 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     );
   };
 
+  const onMaskToSelection = (): void => {
+    clearError();
+    try {
+      const target = options.maskPaint.snapshot();
+      const current = options.paintSession.projectSnapshot();
+      if (current === null || target.layerId === null || target.maskId === null) return;
+      const layer = current.document.layerTree.layers[target.layerId];
+      const mask = layer?.masks.find((entry) => entry.id === target.maskId);
+      if (mask?.kind !== 'raster-mask') throw new Error('Mask→Selection requires a Raster Mask');
+      options.selectionCoverage.replaceFromRasterMask(mask);
+      root.dataset.illustroSelectionCoverage = 'active';
+      root.dataset.illustroSelectionSourceMaskId = mask.id;
+      status.value = 'マスクを選択範囲へ変換しました';
+      refresh();
+    } catch (error) {
+      publishError(error);
+    }
+  };
+
+  const onSelectionToMask = (): void => {
+    clearError();
+    try {
+      const coverage = options.selectionCoverage.snapshot().coverage;
+      const active = currentActive();
+      if (coverage === null) throw new Error('Selection→Mask requires an active selection');
+      if (active === null) throw new Error('Selection→Mask requires an active layer');
+      commitMutation(
+        'mask.from-selection',
+        (before, revision) =>
+          attachRasterMaskFromSelectionSnapshotV1(before, active.id, coverage, revision),
+        () => active.id,
+      );
+      status.value = '選択範囲からRaster Maskを作成しました';
+    } catch (error) {
+      publishError(error);
+    }
+  };
+
   let maskEffectMode: 'feather' | 'blur' = 'feather';
 
   const openMaskEffectDialog = (mode: 'feather' | 'blur'): void => {
@@ -1569,6 +1623,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   maskTransformButton.addEventListener('click', onMaskTransform);
   maskFeatherButton.addEventListener('click', onMaskFeather);
   maskBlurButton.addEventListener('click', onMaskBlur);
+  maskToSelectionButton.addEventListener('click', onMaskToSelection);
+  selectionToMaskButton.addEventListener('click', onSelectionToMask);
   maskEffectCancel.addEventListener('click', onMaskEffectCancel);
   maskEffectForm.addEventListener('submit', onMaskEffectSubmit);
   maskTransformCancel.addEventListener('click', onMaskTransformCancel);
@@ -1624,6 +1680,8 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       maskTransformButton.removeEventListener('click', onMaskTransform);
       maskFeatherButton.removeEventListener('click', onMaskFeather);
       maskBlurButton.removeEventListener('click', onMaskBlur);
+      maskToSelectionButton.removeEventListener('click', onMaskToSelection);
+      selectionToMaskButton.removeEventListener('click', onSelectionToMask);
       maskEffectCancel.removeEventListener('click', onMaskEffectCancel);
       maskEffectForm.removeEventListener('submit', onMaskEffectSubmit);
       maskTransformCancel.removeEventListener('click', onMaskTransformCancel);
