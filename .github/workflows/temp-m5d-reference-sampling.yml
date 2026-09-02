@@ -28,21 +28,24 @@ jobs:
             npm install --package-lock-only --ignore-scripts
           fi
           npm ci --ignore-scripts
-      - name: Apply M5D reference sampling
+      - name: Apply M5D reference sampling fixes
         run: |
-          python scripts/apply-m5d-reference-sampling.py
           python - <<'PY'
           from pathlib import Path
-          p = Path('src/app/reference-workflow-controller.ts')
+          p = Path('src/index.html')
           text = p.read_text()
-          old = "const files = [...(fileInput.files ?? [])];"
-          new = "const files = Array.from(fileInput.files ?? []);"
-          if text.count(old) != 1:
-              raise SystemExit('expected FileList conversion anchor missing')
-          p.write_text(text.replace(old, new, 1))
+          old = '<div class="shell-reference-view-actions" aria-label="参照画像の表示操作">'
+          new = '<div class="shell-reference-view-actions" role="group" aria-label="参照画像の表示操作">'
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('expected reference action group anchor missing')
+          p.write_text(text)
           PY
       - name: Formatting
         run: npm run format
+      - name: Lint
+        run: npm run lint
       - name: Prepare generated assets
         run: npm run prepare:generated
       - name: Focused M5D tests
@@ -63,6 +66,6 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add src/app/reference-workspace-state.ts src/app/reference-workflow-controller.ts src/app/color-workflow-controller.ts src/app/main.ts src/index.html public/app-shell.css tests/unit/reference-workspace.test.ts scripts/verify-m5d-color.mjs IMPLEMENTATION_PROGRESS.md ILLUSTRO_DESIGN_MEMO.md
-          git commit -m "feat: add M5D reference image sampling"
+          git add src/index.html
+          git commit -m "fix: label reference view controls accessibly"
           git push origin HEAD:work/m5d-reference-sampling-20260902
