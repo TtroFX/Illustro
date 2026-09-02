@@ -1,0 +1,57 @@
+name: Fix M5B draft descriptor compatibility once
+
+on:
+  push:
+    branches:
+      - fix/m5b-draft-descriptor-compat-20260902
+    paths:
+      - '.github/workflows/fix-m5b-draft-descriptor-compat-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - name: Preserve legacy descriptor shape for non-draft layers
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/app/paint-session-controller.ts')
+          text = p.read_text()
+          before = """        opacity: layer.opacity,\n        draft: layer.roleFlags.draft,\n"""
+          after = """        opacity: layer.opacity,\n        ...(layer.roleFlags.draft ? { draft: true } : {}),\n"""
+          if text.count(before) != 1:
+              raise SystemExit('expected one raster descriptor draft anchor')
+          p.write_text(text.replace(before, after, 1))
+          PY
+      - name: Format
+        run: npx biome format --write src/app/paint-session-controller.ts
+      - name: Regression tests
+        run: npx vitest run tests/unit/document-workflow-foundation.test.ts tests/unit/draft-final-output.test.ts tests/unit/renderer-controller.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: M5B contract inspection
+        run: npm run verify:m5b
+      - name: Commit compatibility fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/fix-m5b-draft-descriptor-compat-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/paint-session-controller.ts
+          git commit -m 'fix: preserve non-draft renderer descriptor shape'
+          git push origin HEAD:fix/m5b-draft-descriptor-compat-20260902
