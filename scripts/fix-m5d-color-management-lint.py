@@ -29,3 +29,27 @@ if old in text:
 elif new not in text:
     raise SystemExit('color management matrix tuple anchor missing')
 path.write_text(text)
+
+path = Path('tests/unit/document-workflow-foundation.test.ts')
+text = path.read_text()
+old = '''    expect(document.color).toEqual({
+      workingSpace: 'display-p3',
+      precision: 'rgba16-float',
+      alphaMode: 'straight',
+    });'''
+new = '''    expect(document.color).toEqual({
+      workingSpace: 'display-p3',
+      precision: 'rgba16-float',
+      alphaMode: 'straight',
+      profile: {
+        kind: 'builtin-rgb',
+        space: 'display-p3',
+        whitePoint: 'd65',
+        transfer: 'srgb',
+      },
+    });'''
+if old in text:
+    text = text.replace(old, new, 1)
+elif new not in text:
+    raise SystemExit('document workflow profile expectation anchor missing')
+path.write_text(text)
