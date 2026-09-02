@@ -5145,3 +5145,10 @@ This section records product and architecture corrections established during USE
 - Palette file interchange uses versioned JSON `illustro.palette-bundle/1` with `encoding: encoded-rgb-unit`, source `workingSpace` metadata and one or more named palettes. Import validates structure/ranges, preserves palette order, and resolves ID collisions without overwriting existing palettes. Export writes the complete named-palette workspace as normal JSON file interchange. QR-code palette sharing remains explicitly excluded.
 - Until M5D-021 through M5D-025 are complete, palette import **does not claim profile conversion**. If source and active document working spaces differ, encoded component values remain intact and the UI reports that profile-aware conversion is deferred to the later color-management stage.
 - Palette controls are placed under compact progressive disclosure inside the Color block so the existing selector/current/history hierarchy remains primary. The visual implementation was checked against canonical visual reference `ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png`, whose materialized bytes matched SHA-256 `32a6cb3991c9baa5b5e097943ce0550a3968d2dcde1be68e132f30ce03341a13` before this UI change.
+
+
+#### Touch drawing default — 2026-09-02
+
+- Canvas touch arbitration is device-size independent: one touch contact defaults to the active drawing tool on phones and tablets alike.
+- A second simultaneous touch cancels any active one-finger drawing transaction before promoting the touch set to canvas navigation (pan/zoom/rotate); three or more touches must never continue the one-finger paint transaction.
+- Pen input keeps priority and existing palm/recent-pen rejection remains authoritative. An explicit workspace/input setting may disable finger drawing, in which case touch remains navigation-only.
