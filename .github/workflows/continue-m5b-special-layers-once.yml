@@ -1,0 +1,486 @@
+name: Complete M5B special layers once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/continue-m5b-special-layers-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  complete-m5b:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Apply M5B Reference Draft and Linked Object completion
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, before: str, after: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(before)
+              if count != 1:
+                  raise SystemExit(f'expected one anchor in {path}, found {count}: {before[:140]!r}')
+              p.write_text(text.replace(before, after, 1))
+
+          Path('src/app/layer-role-flags.ts').write_text(r'''import type { LayerId, Revision } from '../domain/identity.js';
+          import type { LayerBaseV1 } from '../domain/layers.js';
+          import type { PaintProjectSnapshotV1 } from './paint-session-controller.js';
+
+          export type ArtworkLayerRoleFlagV1 = 'reference' | 'draft';
+
+          function updateLayerRoleFlagSnapshotV1(
+            snapshot: PaintProjectSnapshotV1,
+            layerId: LayerId,
+            flag: ArtworkLayerRoleFlagV1,
+            enabled: boolean,
+            revision: Revision,
+            now: Date,
+          ): PaintProjectSnapshotV1 {
+            const layer = snapshot.document.layerTree.layers[layerId];
+            if (layer === undefined) throw new Error(`layer role target is missing: ${layerId}`);
+            if (layer.type === 'lineartBoundary') {
+              throw new Error('Lineart Boundary uses dedicated boundary semantics, not artwork role flags');
+            }
+            if (layer.locks.all) throw new Error('layer role update is blocked by the layer lock');
+            if (layer.roleFlags[flag] === enabled) throw new Error('layer role update has no changes');
+            const nextLayer = Object.freeze({
+              ...layer,
+              revision,
+              roleFlags: Object.freeze({ ...layer.roleFlags, [flag]: enabled }),
+            }) as LayerBaseV1;
+            return Object.freeze({
+              ...snapshot,
+              document: Object.freeze({
+                ...snapshot.document,
+                revision,
+                modifiedAt: now.toISOString(),
+                layerTree: Object.freeze({
+                  rootLayerIds: snapshot.document.layerTree.rootLayerIds,
+                  layers: Object.freeze({ ...snapshot.document.layerTree.layers, [layerId]: nextLayer }),
+                }),
+              }),
+              committedStrokes: snapshot.committedStrokes,
+            });
+          }
+
+          export function setReferenceLayerSnapshotV1(
+            snapshot: PaintProjectSnapshotV1,
+            layerId: LayerId,
+            enabled: boolean,
+            revision: Revision,
+            now: Date = new Date(),
+          ): PaintProjectSnapshotV1 {
+            return updateLayerRoleFlagSnapshotV1(snapshot, layerId, 'reference', enabled, revision, now);
+          }
+
+          export function setDraftLayerSnapshotV1(
+            snapshot: PaintProjectSnapshotV1,
+            layerId: LayerId,
+            enabled: boolean,
+            revision: Revision,
+            now: Date = new Date(),
+          ): PaintProjectSnapshotV1 {
+            return updateLayerRoleFlagSnapshotV1(snapshot, layerId, 'draft', enabled, revision, now);
+          }
+          ''')
+
+          Path('tests/unit/layer-role-flags.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import { setDraftLayerSnapshotV1, setReferenceLayerSnapshotV1 } from '../../src/app/layer-role-flags.js';
+          import type { PaintProjectSnapshotV1 } from '../../src/app/paint-session-controller.js';
+          import { createDocumentV1 } from '../../src/domain/document.js';
+          import { parseRevision } from '../../src/domain/identity.js';
+          import { createRasterLayer } from '../../src/domain/layers.js';
+
+          function fixture() {
+            const layer = createRasterLayer({ name: 'Artwork' });
+            const document = createDocumentV1({ width: 64, height: 64 });
+            const snapshot: PaintProjectSnapshotV1 = Object.freeze({
+              schema: 'illustro.paint-project-snapshot/1' as const,
+              document: Object.freeze({
+                ...document,
+                layerTree: Object.freeze({
+                  rootLayerIds: Object.freeze([layer.id]),
+                  layers: Object.freeze({ [layer.id]: layer }),
+                }),
+              }),
+              committedStrokes: Object.freeze([]),
+            });
+            return { snapshot, layer };
+          }
+
+          describe('M5B Reference / Draft layer roles', () => {
+            it('designates and releases Reference independently', () => {
+              const { snapshot, layer } = fixture();
+              const designated = setReferenceLayerSnapshotV1(snapshot, layer.id, true, parseRevision(1));
+              expect(designated.document.layerTree.layers[layer.id]?.roleFlags).toEqual({ reference: true, draft: false });
+              const released = setReferenceLayerSnapshotV1(designated, layer.id, false, parseRevision(2));
+              expect(released.document.layerTree.layers[layer.id]?.roleFlags).toEqual({ reference: false, draft: false });
+            });
+
+            it('toggles Draft without disturbing Reference', () => {
+              const { snapshot, layer } = fixture();
+              const reference = setReferenceLayerSnapshotV1(snapshot, layer.id, true, parseRevision(1));
+              const draft = setDraftLayerSnapshotV1(reference, layer.id, true, parseRevision(2));
+              expect(draft.document.layerTree.layers[layer.id]?.roleFlags).toEqual({ reference: true, draft: true });
+              const normal = setDraftLayerSnapshotV1(draft, layer.id, false, parseRevision(3));
+              expect(normal.document.layerTree.layers[layer.id]?.roleFlags).toEqual({ reference: true, draft: false });
+            });
+          });
+          ''')
+
+          replace_once(
+            'src/gpu/baseline-raster-tile-store.ts',
+            "export interface BaselineRasterLayerDescriptorV1 {\n  readonly layerId: string;\n  readonly visible: boolean;\n  readonly opacity: number;\n}",
+            "export interface BaselineRasterLayerDescriptorV1 {\n  readonly layerId: string;\n  readonly visible: boolean;\n  readonly opacity: number;\n  readonly draft?: boolean;\n}",
+          )
+          replace_once(
+            'src/gpu/baseline-raster-tile-store.ts',
+            "  compositeTiles(coordinates?: readonly TileCoordinateV1[]): readonly BaselineRasterTileImageV1[] {",
+            "  compositeTiles(\n    coordinates?: readonly TileCoordinateV1[],\n    options: { readonly includeDraft?: boolean } = {},\n  ): readonly BaselineRasterTileImageV1[] {",
+          )
+          replace_once(
+            'src/gpu/baseline-raster-tile-store.ts',
+            "    const visibleLayers = this.#layers.filter((layer) => layer.visible && layer.opacity > 0);\n    const result: BaselineRasterTileImageV1[] = [];\n    for (const [key, coordinate] of selected) {\n      let composite = this.#compositeCache.get(key);\n      if (composite === undefined) {\n        composite = this.#composeCoordinate(coordinate, visibleLayers);\n        this.#compositeCache.set(key, composite);\n      }\n      result.push(cloneTile(composite));\n    }",
+            "    const includeDraft = options.includeDraft !== false;\n    const visibleLayers = this.#layers.filter(\n      (layer) => layer.visible && layer.opacity > 0 && (includeDraft || layer.draft !== true),\n    );\n    const result: BaselineRasterTileImageV1[] = [];\n    for (const [key, coordinate] of selected) {\n      let composite = includeDraft ? this.#compositeCache.get(key) : undefined;\n      if (composite === undefined) {\n        composite = this.#composeCoordinate(coordinate, visibleLayers);\n        if (includeDraft) this.#compositeCache.set(key, composite);\n      }\n      result.push(cloneTile(composite));\n    }",
+          )
+          replace_once(
+            'src/gpu/baseline-raster-tile-store.ts',
+            "          layerId: layer.layerId,\n          visible: layer.visible,\n          opacity: layer.opacity,",
+            "          layerId: layer.layerId,\n          visible: layer.visible,\n          opacity: layer.opacity,\n          draft: layer.draft ?? false,",
+          )
+
+          replace_once(
+            'src/gpu/baseline-paint-renderer.ts',
+            "  exportCompositeTiles(): readonly BaselineRasterTileImageV1[] {\n    return this.#requireDocument().canonicalTiles.compositeTiles();\n  }",
+            "  exportCompositeTiles(\n    options: { readonly includeDraft?: boolean } = {},\n  ): readonly BaselineRasterTileImageV1[] {\n    return this.#requireDocument().canonicalTiles.compositeTiles(undefined, options);\n  }",
+          )
+
+          replace_once(
+            'src/app/paint-session-controller.ts',
+            "        layerId: layer.id,\n        visible: layer.visible,\n        opacity: layer.opacity,",
+            "        layerId: layer.id,\n        visible: layer.visible,\n        opacity: layer.opacity,\n        draft: layer.roleFlags.draft,",
+          )
+
+          replace_once(
+            'src/app/renderer-controller.ts',
+            "        composite: true,\n      });",
+            "        composite: true,\n        includeDraft: false,\n      });",
+          )
+          replace_once(
+            'src/app/renderer-controller.ts',
+            "    return this.#mainBaselinePaint.exportCompositeTiles();\n  }",
+            "    return this.#mainBaselinePaint.exportCompositeTiles({ includeDraft: false });\n  }",
+          )
+          replace_once(
+            'src/app/renderer-controller.ts',
+            "            layerId: layer.layerId,\n            visible: layer.visible,\n            opacity: layer.opacity,",
+            "            layerId: layer.layerId,\n            visible: layer.visible,\n            opacity: layer.opacity,\n            draft: layer.draft ?? false,",
+          )
+
+          replace_once(
+            'src/workers/render.worker.ts',
+            "      readonly composite: boolean;\n    }",
+            "      readonly composite: boolean;\n      readonly includeDraft?: boolean;\n    }",
+          )
+          replace_once(
+            'src/workers/render.worker.ts',
+            "      typeof candidate.opacity !== 'number' ||\n      !Number.isFinite(candidate.opacity) ||",
+            "      typeof candidate.opacity !== 'number' ||\n      (candidate.draft !== undefined && typeof candidate.draft !== 'boolean') ||\n      !Number.isFinite(candidate.opacity) ||",
+          )
+          replace_once(
+            'src/workers/render.worker.ts',
+            "        layerId: candidate.layerId,\n        visible: candidate.visible,\n        opacity: candidate.opacity,",
+            "        layerId: candidate.layerId,\n        visible: candidate.visible,\n        opacity: candidate.opacity,\n        draft: candidate.draft ?? false,",
+          )
+          replace_once(
+            'src/workers/render.worker.ts',
+            "    typeof value.requestId === 'string' &&\n    typeof value.composite === 'boolean'\n  ) {\n    return {\n      type: value.type,\n      requestId: value.requestId,\n      composite: value.composite,\n    };",
+            "    typeof value.requestId === 'string' &&\n    typeof value.composite === 'boolean' &&\n    (value.includeDraft === undefined || typeof value.includeDraft === 'boolean')\n  ) {\n    const includeDraft = value.includeDraft;\n    return {\n      type: value.type,\n      requestId: value.requestId,\n      composite: value.composite,\n      ...(typeof includeDraft === 'boolean' ? { includeDraft } : {}),\n    };",
+          )
+          replace_once(
+            'src/workers/render.worker.ts',
+            "      const tiles = request.composite\n        ? baselinePaint.exportCompositeTiles()\n        : baselinePaint.exportCanonicalTiles();",
+            "      const tiles = request.composite\n        ? baselinePaint.exportCompositeTiles({ includeDraft: request.includeDraft ?? true })\n        : baselinePaint.exportCanonicalTiles();",
+          )
+
+          Path('tests/unit/draft-final-output.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import { paintRasterLayerDescriptorsV1 } from '../../src/app/paint-session-controller.js';
+          import { createDocumentV1 } from '../../src/domain/document.js';
+          import { createRasterLayer } from '../../src/domain/layers.js';
+          import { BaselineRasterTileStoreV1 } from '../../src/gpu/baseline-raster-tile-store.js';
+
+          function fixture() {
+            const draft = createRasterLayer({ name: 'Sketch', roleFlags: { draft: true } });
+            const document = createDocumentV1({ width: 32, height: 32 });
+            return {
+              draft,
+              document: Object.freeze({
+                ...document,
+                layerTree: Object.freeze({
+                  rootLayerIds: Object.freeze([draft.id]),
+                  layers: Object.freeze({ [draft.id]: draft }),
+                }),
+              }),
+            };
+          }
+
+          describe('M5B Draft final-output exclusion', () => {
+            it('propagates Draft into renderer descriptors', () => {
+              const { document, draft } = fixture();
+              expect(paintRasterLayerDescriptorsV1(document)).toEqual([
+                expect.objectContaining({ layerId: draft.id, draft: true }),
+              ]);
+            });
+
+            it('keeps Draft visible in workspace but excludes it from final output', () => {
+              const { document, draft } = fixture();
+              const store = new BaselineRasterTileStoreV1(
+                32,
+                32,
+                'rgba8-unorm',
+                paintRasterLayerDescriptorsV1(document),
+              );
+              store.applyDabs(draft.id, 'draft-stroke', [
+                Object.freeze({
+                  schema: 'illustro.baseline-brush-dab/1' as const,
+                  x: 16,
+                  y: 16,
+                  radius: 8,
+                  radiusX: 8,
+                  radiusY: 8,
+                  opacity: 1,
+                }),
+              ]);
+              store.finalize('draft-stroke');
+              const workspace = store.compositeTiles();
+              const finalOutput = store.compositeTiles(undefined, { includeDraft: false });
+              expect(workspace[0]?.bytes.some((value, index) => index % 4 === 3 && value > 0)).toBe(true);
+              expect(finalOutput[0]?.bytes.every((value) => value === 0)).toBe(true);
+            });
+          });
+          ''')
+
+          Path('tests/unit/linked-object-canonical.test.ts').write_text(r'''import { describe, expect, it } from 'vitest';
+          import { createDocumentV1 } from '../../src/domain/document.js';
+          import { serializeJson } from '../../src/domain/serialization.js';
+          import { createLinkedObjectLayer } from '../../src/domain/special-layers.js';
+
+          describe('M5B Linked Object canonical embedded representation', () => {
+            it('keeps the embedded snapshot canonical without an external file permission dependency', () => {
+              const embeddedSnapshot = createDocumentV1({ width: 96, height: 64 });
+              const offlineSafe = createLinkedObjectLayer({ name: 'Embedded', embeddedSnapshot });
+              const encoded = JSON.parse(serializeJson(offlineSafe)) as {
+                embeddedSnapshot: { documentId: string; canvas: { width: number; height: number } };
+                externalSource: unknown;
+              };
+              expect(encoded.embeddedSnapshot.documentId).toBe(embeddedSnapshot.documentId);
+              expect(encoded.embeddedSnapshot.canvas).toMatchObject({ width: 96, height: 64 });
+              expect(encoded.externalSource).toBeNull();
+            });
+
+            it('treats external source metadata as ancillary to the preserved snapshot', () => {
+              const embeddedSnapshot = createDocumentV1({ width: 80, height: 80 });
+              const linked = createLinkedObjectLayer({
+                name: 'Relinkable',
+                embeddedSnapshot,
+                externalSource: {
+                  originalName: 'reference.psd',
+                  format: 'image/vnd.adobe.photoshop',
+                  sourceHash: 'c'.repeat(64),
+                },
+              });
+              const encoded = JSON.parse(serializeJson(linked)) as {
+                embeddedSnapshot: { documentId: string };
+                externalSource: { sourceHash: string } | null;
+              };
+              expect(encoded.embeddedSnapshot.documentId).toBe(embeddedSnapshot.documentId);
+              expect(encoded.externalSource?.sourceHash).toBe('c'.repeat(64));
+            });
+          });
+          ''')
+
+          replace_once(
+            'src/app/layer-workflow-controller.ts',
+            "import { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from './layer-cleanup.js';",
+            "import { applyLayerCleanupSnapshotV1, layerCleanupCandidatesV1 } from './layer-cleanup.js';\nimport { setDraftLayerSnapshotV1, setReferenceLayerSnapshotV1 } from './layer-role-flags.js';",
+          )
+          replace_once(
+            'src/app/layer-workflow-controller.ts',
+            "  const alphaLockButton = required<HTMLButtonElement>('#layer-alpha-lock');\n  const opacityInput",
+            "  const alphaLockButton = required<HTMLButtonElement>('#layer-alpha-lock');\n  const referenceButton = required<HTMLButtonElement>('#layer-reference');\n  const draftButton = required<HTMLButtonElement>('#layer-draft');\n  const opacityInput",
+          )
+          replace_once(
+            'src/app/layer-workflow-controller.ts',
+            "    alphaLockButton.disabled = disabled;\n    opacityInput.disabled = disabled;",
+            "    alphaLockButton.disabled = disabled;\n    referenceButton.disabled = disabled || active?.layer.type === 'lineartBoundary' || active?.layer.locks.all;\n    draftButton.disabled = disabled || active?.layer.type === 'lineartBoundary' || active?.layer.locks.all;\n    opacityInput.disabled = disabled;",
+          )
+          replace_once(
+            'src/app/layer-workflow-controller.ts',
+            "      alphaLockButton.dataset.active = active.layer.locks.alpha ? 'true' : 'false';\n    } else {",
+            "      alphaLockButton.dataset.active = active.layer.locks.alpha ? 'true' : 'false';\n      referenceButton.setAttribute('aria-pressed', active.layer.roleFlags.reference ? 'true' : 'false');\n      draftButton.setAttribute('aria-pressed', active.layer.roleFlags.draft ? 'true' : 'false');\n      referenceButton.dataset.active = active.layer.roleFlags.reference ? 'true' : 'false';\n      draftButton.dataset.active = active.layer.roleFlags.draft ? 'true' : 'false';\n    } else {",
+          )
+          replace_once(
+            'src/app/layer-workflow-controller.ts',
+            "      alphaLockButton.dataset.active = 'false';\n    }",
+            "      alphaLockButton.dataset.active = 'false';\n      referenceButton.setAttribute('aria-pressed', 'false');\n      draftButton.setAttribute('aria-pressed', 'false');\n      referenceButton.dataset.active = 'false';\n      draftButton.dataset.active = 'false';\n    }",
+          )
+
+          controller_path = Path('src/app/layer-workflow-controller.ts')
+          controller = controller_path.read_text()
+          anchor = "\n\n  const onOpacity = (): void => {"
+          if controller.count(anchor) != 1:
+              raise SystemExit('expected one current onOpacity anchor')
+          handlers = r'''
+
+          const onReferenceToggle = (): void => {
+            const active = currentActive();
+            if (active === null) return;
+            const enabled = !active.layer.roleFlags.reference;
+            commitMutation(
+              enabled ? 'layer.reference.designate' : 'layer.reference.release',
+              (before, revision) => setReferenceLayerSnapshotV1(before, active.id, enabled, revision),
+              () => active.id,
+            );
+          };
+
+          const onDraftToggle = (): void => {
+            const active = currentActive();
+            if (active === null) return;
+            const enabled = !active.layer.roleFlags.draft;
+            commitMutation(
+              enabled ? 'layer.draft.enable' : 'layer.draft.disable',
+              (before, revision) => setDraftLayerSnapshotV1(before, active.id, enabled, revision),
+              () => active.id,
+            );
+          };
+          '''
+          controller_path.write_text(controller.replace(anchor, handlers + anchor, 1))
+
+          replace_once(
+            'src/app/layer-workflow-controller.ts',
+            "  alphaLockButton.addEventListener('click', onAlphaLock);\n  moveUpButton.addEventListener",
+            "  alphaLockButton.addEventListener('click', onAlphaLock);\n  referenceButton.addEventListener('click', onReferenceToggle);\n  draftButton.addEventListener('click', onDraftToggle);\n  moveUpButton.addEventListener",
+          )
+          replace_once(
+            'src/app/layer-workflow-controller.ts',
+            "      alphaLockButton.removeEventListener('click', onAlphaLock);\n      moveUpButton.removeEventListener",
+            "      alphaLockButton.removeEventListener('click', onAlphaLock);\n      referenceButton.removeEventListener('click', onReferenceToggle);\n      draftButton.removeEventListener('click', onDraftToggle);\n      moveUpButton.removeEventListener",
+          )
+
+          replace_once(
+            'src/index.html',
+            '<button id="layer-alpha-lock" type="button" aria-label="透明ピクセルをロック" title="Alpha Lock" aria-pressed="false">α</button>',
+            '<button id="layer-alpha-lock" type="button" aria-label="透明ピクセルをロック" title="Alpha Lock" aria-pressed="false">α</button>\n              <button id="layer-reference" type="button" aria-label="Reference Layer指定を切り替え" title="Reference Layer" aria-pressed="false">R</button>\n              <button id="layer-draft" type="button" aria-label="Draft Layer属性を切り替え" title="Draft / Sketch Layer" aria-pressed="false">D</button>',
+          )
+
+          verify_path = Path('scripts/verify-m5b-layer-foundation.mjs')
+          verify = verify_path.read_text()
+          marker = "console.log('M5B layer system verification passed');"
+          if verify.count(marker) != 1:
+              raise SystemExit('M5B verifier completion marker missing')
+          additions = r'''requireText('src/app/layer-role-flags.ts', [
+            'setReferenceLayerSnapshotV1',
+            'setDraftLayerSnapshotV1',
+            "'reference'",
+            "'draft'",
+          ]);
+          requireText('src/app/layer-workflow-controller.ts', [
+            "'#layer-reference'",
+            "'#layer-draft'",
+            "'layer.reference.designate'",
+            "'layer.reference.release'",
+            "'layer.draft.enable'",
+            "'layer.draft.disable'",
+          ]);
+          requireText('src/index.html', ['id="layer-reference"', 'id="layer-draft"']);
+          requireText('src/gpu/baseline-raster-tile-store.ts', [
+            'readonly draft?: boolean',
+            'readonly includeDraft?: boolean',
+            "layer.draft !== true",
+          ]);
+          requireText('src/app/paint-session-controller.ts', ['draft: layer.roleFlags.draft']);
+          requireText('src/app/renderer-controller.ts', ['includeDraft: false']);
+          requireText('src/workers/render.worker.ts', ['includeDraft?: boolean', 'includeDraft: request.includeDraft ?? true']);
+          requireText('src/domain/special-layers.ts', [
+            'createLinkedObjectLayer',
+            'embeddedSnapshot: DocumentV1',
+            'externalSource: LinkedObjectExternalSourceV1 | null',
+          ]);
+          requireText('tests/unit/linked-object-canonical.test.ts', [
+            'canonical embedded representation',
+            'serializeJson',
+            'externalSource',
+          ]);
+          '''
+          verify_path.write_text(verify.replace(marker, additions + marker, 1))
+
+          progress_path = Path('IMPLEMENTATION_PROGRESS.md')
+          progress = progress_path.read_text()
+          replacements = {
+            'M5B-045 Reference Layer designation:未完了': 'M5B-045 Reference Layer designation:完了',
+            'M5B-046 Reference Layer解除:未完了': 'M5B-046 Reference Layer解除:完了',
+            'M5B-047 Draft/Sketch Layer attribute:未完了': 'M5B-047 Draft/Sketch Layer attribute:完了',
+            'M5B-048 Draftをfinal outputから除外:未完了': 'M5B-048 Draftをfinal outputから除外:完了',
+            'M5B-049 Linked Object embedded snapshot:未完了': 'M5B-049 Linked Object embedded snapshot:完了',
+            'M5B-050 Linked Object canonical embedded representation:未完了': 'M5B-050 Linked Object canonical embedded representation:完了',
+            'M5B-検査 M5B内部検査:未完了': 'M5B-検査 M5B内部検査:完了',
+            'M5B-043/044 Mask↔Selection conversionまで完了。次はM5B-045 Reference Layer designationから再開する。': 'M5B-045〜050 Reference/Draft roles・Draft final-output除外・Linked Object canonical embedded snapshotまで完了。次はM5C-001 Normal blend modeから再開する。',
+          }
+          for before, after in replacements.items():
+              if progress.count(before) != 1:
+                  raise SystemExit(f'expected one progress anchor: {before}')
+              progress = progress.replace(before, after, 1)
+          progress_path.write_text(progress)
+          PY
+
+      - name: Format
+        run: npm run format
+      - name: Formatting check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: M5B contract inspection
+        run: npm run verify:m5b
+      - name: Production build
+        env:
+          ILLUSTRO_BUILD_MODE: production
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Verify progress closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -E '^M5B-(045|046|047|048|049|050).*:未完了$' IMPLEMENTATION_PROGRESS.md
+          grep -F 'M5B-検査 M5B内部検査:完了' IMPLEMENTATION_PROGRESS.md
+      - name: Commit verified M5B checkpoint and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/continue-m5b-special-layers-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: complete M5B special layer roles and canonical linked objects'
+          git push origin HEAD:main
