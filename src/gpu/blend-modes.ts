@@ -1,3 +1,4 @@
+import type { DocumentColorSpace } from '../domain/document.js';
 import type { BlendModeId } from '../domain/layers.js';
 
 export const M5C_BASE_BLEND_MODE_IDS_V1 = Object.freeze([
@@ -23,13 +24,37 @@ export const M5C_BASE_BLEND_MODE_IDS_V1 = Object.freeze([
   'exclusion',
   'subtract',
   'divide',
+  'hue',
+  'saturation',
+  'color',
+  'luminosity',
 ] as const satisfies readonly BlendModeId[]);
+
+export const M5C_BLEND_COLOR_SPACE_SEMANTICS_V1 = Object.freeze({
+  schema: 'illustro.blend-color-space-semantics/1' as const,
+  supportedWorkingSpaces: Object.freeze(['srgb', 'display-p3'] as const),
+  componentDomain: 'normalized-document-rgb' as const,
+  transferDomain: 'encoded-working-space-components' as const,
+  alphaMode: 'straight' as const,
+  compositingOperator: 'source-over' as const,
+  nonSeparableModel: 'w3c-lum-sat' as const,
+});
 
 export type M5cBaseBlendModeIdV1 = (typeof M5C_BASE_BLEND_MODE_IDS_V1)[number];
 export type BlendRgbV1 = readonly [number, number, number];
 export type BlendRgbaV1 = readonly [number, number, number, number];
 
 const BASE_BLEND_MODE_SET = new Set<BlendModeId>(M5C_BASE_BLEND_MODE_IDS_V1);
+const BLEND_WORKING_SPACE_SET = new Set<DocumentColorSpace>(
+  M5C_BLEND_COLOR_SPACE_SEMANTICS_V1.supportedWorkingSpaces,
+);
+
+export function assertBlendWorkingSpaceV1(workingSpace: DocumentColorSpace): DocumentColorSpace {
+  if (!BLEND_WORKING_SPACE_SET.has(workingSpace)) {
+    throw new Error(`unsupported blend working space: ${workingSpace}`);
+  }
+  return workingSpace;
+}
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -61,6 +86,51 @@ function softLight(backdrop: number, source: number): number {
   return backdrop + (2 * source - 1) * (d - backdrop);
 }
 
+function luminosity(rgb: BlendRgbV1): number {
+  return 0.3 * rgb[0] + 0.59 * rgb[1] + 0.11 * rgb[2];
+}
+
+function saturation(rgb: BlendRgbV1): number {
+  return Math.max(rgb[0], rgb[1], rgb[2]) - Math.min(rgb[0], rgb[1], rgb[2]);
+}
+
+function clipColor(rgb: BlendRgbV1): BlendRgbV1 {
+  const l = luminosity(rgb);
+  const minimum = Math.min(rgb[0], rgb[1], rgb[2]);
+  const maximum = Math.max(rgb[0], rgb[1], rgb[2]);
+  let result: BlendRgbV1 = rgb;
+  if (minimum < 0) {
+    const scale = l / (l - minimum);
+    result = [
+      l + (result[0] - l) * scale,
+      l + (result[1] - l) * scale,
+      l + (result[2] - l) * scale,
+    ];
+  }
+  if (maximum > 1) {
+    const scale = (1 - l) / (maximum - l);
+    result = [
+      l + (result[0] - l) * scale,
+      l + (result[1] - l) * scale,
+      l + (result[2] - l) * scale,
+    ];
+  }
+  return result;
+}
+
+function setLuminosity(rgb: BlendRgbV1, target: number): BlendRgbV1 {
+  const delta = target - luminosity(rgb);
+  return clipColor([rgb[0] + delta, rgb[1] + delta, rgb[2] + delta]);
+}
+
+function setSaturation(rgb: BlendRgbV1, target: number): BlendRgbV1 {
+  const minimum = Math.min(rgb[0], rgb[1], rgb[2]);
+  const maximum = Math.max(rgb[0], rgb[1], rgb[2]);
+  if (maximum <= minimum) return [0, 0, 0];
+  const scale = target / (maximum - minimum);
+  return [(rgb[0] - minimum) * scale, (rgb[1] - minimum) * scale, (rgb[2] - minimum) * scale];
+}
+
 export function isM5cBaseBlendModeV1(value: unknown): value is M5cBaseBlendModeIdV1 {
   return typeof value === 'string' && BASE_BLEND_MODE_SET.has(value as BlendModeId);
 }
@@ -69,7 +139,9 @@ export function blendRgbV1(
   mode: M5cBaseBlendModeIdV1,
   backdrop: BlendRgbV1,
   source: BlendRgbV1,
+  workingSpace: DocumentColorSpace = 'srgb',
 ): BlendRgbV1 {
+  assertBlendWorkingSpaceV1(workingSpace);
   const cb: BlendRgbV1 = [
     finiteUnit(backdrop[0], 'blend backdrop red'),
     finiteUnit(backdrop[1], 'blend backdrop green'),
@@ -87,6 +159,11 @@ export function blendRgbV1(
     if (mode === 'darker-color') return sourceTotal < backdropTotal ? cs : cb;
     return sourceTotal > backdropTotal ? cs : cb;
   }
+  if (mode === 'hue') return setLuminosity(setSaturation(cs, saturation(cb)), luminosity(cb));
+  if (mode === 'saturation')
+    return setLuminosity(setSaturation(cb, saturation(cs)), luminosity(cb));
+  if (mode === 'color') return setLuminosity(cs, luminosity(cb));
+  if (mode === 'luminosity') return setLuminosity(cb, luminosity(cs));
 
   const blendChannel = (backdropChannel: number, sourceChannel: number): number => {
     switch (mode) {
@@ -153,7 +230,9 @@ export function compositeBlendRgbaV1(
   source: BlendRgbaV1,
   layerOpacity: number,
   mode: M5cBaseBlendModeIdV1,
+  workingSpace: DocumentColorSpace = 'srgb',
 ): BlendRgbaV1 {
+  assertBlendWorkingSpaceV1(workingSpace);
   const cb: BlendRgbV1 = [
     finiteUnit(backdrop[0], 'composite backdrop red'),
     finiteUnit(backdrop[1], 'composite backdrop green'),
@@ -171,7 +250,7 @@ export function compositeBlendRgbaV1(
   const outputAlpha = sourceAlpha + backdropAlpha * (1 - sourceAlpha);
   if (outputAlpha <= 0) return Object.freeze([0, 0, 0, 0]);
 
-  const blended = blendRgbV1(mode, cb, cs);
+  const blended = blendRgbV1(mode, cb, cs, workingSpace);
   const outputChannel = (index: 0 | 1 | 2): number => {
     const blendedSource = (1 - backdropAlpha) * cs[index] + backdropAlpha * blended[index];
     const premultiplied =

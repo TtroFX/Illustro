@@ -1,4 +1,4 @@
-import type { DocumentPrecision } from '../domain/document.js';
+import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import type { BlendModeId } from '../domain/layers.js';
 import {
   baselineDabRadiusXV1,
@@ -300,6 +300,7 @@ export class BaselineRasterTileStoreV1 {
   readonly #documentWidth: number;
   readonly #documentHeight: number;
   readonly #pixelFormat: DocumentPrecision;
+  readonly #workingSpace: DocumentColorSpace;
   readonly #tiles = new Map<string, BaselineRasterTileImageV1>();
   readonly #compositeCache = new Map<string, BaselineRasterTileImageV1>();
   #layers: readonly BaselineRasterLayerDescriptorV1[];
@@ -310,11 +311,13 @@ export class BaselineRasterTileStoreV1 {
     documentHeight: number,
     pixelFormat: DocumentPrecision,
     layers: readonly BaselineRasterLayerDescriptorV1[] = [],
+    workingSpace: DocumentColorSpace = 'srgb',
   ) {
     tileBoundsForDocumentV1(documentWidth, documentHeight, { tx: 0, ty: 0 });
     this.#documentWidth = documentWidth;
     this.#documentHeight = documentHeight;
     this.#pixelFormat = pixelFormat;
+    this.#workingSpace = workingSpace;
     this.#layers = this.#normalizeLayers(layers);
   }
 
@@ -524,7 +527,13 @@ export class BaselineRasterTileStoreV1 {
         writePixel(
           output,
           pixel,
-          compositeBlendRgbaV1(destination, sourcePixel, layer.opacity, blendMode),
+          compositeBlendRgbaV1(
+            destination,
+            sourcePixel,
+            layer.opacity,
+            blendMode,
+            this.#workingSpace,
+          ),
         );
       }
     }

@@ -32,6 +32,14 @@ requireText('src/gpu/blend-modes.ts', [
   "'exclusion'",
   "'subtract'",
   "'divide'",
+  "'hue'",
+  "'saturation'",
+  "'color'",
+  "'luminosity'",
+  'M5C_BLEND_COLOR_SPACE_SEMANTICS_V1',
+  'normalized-document-rgb',
+  'encoded-working-space-components',
+  'w3c-lum-sat',
   'compositeBlendRgbaV1',
   'sourceAlpha + backdropAlpha * (1 - sourceAlpha)',
 ]);
@@ -40,6 +48,7 @@ requireText('src/gpu/baseline-raster-tile-store.ts', [
   'isM5cBaseBlendModeV1',
   'compositeBlendRgbaV1',
   "layer.blendMode ?? 'normal'",
+  'this.#workingSpace',
 ]);
 requireText('src/app/paint-session-controller.ts', [
   "layer.blendMode === 'normal'",
@@ -53,7 +62,9 @@ requireText('src/workers/render.worker.ts', [
 requireText('src/app/renderer-controller.ts', [
   'layer.blendMode',
   '{ blendMode: layer.blendMode }',
+  'input.workingSpace',
 ]);
+requireText('src/gpu/baseline-paint-renderer.ts', ['workingSpace: DocumentColorSpace']);
 requireText('src/app/layer-operations.ts', [
   'setLayerBlendModeSnapshotV1',
   "blendMode === 'pass-through'",
@@ -88,6 +99,10 @@ requireText('src/index.html', [
   'value="exclusion"',
   'value="subtract"',
   'value="divide"',
+  'value="hue"',
+  'value="saturation"',
+  'value="color"',
+  'value="luminosity"',
 ]);
 requireText('tests/unit/blend-modes.test.ts', ['M5C base blend kernels']);
 requireText('tests/unit/baseline-blend-compositor.test.ts', [
@@ -116,7 +131,12 @@ requireText('IMPLEMENTATION_PROGRESS.md', [
   'M5C-020 Exclusion:完了',
   'M5C-021 Subtract:完了',
   'M5C-022 Divide:完了',
-  'M5C-023 Hue:未完了',
+  'M5C-023 Hue:完了',
+  'M5C-024 Saturation:完了',
+  'M5C-025 Color:完了',
+  'M5C-026 Luminosity:完了',
+  'M5C-027 explicit color-space blend semantics:完了',
+  'M5C-028 mask/clipping compositor integration:未完了',
 ]);
 
 console.log('M5C blend compositor verification passed');

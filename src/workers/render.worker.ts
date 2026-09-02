@@ -654,6 +654,7 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
         request.height,
         request.precision,
         request.rasterLayers,
+        request.workingSpace,
       );
       postResponse(request.requestId, true, {
         ...tileState.snapshot(),
