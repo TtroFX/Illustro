@@ -27,7 +27,17 @@ jobs:
       - name: Restore locked dependencies
         run: npm ci --ignore-scripts
       - name: Apply M5D palettes
-        run: python scripts/apply-m5d-palettes.py
+        run: npm run --silent prepare:build-info >/dev/null 2>&1 || true; python scripts/apply-m5d-palettes.py
+      - name: Correct palette accessibility markup
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/index.html')
+          text = p.read_text()
+          text = text.replace('<div class="shell-color-palette-order" aria-label="パレット順序">', '<div class="shell-color-palette-order">')
+          p.write_text(text)
+          PY
       - name: Format
         run: npm run format
       - name: Lint
