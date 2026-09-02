@@ -26,6 +26,18 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Apply M6A preset management
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/verify-m6a-brush.mjs')
+          s = p.read_text()
+          s = s.replace(
+              "requireText(progress, 'M6A-004 Blur brush mode:完了', 'M6A-004 progress is not complete');",
+              "requireText(\n  progress,\n  'M6A-004 Blur brush mode:完了',\n  'M6A-004 progress is not complete',\n);",
+              1,
+          )
+          s = s.replace('future brush preset status was incorrectly advanced', 'future preset-management status was incorrectly advanced', 1)
+          p.write_text(s)
+          PY
           python scripts/apply-m6a-preset-management.py
           rm scripts/apply-m6a-preset-management.py .github/workflows/temp-m6a-preset-management.yml
       - name: Formatting
