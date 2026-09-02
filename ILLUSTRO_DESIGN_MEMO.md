@@ -5526,3 +5526,11 @@ Verification must cover at minimum:
 ### Input-system change-log entry
 
 - 2026-09-02: Completed a post-freeze cross-application input/interaction audit and adopted a canonical Direct/Quick/Detail system; semantic adaptive scalar mapping with small-brush precision, soft/hard ranges, exact numeric expressions/units, parameter memory/reset/fine control, contextual and visual pickers, enhanced Color/Eyedropper behavior, on-canvas Gradient/Transform/Vector/Ruler editing, Smart Shape hold, live Fill/Selection threshold adjustment, shared curves/Dynamics, mixed-value and reorder-preview semantics, responsive/device-specific control presentation, and a non-conflicting Quick Hole marking accelerator. Added M8J implementation/verification tracking without changing canonical artwork/file-format semantics.
+
+
+### 2026-09-02 — M6A Eraser compositing semantics
+
+- Canonical Eraser is an alpha-removal operation on the targeted Raster Layer, never a white-paint approximation.
+- Eraser shares Raster Brush geometry/spacing and the incremental confirmed-sample path, but its canonical pixel operation reduces destination alpha by brush coverage while preserving surviving RGB values.
+- Because the visible retained scene is a composite of multiple layers, erasing the flattened presentation directly is incorrect: it would punch through lower layers. Eraser therefore mutates only the active layer's canonical Raster Tiles and recomposites/presents only affected tile coordinates so lower layers are revealed correctly.
+- Erasing an already-transparent/unallocated tile is a no-op and must not allocate a canonical tile or history payload.

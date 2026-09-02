@@ -89,8 +89,10 @@
       </header>
       <div class="shell-workspace">
         <aside class="shell-tool-rail" aria-label="Primary tool rail">
-          <div class="shell-rail-slots" aria-hidden="true">
-            <span class="is-active"></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          <div class="shell-rail-slots">
+            <button id="brush-mode-raster" class="shell-brush-mode is-active" type="button" aria-pressed="true" aria-label="ブラシ" title="ブラシ">●</button>
+            <button id="brush-mode-eraser" class="shell-brush-mode" type="button" aria-pressed="false" aria-label="消しゴム" title="消しゴム">◇</button>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
           </div>
         </aside>
         <main class="shell-document" aria-label="Document workspace">

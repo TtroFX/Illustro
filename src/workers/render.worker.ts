@@ -1,6 +1,10 @@
 import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
-import { freezeBaselineBrushColorV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import {
+  freezeBaselineBrushColorV1,
+  type BaselineBrushCompositeOperationV1,
+  type BaselineBrushDabV1,
+} from '../gpu/baseline-brush.js';
 import { isM5cBaseBlendModeV1 } from '../gpu/blend-modes.js';
 import {
   BaselinePaintRendererV1,
@@ -107,6 +111,7 @@ type RenderWorkerRequestV1 =
       readonly strokeId: string;
       readonly layerId: string;
       readonly dabs: readonly BaselineBrushDabV1[];
+      readonly operation: BaselineBrushCompositeOperationV1;
     }
   | {
       readonly type: 'renderer.paint.cancel';
@@ -534,10 +539,23 @@ function parseBaselineCommittedStrokes(
     if (dabs === null) return null;
     seen.add(candidate.strokeId);
     if (candidate.layerId !== undefined && typeof candidate.layerId !== 'string') return null;
+    if (
+      candidate.operation !== undefined &&
+      candidate.operation !== 'paint' &&
+      candidate.operation !== 'erase'
+    ) {
+      return null;
+    }
+    const operation = (candidate.operation ?? 'paint') as BaselineBrushCompositeOperationV1;
     strokes.push(
       candidate.layerId === undefined
-        ? Object.freeze({ strokeId: candidate.strokeId, dabs })
-        : Object.freeze({ strokeId: candidate.strokeId, layerId: candidate.layerId, dabs }),
+        ? Object.freeze({ strokeId: candidate.strokeId, operation, dabs })
+        : Object.freeze({
+            strokeId: candidate.strokeId,
+            layerId: candidate.layerId,
+            operation,
+            dabs,
+          }),
     );
   }
   return Object.freeze(strokes);
@@ -613,7 +631,8 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
     typeof value.strokeId === 'string' &&
     value.strokeId.length > 0 &&
     typeof value.layerId === 'string' &&
-    value.layerId.length > 0
+    value.layerId.length > 0 &&
+    (value.operation === undefined || value.operation === 'paint' || value.operation === 'erase')
   ) {
     const dabs = parseBaselineDabs(value.dabs);
     return dabs === null
@@ -624,6 +643,7 @@ function parseRequest(value: unknown): RenderWorkerRequestV1 | null {
           strokeId: value.strokeId,
           layerId: value.layerId,
           dabs,
+          operation: (value.operation ?? 'paint') as BaselineBrushCompositeOperationV1,
         };
   }
   if (value.type === 'renderer.paint.restore' && typeof value.requestId === 'string') {
@@ -834,7 +854,12 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       postResponse(
         request.requestId,
         true,
-        baselinePaint.presentStroke(request.strokeId, request.dabs, request.layerId),
+        baselinePaint.presentStroke(
+          request.strokeId,
+          request.dabs,
+          request.layerId,
+          request.operation,
+        ),
       );
       return;
     }
@@ -846,7 +871,12 @@ async function handleRequest(request: RenderWorkerRequestV1): Promise<void> {
       postResponse(
         request.requestId,
         true,
-        baselinePaint.finalizeStroke(request.strokeId, request.dabs, request.layerId),
+        baselinePaint.finalizeStroke(
+          request.strokeId,
+          request.dabs,
+          request.layerId,
+          request.operation,
+        ),
       );
       return;
     }

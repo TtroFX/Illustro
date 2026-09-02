@@ -137,10 +137,7 @@ requireText('src/gpu/renderer-device-resources.ts', [
   'RendererPreviewColorSpaceUnavailableErrorV1',
   'colorSpace',
 ]);
-requireText('src/app/paint-session-controller.ts', [
-  'setPaintColor',
-  'new CanonicalRasterBrushStrokeV1({ color: this.#paintColor })',
-]);
+requireText('src/app/paint-session-controller.ts', ['setPaintColor', 'color: this.#paintColor']);
 requireText('src/app/canonical-raster-brush.ts', [
   'BaselineBrushDabBuilderV1',
   'readonly color?: BaselineBrushColorV1',
