@@ -1,6 +1,7 @@
 import { baselineBrushShaderSource } from '../generated/baseline-brush-shader.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
+  baselineDabColorV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   planBaselineBrushTilesV1,
@@ -27,7 +28,7 @@ const GPU_BUFFER_USAGE_VERTEX = 0x0020;
 const GPU_TEXTURE_USAGE_COPY_SRC = 0x0001;
 const GPU_TEXTURE_USAGE_COPY_DST = 0x0002;
 const GPU_TEXTURE_USAGE_RENDER_ATTACHMENT = 0x0010;
-const INSTANCE_FLOATS = 5;
+const INSTANCE_FLOATS = 8;
 const INSTANCE_STRIDE_BYTES = INSTANCE_FLOATS * Float32Array.BYTES_PER_ELEMENT;
 const INSTANCE_BUFFER_ALIGNMENT_BYTES = 256;
 
@@ -129,6 +130,7 @@ interface BaselineGpuDeviceLikeV1 extends IllustroGpuDeviceV1 {
             { readonly shaderLocation: 0; readonly offset: 0; readonly format: 'float32x2' },
             { readonly shaderLocation: 1; readonly offset: 8; readonly format: 'float32x2' },
             { readonly shaderLocation: 2; readonly offset: 16; readonly format: 'float32' },
+            { readonly shaderLocation: 3; readonly offset: 20; readonly format: 'float32x3' },
           ];
         },
       ];
@@ -214,6 +216,9 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         radiusX: baselineDabRadiusXV1(dab),
         radiusY: baselineDabRadiusYV1(dab),
         opacity: dab.opacity,
+        ...(dab.color === undefined
+          ? {}
+          : { color: Object.freeze([...dab.color]) as readonly [number, number, number] }),
       }),
     ),
   );
@@ -244,7 +249,10 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
     left.radius === right.radius &&
     baselineDabRadiusXV1(left) === baselineDabRadiusXV1(right) &&
     baselineDabRadiusYV1(left) === baselineDabRadiusYV1(right) &&
-    left.opacity === right.opacity
+    left.opacity === right.opacity &&
+    baselineDabColorV1(left).every(
+      (component, index) => component === baselineDabColorV1(right)[index],
+    )
   );
 }
 
@@ -305,6 +313,10 @@ function createInstanceData(
     values[offset + 2] = (baselineDabRadiusXV1(dab) * scaleX * 2) / targetWidth;
     values[offset + 3] = (baselineDabRadiusYV1(dab) * scaleY * 2) / targetHeight;
     values[offset + 4] = dab.opacity;
+    const color = baselineDabColorV1(dab);
+    values[offset + 5] = color[0];
+    values[offset + 6] = color[1];
+    values[offset + 7] = color[2];
   }
   return values;
 }
@@ -364,9 +376,13 @@ function surfaceTileBytes(
         );
       }
       const targetOffset = (targetY * targetWidth + targetX) * 4;
-      result[targetOffset] = bgra ? blue : red;
-      result[targetOffset + 1] = green;
-      result[targetOffset + 2] = bgra ? red : blue;
+      const alphaUnit = alpha / 255;
+      const premultipliedRed = Math.round(red * alphaUnit);
+      const premultipliedGreen = Math.round(green * alphaUnit);
+      const premultipliedBlue = Math.round(blue * alphaUnit);
+      result[targetOffset] = bgra ? premultipliedBlue : premultipliedRed;
+      result[targetOffset + 1] = premultipliedGreen;
+      result[targetOffset + 2] = bgra ? premultipliedRed : premultipliedBlue;
       result[targetOffset + 3] = alpha;
     }
   }
@@ -571,6 +587,7 @@ class BaselineGpuSurfaceRasterizerV1 {
               { shaderLocation: 0, offset: 0, format: 'float32x2' },
               { shaderLocation: 1, offset: 8, format: 'float32x2' },
               { shaderLocation: 2, offset: 16, format: 'float32' },
+              { shaderLocation: 3, offset: 20, format: 'float32x3' },
             ],
           },
         ],

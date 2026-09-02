@@ -13,6 +13,7 @@ import {
 } from '../shared/performance.js';
 import { getRuntimeConfig } from '../shared/runtime-config.js';
 import { collectRuntimeCapabilities } from './capabilities.js';
+import { installColorWorkflowControllerV1 } from './color-workflow-controller.js';
 import type { DocumentV1 } from '../domain/document.js';
 import { installDocumentWorkflowControllerV1 } from './document-workflow-controller.js';
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
@@ -55,6 +56,7 @@ const paintSession = new PaintSessionControllerV1(renderer, {
     viewport.mapPointerToDocument(sample, documentValue),
 });
 const paintHistory = new PaintHistoryControllerV1(paintSession);
+const colorWorkflow = installColorWorkflowControllerV1({ root, paintSession });
 const selectionCoverage = new SelectionCoverageControllerV1();
 const paintPersistence = new PaintPersistenceControllerV1(
   workers.storage,
@@ -127,6 +129,7 @@ function publishDocumentState(documentValue: DocumentV1): void {
     shell.canvas.style.removeProperty('--illustro-canvas-background');
   }
   refreshLayerUi();
+  colorWorkflow.refresh();
   syncPngExportAvailability();
 }
 
@@ -499,6 +502,7 @@ globalThis.addEventListener(
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
     layerComps.dispose();
     layerWorkflow.dispose();
+    colorWorkflow.dispose();
     maskPaint.dispose();
     documentGeometryWorkflow.dispose();
     documentWorkflow.dispose();

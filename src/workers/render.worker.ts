@@ -1,6 +1,6 @@
 import type { GpuAtlasPixelFormatV1 } from '../gpu/gpu-atlas.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
-import type { BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
+import { freezeBaselineBrushColorV1, type BaselineBrushDabV1 } from '../gpu/baseline-brush.js';
 import { isM5cBaseBlendModeV1 } from '../gpu/blend-modes.js';
 import {
   BaselinePaintRendererV1,
@@ -473,13 +473,35 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     ) {
       return null;
     }
+    const radiusX = candidate.radiusX;
+    const radiusY = candidate.radiusY;
+    if (
+      (radiusX !== undefined &&
+        (typeof radiusX !== 'number' || !Number.isFinite(radiusX) || radiusX <= 0)) ||
+      (radiusY !== undefined &&
+        (typeof radiusY !== 'number' || !Number.isFinite(radiusY) || radiusY <= 0))
+    ) {
+      return null;
+    }
+    let color: readonly [number, number, number] | undefined;
+    if (candidate.color !== undefined) {
+      if (!Array.isArray(candidate.color)) return null;
+      try {
+        color = freezeBaselineBrushColorV1(candidate.color as number[]);
+      } catch {
+        return null;
+      }
+    }
     dabs.push(
       Object.freeze({
         schema: 'illustro.baseline-brush-dab/1' as const,
         x: candidate.x,
         y: candidate.y,
         radius: candidate.radius,
+        ...(radiusX === undefined ? {} : { radiusX }),
+        ...(radiusY === undefined ? {} : { radiusY }),
         opacity: candidate.opacity,
+        ...(color === undefined ? {} : { color }),
       }),
     );
   }

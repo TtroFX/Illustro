@@ -369,13 +369,13 @@ M5C-028 mask/clipping compositor integration:完了
 M5C-検査 M5C内部検査:完了
 
 ## M5D — Color / Palette / Sampling
-M5D-001 Color Wheel:未完了
-M5D-002 RGB entry:未完了
-M5D-003 HSV/HSB entry:未完了
-M5D-004 HEX entry:未完了
-M5D-005 current color:未完了
-M5D-006 previous color:未完了
-M5D-007 color history:未完了
+M5D-001 Color Wheel:完了
+M5D-002 RGB entry:完了
+M5D-003 HSV/HSB entry:完了
+M5D-004 HEX entry:完了
+M5D-005 current color:完了
+M5D-006 previous color:完了
+M5D-007 color history:完了
 M5D-008 palette create:未完了
 M5D-009 palette rename:未完了
 M5D-010 palette delete:未完了

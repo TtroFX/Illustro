@@ -9,6 +9,18 @@ import {
 export const BASELINE_BRUSH_RADIUS_PX = 8 as const;
 export const BASELINE_BRUSH_SPACING_PX = 4 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
+export type BaselineBrushColorV1 = readonly [number, number, number];
+export const DEFAULT_BASELINE_BRUSH_COLOR_V1: BaselineBrushColorV1 = Object.freeze([0, 0, 0]);
+
+export function freezeBaselineBrushColorV1(color: readonly number[]): BaselineBrushColorV1 {
+  if (
+    color.length !== 3 ||
+    color.some((component) => !Number.isFinite(component) || component < 0 || component > 1)
+  ) {
+    throw new RangeError('baseline brush RGB components must be finite values in 0..1');
+  }
+  return Object.freeze([color[0] ?? 0, color[1] ?? 0, color[2] ?? 0]);
+}
 
 export interface BaselineBrushSampleV1 {
   readonly documentX: number;
@@ -23,6 +35,11 @@ export interface BaselineBrushDabV1 {
   readonly radiusX?: number;
   readonly radiusY?: number;
   readonly opacity: number;
+  readonly color?: BaselineBrushColorV1;
+}
+
+export function baselineDabColorV1(dab: BaselineBrushDabV1): BaselineBrushColorV1 {
+  return dab.color ?? DEFAULT_BASELINE_BRUSH_COLOR_V1;
 }
 
 export function baselineDabRadiusXV1(dab: BaselineBrushDabV1): number {
@@ -45,21 +62,30 @@ function assertFinitePoint(sample: BaselineBrushSampleV1): void {
   }
 }
 
-function freezeDab(x: number, y: number): BaselineBrushDabV1 {
+function freezeDab(x: number, y: number, color: BaselineBrushColorV1): BaselineBrushDabV1 {
   return Object.freeze({
     schema: 'illustro.baseline-brush-dab/1' as const,
     x,
     y,
     radius: BASELINE_BRUSH_RADIUS_PX,
     opacity: BASELINE_BRUSH_OPACITY,
+    color,
   });
 }
 
 export class BaselineBrushDabBuilderV1 {
   readonly #dabs: BaselineBrushDabV1[] = [];
+  readonly #color: BaselineBrushColorV1;
   #lastPoint: { x: number; y: number } | null = null;
   #distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
   #finished = false;
+
+  constructor(options: { readonly color?: BaselineBrushColorV1 } = {}) {
+    this.#color =
+      options.color === undefined
+        ? DEFAULT_BASELINE_BRUSH_COLOR_V1
+        : freezeBaselineBrushColorV1(options.color);
+  }
 
   begin(sample: BaselineBrushSampleV1): readonly BaselineBrushDabV1[] {
     this.beginDelta(sample);
@@ -72,7 +98,7 @@ export class BaselineBrushDabBuilderV1 {
     assertFinitePoint(sample);
     const start = this.#dabs.length;
     this.#lastPoint = { x: sample.documentX, y: sample.documentY };
-    this.#dabs.push(freezeDab(sample.documentX, sample.documentY));
+    this.#dabs.push(freezeDab(sample.documentX, sample.documentY, this.#color));
     this.#distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
     return this.#deltaFrom(start);
   }
@@ -116,7 +142,7 @@ export class BaselineBrushDabBuilderV1 {
     const lastDab = this.#dabs.at(-1);
     if (lastPoint !== null && lastDab !== undefined) {
       const distance = Math.hypot(lastPoint.x - lastDab.x, lastPoint.y - lastDab.y);
-      if (distance > 1e-6) this.#dabs.push(freezeDab(lastPoint.x, lastPoint.y));
+      if (distance > 1e-6) this.#dabs.push(freezeDab(lastPoint.x, lastPoint.y, this.#color));
     }
     return this.#deltaFrom(start);
   }
@@ -145,7 +171,7 @@ export class BaselineBrushDabBuilderV1 {
       const ratio = this.#distanceUntilNext / remaining;
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
-      this.#dabs.push(freezeDab(cursorX, cursorY));
+      this.#dabs.push(freezeDab(cursorX, cursorY, this.#color));
       remaining = Math.hypot(x - cursorX, y - cursorY);
       this.#distanceUntilNext = BASELINE_BRUSH_SPACING_PX;
     }
@@ -227,7 +253,12 @@ export function planBaselineBrushTilesV1(
       baselineDabRadiusYV1(dab) <= 0 ||
       !Number.isFinite(dab.opacity) ||
       dab.opacity < 0 ||
-      dab.opacity > 1
+      dab.opacity > 1 ||
+      (dab.color !== undefined &&
+        (dab.color.length !== 3 ||
+          dab.color.some(
+            (component) => !Number.isFinite(component) || component < 0 || component > 1,
+          )))
     ) {
       throw new RangeError('invalid baseline brush dab');
     }
