@@ -1317,6 +1317,29 @@ export function withBrushSizeJitterV1(preset: BrushPresetV1, amount: number): Br
   });
 }
 
+export const DEFAULT_BRUSH_OPACITY_JITTER_V1 = 0 as const;
+
+export function brushOpacityJitterV1(preset: BrushPresetV1): number {
+  const value = preset.jitter.opacity;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_OPACITY_JITTER_V1;
+}
+
+export function withBrushOpacityJitterV1(preset: BrushPresetV1, amount: number): BrushPresetV1 {
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+    throw new RangeError('brush opacity jitter must be within 0..1');
+  }
+  if (amount === DEFAULT_BRUSH_OPACITY_JITTER_V1) {
+    const { opacity: _opacity, ...jitter } = preset.jitter;
+    return normalizeBrushPresetV1({ ...preset, jitter });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    jitter: { ...preset.jitter, opacity: amount },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

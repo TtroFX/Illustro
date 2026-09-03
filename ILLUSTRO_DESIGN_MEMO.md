@@ -5865,3 +5865,11 @@ Verification must cover at minimum:
 - The jitter scale multiplies resolved radius outside dynamic target min/max clamping and alongside the taper result. Therefore forced-taper zero endpoints remain authoritative.
 - When size jitter is active, the committed stroke stores the existing deterministic uint32 `randomSeed` even if no other random brush feature is active. Primitive dabs keep only resolved radius; no jitter-only renderer/history schema is added.
 - Tool Properties exposes a compact Size Jitter percentage control. M6A-052+ extend the same `jitter` section for other independent variation targets.
+
+## M6A opacity-jitter boundary — 2026-09-03
+
+**AUTHORITATIVE for M6A-052.** `BrushPresetV1.jitter.opacity` is a normalized `0..1` direct variation amount with exact/default identity at `0`. Each logical-stamp **attempt** resolves one deterministic opacity-jitter sample from the persisted stroke `randomSeed`, an opacity-jitter-specific fixed salt, and an opacity-jitter-specific attempt index. The resolved scale is `1 - amount * random`, so this stage never raises the configured base opacity cap.
+
+Opacity jitter is an independent random channel from M6A-051 size jitter, M6A-048 generalized random dynamics, and M6A-027 random tip selection. Enabling/disabling one channel must not advance or reseed another channel. Attempt indices advance even when a logical stamp is suppressed before primitive output, and visible logical-stamp records retain the already-resolved opacity-jitter scale so bounded mutable-tail/end-taper reconciliation never resamples randomness.
+
+The resolved opacity-jitter scale multiplies the logical stamp's **stroke-opacity cap after dynamic-response resolution**. It does not alter flow/deposit, size, texture, tip selection, or geometry. Existing start/end/forced taper continues to own per-dab deposit fade, and dynamic minimum/maximum response keeps its existing source-composition semantics. Primitive dabs/history/Worker payloads store only the resolved `strokeOpacity`; no jitter-specific renderer or persistence schema is introduced. When opacity jitter is active, the paint stroke must persist the deterministic uint32 random seed even if every other random feature is disabled, so release reconciliation and post-stroke correction rebuild the same result.

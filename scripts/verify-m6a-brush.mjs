@@ -1279,6 +1279,53 @@ requireText(
   'size-jitter tail reconciliation regression missing',
 );
 
+requireText(progress, 'M6A-052 opacity jitter:完了', 'M6A-052 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushOpacityJitterV1',
+  'opacity-jitter preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushOpacityJitterV1',
+  'deterministic opacity-jitter channel missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'stamp.opacityJitterScale',
+  'resolved opacity jitter is not applied to logical-stamp opacity cap',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushOpacityJitter',
+  'opacity jitter is not connected to runtime brush state',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'opacityJitterEnabled',
+  'opacity jitter does not capture a deterministic persistent stroke seed',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-opacity-jitter-range"',
+  'reachable opacity-jitter control missing',
+);
+requireText(
+  read('tests/unit/brush-opacity-jitter.test.ts'),
+  'advances the opacity-jitter attempt index even when taper suppresses a logical stamp',
+  'opacity-jitter attempt-index regression missing',
+);
+requireText(
+  read('tests/unit/brush-opacity-jitter.test.ts'),
+  'uses a random channel independent from generalized random dynamics and size jitter',
+  'opacity-jitter channel-independence regression missing',
+);
+requireText(
+  read('tests/unit/brush-opacity-jitter.test.ts'),
+  'reuses the stored opacity-jitter scale when reconciling the mutable end tail',
+  'opacity-jitter tail reconciliation regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',
