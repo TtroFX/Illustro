@@ -22,6 +22,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Align patch anchor with M6A-044 curve cleanup
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/illustro-m6a045-patch.py')
+          text = path.read_text()
+          old = '''    """      pressureFlowButton.removeEventListener('click', onPressureFlow);\n      tipShape.removeEventListener('change', onTipShape);\n""",\n    """      pressureFlowButton.removeEventListener('click', onPressureFlow);\n      tiltSizeButton.removeEventListener('click', onTiltSize);\n      tiltOpacityButton.removeEventListener('click', onTiltOpacity);\n      tiltFlowButton.removeEventListener('click', onTiltFlow);\n      pressureCurveEditor?.dispose();\n      tiltCurveEditor?.dispose();\n      tipShape.removeEventListener('change', onTipShape);\n""",'''
+          new = '''    """      pressureFlowButton.removeEventListener('click', onPressureFlow);\n      pressureCurveEditor?.dispose();\n      pressureCurveEditor = null;\n      tipShape.removeEventListener('change', onTipShape);\n""",\n    """      pressureFlowButton.removeEventListener('click', onPressureFlow);\n      tiltSizeButton.removeEventListener('click', onTiltSize);\n      tiltOpacityButton.removeEventListener('click', onTiltOpacity);\n      tiltFlowButton.removeEventListener('click', onTiltFlow);\n      pressureCurveEditor?.dispose();\n      pressureCurveEditor = null;\n      tiltCurveEditor?.dispose();\n      tiltCurveEditor = null;\n      tipShape.removeEventListener('change', onTipShape);\n""",'''
+          if old not in text:
+              raise SystemExit('M6A-045 cleanup patch-source anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Apply M6A-045 tilt-mapping patch
         run: python3 .github/illustro-m6a045-patch.py
       - name: Format changed TypeScript and verifier
