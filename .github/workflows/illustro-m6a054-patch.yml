@@ -21,6 +21,19 @@ jobs:
           cache: npm
       - name: Restore dependencies
         run: npm ci
+      - name: Normalize controller anchor
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/brush-preset-controller.ts')
+          text = path.read_text(encoding='utf-8')
+          old = "  const onRotationJitterNumber = (): void =>\n    updateRotationJitter(Number(rotationJitterNumber.value));\n"
+          new = "  const onRotationJitterNumber = (): void => updateRotationJitter(Number(rotationJitterNumber.value));\n"
+          if text.count(old) != 1:
+              raise SystemExit('rotation-jitter handler anchor not found exactly once')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Apply M6A-054 position-jitter patch
         run: python3 scripts/patch-m6a054-position-jitter.py
       - name: Format changed TypeScript and verifier
