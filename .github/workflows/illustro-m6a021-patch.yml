@@ -34,7 +34,7 @@ jobs:
           PY
       - name: Apply M6A-021 hardness patch
         run: python .github/illustro-m6a021-patch.py
-      - name: Patch remaining stamp calls
+      - name: Patch generated hardness details
         shell: bash
         run: |
           python - <<'PY'
@@ -59,6 +59,14 @@ jobs:
                   raise RuntimeError('expected one remaining stamp call for indent ' + repr(indent))
               s = s.replace(before, after, 1)
           p.write_text(s, encoding='utf-8')
+
+          p = Path('src/app/paint-session-controller.ts')
+          s = p.read_text(encoding='utf-8')
+          before = '  #brushHardness = BASELINE_BRUSH_HARDNESS;'
+          after = '  #brushHardness: number = BASELINE_BRUSH_HARDNESS;'
+          if s.count(before) != 1:
+              raise RuntimeError('expected one runtime hardness field')
+          p.write_text(s.replace(before, after, 1), encoding='utf-8')
           PY
       - name: Format changed TypeScript
         run: >-
