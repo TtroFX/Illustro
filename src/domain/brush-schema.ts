@@ -197,6 +197,32 @@ export function withBrushStrokeSpacingV1(
   });
 }
 
+export const DEFAULT_BRUSH_TIP_ANGLE_DEGREES_V1 = 0 as const;
+
+function normalizeBrushTipAngleDegreesV1(angleDegrees: number): number {
+  if (!Number.isFinite(angleDegrees)) throw new TypeError('brush tip angle must be finite');
+  const normalized = ((angleDegrees % 360) + 360) % 360;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+export function brushTipAngleDegreesV1(preset: BrushPresetV1): number {
+  const value = preset.tip.angleDegrees;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? normalizeBrushTipAngleDegreesV1(value)
+    : DEFAULT_BRUSH_TIP_ANGLE_DEGREES_V1;
+}
+
+export function withBrushTipAngleDegreesV1(
+  preset: BrushPresetV1,
+  angleDegrees: number,
+): BrushPresetV1 {
+  const normalized = normalizeBrushTipAngleDegreesV1(angleDegrees);
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: { ...preset.tip, angleDegrees: normalized },
+  });
+}
+
 export function withBrushParameterValuesV1(
   preset: BrushPresetV1,
   patch: Partial<BrushParameterValuesV1>,

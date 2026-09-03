@@ -380,6 +380,38 @@ requireText(
   'brush spacing regression coverage missing',
 );
 
+requireText(progress, 'M6A-024 tip angle:完了', 'M6A-024 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTipAngleDegreesV1',
+  'brush tip angle preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'rotatedOffsetX',
+  'sampled brush tip angle rotation missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'baselineDabTipAngleDegreesV1',
+  'canonical procedural tip angle coverage missing',
+);
+requireText(
+  read('src/workers/render.worker.ts'),
+  '...(tipAngleDegrees === undefined ? {} : { tipAngleDegrees })',
+  'worker parser does not preserve brush tip angle',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-angle-range"',
+  'reachable brush tip angle control missing',
+);
+requireText(
+  read('tests/unit/brush-tip-angle.test.ts'),
+  'rotates square canonical coverage and expands dirty bounds for its corners',
+  'brush tip angle regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

@@ -5,6 +5,9 @@ import {
   baselineDabFlowV1,
   baselineDabHardnessV1,
   baselineDabTipDensityV1,
+  baselineDabTipAngleDegreesV1,
+  baselineDabExtentXV1,
+  baselineDabExtentYV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   baselineDabStrokeOpacityV1,
@@ -259,9 +262,18 @@ function baselineProceduralTipDistanceV1(
   localX: number,
   localY: number,
 ): number {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const angle = (-baselineDabTipAngleDegreesV1(dab) * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const documentX = localX * radiusX;
+  const documentY = localY * radiusY;
+  const rotatedLocalX = (documentX * cos - documentY * sin) / radiusX;
+  const rotatedLocalY = (documentX * sin + documentY * cos) / radiusY;
   return dab.tipShape === 'square'
-    ? Math.max(Math.abs(localX), Math.abs(localY))
-    : Math.hypot(localX, localY);
+    ? Math.max(Math.abs(rotatedLocalX), Math.abs(rotatedLocalY))
+    : Math.hypot(rotatedLocalX, rotatedLocalY);
 }
 
 function baselineProceduralTipCoverageV1(
@@ -285,10 +297,12 @@ function rasterizeColorDab(
 ): void {
   const radiusX = baselineDabRadiusXV1(dab);
   const radiusY = baselineDabRadiusYV1(dab);
-  const minX = Math.max(tileX, Math.floor(dab.x - radiusX));
-  const minY = Math.max(tileY, Math.floor(dab.y - radiusY));
-  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + radiusX) - 1);
-  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
+  const extentX = baselineDabExtentXV1(dab);
+  const extentY = baselineDabExtentYV1(dab);
+  const minX = Math.max(tileX, Math.floor(dab.x - extentX));
+  const minY = Math.max(tileY, Math.floor(dab.y - extentY));
+  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + extentX) - 1);
+  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + extentY) - 1);
   const opacity = clamp01(dab.opacity);
   const sourceColor = baselineDabColorV1(dab);
   const flow = clamp01(baselineDabFlowV1(dab));
@@ -310,7 +324,6 @@ function rasterizeColorDab(
     const bytes = tile.bytes;
     for (let documentY = minY; documentY <= maxY; documentY += 1) {
       const localY = (documentY + 0.5 - dab.y) / radiusY;
-      if (Math.abs(localY) >= 1) continue;
       for (let documentX = minX; documentX <= maxX; documentX += 1) {
         const localX = (documentX + 0.5 - dab.x) / radiusX;
         const tipCoverage = baselineProceduralTipCoverageV1(dab, localX, localY);
@@ -351,7 +364,6 @@ function rasterizeColorDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
       const tipCoverage = baselineProceduralTipCoverageV1(dab, localX, localY);
@@ -387,15 +399,16 @@ function rasterizeEraseDab(
 ): void {
   const radiusX = baselineDabRadiusXV1(dab);
   const radiusY = baselineDabRadiusYV1(dab);
-  const minX = Math.max(tileX, Math.floor(dab.x - radiusX));
-  const minY = Math.max(tileY, Math.floor(dab.y - radiusY));
-  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + radiusX) - 1);
-  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
+  const extentX = baselineDabExtentXV1(dab);
+  const extentY = baselineDabExtentYV1(dab);
+  const minX = Math.max(tileX, Math.floor(dab.x - extentX));
+  const minY = Math.max(tileY, Math.floor(dab.y - extentY));
+  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + extentX) - 1);
+  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + extentY) - 1);
   const opacity = clamp01(dab.opacity);
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
       const eraseAlpha = opacity * baselineProceduralTipCoverageV1(dab, localX, localY);
@@ -514,16 +527,17 @@ function rasterizeSmudgeDab(
 ): boolean {
   const radiusX = baselineDabRadiusXV1(dab);
   const radiusY = baselineDabRadiusYV1(dab);
-  const minX = Math.max(tileX, Math.floor(dab.x - radiusX));
-  const minY = Math.max(tileY, Math.floor(dab.y - radiusY));
-  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + radiusX) - 1);
-  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + radiusY) - 1);
+  const extentX = baselineDabExtentXV1(dab);
+  const extentY = baselineDabExtentYV1(dab);
+  const minX = Math.max(tileX, Math.floor(dab.x - extentX));
+  const minY = Math.max(tileY, Math.floor(dab.y - extentY));
+  const maxX = Math.min(tileX + tile.width - 1, Math.ceil(dab.x + extentX) - 1);
+  const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + extentY) - 1);
   const opacity = clamp01(dab.opacity);
   let changed = false;
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
       const strength = opacity * baselineProceduralTipCoverageV1(dab, localX, localY);
@@ -622,7 +636,6 @@ function rasterizeBlurDab(
 
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
-    if (Math.abs(localY) >= 1) continue;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
       const localX = (documentX + 0.5 - dab.x) / radiusX;
       const strength = opacity * baselineProceduralTipCoverageV1(dab, localX, localY);

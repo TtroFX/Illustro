@@ -432,7 +432,7 @@ M6A-021 hardness:完了
 再開メモ: M6A-021 hardnessはtip.hardnessの0..1静的値をpreset正本として扱い、stroke開始時にcaptureして全primitive dabへ保存する。旧strokeでhardness未保存の場合は0.85へfallbackする。Canonical Raster Tileのedge coverageがhardness正本で、既存WebGPU shaderが持つ0.85 fast pathはdefault値だけ維持し、非default hardnessはcanonical previewへ切替えて表示と保存結果の不一致を避ける。sampled/custom tipのmicro dabにも同じhardnessを伝播する。次はM6A-022 tip densityから再開する。
 M6A-022 tip density:完了
 M6A-023 spacing/gap:完了
-M6A-024 tip angle:未完了
+M6A-024 tip angle:完了
 M6A-025 tip direction:未完了
 M6A-026 follow stroke rotation:未完了
 M6A-027 stroke repetition:未完了
@@ -1317,3 +1317,11 @@ MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完�
 - Spacing is captured when the stroke kernel is created. It is not redundantly serialized onto each dab because the resolved dab coordinates are already the exact history/save/recovery representation.
 - The UI exposes 1..400% spacing while the schema stores 0.01..4. Endpoint retention and incremental confirmed-sample processing remain unchanged.
 - Next incomplete item is M6A-024 tip angle.
+
+### M6A-024 tip-angle resume memo — 2026-09-03
+
+- `tip.angleDegrees` is a static preset-local angle normalized to `0 <= angle < 360`; legacy presets/dabs resolve to `0°`.
+- Procedural square coverage inverse-rotates pixel coordinates in Canonical Raster and rotated dirty bounds prevent clipped corners. Round tips remain visually invariant under angle.
+- Sampled/custom tips rotate the logical 5×5 mask offsets before primitive round-dab expansion, preserving the existing renderer/history architecture.
+- The resolved angle is copied to primitive dabs and preserved through save/recovery and Worker parsing. This remains static angle only; M6A-025 direction and M6A-026 follow-stroke rotation are not implemented here.
+- Next incomplete item is M6A-025 tip direction.

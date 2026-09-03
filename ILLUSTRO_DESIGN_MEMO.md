@@ -5608,3 +5608,11 @@ Verification must cover at minimum:
 - The preset stores spacing in the `stroke` section. Runtime captures it when a stroke begins; deterministic resolved dab coordinates are the history/persistence truth, so spacing is not duplicated onto each primitive dab.
 - The user-facing Tool Properties control is percentage-based (1..400%) while the canonical ratio remains 0.01..4.
 - Endpoint retention and incremental stable-prefix generation remain mandatory when spacing changes.
+
+#### M6A static tip-angle boundary — 2026-09-03
+
+- Static brush-tip angle is stored as `tip.angleDegrees`, normalized to `[0, 360)`, with `0°` legacy fallback.
+- Procedural tip coverage uses inverse rotation in document space before radius normalization. Rotated bounds are used for sparse-tile planning and per-tile raster loops so square corners are never clipped.
+- Sampled/custom mask assets rotate their logical micro-dab offsets before expansion; downstream rendering continues to consume ordinary primitive dabs.
+- Static angle is captured at stroke start and preserved on primitive dabs for deterministic Main/Worker/history/recovery behavior.
+- Tip direction and stroke-follow rotation remain separate subsequent parameters and must compose with, not silently replace, this static angle.

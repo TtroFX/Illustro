@@ -27,9 +27,11 @@ import {
   BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX,
   BASELINE_BRUSH_SPACING_RATIO,
   BASELINE_BRUSH_TIP_DENSITY,
+  BASELINE_BRUSH_TIP_ANGLE_DEGREES,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
+  normalizeBaselineBrushTipAngleDegreesV1,
   type BaselineBrushColorV1,
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
@@ -201,6 +203,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTipDensity: number;
   readonly brushSpacingRatio: number;
   readonly brushMinimumStampDistancePx: number;
+  readonly brushTipAngleDegrees: number;
   readonly brushTipShape: BaselineBrushTipShapeV1;
   readonly brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
@@ -280,6 +283,12 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     value.tipDensity === undefined
       ? undefined
       : finiteNumber(value.tipDensity, 'baseline dab tipDensity');
+  const tipAngleDegrees =
+    value.tipAngleDegrees === undefined
+      ? undefined
+      : normalizeBaselineBrushTipAngleDegreesV1(
+          finiteNumber(value.tipAngleDegrees, 'baseline dab tipAngleDegrees'),
+        );
   const tipShape = value.tipShape === undefined ? undefined : value.tipShape;
   if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square') {
     throw new TypeError('invalid baseline dab tip shape');
@@ -318,6 +327,7 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
     ...(hardness === undefined ? {} : { hardness }),
     ...(tipDensity === undefined ? {} : { tipDensity }),
+    ...(tipAngleDegrees === undefined ? {} : { tipAngleDegrees }),
     ...(tipShape === undefined ? {} : { tipShape }),
     ...(color === undefined ? {} : { color }),
   });
@@ -593,6 +603,7 @@ export class PaintSessionControllerV1 {
   #brushTipDensity: number = BASELINE_BRUSH_TIP_DENSITY;
   #brushSpacingRatio: number = BASELINE_BRUSH_SPACING_RATIO;
   #brushMinimumStampDistancePx: number = BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
+  #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipShape: BaselineBrushTipShapeV1 = 'round';
   #brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null = null;
   #disposed = false;
@@ -618,6 +629,7 @@ export class PaintSessionControllerV1 {
       brushTipDensity: this.#brushTipDensity,
       brushSpacingRatio: this.#brushSpacingRatio,
       brushMinimumStampDistancePx: this.#brushMinimumStampDistancePx,
+      brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipShape: this.#brushTipShape,
       brushSampledTipAlpha: this.#brushSampledTipAlpha,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
@@ -721,6 +733,17 @@ export class PaintSessionControllerV1 {
 
   brushSpacingRatio(): number {
     return this.#brushSpacingRatio;
+  }
+
+  setBrushTipAngleDegrees(angleDegrees: number): number {
+    const normalized = normalizeBaselineBrushTipAngleDegreesV1(angleDegrees);
+    if (normalized !== this.#brushTipAngleDegrees) this.#clearActiveStroke();
+    this.#brushTipAngleDegrees = normalized;
+    return this.#brushTipAngleDegrees;
+  }
+
+  brushTipAngleDegrees(): number {
+    return this.#brushTipAngleDegrees;
   }
 
   setBrushTipShape(
@@ -1443,6 +1466,7 @@ export class PaintSessionControllerV1 {
       spacingRatio: this.#brushSpacingRatio,
       minimumStampDistancePx: this.#brushMinimumStampDistancePx,
       hardness: this.#brushHardness,
+      tipAngleDegrees: this.#brushTipAngleDegrees,
       tipDensity: this.#brushTipDensity,
       tipShape: this.#brushTipShape,
       ...(this.#brushSampledTipAlpha === null

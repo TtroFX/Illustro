@@ -6,6 +6,7 @@ import {
   brushSelectedTipAssetIdV1,
   brushTipHardnessV1,
   brushTipDensityV1,
+  brushTipAngleDegreesV1,
   brushStrokeSpacingV1,
   brushTipAssetsV1,
   brushTipShapeV1,
@@ -37,6 +38,7 @@ import {
   updateBrushPresetCustomTipV1,
   updateBrushPresetHardnessV1,
   updateBrushPresetTipDensityV1,
+  updateBrushPresetTipAngleV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -105,6 +107,8 @@ export function installBrushPresetControllerV1(input: {
   const tipDensityNumber = requireElement('#brush-tip-density-number', HTMLInputElement);
   const spacingRange = requireElement('#brush-spacing-range', HTMLInputElement);
   const spacingNumber = requireElement('#brush-spacing-number', HTMLInputElement);
+  const tipAngleRange = requireElement('#brush-tip-angle-range', HTMLInputElement);
+  const tipAngleNumber = requireElement('#brush-tip-angle-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -146,6 +150,7 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushTipDensity(brushTipDensityV1(item.preset));
     const spacing = brushStrokeSpacingV1(item.preset);
     input.paintSession.setBrushSpacing(spacing.spacingRatio, spacing.minimumStampDistancePx);
+    input.paintSession.setBrushTipAngleDegrees(brushTipAngleDegreesV1(item.preset));
     input.paintSession.setBrushTipShape(
       brushTipShapeV1(item.preset),
       brushSampledTipAlphaV1(item.preset) ?? undefined,
@@ -160,6 +165,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushHardness = String(brushTipHardnessV1(item.preset));
     input.root.dataset.illustroBrushTipDensity = String(brushTipDensityV1(item.preset));
     input.root.dataset.illustroBrushSpacingRatio = String(spacing.spacingRatio);
+    input.root.dataset.illustroBrushTipAngleDegrees = String(brushTipAngleDegreesV1(item.preset));
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -258,6 +264,8 @@ export function installBrushPresetControllerV1(input: {
     configurePair(tipDensityRange, tipDensityNumber, 0, 1, 0.01, tipDensity);
     const spacing = brushStrokeSpacingV1(selected.preset);
     configurePair(spacingRange, spacingNumber, 1, 400, 1, spacing.spacingRatio * 100);
+    const tipAngleDegrees = brushTipAngleDegreesV1(selected.preset);
+    configurePair(tipAngleRange, tipAngleNumber, 0, 359, 1, tipAngleDegrees);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -288,7 +296,7 @@ export function installBrushPresetControllerV1(input: {
       tipAssetSelect.value = selectedTipAssetId ?? tipAssets[0]?.id ?? '';
     }
     tipAssetStatus.textContent = tipAssets.length + '/' + BRUSH_TIP_ASSET_LIMIT_V1;
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}%`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}°`;
 
     const locked = selected.locked;
     for (const control of [
@@ -304,6 +312,8 @@ export function installBrushPresetControllerV1(input: {
       tipDensityNumber,
       spacingRange,
       spacingNumber,
+      tipAngleRange,
+      tipAngleNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -376,6 +386,10 @@ export function installBrushPresetControllerV1(input: {
     mutate(() => updateBrushPresetSpacingV1(state, state.selectedPresetId, percent / 100));
   const onSpacingRange = (): void => updateSpacing(Number(spacingRange.value));
   const onSpacingNumber = (): void => updateSpacing(Number(spacingNumber.value));
+  const updateTipAngle = (angleDegrees: number): void =>
+    mutate(() => updateBrushPresetTipAngleV1(state, state.selectedPresetId, angleDegrees));
+  const onTipAngleRange = (): void => updateTipAngle(Number(tipAngleRange.value));
+  const onTipAngleNumber = (): void => updateTipAngle(Number(tipAngleNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -458,6 +472,8 @@ export function installBrushPresetControllerV1(input: {
   tipDensityNumber.addEventListener('change', onTipDensityNumber);
   spacingRange.addEventListener('input', onSpacingRange);
   spacingNumber.addEventListener('change', onSpacingNumber);
+  tipAngleRange.addEventListener('input', onTipAngleRange);
+  tipAngleNumber.addEventListener('change', onTipAngleNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -493,6 +509,8 @@ export function installBrushPresetControllerV1(input: {
       tipDensityNumber.removeEventListener('change', onTipDensityNumber);
       spacingRange.removeEventListener('input', onSpacingRange);
       spacingNumber.removeEventListener('change', onSpacingNumber);
+      tipAngleRange.removeEventListener('input', onTipAngleRange);
+      tipAngleNumber.removeEventListener('change', onTipAngleNumber);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);

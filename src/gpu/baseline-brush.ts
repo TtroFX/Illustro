@@ -13,6 +13,7 @@ export const BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX = 1 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
 export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
+export const BASELINE_BRUSH_TIP_ANGLE_DEGREES = 0 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 
@@ -70,6 +71,7 @@ export interface BaselineBrushDabV1 {
   readonly strokeOpacity?: number;
   readonly hardness?: number;
   readonly tipDensity?: number;
+  readonly tipAngleDegrees?: number;
   readonly tipShape?: BaselineBrushTipShapeV1;
   readonly color?: BaselineBrushColorV1;
 }
@@ -101,6 +103,41 @@ export function baselineDabTipDensityV1(dab: BaselineBrushDabV1): number {
   return dab.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
 }
 
+export function normalizeBaselineBrushTipAngleDegreesV1(angleDegrees: number): number {
+  if (!Number.isFinite(angleDegrees))
+    throw new TypeError('baseline brush tip angle must be finite');
+  const normalized = ((angleDegrees % 360) + 360) % 360;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+export function baselineDabTipAngleDegreesV1(dab: BaselineBrushDabV1): number {
+  return normalizeBaselineBrushTipAngleDegreesV1(
+    dab.tipAngleDegrees ?? BASELINE_BRUSH_TIP_ANGLE_DEGREES,
+  );
+}
+
+export function baselineDabExtentXV1(dab: BaselineBrushDabV1): number {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const angle = (baselineDabTipAngleDegreesV1(dab) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(angle));
+  const sin = Math.abs(Math.sin(angle));
+  return dab.tipShape === 'square'
+    ? radiusX * cos + radiusY * sin
+    : Math.hypot(radiusX * cos, radiusY * sin);
+}
+
+export function baselineDabExtentYV1(dab: BaselineBrushDabV1): number {
+  const radiusX = baselineDabRadiusXV1(dab);
+  const radiusY = baselineDabRadiusYV1(dab);
+  const angle = (baselineDabTipAngleDegreesV1(dab) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(angle));
+  const sin = Math.abs(Math.sin(angle));
+  return dab.tipShape === 'square'
+    ? radiusX * sin + radiusY * cos
+    : Math.hypot(radiusX * sin, radiusY * cos);
+}
+
 export function baselineDabUsesFlowOpacityV1(dab: BaselineBrushDabV1): boolean {
   return dab.flow !== undefined || dab.strokeOpacity !== undefined;
 }
@@ -125,6 +162,7 @@ function freezeDab(
   strokeOpacity: number,
   hardness: number,
   tipDensity: number,
+  tipAngleDegrees: number,
   color: BaselineBrushColorV1,
   tipShape: Exclude<BaselineBrushTipShapeV1, 'sampled-image'>,
 ): BaselineBrushDabV1 {
@@ -138,6 +176,7 @@ function freezeDab(
     strokeOpacity,
     hardness,
     tipDensity,
+    tipAngleDegrees,
     tipShape,
     color,
   });
@@ -152,13 +191,25 @@ function pushBaselineBrushStampV1(
   strokeOpacity: number,
   hardness: number,
   tipDensity: number,
+  tipAngleDegrees: number,
   color: BaselineBrushColorV1,
   tipShape: BaselineBrushTipShapeV1,
   sampledTipAlpha: BaselineBrushSampledTipAlphaV1,
 ): void {
   if (tipShape !== 'sampled-image') {
     target.push(
-      freezeDab(x, y, radius, flow, strokeOpacity, hardness, tipDensity, color, tipShape),
+      freezeDab(
+        x,
+        y,
+        radius,
+        flow,
+        strokeOpacity,
+        hardness,
+        tipDensity,
+        tipAngleDegrees,
+        color,
+        tipShape,
+      ),
     );
     return;
   }
@@ -166,6 +217,9 @@ function pushBaselineBrushStampV1(
   const side = BASELINE_SAMPLED_IMAGE_TIP_SIDE_V1;
   const alphaImage = sampledTipAlpha;
   const microRadius = (radius / side) * 1.1;
+  const angle = (tipAngleDegrees * Math.PI) / 180;
+  const angleCos = Math.cos(angle);
+  const angleSin = Math.sin(angle);
   const centerIndex = Math.floor(side / 2) * side + Math.floor(side / 2);
   const emit = (index: number): void => {
     const alphaByte = alphaImage[index] ?? 0;
@@ -174,15 +228,18 @@ function pushBaselineBrushStampV1(
     const column = index % side;
     const offsetX = ((column + 0.5) / side - 0.5) * radius * 2;
     const offsetY = ((row + 0.5) / side - 0.5) * radius * 2;
+    const rotatedOffsetX = offsetX * angleCos - offsetY * angleSin;
+    const rotatedOffsetY = offsetX * angleSin + offsetY * angleCos;
     target.push(
       freezeDab(
-        x + offsetX,
-        y + offsetY,
+        x + rotatedOffsetX,
+        y + rotatedOffsetY,
         microRadius,
         flow * (alphaByte / 255),
         strokeOpacity,
         hardness,
         tipDensity,
+        tipAngleDegrees,
         color,
         'round',
       ),
@@ -205,6 +262,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #strokeOpacity: number;
   readonly #hardness: number;
   readonly #tipDensity: number;
+  readonly #tipAngleDegrees: number;
   readonly #tipShape: BaselineBrushTipShapeV1;
   readonly #sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
   #lastPoint: { x: number; y: number } | null = null;
@@ -222,6 +280,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly minimumStampDistancePx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
+      readonly tipAngleDegrees?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: readonly number[];
     } = {},
@@ -238,6 +297,9 @@ export class BaselineBrushDabBuilderV1 {
       options.minimumStampDistancePx ?? BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
+    const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
+      options.tipAngleDegrees ?? BASELINE_BRUSH_TIP_ANGLE_DEGREES,
+    );
     if (!Number.isFinite(sizePx) || sizePx <= 0 || sizePx > 4096) {
       throw new RangeError('baseline brush size must be finite and within 0..4096 px');
     }
@@ -269,6 +331,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
     this.#tipDensity = tipDensity;
+    this.#tipAngleDegrees = tipAngleDegrees;
     this.#tipShape = options.tipShape ?? 'round';
     if (
       this.#tipShape !== 'round' &&
@@ -303,6 +366,7 @@ export class BaselineBrushDabBuilderV1 {
       this.#strokeOpacity,
       this.#hardness,
       this.#tipDensity,
+      this.#tipAngleDegrees,
       this.#color,
       this.#tipShape,
       this.#sampledTipAlpha,
@@ -361,6 +425,7 @@ export class BaselineBrushDabBuilderV1 {
           this.#strokeOpacity,
           this.#hardness,
           this.#tipDensity,
+          this.#tipAngleDegrees,
           this.#color,
           this.#tipShape,
           this.#sampledTipAlpha,
@@ -403,6 +468,7 @@ export class BaselineBrushDabBuilderV1 {
         this.#strokeOpacity,
         this.#hardness,
         this.#tipDensity,
+        this.#tipAngleDegrees,
         this.#color,
         this.#tipShape,
         this.#sampledTipAlpha,
@@ -435,12 +501,12 @@ function intersectRect(left: RectV1, right: RectV1): RectV1 | null {
 }
 
 function dabDocumentBounds(dab: BaselineBrushDabV1): RectV1 {
-  const radiusX = baselineDabRadiusXV1(dab);
-  const radiusY = baselineDabRadiusYV1(dab);
-  const left = Math.floor(dab.x - radiusX);
-  const top = Math.floor(dab.y - radiusY);
-  const right = Math.ceil(dab.x + radiusX);
-  const bottom = Math.ceil(dab.y + radiusY);
+  const extentX = baselineDabExtentXV1(dab);
+  const extentY = baselineDabExtentYV1(dab);
+  const left = Math.floor(dab.x - extentX);
+  const top = Math.floor(dab.y - extentY);
+  const right = Math.ceil(dab.x + extentX);
+  const bottom = Math.ceil(dab.y + extentY);
   return Object.freeze({
     x: left,
     y: top,
@@ -497,6 +563,7 @@ export function planBaselineBrushTilesV1(
         (!Number.isFinite(dab.hardness) || dab.hardness < 0 || dab.hardness > 1)) ||
       (dab.tipDensity !== undefined &&
         (!Number.isFinite(dab.tipDensity) || dab.tipDensity < 0 || dab.tipDensity > 1)) ||
+      (dab.tipAngleDegrees !== undefined && !Number.isFinite(dab.tipAngleDegrees)) ||
       (dab.color !== undefined &&
         (dab.color.length !== 3 ||
           dab.color.some(

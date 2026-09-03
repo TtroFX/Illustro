@@ -91,6 +91,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly minimumStampDistancePx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
+      readonly tipAngleDegrees?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: BaselineBrushSampledTipAlphaV1;
     } = {},
@@ -107,6 +108,9 @@ export class CanonicalRasterBrushStrokeV1 {
         : { minimumStampDistancePx: options.minimumStampDistancePx }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
+      ...(options.tipAngleDegrees === undefined
+        ? {}
+        : { tipAngleDegrees: options.tipAngleDegrees }),
       ...(options.tipShape === undefined ? {} : { tipShape: options.tipShape }),
       ...(options.sampledTipAlpha === undefined
         ? {}

@@ -7,6 +7,7 @@ import {
   baselineDabFlowV1,
   baselineDabHardnessV1,
   baselineDabTipDensityV1,
+  baselineDabTipAngleDegreesV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   baselineDabStrokeOpacityV1,
@@ -230,6 +231,7 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         ...(dab.strokeOpacity === undefined ? {} : { strokeOpacity: dab.strokeOpacity }),
         ...(dab.hardness === undefined ? {} : { hardness: dab.hardness }),
         ...(dab.tipDensity === undefined ? {} : { tipDensity: dab.tipDensity }),
+        ...(dab.tipAngleDegrees === undefined ? {} : { tipAngleDegrees: dab.tipAngleDegrees }),
         ...(dab.tipShape === undefined ? {} : { tipShape: dab.tipShape }),
         ...(dab.color === undefined
           ? {}
@@ -260,6 +262,7 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
       (Number.isFinite(dab.hardness) && dab.hardness >= 0 && dab.hardness <= 1)) &&
     (dab.tipDensity === undefined ||
       (Number.isFinite(dab.tipDensity) && dab.tipDensity >= 0 && dab.tipDensity <= 1)) &&
+    (dab.tipAngleDegrees === undefined || Number.isFinite(dab.tipAngleDegrees)) &&
     (dab.tipShape === undefined || dab.tipShape === 'round' || dab.tipShape === 'square')
   );
 }
@@ -277,6 +280,7 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
     baselineDabStrokeOpacityV1(left) === baselineDabStrokeOpacityV1(right) &&
     baselineDabHardnessV1(left) === baselineDabHardnessV1(right) &&
     baselineDabTipDensityV1(left) === baselineDabTipDensityV1(right) &&
+    baselineDabTipAngleDegreesV1(left) === baselineDabTipAngleDegreesV1(right) &&
     (left.tipShape ?? 'round') === (right.tipShape ?? 'round') &&
     baselineDabColorV1(left).every(
       (component, index) => component === baselineDabColorV1(right)[index],
