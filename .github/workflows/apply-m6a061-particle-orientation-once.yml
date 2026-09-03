@@ -28,7 +28,42 @@ jobs:
         run: npm ci
 
       - name: Apply staged M6A-061 patch
-        run: python3 scripts/patch-m6a061-particle-orientation.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          patch_path = Path('scripts/patch-m6a061-particle-orientation.py')
+          source = patch_path.read_text(encoding='utf-8')
+          old_helper = '''def replace_once(path: str, old: str, new: str) -> None:
+              text = read(path)
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{path}: expected exactly one anchor, found {count}: {old[:180]!r}')
+              write(path, text.replace(old, new, 1))
+          '''
+          new_helper = '''def replace_once(path: str, old: str, new: str) -> None:
+              text = read(path)
+              count = text.count(old)
+              if count == 1:
+                  write(path, text.replace(old, new, 1))
+                  return
+              parts = re.split(r'(\\s+)', old)
+              pattern = ''.join(r'\\s+' if part.isspace() else re.escape(part) for part in parts if part)
+              matches = list(re.finditer(pattern, text, flags=re.MULTILINE))
+              if len(matches) != 1:
+                  raise RuntimeError(
+                      f'{path}: expected exactly one exact/flexible anchor, found exact={count}, flexible={len(matches)}: {old[:180]!r}'
+                  )
+              match = matches[0]
+              write(path, text[:match.start()] + new + text[match.end():])
+          '''
+          if source.count(old_helper) != 1:
+              raise SystemExit('staged patch helper shape changed unexpectedly')
+          source = 'import re\n' + source.replace(old_helper, new_helper, 1)
+          exec(compile(source, str(patch_path), 'exec'), {'__name__': '__main__'})
+          PY
 
       - name: Format changed source and tests
         run: >-
