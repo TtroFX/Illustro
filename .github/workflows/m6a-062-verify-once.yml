@@ -1,4 +1,4 @@
-name: Verify M6A-062 once
+name: Close M6A-062 verification once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  verify-m6a-062:
+  close-m6a-062:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,72 +18,57 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply M6A-062 patch
-        run: python3 .github/m6a-062-apply-once.py
+      - name: Repair canonical memo section order
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
+          path = Path('ILLUSTRO_DESIGN_MEMO.md')
+          text = path.read_text(encoding='utf-8')
+          block = """## M6A ordinary raster color-mixing boundary — 2026-09-04
 
-      - name: Pin npm toolchain
-        run: npm install --global npm@11.19.1
+**AUTHORITATIVE for M6A-062.** Ordinary raster color mixing is a deterministic digital paint behavior, not physical pigment/fluid simulation. The M6A-062 production subset uses `colorMix.enabled`, `colorMix.canvasRatio` (`0..1`, default `0.5`) and `colorMix.depositAmount` (`0..1`, default `1`). The feature is inert unless enabled and applies only to ordinary Raster paint; Eraser, basic Smudge and Blur keep their existing operation semantics.
 
-      - name: Install dependencies
-        run: npm ci --ignore-scripts --prefer-offline
+For each covered destination pixel, the brush color and the current canonical active-Raster-Layer pixel are mixed in linear-light RGB and converted back through the document RGB transfer function before the normal source-over deposit. `canvasRatio=0` means brush color only and `canvasRatio=1` means fully available canvas color. Canvas contribution is multiplied by destination alpha, so fully transparent pixels never inject hidden/black RGB into the brush color. `depositAmount` scales the per-dab deposited coverage before the existing flow/stroke-opacity accumulation rule and therefore composes with, rather than bypasses, normal opacity/flow semantics.
 
-      - name: Format changed TypeScript
-        run: >-
-          npx biome format --write
-          src/domain/brush-schema.ts
-          src/gpu/baseline-brush.ts
-          src/app/paint-session-controller.ts
-          src/gpu/baseline-raster-tile-store.ts
-          src/gpu/baseline-paint-renderer.ts
-          src/workers/render.worker.ts
-          src/app/brush-preset-library.ts
-          src/app/brush-preset-controller.ts
-          tests/unit/baseline-raster-tile-store.test.ts
+The resolved M6A-062 values are carried on canonical dabs so Render Worker, history/recovery and deterministic reconstruction do not depend on the currently selected preset. Because the existing additive WebGPU preview shader cannot sample the destination color, any dab with ordinary color mixing enabled uses the retained canonical Raster Tile preview/recomposition path; non-mixing paint remains on the existing fast path without changed output. M6A-063 remains responsible for sample/pickup radius, pickup amount, stateful carried color and drag/extension semantics; M6A-062 does not introduce a wet reservoir or physical paint simulation.
 
-      - name: Lint
-        run: npx biome lint --max-diagnostics=200 src tests scripts bench vitest.config.ts
+"""
+          if text.count(block) != 1:
+              raise SystemExit(f'expected exactly one M6A-062 block, found {text.count(block)}')
+          text = text.replace(block, '', 1)
+          end = "Primitive dabs, Worker payloads, history and recovery continue to use the existing resolved `tipAngleDegrees` field; no Spray-orientation-specific primitive field is introduced.\n"
+          if text.count(end) != 1:
+              raise SystemExit(f'expected exactly one M6A-061 end marker, found {text.count(end)}')
+          text = text.replace(end, end + '\n' + block, 1)
+          orientation = text.index('## M6A spray particle-orientation boundary — 2026-09-03')
+          mixing = text.index('## M6A ordinary raster color-mixing boundary — 2026-09-04')
+          authoritative_61 = text.index('**AUTHORITATIVE for M6A-061.**')
+          if not orientation < authoritative_61 < mixing:
+              raise SystemExit('M6A-061/M6A-062 canonical section order is still invalid')
+          path.write_text(text, encoding='utf-8')
+          PY
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Verify progress closure
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'M6A-062 ordinary raster color mixing:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F 'M6A-063 wet/smudge-style pickup:未完了' IMPLEMENTATION_PROGRESS.md
+          git diff --check
 
-      - name: Unit tests
-        run: npm run test:unit
+      - name: Remove one-shot verification files
+        run: git rm .github/m6a-062-apply-once.py .github/workflows/m6a-062-verify-once.yml
 
-      - name: Verify M6A contracts
-        run: npm run verify:m6a
-
-      - name: Production build
-        run: npm run build
-
-      - name: Integration tests
-        run: npm run test:integration
-
-      - name: Commit verified M6A-062
+      - name: Commit cleanup
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            ILLUSTRO_DESIGN_MEMO.md \
-            IMPLEMENTATION_PROGRESS.md \
-            src/domain/brush-schema.ts \
-            src/gpu/baseline-brush.ts \
-            src/app/paint-session-controller.ts \
-            src/gpu/baseline-raster-tile-store.ts \
-            src/gpu/baseline-paint-renderer.ts \
-            src/workers/render.worker.ts \
-            src/app/brush-preset-library.ts \
-            src/app/brush-preset-controller.ts \
-            src/index.html \
-            tests/unit/baseline-raster-tile-store.test.ts
+          git add ILLUSTRO_DESIGN_MEMO.md
           git diff --cached --check
-          git commit -m 'feat: implement ordinary raster color mixing'
+          git commit -m 'chore: close M6A-062 verification scaffolding'
           git push origin HEAD:main
