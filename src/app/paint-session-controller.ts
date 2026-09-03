@@ -223,6 +223,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushRealtimeStabilizationAmount: number;
   readonly brushPostStrokeCorrectionAmount: number;
   readonly brushTextureResourceKind: 'grain' | null;
+  readonly brushTextureResourceSubtype: 'grain' | 'paper' | null;
   readonly brushTextureResourceId: string | null;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
@@ -669,6 +670,7 @@ export class PaintSessionControllerV1 {
   #brushRealtimeStabilizationAmount = 0;
   #brushPostStrokeCorrectionAmount = 0;
   #brushTextureResourceKind: 'grain' | null = null;
+  #brushTextureResourceSubtype: 'grain' | 'paper' | null = null;
   #brushTextureResourceId: string | null = null;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
@@ -710,6 +712,7 @@ export class PaintSessionControllerV1 {
       brushRealtimeStabilizationAmount: this.#brushRealtimeStabilizationAmount,
       brushPostStrokeCorrectionAmount: this.#brushPostStrokeCorrectionAmount,
       brushTextureResourceKind: this.#brushTextureResourceKind,
+      brushTextureResourceSubtype: this.#brushTextureResourceSubtype,
       brushTextureResourceId: this.#brushTextureResourceId,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
@@ -933,17 +936,55 @@ export class PaintSessionControllerV1 {
           })();
     if (
       this.#brushTextureResourceKind !== (normalized === null ? null : 'grain') ||
+      this.#brushTextureResourceSubtype !== (normalized === null ? null : 'grain') ||
       this.#brushTextureResourceId !== normalized
     ) {
       this.#clearActiveStroke();
     }
     this.#brushTextureResourceKind = normalized === null ? null : 'grain';
+    this.#brushTextureResourceSubtype = normalized === null ? null : 'grain';
     this.#brushTextureResourceId = normalized;
     return this.#brushTextureResourceId;
   }
 
   brushGrainResourceId(): string | null {
-    return this.#brushTextureResourceKind === 'grain' ? this.#brushTextureResourceId : null;
+    return this.#brushTextureResourceKind === 'grain' &&
+      this.#brushTextureResourceSubtype !== 'paper'
+      ? this.#brushTextureResourceId
+      : null;
+  }
+
+  setBrushPaperTextureResourceId(resourceId: string | null): string | null {
+    const normalized =
+      resourceId === null
+        ? null
+        : (() => {
+            if (typeof resourceId !== 'string')
+              throw new TypeError('runtime paper resource id must be text');
+            const value = resourceId.trim();
+            if (value.length < 1 || value.length > 160) {
+              throw new RangeError('runtime paper resource id must be 1..160 characters');
+            }
+            return value;
+          })();
+    if (
+      this.#brushTextureResourceKind !== (normalized === null ? null : 'grain') ||
+      this.#brushTextureResourceSubtype !== (normalized === null ? null : 'paper') ||
+      this.#brushTextureResourceId !== normalized
+    ) {
+      this.#clearActiveStroke();
+    }
+    this.#brushTextureResourceKind = normalized === null ? null : 'grain';
+    this.#brushTextureResourceSubtype = normalized === null ? null : 'paper';
+    this.#brushTextureResourceId = normalized;
+    return this.#brushTextureResourceId;
+  }
+
+  brushPaperTextureResourceId(): string | null {
+    return this.#brushTextureResourceKind === 'grain' &&
+      this.#brushTextureResourceSubtype === 'paper'
+      ? this.#brushTextureResourceId
+      : null;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {

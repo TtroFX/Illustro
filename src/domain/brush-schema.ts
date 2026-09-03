@@ -484,6 +484,19 @@ export const BUILTIN_BRUSH_GRAIN_RESOURCES_V1: readonly BrushBuiltinGrainResourc
     ...builtinGrainFamilyV1('canvas', 3),
   ]);
 
+export interface BrushBuiltinPaperResourceV1 {
+  readonly id: string;
+  readonly name: string;
+}
+
+export const BUILTIN_BRUSH_PAPER_RESOURCES_V1: readonly BrushBuiltinPaperResourceV1[] =
+  Object.freeze(
+    Array.from({ length: 12 }, (_, index) => {
+      const number = String(index + 1).padStart(2, '0');
+      return Object.freeze({ id: `builtin.grain.paper.${number}`, name: `Paper ${number}` });
+    }),
+  );
+
 function normalizedBrushTextureResourceIdV1(value: unknown): string {
   if (typeof value !== 'string') throw new TypeError('brush texture resource id must be text');
   const normalized = value.trim();
@@ -495,9 +508,10 @@ function normalizedBrushTextureResourceIdV1(value: unknown): string {
 
 export function brushGrainResourceIdV1(preset: BrushPresetV1): string | null {
   const kind = preset.texture.resourceKind;
+  const subtype = preset.texture.resourceSubtype;
   const resourceId = preset.texture.resourceId;
   if (kind === undefined && resourceId === undefined) return null;
-  if (kind !== 'grain') return null;
+  if (kind !== 'grain' || subtype === 'paper') return null;
   return normalizedBrushTextureResourceIdV1(resourceId);
 }
 
@@ -506,14 +520,61 @@ export function withBrushGrainResourceIdV1(
   resourceId: string | null,
 ): BrushPresetV1 {
   if (resourceId === null) {
-    if (preset.texture.resourceKind !== 'grain') return preset;
-    const { resourceId: _resourceId, resourceKind: _resourceKind, ...rest } = preset.texture;
+    if (preset.texture.resourceKind !== 'grain' || preset.texture.resourceSubtype === 'paper') {
+      return preset;
+    }
+    const {
+      resourceId: _resourceId,
+      resourceKind: _resourceKind,
+      resourceSubtype: _resourceSubtype,
+      ...rest
+    } = preset.texture;
     return normalizeBrushPresetV1({ ...preset, texture: rest });
   }
   const normalized = normalizedBrushTextureResourceIdV1(resourceId);
   return normalizeBrushPresetV1({
     ...preset,
-    texture: { ...preset.texture, resourceKind: 'grain', resourceId: normalized },
+    texture: {
+      ...preset.texture,
+      resourceKind: 'grain',
+      resourceSubtype: 'grain',
+      resourceId: normalized,
+    },
+  });
+}
+
+export function brushPaperTextureResourceIdV1(preset: BrushPresetV1): string | null {
+  if (preset.texture.resourceKind !== 'grain' || preset.texture.resourceSubtype !== 'paper') {
+    return null;
+  }
+  return normalizedBrushTextureResourceIdV1(preset.texture.resourceId);
+}
+
+export function withBrushPaperTextureResourceIdV1(
+  preset: BrushPresetV1,
+  resourceId: string | null,
+): BrushPresetV1 {
+  if (resourceId === null) {
+    if (preset.texture.resourceKind !== 'grain' || preset.texture.resourceSubtype !== 'paper') {
+      return preset;
+    }
+    const {
+      resourceId: _resourceId,
+      resourceKind: _resourceKind,
+      resourceSubtype: _resourceSubtype,
+      ...rest
+    } = preset.texture;
+    return normalizeBrushPresetV1({ ...preset, texture: rest });
+  }
+  const normalized = normalizedBrushTextureResourceIdV1(resourceId);
+  return normalizeBrushPresetV1({
+    ...preset,
+    texture: {
+      ...preset.texture,
+      resourceKind: 'grain',
+      resourceSubtype: 'paper',
+      resourceId: normalized,
+    },
   });
 }
 

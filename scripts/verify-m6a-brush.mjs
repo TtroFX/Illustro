@@ -739,6 +739,29 @@ requireText(
   'grain inventory regression coverage missing',
 );
 
+requireText(progress, 'M6A-036 paper texture selection:完了', 'M6A-036 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'BUILTIN_BRUSH_PAPER_RESOURCES_V1',
+  'paper catalog missing',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPaperTextureResourceIdV1',
+  'paper selection helper missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushPaperTextureResourceId',
+  'paper runtime state missing',
+);
+requireText(read('src/index.html'), 'id="brush-paper-resource"', 'reachable paper chooser missing');
+requireText(
+  read('tests/unit/brush-paper-texture-selection.test.ts'),
+  'same single texture slot',
+  'paper/grain exclusivity regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

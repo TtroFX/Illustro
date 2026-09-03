@@ -5725,3 +5725,10 @@ Verification must cover at minimum:
 - Imported/user resources remain legal: the canonical helper accepts a normalized 1..160-character resource ID rather than restricting persisted presets to built-ins.
 - The selection is connected through preset persistence, runtime PaintSession state and the reachable Brush Properties chooser. M6A-035 deliberately does not alter dab coverage while texture strength remains unimplemented/default-zero; M6A-037 owns that rendering effect.
 - M6A-036 will extend the same single texture-resource selection contract to the I inventory's paper subtype rather than inventing a second simultaneous texture stack.
+
+#### M6A paper-texture-selection boundary — 2026-09-03
+
+- M6A-036 extends the M6A-035 single brush-texture resource slot to the accepted 12 paper resources. Paper remains `ResourceV1.kind = grain`; `BrushPresetV1.texture.resourceSubtype = 'paper'` distinguishes it from ordinary grain.
+- Stable built-in aliases are `builtin.grain.paper.01..12`. Ordinary non-paper grain is normalized to subtype `grain`. Selecting one replaces the other; M6A does not silently introduce a dual grain+paper texture stack.
+- Preset persistence and runtime state retain resource kind, subtype and ID independently from the later sampled payload. Imported paper resource IDs remain representable.
+- UI exposes separate Grain and Paper chooser rows for recognition, but they map to the same mutually exclusive canonical texture slot. M6A-037 applies the shared strength semantics to whichever resource is selected.

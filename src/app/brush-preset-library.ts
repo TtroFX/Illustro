@@ -19,6 +19,7 @@ import {
   withBrushRealtimeStabilizationAmountV1,
   withBrushPostStrokeCorrectionAmountV1,
   withBrushGrainResourceIdV1,
+  withBrushPaperTextureResourceIdV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -623,6 +624,25 @@ export function updateBrushPresetGrainResourceV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushGrainResourceIdV1(item.preset, resourceId);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetPaperTextureResourceV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  resourceId: string | null,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushPaperTextureResourceIdV1(item.preset, resourceId);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

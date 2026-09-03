@@ -18,7 +18,9 @@ import {
   brushRealtimeStabilizationAmountV1,
   brushPostStrokeCorrectionAmountV1,
   brushGrainResourceIdV1,
+  brushPaperTextureResourceIdV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
+  BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
   brushTipAssetsV1,
   brushTipShapeV1,
@@ -63,6 +65,7 @@ import {
   updateBrushPresetRealtimeStabilizationV1,
   updateBrushPresetPostStrokeCorrectionV1,
   updateBrushPresetGrainResourceV1,
+  updateBrushPresetPaperTextureResourceV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -152,6 +155,7 @@ export function installBrushPresetControllerV1(input: {
   const postCorrectionRange = requireElement('#brush-post-correction-range', HTMLInputElement);
   const postCorrectionNumber = requireElement('#brush-post-correction-number', HTMLInputElement);
   const grainResource = requireElement('#brush-grain-resource', HTMLSelectElement);
+  const paperResource = requireElement('#brush-paper-resource', HTMLSelectElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -211,7 +215,12 @@ export function installBrushPresetControllerV1(input: {
     const postCorrectionAmount = brushPostStrokeCorrectionAmountV1(item.preset);
     input.paintSession.setBrushPostStrokeCorrectionAmount(postCorrectionAmount);
     const grainResourceId = brushGrainResourceIdV1(item.preset);
-    input.paintSession.setBrushGrainResourceId(grainResourceId);
+    const paperResourceId = brushPaperTextureResourceIdV1(item.preset);
+    if (paperResourceId !== null) {
+      input.paintSession.setBrushPaperTextureResourceId(paperResourceId);
+    } else {
+      input.paintSession.setBrushGrainResourceId(grainResourceId);
+    }
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -254,6 +263,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushStabilizationAmount = String(stabilizationAmount);
     input.root.dataset.illustroBrushPostCorrectionAmount = String(postCorrectionAmount);
     input.root.dataset.illustroBrushGrainResource = grainResourceId ?? '';
+    input.root.dataset.illustroBrushPaperResource = paperResourceId ?? '';
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -400,6 +410,28 @@ export function installBrushPresetControllerV1(input: {
       grainResource.append(imported);
     }
     grainResource.value = grainResourceId ?? '';
+    const paperResourceId = brushPaperTextureResourceIdV1(selected.preset);
+    paperResource.replaceChildren();
+    const noPaper = document.createElement('option');
+    noPaper.value = '';
+    noPaper.textContent = 'なし';
+    paperResource.append(noPaper);
+    for (const resource of BUILTIN_BRUSH_PAPER_RESOURCES_V1) {
+      const option = document.createElement('option');
+      option.value = resource.id;
+      option.textContent = resource.name;
+      paperResource.append(option);
+    }
+    if (
+      paperResourceId !== null &&
+      !BUILTIN_BRUSH_PAPER_RESOURCES_V1.some((resource) => resource.id === paperResourceId)
+    ) {
+      const imported = document.createElement('option');
+      imported.value = paperResourceId;
+      imported.textContent = `Imported · ${paperResourceId}`;
+      paperResource.append(imported);
+    }
+    paperResource.value = paperResourceId ?? '';
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -453,7 +485,9 @@ export function installBrushPresetControllerV1(input: {
       grainResourceId === null
         ? ''
         : ` · Grain:${grainResourceId.split('.').at(-2) ?? 'custom'}-${grainResourceId.split('.').at(-1) ?? ''}`;
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}`;
+    const paperLabel =
+      paperResourceId === null ? '' : ` · Paper:${paperResourceId.split('.').at(-1) ?? 'custom'}`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -490,6 +524,7 @@ export function installBrushPresetControllerV1(input: {
       postCorrectionRange,
       postCorrectionNumber,
       grainResource,
+      paperResource,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -636,6 +671,14 @@ export function installBrushPresetControllerV1(input: {
         grainResource.value.length === 0 ? null : grainResource.value,
       ),
     );
+  const onPaperResource = (): void =>
+    mutate(() =>
+      updateBrushPresetPaperTextureResourceV1(
+        state,
+        state.selectedPresetId,
+        paperResource.value.length === 0 ? null : paperResource.value,
+      ),
+    );
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -739,6 +782,7 @@ export function installBrushPresetControllerV1(input: {
   postCorrectionRange.addEventListener('input', onPostCorrectionRange);
   postCorrectionNumber.addEventListener('change', onPostCorrectionNumber);
   grainResource.addEventListener('change', onGrainResource);
+  paperResource.addEventListener('change', onPaperResource);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -795,6 +839,7 @@ export function installBrushPresetControllerV1(input: {
       postCorrectionRange.removeEventListener('input', onPostCorrectionRange);
       postCorrectionNumber.removeEventListener('change', onPostCorrectionNumber);
       grainResource.removeEventListener('change', onGrainResource);
+      paperResource.removeEventListener('change', onPaperResource);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
