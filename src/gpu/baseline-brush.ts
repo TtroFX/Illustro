@@ -203,6 +203,30 @@ export interface BaselineBrushDabV1 {
   readonly tipAngleDegrees?: number;
   readonly tipShape?: BaselineBrushTipShapeV1;
   readonly color?: BaselineBrushColorV1;
+  readonly colorMixEnabled?: boolean;
+  readonly colorMixCanvasRatio?: number;
+  readonly colorMixDepositAmount?: number;
+}
+
+export const BASELINE_BRUSH_COLOR_MIX_CANVAS_RATIO_V1 = 0.5 as const;
+export const BASELINE_BRUSH_COLOR_MIX_DEPOSIT_AMOUNT_V1 = 1 as const;
+
+export function baselineDabColorMixEnabledV1(dab: BaselineBrushDabV1): boolean {
+  return dab.colorMixEnabled === true;
+}
+
+export function baselineDabColorMixCanvasRatioV1(dab: BaselineBrushDabV1): number {
+  const value = dab.colorMixCanvasRatio;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : BASELINE_BRUSH_COLOR_MIX_CANVAS_RATIO_V1;
+}
+
+export function baselineDabColorMixDepositAmountV1(dab: BaselineBrushDabV1): number {
+  const value = dab.colorMixDepositAmount;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : BASELINE_BRUSH_COLOR_MIX_DEPOSIT_AMOUNT_V1;
 }
 
 export function baselineDabColorV1(dab: BaselineBrushDabV1): BaselineBrushColorV1 {

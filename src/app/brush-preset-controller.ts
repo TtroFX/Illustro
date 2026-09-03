@@ -61,6 +61,9 @@ import {
   brushSpraySpreadRadiusRatioV1,
   brushSprayDeviationV1,
   brushSprayAngleBasedOnCenterV1,
+  brushColorMixEnabledV1,
+  brushColorMixCanvasRatioV1,
+  brushColorMixDepositAmountV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -151,6 +154,9 @@ import {
   updateBrushPresetSprayParticleDensityV1,
   updateBrushPresetSpraySpreadV1,
   updateBrushPresetSprayAngleBasedOnCenterV1,
+  updateBrushPresetColorMixEnabledV1,
+  updateBrushPresetColorMixCanvasRatioV1,
+  updateBrushPresetColorMixDepositAmountV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -385,6 +391,17 @@ export function installBrushPresetControllerV1(input: {
     '#brush-spray-angle-based-on-center',
     HTMLButtonElement,
   );
+  const colorMixEnabledButton = requireElement('#brush-color-mix-enabled', HTMLButtonElement);
+  const colorMixCanvasRatioRange = requireElement(
+    '#brush-color-mix-canvas-ratio-range',
+    HTMLInputElement,
+  );
+  const colorMixCanvasRatioNumber = requireElement(
+    '#brush-color-mix-canvas-ratio-number',
+    HTMLInputElement,
+  );
+  const colorMixDepositRange = requireElement('#brush-color-mix-deposit-range', HTMLInputElement);
+  const colorMixDepositNumber = requireElement('#brush-color-mix-deposit-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -536,6 +553,14 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushSpraySpread(spraySpreadRadiusRatio, sprayDeviation);
     const sprayAngleBasedOnCenter = brushSprayAngleBasedOnCenterV1(item.preset);
     input.paintSession.setBrushSprayAngleBasedOnCenter(sprayAngleBasedOnCenter);
+    const colorMixEnabled = brushColorMixEnabledV1(item.preset);
+    const colorMixCanvasRatio = brushColorMixCanvasRatioV1(item.preset);
+    const colorMixDepositAmount = brushColorMixDepositAmountV1(item.preset);
+    input.paintSession.setBrushColorMix(
+      colorMixEnabled,
+      colorMixCanvasRatio,
+      colorMixDepositAmount,
+    );
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -621,6 +646,9 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushSpraySpreadRadiusRatio = String(spraySpreadRadiusRatio);
     input.root.dataset.illustroBrushSprayDeviation = String(sprayDeviation);
     input.root.dataset.illustroBrushSprayAngleBasedOnCenter = String(sprayAngleBasedOnCenter);
+    input.root.dataset.illustroBrushColorMixEnabled = String(colorMixEnabled);
+    input.root.dataset.illustroBrushColorMixCanvasRatio = String(colorMixCanvasRatio);
+    input.root.dataset.illustroBrushColorMixDepositAmount = String(colorMixDepositAmount);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -963,6 +991,27 @@ export function installBrushPresetControllerV1(input: {
     const sprayAngleBasedOnCenter = brushSprayAngleBasedOnCenterV1(selected.preset);
     sprayAngleBasedOnCenterButton.textContent = sprayAngleBasedOnCenter ? 'ON' : 'OFF';
     sprayAngleBasedOnCenterButton.setAttribute('aria-pressed', String(sprayAngleBasedOnCenter));
+    const colorMixEnabled = brushColorMixEnabledV1(selected.preset);
+    colorMixEnabledButton.textContent = colorMixEnabled ? 'ON' : 'OFF';
+    colorMixEnabledButton.setAttribute('aria-pressed', String(colorMixEnabled));
+    const colorMixCanvasRatio = brushColorMixCanvasRatioV1(selected.preset);
+    const colorMixDepositAmount = brushColorMixDepositAmountV1(selected.preset);
+    configurePair(
+      colorMixCanvasRatioRange,
+      colorMixCanvasRatioNumber,
+      0,
+      100,
+      1,
+      colorMixCanvasRatio * 100,
+    );
+    configurePair(
+      colorMixDepositRange,
+      colorMixDepositNumber,
+      0,
+      100,
+      1,
+      colorMixDepositAmount * 100,
+    );
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -1078,7 +1127,10 @@ export function installBrushPresetControllerV1(input: {
       ? ` · Spread${Math.round(spraySpreadRadiusRatio * 100)}%${sprayDeviation === 0 ? '' : `/Dev${Math.round(sprayDeviation * 100)}%`}`
       : '';
     const sprayOrientationLabel = sprayEnabled && sprayAngleBasedOnCenter ? ' · CenterAngle' : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}${maximumResponseLabel}${sizeJitterLabel}${opacityJitterLabel}${rotationJitterLabel}${positionJitterLabel}${densityJitterLabel}${colorJitterLabel}${sprayLabel}${sprayParticleSizeLabel}${sprayParticleDensityLabel}${spraySpreadLabel}${sprayOrientationLabel}`;
+    const colorMixLabel = colorMixEnabled
+      ? ` · Mix${Math.round(colorMixCanvasRatio * 100)}%/Deposit${Math.round(colorMixDepositAmount * 100)}%`
+      : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}${maximumResponseLabel}${sizeJitterLabel}${opacityJitterLabel}${rotationJitterLabel}${positionJitterLabel}${densityJitterLabel}${colorJitterLabel}${sprayLabel}${sprayParticleSizeLabel}${sprayParticleDensityLabel}${spraySpreadLabel}${sprayOrientationLabel}${colorMixLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -1176,6 +1228,11 @@ export function installBrushPresetControllerV1(input: {
       sprayDeviationRange,
       sprayDeviationNumber,
       sprayAngleBasedOnCenterButton,
+      colorMixEnabledButton,
+      colorMixCanvasRatioRange,
+      colorMixCanvasRatioNumber,
+      colorMixDepositRange,
+      colorMixDepositNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -1191,6 +1248,10 @@ export function installBrushPresetControllerV1(input: {
     sprayDeviationRange.disabled = locked || !sprayEnabled;
     sprayDeviationNumber.disabled = locked || !sprayEnabled;
     sprayAngleBasedOnCenterButton.disabled = locked || !sprayEnabled;
+    colorMixCanvasRatioRange.disabled = locked || !colorMixEnabled;
+    colorMixCanvasRatioNumber.disabled = locked || !colorMixEnabled;
+    colorMixDepositRange.disabled = locked || !colorMixEnabled;
+    colorMixDepositNumber.disabled = locked || !colorMixEnabled;
     pressureCurveEditor?.setDisabled(locked);
     tiltCurveEditor?.setDisabled(locked);
     velocityCurveEditor?.setDisabled(locked);
@@ -1679,6 +1740,30 @@ export function installBrushPresetControllerV1(input: {
         !brushSprayAngleBasedOnCenterV1(selectedBrushPresetItemV1(state).preset),
       ),
     );
+  const onColorMixEnabled = (): void =>
+    mutate(() =>
+      updateBrushPresetColorMixEnabledV1(
+        state,
+        state.selectedPresetId,
+        !brushColorMixEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
+  const updateColorMixCanvasRatio = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetColorMixCanvasRatioV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const updateColorMixDepositAmount = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetColorMixDepositAmountV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const onColorMixCanvasRatioRange = (): void =>
+    updateColorMixCanvasRatio(Number(colorMixCanvasRatioRange.value));
+  const onColorMixCanvasRatioNumber = (): void =>
+    updateColorMixCanvasRatio(Number(colorMixCanvasRatioNumber.value));
+  const onColorMixDepositRange = (): void =>
+    updateColorMixDepositAmount(Number(colorMixDepositRange.value));
+  const onColorMixDepositNumber = (): void =>
+    updateColorMixDepositAmount(Number(colorMixDepositNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -1843,6 +1928,11 @@ export function installBrushPresetControllerV1(input: {
   sprayDeviationRange.addEventListener('input', onSprayDeviationRange);
   sprayDeviationNumber.addEventListener('change', onSprayDeviationNumber);
   sprayAngleBasedOnCenterButton.addEventListener('click', onSprayAngleBasedOnCenter);
+  colorMixEnabledButton.addEventListener('click', onColorMixEnabled);
+  colorMixCanvasRatioRange.addEventListener('input', onColorMixCanvasRatioRange);
+  colorMixCanvasRatioNumber.addEventListener('change', onColorMixCanvasRatioNumber);
+  colorMixDepositRange.addEventListener('input', onColorMixDepositRange);
+  colorMixDepositNumber.addEventListener('change', onColorMixDepositNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -1960,6 +2050,11 @@ export function installBrushPresetControllerV1(input: {
       sprayDeviationRange.removeEventListener('input', onSprayDeviationRange);
       sprayDeviationNumber.removeEventListener('change', onSprayDeviationNumber);
       sprayAngleBasedOnCenterButton.removeEventListener('click', onSprayAngleBasedOnCenter);
+      colorMixEnabledButton.removeEventListener('click', onColorMixEnabled);
+      colorMixCanvasRatioRange.removeEventListener('input', onColorMixCanvasRatioRange);
+      colorMixCanvasRatioNumber.removeEventListener('change', onColorMixCanvasRatioNumber);
+      colorMixDepositRange.removeEventListener('input', onColorMixDepositRange);
+      colorMixDepositNumber.removeEventListener('change', onColorMixDepositNumber);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();

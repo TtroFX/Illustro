@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { BaselineBrushDabV1 } from '../../src/gpu/baseline-brush.js';
-import { BaselineRasterTileStoreV1 } from '../../src/gpu/baseline-raster-tile-store.js';
+import {
+  BaselineRasterTileStoreV1,
+  readBaselineRasterTilePixelV1,
+} from '../../src/gpu/baseline-raster-tile-store.js';
 
 const layers = Object.freeze([Object.freeze({ layerId: 'layer-a', visible: true, opacity: 1 })]);
 
@@ -45,6 +48,68 @@ describe('baseline raster tile canonical state', () => {
     store.cancel('stroke-cancelled');
 
     expect(store.exportTiles()[0]?.bytes).toEqual(before);
+  });
+
+  it('mixes ordinary paint with opaque canvas color in linear light', () => {
+    const store = new BaselineRasterTileStoreV1(128, 128, 'rgba8-unorm', layers);
+    const colored = (
+      strokeId: string,
+      color: readonly [number, number, number],
+      mix = false,
+    ): void => {
+      store.applyDabs('layer-a', strokeId, [
+        Object.freeze({
+          schema: 'illustro.baseline-brush-dab/1' as const,
+          x: 32,
+          y: 32,
+          radius: 8,
+          opacity: 1,
+          color,
+          ...(mix
+            ? {
+                colorMixEnabled: true,
+                colorMixCanvasRatio: 0.5,
+                colorMixDepositAmount: 1,
+              }
+            : {}),
+        }),
+      ]);
+      store.finalize(strokeId);
+    };
+    colored('stroke-blue', [0, 0, 1]);
+    colored('stroke-red-mix', [1, 0, 0], true);
+    const tile = store.exportTiles()[0];
+    expect(tile).toBeDefined();
+    const pixel = readBaselineRasterTilePixelV1(tile!, 32 * 128 + 32);
+    expect(pixel[0]).toBeCloseTo(0.735, 2);
+    expect(pixel[1]).toBeCloseTo(0, 3);
+    expect(pixel[2]).toBeCloseTo(0.735, 2);
+    expect(pixel[3]).toBeCloseTo(1, 3);
+  });
+
+  it('does not mix transparent black into ordinary paint and honors deposit amount', () => {
+    const store = new BaselineRasterTileStoreV1(128, 128, 'rgba8-unorm', layers);
+    store.applyDabs('layer-a', 'stroke-mix-transparent', [
+      Object.freeze({
+        schema: 'illustro.baseline-brush-dab/1' as const,
+        x: 32,
+        y: 32,
+        radius: 8,
+        opacity: 1,
+        color: Object.freeze([1, 0, 0] as const),
+        colorMixEnabled: true,
+        colorMixCanvasRatio: 1,
+        colorMixDepositAmount: 0.25,
+      }),
+    ]);
+    store.finalize('stroke-mix-transparent');
+    const tile = store.exportTiles()[0];
+    expect(tile).toBeDefined();
+    const pixel = readBaselineRasterTilePixelV1(tile!, 32 * 128 + 32);
+    expect(pixel[0]).toBeCloseTo(1, 3);
+    expect(pixel[1]).toBeCloseTo(0, 3);
+    expect(pixel[2]).toBeCloseTo(0, 3);
+    expect(pixel[3]).toBeCloseTo(0.25, 2);
   });
 
   it('keeps 16-bit-float document tiles at eight bytes per pixel', () => {

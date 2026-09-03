@@ -4,6 +4,9 @@ import {
   BASELINE_BRUSH_HARDNESS,
   BASELINE_BRUSH_TIP_DENSITY,
   baselineDabColorV1,
+  baselineDabColorMixCanvasRatioV1,
+  baselineDabColorMixDepositAmountV1,
+  baselineDabColorMixEnabledV1,
   baselineDabFlowV1,
   baselineDabHardnessV1,
   baselineDabTipDensityV1,
@@ -236,6 +239,13 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         ...(dab.color === undefined
           ? {}
           : { color: Object.freeze([...dab.color]) as readonly [number, number, number] }),
+        ...(dab.colorMixEnabled === undefined ? {} : { colorMixEnabled: dab.colorMixEnabled }),
+        ...(dab.colorMixCanvasRatio === undefined
+          ? {}
+          : { colorMixCanvasRatio: dab.colorMixCanvasRatio }),
+        ...(dab.colorMixDepositAmount === undefined
+          ? {}
+          : { colorMixDepositAmount: dab.colorMixDepositAmount }),
       }),
     ),
   );
@@ -263,7 +273,16 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
     (dab.tipDensity === undefined ||
       (Number.isFinite(dab.tipDensity) && dab.tipDensity >= 0 && dab.tipDensity <= 1)) &&
     (dab.tipAngleDegrees === undefined || Number.isFinite(dab.tipAngleDegrees)) &&
-    (dab.tipShape === undefined || dab.tipShape === 'round' || dab.tipShape === 'square')
+    (dab.tipShape === undefined || dab.tipShape === 'round' || dab.tipShape === 'square') &&
+    (dab.colorMixEnabled === undefined || typeof dab.colorMixEnabled === 'boolean') &&
+    (dab.colorMixCanvasRatio === undefined ||
+      (Number.isFinite(dab.colorMixCanvasRatio) &&
+        dab.colorMixCanvasRatio >= 0 &&
+        dab.colorMixCanvasRatio <= 1)) &&
+    (dab.colorMixDepositAmount === undefined ||
+      (Number.isFinite(dab.colorMixDepositAmount) &&
+        dab.colorMixDepositAmount >= 0 &&
+        dab.colorMixDepositAmount <= 1))
   );
 }
 
@@ -282,6 +301,9 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
     baselineDabTipDensityV1(left) === baselineDabTipDensityV1(right) &&
     baselineDabTipAngleDegreesV1(left) === baselineDabTipAngleDegreesV1(right) &&
     (left.tipShape ?? 'round') === (right.tipShape ?? 'round') &&
+    baselineDabColorMixEnabledV1(left) === baselineDabColorMixEnabledV1(right) &&
+    baselineDabColorMixCanvasRatioV1(left) === baselineDabColorMixCanvasRatioV1(right) &&
+    baselineDabColorMixDepositAmountV1(left) === baselineDabColorMixDepositAmountV1(right) &&
     baselineDabColorV1(left).every(
       (component, index) => component === baselineDabColorV1(right)[index],
     )
@@ -294,6 +316,7 @@ function requiresCanonicalPaintPreview(dabs: readonly BaselineBrushDabV1[]): boo
       dab.tipShape === 'square' ||
       baselineDabHardnessV1(dab) !== BASELINE_BRUSH_HARDNESS ||
       baselineDabTipDensityV1(dab) !== BASELINE_BRUSH_TIP_DENSITY ||
+      baselineDabColorMixEnabledV1(dab) ||
       (baselineDabUsesFlowOpacityV1(dab) &&
         (baselineDabFlowV1(dab) < 1 || baselineDabStrokeOpacityV1(dab) < 1)),
   );

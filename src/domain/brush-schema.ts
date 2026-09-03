@@ -1629,6 +1629,73 @@ export function withBrushSprayAngleBasedOnCenterV1(
   });
 }
 
+export const DEFAULT_BRUSH_COLOR_MIX_ENABLED_V1 = false as const;
+export const DEFAULT_BRUSH_COLOR_MIX_CANVAS_RATIO_V1 = 0.5 as const;
+export const DEFAULT_BRUSH_COLOR_MIX_DEPOSIT_AMOUNT_V1 = 1 as const;
+
+export function brushColorMixEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.colorMix.enabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_COLOR_MIX_ENABLED_V1;
+}
+
+function brushColorMixUnitValueV1(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : fallback;
+}
+
+export function brushColorMixCanvasRatioV1(preset: BrushPresetV1): number {
+  return brushColorMixUnitValueV1(
+    preset.colorMix.canvasRatio,
+    DEFAULT_BRUSH_COLOR_MIX_CANVAS_RATIO_V1,
+  );
+}
+
+export function brushColorMixDepositAmountV1(preset: BrushPresetV1): number {
+  return brushColorMixUnitValueV1(
+    preset.colorMix.depositAmount,
+    DEFAULT_BRUSH_COLOR_MIX_DEPOSIT_AMOUNT_V1,
+  );
+}
+
+export function withBrushColorMixEnabledV1(preset: BrushPresetV1, enabled: boolean): BrushPresetV1 {
+  if (typeof enabled !== 'boolean')
+    throw new TypeError('brush color mixing enabled flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_COLOR_MIX_ENABLED_V1) {
+    const { enabled: _enabled, ...colorMix } = preset.colorMix;
+    return normalizeBrushPresetV1({ ...preset, colorMix });
+  }
+  return normalizeBrushPresetV1({ ...preset, colorMix: { ...preset.colorMix, enabled } });
+}
+
+export function withBrushColorMixCanvasRatioV1(
+  preset: BrushPresetV1,
+  canvasRatio: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(canvasRatio) || canvasRatio < 0 || canvasRatio > 1) {
+    throw new RangeError('brush color mixing canvas ratio must be within 0..1');
+  }
+  if (canvasRatio === DEFAULT_BRUSH_COLOR_MIX_CANVAS_RATIO_V1) {
+    const { canvasRatio: _canvasRatio, ...colorMix } = preset.colorMix;
+    return normalizeBrushPresetV1({ ...preset, colorMix });
+  }
+  return normalizeBrushPresetV1({ ...preset, colorMix: { ...preset.colorMix, canvasRatio } });
+}
+
+export function withBrushColorMixDepositAmountV1(
+  preset: BrushPresetV1,
+  depositAmount: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(depositAmount) || depositAmount < 0 || depositAmount > 1) {
+    throw new RangeError('brush color mixing deposit amount must be within 0..1');
+  }
+  if (depositAmount === DEFAULT_BRUSH_COLOR_MIX_DEPOSIT_AMOUNT_V1) {
+    const { depositAmount: _depositAmount, ...colorMix } = preset.colorMix;
+    return normalizeBrushPresetV1({ ...preset, colorMix });
+  }
+  return normalizeBrushPresetV1({ ...preset, colorMix: { ...preset.colorMix, depositAmount } });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

@@ -492,6 +492,9 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     const hardness = candidate.hardness;
     const tipDensity = candidate.tipDensity;
     const tipAngleDegrees = candidate.tipAngleDegrees;
+    const colorMixEnabled = candidate.colorMixEnabled;
+    const colorMixCanvasRatio = candidate.colorMixCanvasRatio;
+    const colorMixDepositAmount = candidate.colorMixDepositAmount;
     if (
       (radiusX !== undefined &&
         (typeof radiusX !== 'number' || !Number.isFinite(radiusX) || radiusX <= 0)) ||
@@ -515,7 +518,18 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
           tipDensity < 0 ||
           tipDensity > 1)) ||
       (tipAngleDegrees !== undefined &&
-        (typeof tipAngleDegrees !== 'number' || !Number.isFinite(tipAngleDegrees)))
+        (typeof tipAngleDegrees !== 'number' || !Number.isFinite(tipAngleDegrees))) ||
+      (colorMixEnabled !== undefined && typeof colorMixEnabled !== 'boolean') ||
+      (colorMixCanvasRatio !== undefined &&
+        (typeof colorMixCanvasRatio !== 'number' ||
+          !Number.isFinite(colorMixCanvasRatio) ||
+          colorMixCanvasRatio < 0 ||
+          colorMixCanvasRatio > 1)) ||
+      (colorMixDepositAmount !== undefined &&
+        (typeof colorMixDepositAmount !== 'number' ||
+          !Number.isFinite(colorMixDepositAmount) ||
+          colorMixDepositAmount < 0 ||
+          colorMixDepositAmount > 1))
     ) {
       return null;
     }
@@ -546,6 +560,9 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         ...(tipAngleDegrees === undefined ? {} : { tipAngleDegrees }),
         ...(tipShape === undefined ? {} : { tipShape }),
         ...(color === undefined ? {} : { color }),
+        ...(colorMixEnabled === undefined ? {} : { colorMixEnabled }),
+        ...(colorMixCanvasRatio === undefined ? {} : { colorMixCanvasRatio }),
+        ...(colorMixDepositAmount === undefined ? {} : { colorMixDepositAmount }),
       }),
     );
   }

@@ -5944,6 +5944,15 @@ Resolved particle centers remain on the logical-stamp record and are reused duri
 
 ## M6A spray particle-orientation boundary — 2026-09-03
 
+
+## M6A ordinary raster color-mixing boundary — 2026-09-04
+
+**AUTHORITATIVE for M6A-062.** Ordinary raster color mixing is a deterministic digital paint behavior, not physical pigment/fluid simulation. The M6A-062 production subset uses `colorMix.enabled`, `colorMix.canvasRatio` (`0..1`, default `0.5`) and `colorMix.depositAmount` (`0..1`, default `1`). The feature is inert unless enabled and applies only to ordinary Raster paint; Eraser, basic Smudge and Blur keep their existing operation semantics.
+
+For each covered destination pixel, the brush color and the current canonical active-Raster-Layer pixel are mixed in linear-light RGB and converted back through the document RGB transfer function before the normal source-over deposit. `canvasRatio=0` means brush color only and `canvasRatio=1` means fully available canvas color. Canvas contribution is multiplied by destination alpha, so fully transparent pixels never inject hidden/black RGB into the brush color. `depositAmount` scales the per-dab deposited coverage before the existing flow/stroke-opacity accumulation rule and therefore composes with, rather than bypasses, normal opacity/flow semantics.
+
+The resolved M6A-062 values are carried on canonical dabs so Render Worker, history/recovery and deterministic reconstruction do not depend on the currently selected preset. Because the existing additive WebGPU preview shader cannot sample the destination color, any dab with ordinary color mixing enabled uses the retained canonical Raster Tile preview/recomposition path; non-mixing paint remains on the existing fast path without changed output. M6A-063 remains responsible for sample/pickup radius, pickup amount, stateful carried color and drag/extension semantics; M6A-062 does not introduce a wet reservoir or physical paint simulation.
+
 **AUTHORITATIVE for M6A-061.** `BrushPresetV1.spray.angleBasedOnCenter` is a boolean with exact/default `false`. Disabled Spray orientation preserves the M6A-057 through M6A-060 behavior: every particle inherits the parent logical stamp's already-resolved `tipAngleDegrees`.
 
 When enabled, each particle uses the direction from the final Spray center to its final particle center as an additional orientation basis. The radial direction is added to the parent's resolved angle and normalized through the existing canonical angle domain. Consequently static tip angle/intrinsic direction, follow-stroke rotation or pen orientation, and M6A-053 rotation jitter remain composable relative offsets rather than being silently discarded. A 90-degree static offset naturally produces a tangential appearance without introducing a second tangential mode. If the particle has no radial displacement, the radial basis is undefined and the parent angle is retained.

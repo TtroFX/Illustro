@@ -1,7 +1,14 @@
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
+import {
+  decodeSrgbTransferComponentV1,
+  encodeSrgbTransferComponentV1,
+} from '../domain/color-management.js';
 import type { BlendModeId } from '../domain/layers.js';
 import {
   baselineDabColorV1,
+  baselineDabColorMixCanvasRatioV1,
+  baselineDabColorMixDepositAmountV1,
+  baselineDabColorMixEnabledV1,
   baselineDabFlowV1,
   baselineDabHardnessV1,
   baselineDabTipDensityV1,
@@ -287,6 +294,38 @@ function baselineProceduralTipCoverageV1(
   return edgeCoverage * baselineDabTipDensityV1(dab);
 }
 
+function mixedDigitalBrushColorV1(
+  brushColor: readonly [number, number, number],
+  canvasColor: readonly [number, number, number],
+  canvasAlpha: number,
+  canvasRatio: number,
+): readonly [number, number, number] {
+  const effectiveCanvasRatio = clamp01(canvasRatio) * clamp01(canvasAlpha);
+  if (effectiveCanvasRatio <= 0) return brushColor;
+  if (effectiveCanvasRatio >= 1) return canvasColor;
+  const brushWeight = 1 - effectiveCanvasRatio;
+  return Object.freeze([
+    clamp01(
+      encodeSrgbTransferComponentV1(
+        decodeSrgbTransferComponentV1(brushColor[0]) * brushWeight +
+          decodeSrgbTransferComponentV1(canvasColor[0]) * effectiveCanvasRatio,
+      ),
+    ),
+    clamp01(
+      encodeSrgbTransferComponentV1(
+        decodeSrgbTransferComponentV1(brushColor[1]) * brushWeight +
+          decodeSrgbTransferComponentV1(canvasColor[1]) * effectiveCanvasRatio,
+      ),
+    ),
+    clamp01(
+      encodeSrgbTransferComponentV1(
+        decodeSrgbTransferComponentV1(brushColor[2]) * brushWeight +
+          decodeSrgbTransferComponentV1(canvasColor[2]) * effectiveCanvasRatio,
+      ),
+    ),
+  ]);
+}
+
 function rasterizeColorDab(
   tile: BaselineRasterTileImageV1,
   tileX: number,
@@ -304,12 +343,18 @@ function rasterizeColorDab(
   const maxY = Math.min(tileY + tile.height - 1, Math.ceil(dab.y + extentY) - 1);
   const opacity = clamp01(dab.opacity);
   const sourceColor = baselineDabColorV1(dab);
+  const colorMixEnabled = baselineDabColorMixEnabledV1(dab);
+  const colorMixCanvasRatio = baselineDabColorMixCanvasRatioV1(dab);
+  const colorMixDepositAmount = baselineDabColorMixDepositAmountV1(dab);
   const flow = clamp01(baselineDabFlowV1(dab));
   const strokeOpacity = clamp01(baselineDabStrokeOpacityV1(dab));
   const semanticFlowOpacity = strokeCoverage !== null && baselineDabUsesFlowOpacityV1(dab);
   const sourceAlphaForPixel = (pixel: number, coverage: number): number => {
-    if (!semanticFlowOpacity || strokeCoverage === null) return clamp01(opacity * coverage);
-    const deposit = clamp01(flow * coverage);
+    const depositedCoverage = coverage * (colorMixEnabled ? colorMixDepositAmount : 1);
+    if (!semanticFlowOpacity || strokeCoverage === null) {
+      return clamp01(opacity * depositedCoverage);
+    }
+    const deposit = clamp01(flow * depositedCoverage);
     const previousEffective = strokeCoverage[pixel] ?? 0;
     const availableOpacity = Math.max(0, strokeOpacity - previousEffective);
     const nextEffective = clamp01(previousEffective + availableOpacity * deposit);
@@ -337,21 +382,32 @@ function rasterizeColorDab(
         const destinationRed = (bytes[pixelOffset] ?? 0) / 255;
         const destinationGreen = (bytes[pixelOffset + 1] ?? 0) / 255;
         const destinationBlue = (bytes[pixelOffset + 2] ?? 0) / 255;
+        const resolvedSourceColor = colorMixEnabled
+          ? mixedDigitalBrushColorV1(
+              sourceColor,
+              [destinationRed, destinationGreen, destinationBlue],
+              destinationAlpha,
+              colorMixCanvasRatio,
+            )
+          : sourceColor;
         const destinationWeight = destinationAlpha * inverseSourceAlpha;
         const sourceWeight = sourceAlpha;
         bytes[pixelOffset] = Math.round(
           (outputAlpha > 0
-            ? (sourceColor[0] * sourceWeight + destinationRed * destinationWeight) / outputAlpha
+            ? (resolvedSourceColor[0] * sourceWeight + destinationRed * destinationWeight) /
+              outputAlpha
             : 0) * 255,
         );
         bytes[pixelOffset + 1] = Math.round(
           (outputAlpha > 0
-            ? (sourceColor[1] * sourceWeight + destinationGreen * destinationWeight) / outputAlpha
+            ? (resolvedSourceColor[1] * sourceWeight + destinationGreen * destinationWeight) /
+              outputAlpha
             : 0) * 255,
         );
         bytes[pixelOffset + 2] = Math.round(
           (outputAlpha > 0
-            ? (sourceColor[2] * sourceWeight + destinationBlue * destinationWeight) / outputAlpha
+            ? (resolvedSourceColor[2] * sourceWeight + destinationBlue * destinationWeight) /
+              outputAlpha
             : 0) * 255,
         );
         bytes[pixelOffset + 3] = Math.round(outputAlpha * 255);
@@ -371,17 +427,28 @@ function rasterizeColorDab(
       if (sourceAlpha <= 0) continue;
       const destination = readPixel(tile, pixel);
       const destinationAlpha = destination[3];
+      const resolvedSourceColor = colorMixEnabled
+        ? mixedDigitalBrushColorV1(
+            sourceColor,
+            [destination[0], destination[1], destination[2]],
+            destinationAlpha,
+            colorMixCanvasRatio,
+          )
+        : sourceColor;
       const outputAlpha = sourceAlpha + destinationAlpha * (1 - sourceAlpha);
       const destinationWeight = destinationAlpha * (1 - sourceAlpha);
       writePixel(tile, pixel, [
         outputAlpha > 0
-          ? (sourceColor[0] * sourceAlpha + destination[0] * destinationWeight) / outputAlpha
+          ? (resolvedSourceColor[0] * sourceAlpha + destination[0] * destinationWeight) /
+            outputAlpha
           : 0,
         outputAlpha > 0
-          ? (sourceColor[1] * sourceAlpha + destination[1] * destinationWeight) / outputAlpha
+          ? (resolvedSourceColor[1] * sourceAlpha + destination[1] * destinationWeight) /
+            outputAlpha
           : 0,
         outputAlpha > 0
-          ? (sourceColor[2] * sourceAlpha + destination[2] * destinationWeight) / outputAlpha
+          ? (resolvedSourceColor[2] * sourceAlpha + destination[2] * destinationWeight) /
+            outputAlpha
           : 0,
         outputAlpha,
       ]);
