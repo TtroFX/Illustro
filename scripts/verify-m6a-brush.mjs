@@ -1373,6 +1373,53 @@ requireText(
   'rotation-jitter tail reconciliation regression missing',
 );
 
+requireText(progress, 'M6A-054 position/scatter jitter:完了', 'M6A-054 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPositionJitterV1',
+  'position-jitter preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushPositionJitterV1',
+  'deterministic 2D position-jitter channel missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'maximumPositionOffsetPx = this.#radius * 2 * this.#positionJitter',
+  'position jitter is not scaled from the base brush diameter',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushPositionJitter',
+  'position jitter is not connected to runtime brush state',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'positionJitterEnabled',
+  'position jitter does not capture a deterministic persistent stroke seed',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-position-jitter-range"',
+  'reachable position-jitter control missing',
+);
+requireText(
+  read('tests/unit/brush-position-jitter.test.ts'),
+  'does not feed jittered centers back into spacing or stroke geometry',
+  'position-jitter path-invariance regression missing',
+);
+requireText(
+  read('tests/unit/brush-position-jitter.test.ts'),
+  'advances the position-jitter attempt index even when taper suppresses a logical stamp',
+  'position-jitter attempt-index regression missing',
+);
+requireText(
+  read('tests/unit/brush-position-jitter.test.ts'),
+  'reuses the resolved jittered center when reconciling the mutable end tail',
+  'position-jitter tail reconciliation regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

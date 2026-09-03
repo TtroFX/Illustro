@@ -129,6 +129,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly sizeJitter?: number;
       readonly opacityJitter?: number;
       readonly rotationJitter?: number;
+      readonly positionJitter?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -239,6 +240,7 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.sizeJitter === undefined ? {} : { sizeJitter: options.sizeJitter }),
       ...(options.opacityJitter === undefined ? {} : { opacityJitter: options.opacityJitter }),
       ...(options.rotationJitter === undefined ? {} : { rotationJitter: options.rotationJitter }),
+      ...(options.positionJitter === undefined ? {} : { positionJitter: options.positionJitter }),
       ...(options.randomSeed === undefined ? {} : { randomSeed: options.randomSeed }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),

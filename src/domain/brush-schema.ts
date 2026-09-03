@@ -1363,6 +1363,29 @@ export function withBrushRotationJitterV1(preset: BrushPresetV1, amount: number)
   });
 }
 
+export const DEFAULT_BRUSH_POSITION_JITTER_V1 = 0 as const;
+
+export function brushPositionJitterV1(preset: BrushPresetV1): number {
+  const value = preset.jitter.position;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_POSITION_JITTER_V1;
+}
+
+export function withBrushPositionJitterV1(preset: BrushPresetV1, amount: number): BrushPresetV1 {
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+    throw new RangeError('brush position jitter must be within 0..1');
+  }
+  if (amount === DEFAULT_BRUSH_POSITION_JITTER_V1) {
+    const { position: _position, ...jitter } = preset.jitter;
+    return normalizeBrushPresetV1({ ...preset, jitter });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    jitter: { ...preset.jitter, position: amount },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 
