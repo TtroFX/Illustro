@@ -17,6 +17,14 @@ def replace_once(path: str, before: str, after: str) -> None:
     write(path, source.replace(before, after, 1))
 
 
+def replace_expected(path: str, before: str, after: str, expected: int) -> None:
+    source = read(path)
+    count = source.count(before)
+    if count != expected:
+        raise RuntimeError(f'{path}: expected {expected} replacements, found {count}: {before[:100]!r}')
+    write(path, source.replace(before, after))
+
+
 def insert_before(path: str, marker: str, block: str) -> None:
     replace_once(path, marker, block.rstrip() + '\n\n' + marker)
 
@@ -66,7 +74,7 @@ insert_before(
   return dab.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
 }""",
 )
-replace_once(
+replace_expected(
     'src/gpu/baseline-brush.ts',
     """  strokeOpacity: number,
   hardness: number,
@@ -77,6 +85,7 @@ replace_once(
   tipDensity: number,
   color: BaselineBrushColorV1,
 """,
+    2,
 )
 replace_once(
     'src/gpu/baseline-brush.ts',
@@ -88,20 +97,6 @@ replace_once(
     hardness,
     tipDensity,
     tipShape,
-""",
-)
-replace_once(
-    'src/gpu/baseline-brush.ts',
-    """  strokeOpacity: number,
-  hardness: number,
-  color: BaselineBrushColorV1,
-  tipShape: BaselineBrushTipShapeV1,
-""",
-    """  strokeOpacity: number,
-  hardness: number,
-  tipDensity: number,
-  color: BaselineBrushColorV1,
-  tipShape: BaselineBrushTipShapeV1,
 """,
 )
 replace_once(
