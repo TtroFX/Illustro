@@ -919,6 +919,33 @@ requireText(
   'pressure-opacity raster regression missing',
 );
 
+requireText(progress, 'M6A-043 pressure→flow:完了', 'M6A-043 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPressureFlowEnabledV1',
+  'pressure-flow preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#flow * opacityScale * pressureFlowScale',
+  'pressure is not resolved into per-dab flow',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushPressureFlowEnabled',
+  'pressure-flow mapping is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-pressure-flow"',
+  'reachable pressure-flow control missing',
+);
+requireText(
+  read('tests/unit/brush-pressure-flow.test.ts'),
+  'keeps pressure flow and pressure opacity independent when both are enabled',
+  'pressure-flow independence regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

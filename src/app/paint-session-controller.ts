@@ -232,6 +232,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTextureBlendMode: BrushTextureBlendModeV1;
   readonly brushPressureSizeEnabled: boolean;
   readonly brushPressureOpacityEnabled: boolean;
+  readonly brushPressureFlowEnabled: boolean;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -685,6 +686,7 @@ export class PaintSessionControllerV1 {
   #brushTextureBlendMode: BrushTextureBlendModeV1 = 'multiply';
   #brushPressureSizeEnabled = false;
   #brushPressureOpacityEnabled = false;
+  #brushPressureFlowEnabled = false;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -733,6 +735,7 @@ export class PaintSessionControllerV1 {
       brushTextureBlendMode: this.#brushTextureBlendMode,
       brushPressureSizeEnabled: this.#brushPressureSizeEnabled,
       brushPressureOpacityEnabled: this.#brushPressureOpacityEnabled,
+      brushPressureFlowEnabled: this.#brushPressureFlowEnabled,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1080,6 +1083,17 @@ export class PaintSessionControllerV1 {
 
   brushPressureOpacityEnabled(): boolean {
     return this.#brushPressureOpacityEnabled;
+  }
+
+  setBrushPressureFlowEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime pressure-flow flag');
+    if (enabled !== this.#brushPressureFlowEnabled) this.#clearActiveStroke();
+    this.#brushPressureFlowEnabled = enabled;
+    return this.#brushPressureFlowEnabled;
+  }
+
+  brushPressureFlowEnabled(): boolean {
+    return this.#brushPressureFlowEnabled;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1943,6 +1957,7 @@ export class PaintSessionControllerV1 {
         forceEndTaper: this.#brushForceEndTaper,
         pressureSizeEnabled: this.#brushPressureSizeEnabled,
         pressureOpacityEnabled: this.#brushPressureOpacityEnabled,
+        pressureFlowEnabled: this.#brushPressureFlowEnabled,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,

@@ -303,6 +303,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #forceEndTaper: boolean;
   readonly #pressureSizeEnabled: boolean;
   readonly #pressureOpacityEnabled: boolean;
+  readonly #pressureFlowEnabled: boolean;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -340,6 +341,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly forceEndTaper?: boolean;
       readonly pressureSizeEnabled?: boolean;
       readonly pressureOpacityEnabled?: boolean;
+      readonly pressureFlowEnabled?: boolean;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -373,6 +375,7 @@ export class BaselineBrushDabBuilderV1 {
     const forceEndTaper = options.forceEndTaper ?? false;
     const pressureSizeEnabled = options.pressureSizeEnabled ?? false;
     const pressureOpacityEnabled = options.pressureOpacityEnabled ?? false;
+    const pressureFlowEnabled = options.pressureFlowEnabled ?? false;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -437,6 +440,9 @@ export class BaselineBrushDabBuilderV1 {
     if (typeof pressureOpacityEnabled !== 'boolean') {
       throw new TypeError('baseline brush pressure opacity flag must be boolean');
     }
+    if (typeof pressureFlowEnabled !== 'boolean') {
+      throw new TypeError('baseline brush pressure flow flag must be boolean');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -453,6 +459,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#forceEndTaper = forceEndTaper;
     this.#pressureSizeEnabled = pressureSizeEnabled;
     this.#pressureOpacityEnabled = pressureOpacityEnabled;
+    this.#pressureFlowEnabled = pressureFlowEnabled;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -668,11 +675,13 @@ export class BaselineBrushDabBuilderV1 {
     );
     const pressureSizeScale = this.#pressureSizeEnabled ? stamp.pressure : 1;
     const pressureOpacityScale = this.#pressureOpacityEnabled ? stamp.pressure : 1;
+    const pressureFlowScale = this.#pressureFlowEnabled ? stamp.pressure : 1;
     if (
       sizeScale <= 0 ||
       opacityScale <= 0 ||
       pressureSizeScale <= 0 ||
-      pressureOpacityScale <= 0
+      pressureOpacityScale <= 0 ||
+      pressureFlowScale <= 0
     ) {
       return;
     }
@@ -681,7 +690,7 @@ export class BaselineBrushDabBuilderV1 {
       stamp.x,
       stamp.y,
       this.#radius * sizeScale * pressureSizeScale,
-      this.#flow * opacityScale,
+      this.#flow * opacityScale * pressureFlowScale,
       this.#strokeOpacity * pressureOpacityScale,
       this.#hardness,
       this.#tipDensity,

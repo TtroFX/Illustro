@@ -5778,3 +5778,11 @@ Verification must cover at minimum:
 - Canonical Raster paint stores effective stroke coverage per pixel. For fixed opacity the recurrence `E_next = E_prev + (O - E_prev) * deposit` is algebraically identical to the previous raw-coverage-times-opacity result. With a varying cap it uses `max(0, O - E_prev)` so lowering pressure never erases or rolls back already committed alpha.
 - No second per-tile pressure buffer is allocated. Primitive dabs retain only the already-existing resolved `strokeOpacity`, preserving Worker/history/recovery schema compactness.
 - M6A-044 pressure response curve and M6A-049/050 response bounds extend the shared pressure scalar later; they must not make M6A-032 forced zero endpoints non-zero.
+
+## M6A pressure-to-flow boundary — 2026-09-03
+
+- `dynamics.pressureFlowEnabled` is an opt-in boolean and defaults to false.
+- Pressure-to-flow multiplies only per-stamp flow/deposit. It does not change the M6A-042 opacity cap and does not change M6A-041 size unless those mappings are separately enabled.
+- The same distance-interpolated Pen pressure scalar is reused for size, opacity and flow so the three mappings stay deterministic and aligned at logical stamp positions. Mouse uses neutral pressure 1.0.
+- Raster paint semantics remain: flow controls convergence speed toward the current effective opacity cap; opacity controls the cap. No new renderer state, primitive-dab field, Worker ABI or history schema is required.
+- M6A-044 supplies a shared response curve before these independent mappings, while M6A-049/050 later bound the response. M6A-032 forced taper zero endpoints remain authoritative.

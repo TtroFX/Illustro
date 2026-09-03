@@ -469,7 +469,8 @@ M6A-041 pressure→size:完了
 再開メモ: M6A-041 pressure→sizeはBrushPresetV1.dynamics.pressureSizeEnabledをopt-in booleanとして追加し、既定falseで既存strokeを完全互換にした。有効時はPenの保存済みraw pressure 0..1をstabilized geometryへ対応付け、logical stamp位置で距離比例補間してbase radius × taper size scale × pressureへ解決する。Mouseはpressure対応入力ではないためsize mapping上は1.0扱い。primitive dabには解決済みradiusだけを保存し、新しいdab/history schemaは増やさない。post-stroke correction再構築でも補正前geometry indexに対応するpressureを維持する。M6A-044 curveとM6A-049/050 min/maxはこのlinear 0..1基礎経路を後から拡張し、M6A-032 forced taperのzero endpointを打ち消してはならない。次はM6A-042 pressure→opacityから再開する。
 M6A-042 pressure→opacity:完了
 再開メモ: M6A-042 pressure→opacityはBrushPresetV1.dynamics.pressureOpacityEnabledをopt-in booleanとして追加し、既定falseで既存strokeを互換維持する。有効時はM6A-041と同じPen raw pressure 0..1をlogical stamp位置へ距離比例補間し、base strokeOpacity cap × pressureへ解決する一方、per-dab flow/depositは変更しない。Raster paintのcoverage累積は固定opacityで従来式と代数的に等価なeffectiveNext = effectivePrev + max(0, opacityCap-effectivePrev) × depositへ整理し、pressure低下で既描画alphaを巻き戻さず、pressure上昇時はflowで新しいcapへ収束する。追加per-tile bufferは不要。Mouseはpressure mapping上1.0、primitive dabは既存strokeOpacityへ解決済み値を保存するためdab/history schema追加はない。次はM6A-043 pressure→flowから再開する。
-M6A-043 pressure→flow:未完了
+M6A-043 pressure→flow:完了
+再開メモ: M6A-043 pressure→flowはBrushPresetV1.dynamics.pressureFlowEnabledをopt-in booleanとして追加し、既定falseで既存strokeを互換維持する。有効時はM6A-041/042と同じPen raw pressureをlogical stamp位置へ距離比例補間し、base flow × taper deposit scale × pressureへ解決する。strokeOpacity capは変更しないためM6A-042とは独立し、Raster paintではflowが現在のeffective coverageからopacity capへ近づく速度だけを制御する。Mouseはneutral 1.0、primitive dabには既存flowへ解決済み値だけを保存するためrenderer/history schema追加は不要。pressure→size/opacity/flowを同時に有効化しても同一pressure scalarから各軸を独立解決する。次はM6A-044 pressure response curveから再開する。
 M6A-044 pressure response curve:未完了
 M6A-045 tilt mapping:未完了
 M6A-046 orientation mapping:未完了

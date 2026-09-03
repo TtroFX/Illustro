@@ -99,6 +99,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly forceEndTaper?: boolean;
       readonly pressureSizeEnabled?: boolean;
       readonly pressureOpacityEnabled?: boolean;
+      readonly pressureFlowEnabled?: boolean;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -144,6 +145,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.pressureOpacityEnabled === undefined
         ? {}
         : { pressureOpacityEnabled: options.pressureOpacityEnabled }),
+      ...(options.pressureFlowEnabled === undefined
+        ? {}
+        : { pressureFlowEnabled: options.pressureFlowEnabled }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined

@@ -26,6 +26,7 @@ import {
   withBrushTextureBlendModeV1,
   withBrushPressureSizeEnabledV1,
   withBrushPressureOpacityEnabledV1,
+  withBrushPressureFlowEnabledV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -764,6 +765,25 @@ export function updateBrushPresetPressureOpacityV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushPressureOpacityEnabledV1(item.preset, enabled);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetPressureFlowV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  enabled: boolean,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushPressureFlowEnabledV1(item.preset, enabled);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({
