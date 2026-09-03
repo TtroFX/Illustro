@@ -1,8 +1,10 @@
 import { baselineBrushShaderSource } from '../generated/baseline-brush-shader.js';
 import type { DocumentColorSpace, DocumentPrecision } from '../domain/document.js';
 import {
+  BASELINE_BRUSH_HARDNESS,
   baselineDabColorV1,
   baselineDabFlowV1,
+  baselineDabHardnessV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   baselineDabStrokeOpacityV1,
@@ -224,6 +226,7 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         opacity: dab.opacity,
         ...(dab.flow === undefined ? {} : { flow: dab.flow }),
         ...(dab.strokeOpacity === undefined ? {} : { strokeOpacity: dab.strokeOpacity }),
+        ...(dab.hardness === undefined ? {} : { hardness: dab.hardness }),
         ...(dab.tipShape === undefined ? {} : { tipShape: dab.tipShape }),
         ...(dab.color === undefined
           ? {}
@@ -250,6 +253,8 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
     (dab.flow === undefined || (Number.isFinite(dab.flow) && dab.flow >= 0 && dab.flow <= 1)) &&
     (dab.strokeOpacity === undefined ||
       (Number.isFinite(dab.strokeOpacity) && dab.strokeOpacity >= 0 && dab.strokeOpacity <= 1)) &&
+    (dab.hardness === undefined ||
+      (Number.isFinite(dab.hardness) && dab.hardness >= 0 && dab.hardness <= 1)) &&
     (dab.tipShape === undefined || dab.tipShape === 'round' || dab.tipShape === 'square')
   );
 }
@@ -265,6 +270,7 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
     left.opacity === right.opacity &&
     baselineDabFlowV1(left) === baselineDabFlowV1(right) &&
     baselineDabStrokeOpacityV1(left) === baselineDabStrokeOpacityV1(right) &&
+    baselineDabHardnessV1(left) === baselineDabHardnessV1(right) &&
     (left.tipShape ?? 'round') === (right.tipShape ?? 'round') &&
     baselineDabColorV1(left).every(
       (component, index) => component === baselineDabColorV1(right)[index],
@@ -276,6 +282,7 @@ function requiresCanonicalPaintPreview(dabs: readonly BaselineBrushDabV1[]): boo
   return dabs.some(
     (dab) =>
       dab.tipShape === 'square' ||
+      baselineDabHardnessV1(dab) !== BASELINE_BRUSH_HARDNESS ||
       (baselineDabUsesFlowOpacityV1(dab) &&
         (baselineDabFlowV1(dab) < 1 || baselineDabStrokeOpacityV1(dab) < 1)),
   );

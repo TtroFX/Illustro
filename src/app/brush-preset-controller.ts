@@ -4,6 +4,7 @@ import {
   brushParameterValuesV1,
   brushSampledTipAlphaV1,
   brushSelectedTipAssetIdV1,
+  brushTipHardnessV1,
   brushTipAssetsV1,
   brushTipShapeV1,
   type BrushBehaviorV1,
@@ -32,6 +33,7 @@ import {
   setBrushPresetSearchV1,
   deleteBrushPresetTipAssetV1,
   updateBrushPresetCustomTipV1,
+  updateBrushPresetHardnessV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
   type BrushPresetLibraryStateV1,
@@ -93,6 +95,8 @@ export function installBrushPresetControllerV1(input: {
   const opacityNumber = requireElement('#brush-opacity-number', HTMLInputElement);
   const flowRange = requireElement('#brush-flow-range', HTMLInputElement);
   const flowNumber = requireElement('#brush-flow-number', HTMLInputElement);
+  const hardnessRange = requireElement('#brush-hardness-range', HTMLInputElement);
+  const hardnessNumber = requireElement('#brush-hardness-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -130,6 +134,7 @@ export function installBrushPresetControllerV1(input: {
     const parameters = brushParameterValuesV1(item.preset);
     input.paintSession.setBrushMode(modeForBehavior(item.preset.behavior));
     input.paintSession.setBrushParameters(parameters);
+    input.paintSession.setBrushHardness(brushTipHardnessV1(item.preset));
     input.paintSession.setBrushTipShape(
       brushTipShapeV1(item.preset),
       brushSampledTipAlphaV1(item.preset) ?? undefined,
@@ -141,6 +146,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushSize = String(parameters.sizePx);
     input.root.dataset.illustroBrushOpacity = String(parameters.opacity);
     input.root.dataset.illustroBrushFlow = String(parameters.flow);
+    input.root.dataset.illustroBrushHardness = String(brushTipHardnessV1(item.preset));
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -233,6 +239,8 @@ export function installBrushPresetControllerV1(input: {
       parameters.opacity,
     );
     configurePair(flowRange, flowNumber, limits.flow.min, limits.flow.max, 0.01, parameters.flow);
+    const hardness = brushTipHardnessV1(selected.preset);
+    configurePair(hardnessRange, hardnessNumber, 0, 1, 0.01, hardness);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -263,7 +271,7 @@ export function installBrushPresetControllerV1(input: {
       tipAssetSelect.value = selectedTipAssetId ?? tipAssets[0]?.id ?? '';
     }
     tipAssetStatus.textContent = tipAssets.length + '/' + BRUSH_TIP_ASSET_LIMIT_V1;
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}%`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}%`;
 
     const locked = selected.locked;
     for (const control of [
@@ -273,6 +281,8 @@ export function installBrushPresetControllerV1(input: {
       opacityNumber,
       flowRange,
       flowNumber,
+      hardnessRange,
+      hardnessNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -333,6 +343,10 @@ export function installBrushPresetControllerV1(input: {
   const onOpacityNumber = (): void => updateParameter({ opacity: Number(opacityNumber.value) });
   const onFlowRange = (): void => updateParameter({ flow: Number(flowRange.value) });
   const onFlowNumber = (): void => updateParameter({ flow: Number(flowNumber.value) });
+  const updateHardness = (hardness: number): void =>
+    mutate(() => updateBrushPresetHardnessV1(state, state.selectedPresetId, hardness));
+  const onHardnessRange = (): void => updateHardness(Number(hardnessRange.value));
+  const onHardnessNumber = (): void => updateHardness(Number(hardnessNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -409,6 +423,8 @@ export function installBrushPresetControllerV1(input: {
   opacityNumber.addEventListener('change', onOpacityNumber);
   flowRange.addEventListener('input', onFlowRange);
   flowNumber.addEventListener('change', onFlowNumber);
+  hardnessRange.addEventListener('input', onHardnessRange);
+  hardnessNumber.addEventListener('change', onHardnessNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -438,6 +454,8 @@ export function installBrushPresetControllerV1(input: {
       opacityNumber.removeEventListener('change', onOpacityNumber);
       flowRange.removeEventListener('input', onFlowRange);
       flowNumber.removeEventListener('change', onFlowNumber);
+      hardnessRange.removeEventListener('input', onHardnessRange);
+      hardnessNumber.removeEventListener('change', onHardnessNumber);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);

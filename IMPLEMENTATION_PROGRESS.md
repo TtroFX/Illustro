@@ -428,7 +428,8 @@ M6A-019 custom tip creation:完了
 再開メモ: M6A-019 custom tip creationは選択preset内に単一5×5 alpha maskを保持し、画像入力を中央square crop→5×5へ縮小→黒/暗部をcoverageとして正規化する。stroke開始時にcustom alphaをcaptureし、M6A-018と同じprimitive round dab展開へ流すためrenderer/History/Persistenceの別経路は追加しない。centerが透明なcustom tipでも終端重複しないようlogical stamp位置をdab列とは別に追跡する。次はM6A-020 multiple tip assets without Dual Brush semanticsから再開する。
 M6A-020 multiple tip assets without Dual Brush semantics:完了
 再開メモ: M6A-020はbrush preset内のextensionsに最大16個のsampled tip assetを保持し、selectedTipAssetIdで常に1個だけをactive tipへ投影する。既存M6A-019の単一custom tipは最初の追加時にasset collectionへ昇格する。選択・置換・削除はpreset revision/lock/persistenceを通し、runtimeには選択済みalpha maskだけを渡すためDual Brushの同時合成・ランダム混合・複数tip同時描画は実装しない。次はM6A-021 hardnessから再開する。
-M6A-021 hardness:未完了
+M6A-021 hardness:完了
+再開メモ: M6A-021 hardnessはtip.hardnessの0..1静的値をpreset正本として扱い、stroke開始時にcaptureして全primitive dabへ保存する。旧strokeでhardness未保存の場合は0.85へfallbackする。Canonical Raster Tileのedge coverageがhardness正本で、既存WebGPU shaderが持つ0.85 fast pathはdefault値だけ維持し、非default hardnessはcanonical previewへ切替えて表示と保存結果の不一致を避ける。sampled/custom tipのmicro dabにも同じhardnessを伝播する。次はM6A-022 tip densityから再開する。
 M6A-022 tip density:未完了
 M6A-023 spacing/gap:未完了
 M6A-024 tip angle:未完了

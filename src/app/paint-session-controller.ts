@@ -23,6 +23,7 @@ import {
   type RasterTileReferenceV1,
 } from '../domain/layers.js';
 import {
+  BASELINE_BRUSH_HARDNESS,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -193,6 +194,7 @@ export interface PaintSessionSnapshotV1 {
   readonly selectionAnchorLayerId: LayerId | null;
   readonly brushMode: CanonicalBrushModeV1;
   readonly brushParameters: BrushParameterValuesV1;
+  readonly brushHardness: number;
   readonly brushTipShape: BaselineBrushTipShapeV1;
   readonly brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
@@ -264,6 +266,10 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     value.strokeOpacity === undefined
       ? undefined
       : finiteNumber(value.strokeOpacity, 'baseline dab strokeOpacity');
+  const hardness =
+    value.hardness === undefined
+      ? undefined
+      : finiteNumber(value.hardness, 'baseline dab hardness');
   const tipShape = value.tipShape === undefined ? undefined : value.tipShape;
   if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square') {
     throw new TypeError('invalid baseline dab tip shape');
@@ -284,7 +290,8 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     opacity < 0 ||
     opacity > 1 ||
     (flow !== undefined && (flow < 0 || flow > 1)) ||
-    (strokeOpacity !== undefined && (strokeOpacity < 0 || strokeOpacity > 1))
+    (strokeOpacity !== undefined && (strokeOpacity < 0 || strokeOpacity > 1)) ||
+    (hardness !== undefined && (hardness < 0 || hardness > 1))
   ) {
     throw new RangeError('invalid baseline dab range');
   }
@@ -298,6 +305,7 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     opacity,
     ...(flow === undefined ? {} : { flow }),
     ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
+    ...(hardness === undefined ? {} : { hardness }),
     ...(tipShape === undefined ? {} : { tipShape }),
     ...(color === undefined ? {} : { color }),
   });
@@ -569,6 +577,7 @@ export class PaintSessionControllerV1 {
   #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
   #brushMode: CanonicalBrushModeV1 = 'raster';
   #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
+  #brushHardness: number = BASELINE_BRUSH_HARDNESS;
   #brushTipShape: BaselineBrushTipShapeV1 = 'round';
   #brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null = null;
   #disposed = false;
@@ -590,6 +599,7 @@ export class PaintSessionControllerV1 {
       selectionAnchorLayerId: this.#selectionAnchorLayerId,
       brushMode: this.#brushMode,
       brushParameters: this.#brushParameters,
+      brushHardness: this.#brushHardness,
       brushTipShape: this.#brushTipShape,
       brushSampledTipAlpha: this.#brushSampledTipAlpha,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
@@ -644,6 +654,18 @@ export class PaintSessionControllerV1 {
     return this.#brushParameters;
   }
 
+  setBrushHardness(hardness: number): number {
+    if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
+      throw new RangeError('invalid runtime brush hardness');
+    }
+    if (hardness !== this.#brushHardness) this.#clearActiveStroke();
+    this.#brushHardness = hardness;
+    return this.#brushHardness;
+  }
+
+  brushHardness(): number {
+    return this.#brushHardness;
+  }
   setBrushTipShape(
     shape: BaselineBrushTipShapeV1,
     sampledTipAlpha?: readonly number[],
@@ -1361,6 +1383,7 @@ export class PaintSessionControllerV1 {
       sizePx: parameters.sizePx,
       opacity: parameters.opacity,
       flow: parameters.flow,
+      hardness: this.#brushHardness,
       tipShape: this.#brushTipShape,
       ...(this.#brushSampledTipAlpha === null
         ? {}

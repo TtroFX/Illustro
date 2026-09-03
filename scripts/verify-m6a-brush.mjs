@@ -290,6 +290,32 @@ requireText(
   'never merges two masks as Dual Brush',
   'multiple tip asset regression coverage missing',
 );
+requireText(progress, 'M6A-021 hardness:完了', 'M6A-021 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTipHardnessV1',
+  'brush hardness preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'baselineDabHardnessV1',
+  'canonical raster hardness coverage missing',
+);
+requireText(
+  read('src/gpu/baseline-paint-renderer.ts'),
+  'baselineDabHardnessV1(dab) !== BASELINE_BRUSH_HARDNESS',
+  'non-default hardness canonical preview fallback missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-hardness-range"',
+  'reachable brush hardness control missing',
+);
+requireText(
+  read('tests/unit/brush-hardness.test.ts'),
+  'softens the canonical tip edge',
+  'brush hardness regression coverage missing',
+);
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

@@ -5584,3 +5584,11 @@ Verification must cover at minimum:
 - An M6A-019 single custom tip is promoted into the collection when another tip asset is added, preserving the original tip as the first asset. Replacing the custom tip while a collection exists replaces the selected asset rather than discarding sibling assets.
 - This item explicitly does not implement Dual Brush semantics: no simultaneous mask multiplication, secondary-tip compositing, random multi-tip mixing, or more than one tip contribution per logical stamp is introduced.
 - Asset add/select/delete operations use the existing preset revision, lock, reset, duplicate, and serialization boundaries. At least one asset must remain once a collection exists; explicit single-tip creation outside an asset collection remains supported for backward compatibility.
+
+#### M6A hardness boundary — 2026-09-03
+
+- M6A-021 defines static brush-tip hardness as a preset-local value in the closed range 0..1. Existing presets already carrying tip.hardness become authoritative without a schema-version fork; missing legacy values resolve to 0.85.
+- Hardness is captured when a stroke begins and is persisted on each resolved primitive dab. Recovery and old stored strokes remain compatible because omitted dab hardness falls back to 0.85.
+- Canonical Raster Tile coverage is authoritative: hardness 1 keeps full coverage throughout the interior, lower values move the smooth falloff inward. Round and square procedural primitives use the same normalized hardness contract, and sampled/custom tips propagate hardness to every alpha-weighted micro-dab.
+- The existing direct WebGPU baseline shader encodes the historical 0.85 edge. It remains the fast path only for default hardness; any non-default hardness uses the existing canonical-tile preview path so presentation cannot diverge from History/Persistence/Export. This avoids prematurely expanding the renderer ABI solely for M6A-021.
+- M6A-021 is a static preset property only. Pressure/dynamics modulation of hardness, tip density, spacing, and other stroke dynamics remain assigned to later M6A items.

@@ -3,6 +3,7 @@ import type { BlendModeId } from '../domain/layers.js';
 import {
   baselineDabColorV1,
   baselineDabFlowV1,
+  baselineDabHardnessV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   baselineDabStrokeOpacityV1,
@@ -252,8 +253,6 @@ function writePixel(
   view.setUint16(offset + 6, floatToHalf(rgba[3]), true);
 }
 
-const BASELINE_BRUSH_HARDNESS = 0.85;
-
 function baselineProceduralTipDistanceV1(
   dab: BaselineBrushDabV1,
   localX: number,
@@ -271,9 +270,8 @@ function baselineProceduralTipCoverageV1(
 ): number {
   const distance = baselineProceduralTipDistanceV1(dab, localX, localY);
   if (distance >= 1) return 0;
-  return distance <= BASELINE_BRUSH_HARDNESS
-    ? 1
-    : clamp01(1 - smoothstep(BASELINE_BRUSH_HARDNESS, 1, distance));
+  const hardness = baselineDabHardnessV1(dab);
+  return distance <= hardness ? 1 : clamp01(1 - smoothstep(hardness, 1, distance));
 }
 
 function rasterizeColorDab(

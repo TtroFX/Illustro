@@ -108,6 +108,24 @@ export function brushParameterValuesV1(preset: BrushPresetV1): BrushParameterVal
   });
 }
 
+export const DEFAULT_BRUSH_TIP_HARDNESS_V1 = 0.85 as const;
+
+export function brushTipHardnessV1(preset: BrushPresetV1): number {
+  const value = preset.tip.hardness;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_TIP_HARDNESS_V1;
+}
+
+export function withBrushTipHardnessV1(preset: BrushPresetV1, hardness: number): BrushPresetV1 {
+  if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
+    throw new RangeError('brush tip hardness must be within 0..1');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: { ...preset.tip, hardness },
+  });
+}
 export function withBrushParameterValuesV1(
   preset: BrushPresetV1,
   patch: Partial<BrushParameterValuesV1>,

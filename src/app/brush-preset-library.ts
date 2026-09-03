@@ -5,6 +5,7 @@ import {
   createBaselineBrushPresetV1,
   normalizeBrushPresetV1,
   withBrushCustomSampledTipV1,
+  withBrushTipHardnessV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
   withBrushTipAssetReplacementV1,
@@ -333,6 +334,24 @@ export function updateBrushPresetTipShapeV1(
   });
 }
 
+export function updateBrushPresetHardnessV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  hardness: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushTipHardnessV1(item.preset, hardness);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
 export function updateBrushPresetCustomTipV1(
   state: BrushPresetLibraryStateV1,
   presetId: string,
