@@ -126,6 +126,25 @@ export function withBrushTipHardnessV1(preset: BrushPresetV1, hardness: number):
     tip: { ...preset.tip, hardness },
   });
 }
+export const DEFAULT_BRUSH_TIP_DENSITY_V1 = 1 as const;
+
+export function brushTipDensityV1(preset: BrushPresetV1): number {
+  const value = preset.tip.density;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_TIP_DENSITY_V1;
+}
+
+export function withBrushTipDensityV1(preset: BrushPresetV1, density: number): BrushPresetV1 {
+  if (!Number.isFinite(density) || density < 0 || density > 1) {
+    throw new RangeError('brush tip density must be within 0..1');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: { ...preset.tip, density },
+  });
+}
+
 export function withBrushParameterValuesV1(
   preset: BrushPresetV1,
   patch: Partial<BrushParameterValuesV1>,

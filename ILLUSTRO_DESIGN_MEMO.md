@@ -5592,3 +5592,11 @@ Verification must cover at minimum:
 - Canonical Raster Tile coverage is authoritative: hardness 1 keeps full coverage throughout the interior, lower values move the smooth falloff inward. Round and square procedural primitives use the same normalized hardness contract, and sampled/custom tips propagate hardness to every alpha-weighted micro-dab.
 - The existing direct WebGPU baseline shader encodes the historical 0.85 edge. It remains the fast path only for default hardness; any non-default hardness uses the existing canonical-tile preview path so presentation cannot diverge from History/Persistence/Export. This avoids prematurely expanding the renderer ABI solely for M6A-021.
 - M6A-021 is a static preset property only. Pressure/dynamics modulation of hardness, tip density, spacing, and other stroke dynamics remain assigned to later M6A items.
+
+#### M6A tip-density boundary — 2026-09-03
+
+- Tip density is a static `0..1` multiplier on brush-tip mask coverage. It is not an alias for flow: flow controls how much ink repeated stamps deposit, while tip density controls how strongly the selected tip mask covers at each stamp.
+- Tip density is captured once at stroke start and copied to primitive dabs, so history, save/recovery, Worker/Main rendering, and incremental stroke rendering share the same deterministic value. Legacy dabs without the field resolve to `1.0`.
+- The canonical raster tip-coverage function is the semantic owner for density across paint, erase, smudge, and blur. Density `1.0` preserves the existing direct WebGPU fast path; non-default values route through canonical tile preview until a later optimized shader path is justified.
+- Worker message parsing must preserve static dab semantics such as hardness and tip density rather than silently reverting to defaults.
+- Spacing/gap remains a separate M6A-023 stroke-placement parameter.

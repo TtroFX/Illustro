@@ -316,6 +316,43 @@ requireText(
   'softens the canonical tip edge',
   'brush hardness regression coverage missing',
 );
+requireText(progress, 'M6A-022 tip density:完了', 'M6A-022 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTipDensityV1',
+  'brush tip density preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'baselineDabTipDensityV1',
+  'canonical raster tip-density coverage missing',
+);
+requireText(
+  read('src/gpu/baseline-paint-renderer.ts'),
+  'baselineDabTipDensityV1(dab) !== BASELINE_BRUSH_TIP_DENSITY',
+  'non-default tip-density canonical preview fallback missing',
+);
+requireText(
+  read('src/workers/render.worker.ts'),
+  '...(hardness === undefined ? {} : { hardness })',
+  'worker parser does not preserve brush hardness',
+);
+requireText(
+  read('src/workers/render.worker.ts'),
+  '...(tipDensity === undefined ? {} : { tipDensity })',
+  'worker parser does not preserve brush tip density',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-density-range"',
+  'reachable brush tip-density control missing',
+);
+requireText(
+  read('tests/unit/brush-tip-density.test.ts'),
+  'reduces canonical tip mask coverage independently from flow',
+  'brush tip-density regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

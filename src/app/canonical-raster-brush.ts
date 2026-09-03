@@ -88,6 +88,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly opacity?: number;
       readonly flow?: number;
       readonly hardness?: number;
+      readonly tipDensity?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: BaselineBrushSampledTipAlphaV1;
     } = {},
@@ -99,6 +100,7 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
       ...(options.flow === undefined ? {} : { flow: options.flow }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
+      ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipShape === undefined ? {} : { tipShape: options.tipShape }),
       ...(options.sampledTipAlpha === undefined
         ? {}

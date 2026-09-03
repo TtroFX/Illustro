@@ -489,6 +489,8 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     const radiusY = candidate.radiusY;
     const flow = candidate.flow;
     const strokeOpacity = candidate.strokeOpacity;
+    const hardness = candidate.hardness;
+    const tipDensity = candidate.tipDensity;
     if (
       (radiusX !== undefined &&
         (typeof radiusX !== 'number' || !Number.isFinite(radiusX) || radiusX <= 0)) ||
@@ -500,7 +502,17 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         (typeof strokeOpacity !== 'number' ||
           !Number.isFinite(strokeOpacity) ||
           strokeOpacity < 0 ||
-          strokeOpacity > 1))
+          strokeOpacity > 1)) ||
+      (hardness !== undefined &&
+        (typeof hardness !== 'number' ||
+          !Number.isFinite(hardness) ||
+          hardness < 0 ||
+          hardness > 1)) ||
+      (tipDensity !== undefined &&
+        (typeof tipDensity !== 'number' ||
+          !Number.isFinite(tipDensity) ||
+          tipDensity < 0 ||
+          tipDensity > 1))
     ) {
       return null;
     }
@@ -526,6 +538,8 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         opacity: candidate.opacity,
         ...(flow === undefined ? {} : { flow }),
         ...(strokeOpacity === undefined ? {} : { strokeOpacity }),
+        ...(hardness === undefined ? {} : { hardness }),
+        ...(tipDensity === undefined ? {} : { tipDensity }),
         ...(tipShape === undefined ? {} : { tipShape }),
         ...(color === undefined ? {} : { color }),
       }),

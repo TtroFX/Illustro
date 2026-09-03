@@ -430,7 +430,7 @@ M6A-020 multiple tip assets without Dual Brush semantics:完了
 再開メモ: M6A-020はbrush preset内のextensionsに最大16個のsampled tip assetを保持し、selectedTipAssetIdで常に1個だけをactive tipへ投影する。既存M6A-019の単一custom tipは最初の追加時にasset collectionへ昇格する。選択・置換・削除はpreset revision/lock/persistenceを通し、runtimeには選択済みalpha maskだけを渡すためDual Brushの同時合成・ランダム混合・複数tip同時描画は実装しない。次はM6A-021 hardnessから再開する。
 M6A-021 hardness:完了
 再開メモ: M6A-021 hardnessはtip.hardnessの0..1静的値をpreset正本として扱い、stroke開始時にcaptureして全primitive dabへ保存する。旧strokeでhardness未保存の場合は0.85へfallbackする。Canonical Raster Tileのedge coverageがhardness正本で、既存WebGPU shaderが持つ0.85 fast pathはdefault値だけ維持し、非default hardnessはcanonical previewへ切替えて表示と保存結果の不一致を避ける。sampled/custom tipのmicro dabにも同じhardnessを伝播する。次はM6A-022 tip densityから再開する。
-M6A-022 tip density:未完了
+M6A-022 tip density:完了
 M6A-023 spacing/gap:未完了
 M6A-024 tip angle:未完了
 M6A-025 tip direction:未完了
@@ -1301,3 +1301,11 @@ MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完�
 再開メモ: USER-01スマホdiagnosticsではmain/workerともWebGPU `requestAdapter()` が `adapter-unavailable`。viewport幅やIllustro独自core-limit gate以前の失敗であり、MOBILE-004だけでは編集可能にならない。MOBILE-005のWebGPU非依存compatibility rendererを実装済み。MOBILE-006ではWorker/Main WebGPUが復旧不能になった場合もcanonical Raster TileをStroke replayなしでcompatibility Canvas2Dへ引き継ぎ、History / Persistence / Exportの正本をrenderer backendから分離した。スマホPNG ExportはFile menu導線も共通handlerへ接続し、Androidの非同期download処理より先にBlob URLを破棄しないようobject URL保持を60秒へ延長した。MOBILE-007はスマホ新規作成・描画・性能のみ実機PASS。Undo/Redo・保存再読込・PNG Exportの明示PASSが残るため未完了。USER-01を閉じるまで通常の後続実装へ自動復帰しない。検査は必要最低限とし、実装を優先する。
 
 再開メモ: M6A-018 sampled image tipは、単一のcanonical sampled alpha imageを論理brush tipとしてプリセットへ保存し、stroke開始時に既存BaselineBrushDabBuilderへ固定する構成で完了。sampled stampは5×5 alpha maskを既存rendererが理解するalpha-weighted round primitive dabsへ決定論的に展開するため、WebGPU/Main/Worker/Canvas2D/History/Persistenceにsampled専用renderer分岐やfull-stroke replayを追加しない。M6A-019 custom tip creation、M6A-020 multiple tip assets、M6A-071/072 resource loader/managerは未完了のまま分離する。次はM6A-019 custom tip creationから再開する。
+
+### M6A-022 tip-density resume memo — 2026-09-03
+
+- `tipDensity` is a static `0..1` brush-tip mask coverage strength and is intentionally separate from M6A-015 `flow`, which controls repeated-stamp ink deposit.
+- The value is captured at stroke start and persisted on each primitive dab. Missing legacy values resolve to `1.0`.
+- Shared canonical tip coverage applies density to paint/erase/smudge/blur paths. Default density `1.0` keeps the existing direct WebGPU fast path; non-default density uses canonical tile preview.
+- Worker dab parsing now preserves both M6A-021 `hardness` and M6A-022 `tipDensity`, closing the Worker/Main semantic mismatch discovered during M6A-022 inspection.
+- M6A-023 spacing / gap remains intentionally separate and is the next incomplete item.

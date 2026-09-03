@@ -4,6 +4,7 @@ import {
   baselineDabColorV1,
   baselineDabFlowV1,
   baselineDabHardnessV1,
+  baselineDabTipDensityV1,
   baselineDabRadiusXV1,
   baselineDabRadiusYV1,
   baselineDabStrokeOpacityV1,
@@ -271,7 +272,8 @@ function baselineProceduralTipCoverageV1(
   const distance = baselineProceduralTipDistanceV1(dab, localX, localY);
   if (distance >= 1) return 0;
   const hardness = baselineDabHardnessV1(dab);
-  return distance <= hardness ? 1 : clamp01(1 - smoothstep(hardness, 1, distance));
+  const edgeCoverage = distance <= hardness ? 1 : clamp01(1 - smoothstep(hardness, 1, distance));
+  return edgeCoverage * baselineDabTipDensityV1(dab);
 }
 
 function rasterizeColorDab(

@@ -10,6 +10,7 @@ export const BASELINE_BRUSH_RADIUS_PX = 8 as const;
 export const BASELINE_BRUSH_SPACING_PX = 4 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
+export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 
@@ -66,6 +67,7 @@ export interface BaselineBrushDabV1 {
   readonly flow?: number;
   readonly strokeOpacity?: number;
   readonly hardness?: number;
+  readonly tipDensity?: number;
   readonly tipShape?: BaselineBrushTipShapeV1;
   readonly color?: BaselineBrushColorV1;
 }
@@ -93,6 +95,10 @@ export function baselineDabStrokeOpacityV1(dab: BaselineBrushDabV1): number {
 export function baselineDabHardnessV1(dab: BaselineBrushDabV1): number {
   return dab.hardness ?? BASELINE_BRUSH_HARDNESS;
 }
+export function baselineDabTipDensityV1(dab: BaselineBrushDabV1): number {
+  return dab.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
+}
+
 export function baselineDabUsesFlowOpacityV1(dab: BaselineBrushDabV1): boolean {
   return dab.flow !== undefined || dab.strokeOpacity !== undefined;
 }
@@ -116,6 +122,7 @@ function freezeDab(
   flow: number,
   strokeOpacity: number,
   hardness: number,
+  tipDensity: number,
   color: BaselineBrushColorV1,
   tipShape: Exclude<BaselineBrushTipShapeV1, 'sampled-image'>,
 ): BaselineBrushDabV1 {
@@ -128,6 +135,7 @@ function freezeDab(
     flow,
     strokeOpacity,
     hardness,
+    tipDensity,
     tipShape,
     color,
   });
@@ -141,12 +149,15 @@ function pushBaselineBrushStampV1(
   flow: number,
   strokeOpacity: number,
   hardness: number,
+  tipDensity: number,
   color: BaselineBrushColorV1,
   tipShape: BaselineBrushTipShapeV1,
   sampledTipAlpha: BaselineBrushSampledTipAlphaV1,
 ): void {
   if (tipShape !== 'sampled-image') {
-    target.push(freezeDab(x, y, radius, flow, strokeOpacity, hardness, color, tipShape));
+    target.push(
+      freezeDab(x, y, radius, flow, strokeOpacity, hardness, tipDensity, color, tipShape),
+    );
     return;
   }
 
@@ -169,6 +180,7 @@ function pushBaselineBrushStampV1(
         flow * (alphaByte / 255),
         strokeOpacity,
         hardness,
+        tipDensity,
         color,
         'round',
       ),
@@ -190,6 +202,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
+  readonly #tipDensity: number;
   readonly #tipShape: BaselineBrushTipShapeV1;
   readonly #sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
   #lastPoint: { x: number; y: number } | null = null;
@@ -204,6 +217,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly opacity?: number;
       readonly flow?: number;
       readonly hardness?: number;
+      readonly tipDensity?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: readonly number[];
     } = {},
@@ -216,6 +230,7 @@ export class BaselineBrushDabBuilderV1 {
     const opacity = options.opacity ?? BASELINE_BRUSH_OPACITY;
     const flow = options.flow ?? 1;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
+    const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     if (!Number.isFinite(sizePx) || sizePx <= 0 || sizePx > 4096) {
       throw new RangeError('baseline brush size must be finite and within 0..4096 px');
     }
@@ -228,11 +243,15 @@ export class BaselineBrushDabBuilderV1 {
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
+    if (!Number.isFinite(tipDensity) || tipDensity < 0 || tipDensity > 1) {
+      throw new RangeError('baseline brush tip density must be within 0..1');
+    }
     this.#radius = sizePx / 2;
     this.#spacing = Math.max(0.25, sizePx * 0.25);
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
+    this.#tipDensity = tipDensity;
     this.#tipShape = options.tipShape ?? 'round';
     if (
       this.#tipShape !== 'round' &&
@@ -266,6 +285,7 @@ export class BaselineBrushDabBuilderV1 {
       this.#flow,
       this.#strokeOpacity,
       this.#hardness,
+      this.#tipDensity,
       this.#color,
       this.#tipShape,
       this.#sampledTipAlpha,
@@ -323,6 +343,7 @@ export class BaselineBrushDabBuilderV1 {
           this.#flow,
           this.#strokeOpacity,
           this.#hardness,
+          this.#tipDensity,
           this.#color,
           this.#tipShape,
           this.#sampledTipAlpha,
@@ -364,6 +385,7 @@ export class BaselineBrushDabBuilderV1 {
         this.#flow,
         this.#strokeOpacity,
         this.#hardness,
+        this.#tipDensity,
         this.#color,
         this.#tipShape,
         this.#sampledTipAlpha,
@@ -456,6 +478,8 @@ export function planBaselineBrushTilesV1(
         (!Number.isFinite(dab.strokeOpacity) || dab.strokeOpacity < 0 || dab.strokeOpacity > 1)) ||
       (dab.hardness !== undefined &&
         (!Number.isFinite(dab.hardness) || dab.hardness < 0 || dab.hardness > 1)) ||
+      (dab.tipDensity !== undefined &&
+        (!Number.isFinite(dab.tipDensity) || dab.tipDensity < 0 || dab.tipDensity > 1)) ||
       (dab.color !== undefined &&
         (dab.color.length !== 3 ||
           dab.color.some(
