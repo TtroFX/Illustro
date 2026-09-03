@@ -299,6 +299,32 @@ export function withBrushStrokeStartLengthPxV1(
   });
 }
 
+export const DEFAULT_BRUSH_STROKE_END_LENGTH_PX_V1 = 0 as const;
+export const MAX_BRUSH_STROKE_END_LENGTH_PX_V1 = 4096 as const;
+
+export function brushStrokeEndLengthPxV1(preset: BrushPresetV1): number {
+  const value = preset.stroke.endLengthPx;
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= MAX_BRUSH_STROKE_END_LENGTH_PX_V1
+    ? value
+    : DEFAULT_BRUSH_STROKE_END_LENGTH_PX_V1;
+}
+
+export function withBrushStrokeEndLengthPxV1(
+  preset: BrushPresetV1,
+  lengthPx: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(lengthPx) || lengthPx < 0 || lengthPx > MAX_BRUSH_STROKE_END_LENGTH_PX_V1) {
+    throw new RangeError('brush stroke end length must be within 0..4096 px');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    stroke: { ...preset.stroke, endLengthPx: lengthPx },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

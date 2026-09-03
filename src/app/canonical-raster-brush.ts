@@ -54,8 +54,8 @@ export interface CanonicalRasterBrushWorkSnapshotV1 {
   readonly generatedDabCount: number;
   readonly emittedDabCount: number;
   readonly stablePrefixDabCount: number;
-  readonly mutableTailDabCount: 0;
-  readonly reprocessedStableDabCount: 0;
+  readonly mutableTailDabCount: number;
+  readonly reprocessedStableDabCount: number;
   readonly batchCount: number;
   readonly finished: boolean;
 }
@@ -91,6 +91,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly spacingRatio?: number;
       readonly minimumStampDistancePx?: number;
       readonly startTaperLengthPx?: number;
+      readonly endTaperLengthPx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -117,6 +118,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.startTaperLengthPx === undefined
         ? {}
         : { startTaperLengthPx: options.startTaperLengthPx }),
+      ...(options.endTaperLengthPx === undefined
+        ? {}
+        : { endTaperLengthPx: options.endTaperLengthPx }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined
@@ -194,8 +198,8 @@ export class CanonicalRasterBrushStrokeV1 {
       confirmedSampleCount: this.#confirmedSampleCount,
       generatedDabCount: this.#generatedDabCount,
       emittedDabCount: this.#emittedDabCount,
-      stablePrefixDabCount: this.#kernel.dabCount(),
-      mutableTailDabCount: 0 as const,
+      stablePrefixDabCount: this.#kernel.stablePrefixDabCount(),
+      mutableTailDabCount: this.#kernel.mutableTailDabCount(),
       reprocessedStableDabCount: 0 as const,
       batchCount: this.#batchCount,
       finished: this.#finished,

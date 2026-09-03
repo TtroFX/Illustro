@@ -58,6 +58,28 @@ describe('M6A-001 canonical Raster Brush mode', () => {
     });
   });
 
+  it('reports an end-taper mutable tail without reprocessing the stable prefix', () => {
+    const stroke = new CanonicalRasterBrushStrokeV1({
+      sizePx: 20,
+      spacingRatio: 0.5,
+      endTaperLengthPx: 20,
+    });
+    stroke.beginConfirmed({ documentX: 0, documentY: 0 });
+    stroke.appendConfirmed([{ documentX: 40, documentY: 0 }]);
+    expect(stroke.snapshot()).toMatchObject({
+      stablePrefixDabCount: 3,
+      mutableTailDabCount: 2,
+      reprocessedStableDabCount: 0,
+    });
+    stroke.finishConfirmed();
+    expect(stroke.snapshot()).toMatchObject({
+      stablePrefixDabCount: 4,
+      mutableTailDabCount: 0,
+      reprocessedStableDabCount: 0,
+      finished: true,
+    });
+  });
+
   it('retains the final endpoint through the incremental finish boundary', () => {
     const stroke = new CanonicalRasterBrushStrokeV1();
     stroke.beginConfirmed({ documentX: 0, documentY: 0 });

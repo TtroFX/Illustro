@@ -253,6 +253,26 @@ describe('M4 baseline WebGPU paint renderer', () => {
     });
   });
 
+  it('reconciles a changed release tail without requiring final dabs to extend the provisional prefix', () => {
+    const { renderer } = configuredRenderer();
+    const provisional = Object.freeze({ ...dab(124, 64), radius: 8 });
+    const tapered = Object.freeze({ ...dab(124, 64), radius: 2, flow: 0.25, strokeOpacity: 1 });
+
+    renderer.presentStroke('stroke-end-reconcile', [provisional]);
+    const result = renderer.finalizeStroke('stroke-end-reconcile', [tapered]);
+
+    expect(result).toMatchObject({
+      strokeId: 'stroke-end-reconcile',
+      dabCount: 1,
+      renderer: { activeStrokeId: null, committedStrokeCount: 1, committedDabCount: 1 },
+    });
+    expect(result.affectedTiles.map((entry) => entry.coordinate)).toEqual([
+      { tx: 0, ty: 0 },
+      { tx: 1, ty: 0 },
+    ]);
+    expect(result.affectedTiles.every((entry) => entry.dirty?.region.kind === 'whole')).toBe(true);
+  });
+
   it('rebuilds the retained scene from committed state when a provisional stroke is cancelled', () => {
     const { harness, tileState, renderer } = configuredRenderer();
     renderer.presentStroke('stroke-c', [dab(64, 64)]);

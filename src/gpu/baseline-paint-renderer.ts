@@ -836,6 +836,7 @@ export class BaselinePaintRendererV1 {
       throw new Error('baseline finalized stroke changed brush operation');
     }
     const resolvedLayerId = this.#resolveLayerId(layerId);
+    const reconciledCoordinates = new Map<string, TileCoordinateV1>();
     if (active?.strokeId === strokeId && isDabPrefix(active.dabs, frozenDabs)) {
       const missingTail = frozenDabs.slice(active.dabs.length);
       if (missingTail.length > 0) {
@@ -863,14 +864,42 @@ export class BaselinePaintRendererV1 {
           this.#appendDabs(frozenDabs);
         }
       }
+    } else if (active.strokeId === strokeId) {
+      const rollback = canonicalTiles.cancel(strokeId);
+      for (const patch of rollback) {
+        reconciledCoordinates.set(
+          `${patch.coordinate.tx}:${patch.coordinate.ty}`,
+          patch.coordinate,
+        );
+      }
+      this.#activeStroke = { strokeId, operation, dabs: [...frozenDabs] };
+      canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs, operation);
+      for (const plan of planBaselineBrushTilesV1(frozenDabs, width, height)) {
+        reconciledCoordinates.set(`${plan.coordinate.tx}:${plan.coordinate.ty}`, plan.coordinate);
+      }
+      this.#patchCompositeTiles([...reconciledCoordinates.values()]);
     } else {
       throw new Error('baseline finalized dabs do not extend the active retained prefix');
     }
 
-    const affectedTiles = planBaselineBrushTilesV1(frozenDabs, width, height).map((plan) => {
-      tileState.allocate(plan.coordinate);
-      const dirty = tileState.markDirty(plan.coordinate, plan.dirtyRect);
-      return Object.freeze({ coordinate: plan.coordinate, dirty });
+    const finalPlans = planBaselineBrushTilesV1(frozenDabs, width, height);
+    const finalPlanByKey = new Map<string, (typeof finalPlans)[number]>(
+      finalPlans.map((plan) => [`${plan.coordinate.tx}:${plan.coordinate.ty}`, plan] as const),
+    );
+    const affectedCoordinates = new Map<string, TileCoordinateV1>();
+    for (const plan of finalPlans) {
+      affectedCoordinates.set(`${plan.coordinate.tx}:${plan.coordinate.ty}`, plan.coordinate);
+    }
+    for (const [key, coordinate] of reconciledCoordinates) affectedCoordinates.set(key, coordinate);
+    const affectedTiles = [...affectedCoordinates.entries()].map(([key, coordinate]) => {
+      tileState.allocate(coordinate);
+      const plan = finalPlanByKey.get(key);
+      const bounds = tileBoundsForDocumentV1(width, height, coordinate);
+      const dirtyRect = reconciledCoordinates.has(key)
+        ? { x: 0, y: 0, width: bounds.validWidth, height: bounds.validHeight }
+        : plan?.dirtyRect;
+      const dirty = dirtyRect === undefined ? null : tileState.markDirty(coordinate, dirtyRect);
+      return Object.freeze({ coordinate, dirty });
     });
     const tilePatches = canonicalTiles.finalize(strokeId);
     this.#committedStrokeCount += 1;

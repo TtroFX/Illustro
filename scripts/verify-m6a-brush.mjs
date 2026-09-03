@@ -520,6 +520,38 @@ requireText(
   'stroke-start regression coverage missing',
 );
 
+requireText(progress, 'M6A-029 stroke-end behavior:完了', 'M6A-029 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushStrokeEndLengthPxV1',
+  'stroke-end preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  '#reconcileEndTaper',
+  'bounded logical end-tail reconciliation missing',
+);
+requireText(
+  read('src/gpu/baseline-paint-renderer.ts'),
+  'const rollback = canonicalTiles.cancel(strokeId)',
+  'release-time provisional raster reconciliation missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'endTaperLengthPx: this.#brushEndTaperLengthPx',
+  'stroke-end behavior is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-end-length-range"',
+  'reachable stroke-end control missing',
+);
+requireText(
+  read('tests/unit/brush-stroke-end.test.ts'),
+  'regenerates only the bounded release tail',
+  'stroke-end regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

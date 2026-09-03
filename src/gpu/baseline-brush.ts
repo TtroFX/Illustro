@@ -11,6 +11,7 @@ export const BASELINE_BRUSH_SPACING_PX = 4 as const;
 export const BASELINE_BRUSH_SPACING_RATIO = 0.25 as const;
 export const BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX = 1 as const;
 export const BASELINE_BRUSH_START_TAPER_LENGTH_PX = 0 as const;
+export const BASELINE_BRUSH_END_TAPER_LENGTH_PX = 0 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
 export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
@@ -266,12 +267,23 @@ function deterministicBrushTipIndexV1(seed: number, stampIndex: number, count: n
   return value % count;
 }
 
+interface BaselineLogicalStampRecordV1 {
+  readonly x: number;
+  readonly y: number;
+  readonly tipAngleDegrees: number;
+  readonly pathDistancePx: number;
+  readonly sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
+  primitiveStart: number;
+  primitiveEnd: number;
+}
+
 export class BaselineBrushDabBuilderV1 {
   readonly #dabs: BaselineBrushDabV1[] = [];
   readonly #color: BaselineBrushColorV1;
   readonly #radius: number;
   readonly #spacing: number;
   readonly #startTaperLengthPx: number;
+  readonly #endTaperLengthPx: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -284,6 +296,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #tipSelectionMode: BaselineBrushTipSelectionModeV1;
   readonly #tipSelectionStartIndex: number;
   readonly #tipSelectionSeed: number;
+  readonly #logicalStamps: BaselineLogicalStampRecordV1[] = [];
   #logicalStampIndex = 0;
   #pathDistancePx = 0;
   #lastPoint: { x: number; y: number } | null = null;
@@ -301,6 +314,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly spacingRatio?: number;
       readonly minimumStampDistancePx?: number;
       readonly startTaperLengthPx?: number;
+      readonly endTaperLengthPx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -325,6 +339,7 @@ export class BaselineBrushDabBuilderV1 {
     const minimumStampDistancePx =
       options.minimumStampDistancePx ?? BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
     const startTaperLengthPx = options.startTaperLengthPx ?? BASELINE_BRUSH_START_TAPER_LENGTH_PX;
+    const endTaperLengthPx = options.endTaperLengthPx ?? BASELINE_BRUSH_END_TAPER_LENGTH_PX;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -363,6 +378,9 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new RangeError('baseline brush start taper length must be within 0..4096 px');
     }
+    if (!Number.isFinite(endTaperLengthPx) || endTaperLengthPx < 0 || endTaperLengthPx > 4096) {
+      throw new RangeError('baseline brush end taper length must be within 0..4096 px');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -372,6 +390,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#radius = sizePx / 2;
     this.#spacing = Math.max(minimumStampDistancePx, sizePx * spacingRatio);
     this.#startTaperLengthPx = startTaperLengthPx;
+    this.#endTaperLengthPx = endTaperLengthPx;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -480,7 +499,6 @@ export class BaselineBrushDabBuilderV1 {
   finishDelta(): readonly BaselineBrushDabV1[] {
     if (this.#finished) return Object.freeze([]);
     const start = this.#dabs.length;
-    this.#finished = true;
     const lastPoint = this.#lastPoint;
     const lastStampPoint = this.#lastStampPoint;
     if (lastPoint !== null && lastStampPoint !== null) {
@@ -494,11 +512,26 @@ export class BaselineBrushDabBuilderV1 {
         );
       }
     }
-    return this.#deltaFrom(start);
+    if (this.#endTaperLengthPx > 0) this.#reconcileEndTaper();
+    this.#finished = true;
+    return this.#endTaperLengthPx > 0 ? Object.freeze([]) : this.#deltaFrom(start);
   }
 
   dabCount(): number {
     return this.#dabs.length;
+  }
+
+  mutableTailDabCount(): number {
+    if (this.#finished || this.#endTaperLengthPx <= 0 || this.#logicalStamps.length === 0) return 0;
+    const threshold = this.#pathDistancePx - this.#endTaperLengthPx;
+    const firstMutable = this.#logicalStamps.find(
+      (stamp) => stamp.pathDistancePx > threshold + 1e-9,
+    );
+    return firstMutable === undefined ? 0 : this.#dabs.length - firstMutable.primitiveStart;
+  }
+
+  stablePrefixDabCount(): number {
+    return this.#dabs.length - this.mutableTailDabCount();
   }
 
   dabs(): readonly BaselineBrushDabV1[] {
@@ -525,24 +558,74 @@ export class BaselineBrushDabBuilderV1 {
     return Math.max(0, Math.min(1, pathDistancePx / this.#startTaperLengthPx));
   }
 
-  #pushLogicalStamp(x: number, y: number, tipAngleDegrees: number, pathDistancePx: number): void {
-    const startEnvelope = this.#startEnvelopeAtDistance(pathDistancePx);
-    if (startEnvelope <= 0) return;
+  #endEnvelopeAtDistance(pathDistancePx: number, totalDistancePx: number): number {
+    if (this.#endTaperLengthPx <= 0) return 1;
+    return Math.max(0, Math.min(1, (totalDistancePx - pathDistancePx) / this.#endTaperLengthPx));
+  }
+
+  #emitLogicalStamp(
+    target: BaselineBrushDabV1[],
+    stamp: Pick<BaselineLogicalStampRecordV1, 'x' | 'y' | 'tipAngleDegrees' | 'sampledTipAlpha'>,
+    envelope: number,
+  ): void {
+    if (envelope <= 0) return;
     pushBaselineBrushStampV1(
-      this.#dabs,
-      x,
-      y,
-      this.#radius * startEnvelope,
-      this.#flow * startEnvelope,
+      target,
+      stamp.x,
+      stamp.y,
+      this.#radius * envelope,
+      this.#flow * envelope,
       this.#strokeOpacity,
       this.#hardness,
       this.#tipDensity,
-      tipAngleDegrees,
+      stamp.tipAngleDegrees,
       this.#color,
       this.#tipShape,
-      this.#sampledTipAlphaForLogicalStamp(),
+      stamp.sampledTipAlpha,
     );
+  }
+
+  #pushLogicalStamp(x: number, y: number, tipAngleDegrees: number, pathDistancePx: number): void {
+    const startEnvelope = this.#startEnvelopeAtDistance(pathDistancePx);
+    if (startEnvelope <= 0) return;
+    const sampledTipAlpha = this.#sampledTipAlphaForLogicalStamp();
+    const record: BaselineLogicalStampRecordV1 = {
+      x,
+      y,
+      tipAngleDegrees,
+      pathDistancePx,
+      sampledTipAlpha,
+      primitiveStart: this.#dabs.length,
+      primitiveEnd: this.#dabs.length,
+    };
+    this.#emitLogicalStamp(this.#dabs, record, startEnvelope);
+    record.primitiveEnd = this.#dabs.length;
+    if (record.primitiveEnd === record.primitiveStart) return;
+    this.#logicalStamps.push(record);
     this.#logicalStampIndex += 1;
+  }
+
+  #reconcileEndTaper(): void {
+    if (this.#endTaperLengthPx <= 0 || this.#logicalStamps.length === 0) return;
+    const totalDistancePx = this.#pathDistancePx;
+    const firstTailIndex = this.#logicalStamps.findIndex(
+      (stamp) => this.#endEnvelopeAtDistance(stamp.pathDistancePx, totalDistancePx) < 1 - 1e-9,
+    );
+    if (firstTailIndex < 0) return;
+    const firstTail = this.#logicalStamps[firstTailIndex];
+    if (firstTail === undefined) return;
+    this.#dabs.length = firstTail.primitiveStart;
+    for (let index = firstTailIndex; index < this.#logicalStamps.length; index += 1) {
+      const stamp = this.#logicalStamps[index];
+      if (stamp === undefined) continue;
+      stamp.primitiveStart = this.#dabs.length;
+      const envelope = Math.min(
+        this.#startEnvelopeAtDistance(stamp.pathDistancePx),
+        this.#endEnvelopeAtDistance(stamp.pathDistancePx, totalDistancePx),
+      );
+      this.#emitLogicalStamp(this.#dabs, stamp, envelope);
+      stamp.primitiveEnd = this.#dabs.length;
+    }
   }
 
   #resolvedTipAngleDegrees(strokeDirectionDegrees?: number): number {
