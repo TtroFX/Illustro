@@ -23,4 +23,4 @@ authoritative_61 = text.index('**AUTHORITATIVE for M6A-061.**')
 mixing = text.index('## M6A ordinary raster color-mixing boundary — 2026-09-04')
 if not orientation < authoritative_61 < mixing:
     raise SystemExit('M6A canonical section order is invalid')
-path.write_text(text, encoding='utf-8')
+path.write_text(text.rstrip() + '\n', encoding='utf-8')
