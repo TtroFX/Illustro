@@ -1,0 +1,32 @@
+name: Fix M6A-062 memo order once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m6a-062-memo-fix-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-memo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Repair memo
+        run: python3 .github/m6a-062-memo-order-fix.py
+      - name: Validate
+        run: |
+          grep -F 'M6A-062 ordinary raster color mixing:完了' IMPLEMENTATION_PROGRESS.md
+          git diff --check
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md
+          git commit -m 'docs: restore M6A brush section order'
+          git push origin HEAD:main
