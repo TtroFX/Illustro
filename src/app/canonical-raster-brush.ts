@@ -128,6 +128,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly flowMaximumResponse?: number;
       readonly sizeJitter?: number;
       readonly opacityJitter?: number;
+      readonly rotationJitter?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -237,6 +238,7 @@ export class CanonicalRasterBrushStrokeV1 {
         : { flowMaximumResponse: options.flowMaximumResponse }),
       ...(options.sizeJitter === undefined ? {} : { sizeJitter: options.sizeJitter }),
       ...(options.opacityJitter === undefined ? {} : { opacityJitter: options.opacityJitter }),
+      ...(options.rotationJitter === undefined ? {} : { rotationJitter: options.rotationJitter }),
       ...(options.randomSeed === undefined ? {} : { randomSeed: options.randomSeed }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),

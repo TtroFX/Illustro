@@ -1326,6 +1326,53 @@ requireText(
   'opacity-jitter tail reconciliation regression missing',
 );
 
+requireText(progress, 'M6A-053 rotation jitter:完了', 'M6A-053 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushRotationJitterV1',
+  'rotation-jitter preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushRotationJitterV1',
+  'deterministic rotation-jitter channel missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'tipAngleDegrees: jitteredTipAngleDegrees',
+  'rotation jitter is not composed into the resolved logical-stamp angle',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushRotationJitter',
+  'rotation jitter is not connected to runtime brush state',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'rotationJitterEnabled',
+  'rotation jitter does not capture a deterministic persistent stroke seed',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-rotation-jitter-range"',
+  'reachable rotation-jitter control missing',
+);
+requireText(
+  read('tests/unit/brush-rotation-jitter.test.ts'),
+  'advances the rotation-jitter attempt index even when taper suppresses a logical stamp',
+  'rotation-jitter attempt-index regression missing',
+);
+requireText(
+  read('tests/unit/brush-rotation-jitter.test.ts'),
+  'uses a random channel independent from generalized, size and opacity random channels',
+  'rotation-jitter channel-independence regression missing',
+);
+requireText(
+  read('tests/unit/brush-rotation-jitter.test.ts'),
+  'reuses the resolved jittered angle when reconciling the mutable end tail',
+  'rotation-jitter tail reconciliation regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',
