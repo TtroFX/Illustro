@@ -230,6 +230,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTextureScale: number;
   readonly brushTextureRotationDegrees: number;
   readonly brushTextureBlendMode: BrushTextureBlendModeV1;
+  readonly brushPressureSizeEnabled: boolean;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -681,6 +682,7 @@ export class PaintSessionControllerV1 {
   #brushTextureScale = 1;
   #brushTextureRotationDegrees = 0;
   #brushTextureBlendMode: BrushTextureBlendModeV1 = 'multiply';
+  #brushPressureSizeEnabled = false;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -727,6 +729,7 @@ export class PaintSessionControllerV1 {
       brushTextureScale: this.#brushTextureScale,
       brushTextureRotationDegrees: this.#brushTextureRotationDegrees,
       brushTextureBlendMode: this.#brushTextureBlendMode,
+      brushPressureSizeEnabled: this.#brushPressureSizeEnabled,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1052,6 +1055,17 @@ export class PaintSessionControllerV1 {
 
   brushTextureBlendMode(): BrushTextureBlendModeV1 {
     return this.#brushTextureBlendMode;
+  }
+
+  setBrushPressureSizeEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime pressure-size flag');
+    if (enabled !== this.#brushPressureSizeEnabled) this.#clearActiveStroke();
+    this.#brushPressureSizeEnabled = enabled;
+    return this.#brushPressureSizeEnabled;
+  }
+
+  brushPressureSizeEnabled(): boolean {
+    return this.#brushPressureSizeEnabled;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1684,21 +1698,40 @@ export class PaintSessionControllerV1 {
           const replayStabilizer = new RealtimeBrushStabilizerV1(
             this.#activeRealtimeStabilizer?.amount() ?? this.#brushRealtimeStabilizationAmount,
           );
-          const liveGeometry = this.#activeSamples.map((sample) => replayStabilizer.push(sample));
+          const liveGeometry = this.#activeSamples.map((sample) => {
+            const point = replayStabilizer.push(sample);
+            return Object.freeze({
+              ...point,
+              pressure: completed.source === 'pen' ? sample.pressure : 1,
+            });
+          });
           const rawEndpoint = this.#activeSamples.at(-1);
           if (rawEndpoint !== undefined) {
             const releasePoint = replayStabilizer.release(rawEndpoint);
-            if (releasePoint !== null) liveGeometry.push(releasePoint);
+            if (releasePoint !== null) {
+              liveGeometry.push(
+                Object.freeze({
+                  ...releasePoint,
+                  pressure: completed.source === 'pen' ? rawEndpoint.pressure : 1,
+                }),
+              );
+            }
           }
           const correctedGeometry = correctPostStrokeGeometryV1(
             liveGeometry,
             this.#brushPostStrokeCorrectionAmount,
           );
-          const firstCorrected = correctedGeometry[0];
+          const correctedSamples = correctedGeometry.map((point, index) =>
+            Object.freeze({
+              ...point,
+              pressure: liveGeometry[index]?.pressure ?? 1,
+            }),
+          );
+          const firstCorrected = correctedSamples[0];
           if (firstCorrected !== undefined) {
             const correctedBuilder = createBrush();
             correctedBuilder.beginConfirmed(firstCorrected);
-            correctedBuilder.appendConfirmed(correctedGeometry.slice(1));
+            correctedBuilder.appendConfirmed(correctedSamples.slice(1));
             correctedBuilder.finishConfirmed();
             finalDabs = correctedBuilder.dabs();
           }
@@ -1871,7 +1904,10 @@ export class PaintSessionControllerV1 {
       samples: Object.freeze([]),
     });
     const stabilizer = new RealtimeBrushStabilizerV1(this.#brushRealtimeStabilizationAmount);
-    const stabilizedSamples = samples.map((sample) => stabilizer.push(sample));
+    const stabilizedSamples = samples.map((sample) => {
+      const point = stabilizer.push(sample);
+      return Object.freeze({ ...point, pressure: source === 'pen' ? sample.pressure : 1 });
+    });
     const firstStabilizedSample = stabilizedSamples[0];
     if (firstStabilizedSample === undefined) return;
     this.#activeRealtimeStabilizer = stabilizer;
@@ -1891,6 +1927,7 @@ export class PaintSessionControllerV1 {
         opacityTaperMinimumRatio: this.#brushOpacityTaperMinimumRatio,
         forceStartTaper: this.#brushForceStartTaper,
         forceEndTaper: this.#brushForceEndTaper,
+        pressureSizeEnabled: this.#brushPressureSizeEnabled,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,
@@ -1925,14 +1962,24 @@ export class PaintSessionControllerV1 {
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
     if (additions.length === 0) return;
     this.#activeSamples.push(...additions);
-    const stabilizedAdditions = additions.map((sample) => stabilizer.push(sample));
+    const stabilizedAdditions = additions.map((sample) => {
+      const point = stabilizer.push(sample);
+      return Object.freeze({ ...point, pressure: active.source === 'pen' ? sample.pressure : 1 });
+    });
     this.#queueActiveDabDelta(builder.appendConfirmed(stabilizedAdditions));
     if (release) {
       const rawEndpoint = additions.at(-1);
       if (rawEndpoint !== undefined) {
         const releasePoint = stabilizer.release(rawEndpoint);
         if (releasePoint !== null) {
-          this.#queueActiveDabDelta(builder.appendConfirmed([releasePoint]));
+          this.#queueActiveDabDelta(
+            builder.appendConfirmed([
+              Object.freeze({
+                ...releasePoint,
+                pressure: active.source === 'pen' ? rawEndpoint.pressure : 1,
+              }),
+            ]),
+          );
         }
       }
     }

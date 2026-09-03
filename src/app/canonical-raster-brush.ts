@@ -45,6 +45,7 @@ export function canonicalBrushCompositeOperationV1(
 export interface CanonicalRasterBrushSampleV1 {
   readonly documentX: number;
   readonly documentY: number;
+  readonly pressure?: number;
 }
 
 export interface CanonicalRasterBrushWorkSnapshotV1 {
@@ -96,6 +97,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly opacityTaperMinimumRatio?: number;
       readonly forceStartTaper?: boolean;
       readonly forceEndTaper?: boolean;
+      readonly pressureSizeEnabled?: boolean;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -135,6 +137,9 @@ export class CanonicalRasterBrushStrokeV1 {
         ? {}
         : { forceStartTaper: options.forceStartTaper }),
       ...(options.forceEndTaper === undefined ? {} : { forceEndTaper: options.forceEndTaper }),
+      ...(options.pressureSizeEnabled === undefined
+        ? {}
+        : { pressureSizeEnabled: options.pressureSizeEnabled }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined

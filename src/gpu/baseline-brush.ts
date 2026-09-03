@@ -63,6 +63,15 @@ export function freezeBaselineBrushColorV1(color: readonly number[]): BaselineBr
 export interface BaselineBrushSampleV1 {
   readonly documentX: number;
   readonly documentY: number;
+  readonly pressure?: number;
+}
+
+export function baselineBrushSamplePressureV1(sample: BaselineBrushSampleV1): number {
+  const pressure = sample.pressure ?? 1;
+  if (!Number.isFinite(pressure) || pressure < 0 || pressure > 1) {
+    throw new RangeError('baseline brush pressure must be within 0..1');
+  }
+  return pressure;
 }
 
 export interface BaselineBrushDabV1 {
@@ -158,6 +167,7 @@ function assertFinitePoint(sample: BaselineBrushSampleV1): void {
   if (!Number.isFinite(sample.documentX) || !Number.isFinite(sample.documentY)) {
     throw new RangeError('baseline brush samples require finite document coordinates');
   }
+  baselineBrushSamplePressureV1(sample);
 }
 
 function freezeDab(
@@ -272,6 +282,7 @@ function deterministicBrushTipIndexV1(seed: number, stampIndex: number, count: n
 interface BaselineLogicalStampRecordV1 {
   readonly x: number;
   readonly y: number;
+  readonly pressure: number;
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
   readonly sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
@@ -290,6 +301,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #opacityTaperMinimumRatio: number;
   readonly #forceStartTaper: boolean;
   readonly #forceEndTaper: boolean;
+  readonly #pressureSizeEnabled: boolean;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -305,7 +317,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #logicalStamps: BaselineLogicalStampRecordV1[] = [];
   #logicalStampIndex = 0;
   #pathDistancePx = 0;
-  #lastPoint: { x: number; y: number } | null = null;
+  #lastPoint: { x: number; y: number; pressure: number } | null = null;
   #lastStampPoint: { x: number; y: number } | null = null;
   #lastStrokeDirectionDegrees: number | null = null;
   #distanceUntilNext: number;
@@ -325,6 +337,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly opacityTaperMinimumRatio?: number;
       readonly forceStartTaper?: boolean;
       readonly forceEndTaper?: boolean;
+      readonly pressureSizeEnabled?: boolean;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -356,6 +369,7 @@ export class BaselineBrushDabBuilderV1 {
       options.opacityTaperMinimumRatio ?? BASELINE_BRUSH_OPACITY_TAPER_MINIMUM_RATIO;
     const forceStartTaper = options.forceStartTaper ?? false;
     const forceEndTaper = options.forceEndTaper ?? false;
+    const pressureSizeEnabled = options.pressureSizeEnabled ?? false;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -414,6 +428,9 @@ export class BaselineBrushDabBuilderV1 {
     if (typeof forceStartTaper !== 'boolean' || typeof forceEndTaper !== 'boolean') {
       throw new TypeError('baseline brush forced taper flags must be boolean');
     }
+    if (typeof pressureSizeEnabled !== 'boolean') {
+      throw new TypeError('baseline brush pressure size flag must be boolean');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -428,6 +445,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#opacityTaperMinimumRatio = opacityTaperMinimumRatio;
     this.#forceStartTaper = forceStartTaper;
     this.#forceEndTaper = forceEndTaper;
+    this.#pressureSizeEnabled = pressureSizeEnabled;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -495,8 +513,15 @@ export class BaselineBrushDabBuilderV1 {
     if (this.#finished) throw new Error('baseline brush dab builder is finished');
     assertFinitePoint(sample);
     const start = this.#dabs.length;
-    this.#lastPoint = { x: sample.documentX, y: sample.documentY };
-    this.#pushLogicalStamp(sample.documentX, sample.documentY, this.#resolvedTipAngleDegrees(), 0);
+    const pressure = baselineBrushSamplePressureV1(sample);
+    this.#lastPoint = { x: sample.documentX, y: sample.documentY, pressure };
+    this.#pushLogicalStamp(
+      sample.documentX,
+      sample.documentY,
+      pressure,
+      this.#resolvedTipAngleDegrees(),
+      0,
+    );
     this.#lastStampPoint = { x: sample.documentX, y: sample.documentY };
     this.#distanceUntilNext = this.#spacing;
     return this.#deltaFrom(start);
@@ -516,14 +541,18 @@ export class BaselineBrushDabBuilderV1 {
       this.beginDelta(first);
       for (const sample of samples.slice(1)) {
         assertFinitePoint(sample);
-        this.#appendPoint(sample.documentX, sample.documentY);
+        this.#appendPoint(
+          sample.documentX,
+          sample.documentY,
+          baselineBrushSamplePressureV1(sample),
+        );
       }
       return this.#deltaFrom(start);
     }
 
     for (const sample of samples) {
       assertFinitePoint(sample);
-      this.#appendPoint(sample.documentX, sample.documentY);
+      this.#appendPoint(sample.documentX, sample.documentY, baselineBrushSamplePressureV1(sample));
     }
     return this.#deltaFrom(start);
   }
@@ -544,6 +573,7 @@ export class BaselineBrushDabBuilderV1 {
         this.#pushLogicalStamp(
           lastPoint.x,
           lastPoint.y,
+          lastPoint.pressure,
           this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
           this.#pathDistancePx,
         );
@@ -614,7 +644,10 @@ export class BaselineBrushDabBuilderV1 {
 
   #emitLogicalStamp(
     target: BaselineBrushDabV1[],
-    stamp: Pick<BaselineLogicalStampRecordV1, 'x' | 'y' | 'tipAngleDegrees' | 'sampledTipAlpha'>,
+    stamp: Pick<
+      BaselineLogicalStampRecordV1,
+      'x' | 'y' | 'pressure' | 'tipAngleDegrees' | 'sampledTipAlpha'
+    >,
     startEnvelope: number,
     endEnvelope = 1,
   ): void {
@@ -626,12 +659,13 @@ export class BaselineBrushDabBuilderV1 {
       this.#opacityTaperScale(startEnvelope, this.#forceStartTaper),
       this.#opacityTaperScale(endEnvelope, this.#forceEndTaper),
     );
-    if (sizeScale <= 0 || opacityScale <= 0) return;
+    const pressureSizeScale = this.#pressureSizeEnabled ? stamp.pressure : 1;
+    if (sizeScale <= 0 || opacityScale <= 0 || pressureSizeScale <= 0) return;
     pushBaselineBrushStampV1(
       target,
       stamp.x,
       stamp.y,
-      this.#radius * sizeScale,
+      this.#radius * sizeScale * pressureSizeScale,
       this.#flow * opacityScale,
       this.#strokeOpacity,
       this.#hardness,
@@ -643,12 +677,19 @@ export class BaselineBrushDabBuilderV1 {
     );
   }
 
-  #pushLogicalStamp(x: number, y: number, tipAngleDegrees: number, pathDistancePx: number): void {
+  #pushLogicalStamp(
+    x: number,
+    y: number,
+    pressure: number,
+    tipAngleDegrees: number,
+    pathDistancePx: number,
+  ): void {
     const startEnvelope = this.#startEnvelopeAtDistance(pathDistancePx);
     const sampledTipAlpha = this.#sampledTipAlphaForLogicalStamp();
     const record: BaselineLogicalStampRecordV1 = {
       x,
       y,
+      pressure,
       tipAngleDegrees,
       pathDistancePx,
       sampledTipAlpha,
@@ -693,12 +734,13 @@ export class BaselineBrushDabBuilderV1 {
     );
   }
 
-  #appendPoint(x: number, y: number): void {
+  #appendPoint(x: number, y: number, pressure: number): void {
     const lastPoint = this.#lastPoint;
     if (lastPoint === null) return;
 
     let cursorX = lastPoint.x;
     let cursorY = lastPoint.y;
+    let cursorPressure = lastPoint.pressure;
     const segmentLength = Math.hypot(x - cursorX, y - cursorY);
     let remaining = segmentLength;
     let segmentAdvancedPx = 0;
@@ -713,10 +755,12 @@ export class BaselineBrushDabBuilderV1 {
       const ratio = stepDistancePx / remaining;
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
+      cursorPressure += (pressure - cursorPressure) * ratio;
       segmentAdvancedPx += stepDistancePx;
       this.#pushLogicalStamp(
         cursorX,
         cursorY,
+        cursorPressure,
         this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
         this.#pathDistancePx + segmentAdvancedPx,
       );
@@ -727,7 +771,7 @@ export class BaselineBrushDabBuilderV1 {
 
     if (remaining > 0) this.#distanceUntilNext -= remaining;
     this.#pathDistancePx += segmentLength;
-    this.#lastPoint = { x, y };
+    this.#lastPoint = { x, y, pressure };
   }
 }
 

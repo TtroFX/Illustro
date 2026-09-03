@@ -5761,3 +5761,11 @@ Verification must cover at minimum:
 - `multiply` attenuates brush coverage by the sampled texture; `subtract` performs a stronger cutout from low texture coverage; `add` raises coverage only inside an already-covered brush footprint. Strength `0` is exact identity for every mode.
 - Blend mode is orthogonal to resource identity/subtype, scale and rotation. Changing it during an active stroke invalidates that stroke configuration rather than mixing two texture semantics.
 - M6A-071/073 remains responsible for sampled resource payload resolution and the actual call-site in canonical rasterization. Until then, no surrogate texture is generated and existing raster output stays unchanged.
+
+#### M6A pressure-to-size boundary — 2026-09-03
+
+- M6A-041 introduces an opt-in `dynamics.pressureSizeEnabled` mapping. The default is `false`, preserving all existing brush sizes and legacy/recovered stroke behavior.
+- Pen pressure is the already-canonical `PaintStrokeSampleV1.pressure` in `0..1`. Real-time stabilization changes only position; the raw pressure paired with each confirmed sample is forwarded alongside stabilized coordinates. Mouse input is treated as full pressure (`1`) for this mapping because mouse contact has no meaningful stylus-pressure semantics.
+- Pressure is linearly interpolated by path distance at logical stamp positions. When enabled, resolved radius is `base radius × taper size scale × pressure`; when disabled pressure is ignored. Primitive dabs persist only the resolved radius, so Worker/history/persistence do not gain a competing pressure schema.
+- Post-stroke correction keeps pressure associated by sample index while correcting only geometry, then rebuilds final dabs from corrected coordinates plus the same pressure sequence.
+- M6A-044 owns pressure response curves and M6A-049/050 own later response bounds. They must extend this pressure resolver rather than duplicate the stamp path. Forced taper zero endpoints remain authoritative and cannot be raised by pressure dynamics.

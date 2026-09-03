@@ -661,7 +661,7 @@ requireText(
 );
 requireText(
   read('src/app/paint-session-controller.ts'),
-  'const stabilizedAdditions = additions.map((sample) => stabilizer.push(sample));',
+  'const stabilizedAdditions = additions.map((sample) => {',
   'paint session does not stabilize render geometry incrementally',
 );
 requireText(
@@ -853,6 +853,38 @@ requireText(
   read('tests/unit/brush-texture-blend.test.ts'),
   'deterministic scalar coverage combination without touching color',
   'texture blend coverage regression missing',
+);
+
+requireText(progress, 'M6A-041 pressure→size:完了', 'M6A-041 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPressureSizeEnabledV1',
+  'pressure-size preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'cursorPressure += (pressure - cursorPressure) * ratio',
+  'pressure is not interpolated at logical stamp positions',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#radius * sizeScale * pressureSizeScale',
+  'pressure is not resolved into dab radius',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  "pressure: source === 'pen' ? sample.pressure : 1",
+  'paint session does not preserve pen pressure into stabilized geometry',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-pressure-size"',
+  'reachable pressure-size control missing',
+);
+requireText(
+  read('tests/unit/brush-pressure-size.test.ts'),
+  'linearly interpolates pressure at logical stamp positions',
+  'pressure-size interpolation regression missing',
 );
 
 requireText(
