@@ -21,6 +21,59 @@ jobs:
           cache: npm
       - name: Restore dependencies
         run: npm ci
+      - name: Align M6A-059 particle-density UI anchor
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/patch-m6a059-particle-density.py')
+          s = p.read_text(encoding='utf-8')
+          old = '\n'.join([
+              '    """  const sprayParticleSizeRange = requireElement(\'#brush-spray-particle-size-range\', HTMLInputElement);',
+              '  const sprayParticleSizeNumber = requireElement(\'#brush-spray-particle-size-number\', HTMLInputElement);',
+              "  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);",
+              '""",',
+              '    """  const sprayParticleSizeRange = requireElement(\'#brush-spray-particle-size-range\', HTMLInputElement);',
+              '  const sprayParticleSizeNumber = requireElement(\'#brush-spray-particle-size-number\', HTMLInputElement);',
+              "  const sprayParticleDensityRange = requireElement('#brush-spray-particle-density-range', HTMLInputElement);",
+              "  const sprayParticleDensityNumber = requireElement('#brush-spray-particle-density-number', HTMLInputElement);",
+              "  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);",
+              '""",',
+          ])
+          new = '\n'.join([
+              '    """  const sprayParticleSizeRange = requireElement(',
+              "    '#brush-spray-particle-size-range',",
+              '    HTMLInputElement,',
+              '  );',
+              '  const sprayParticleSizeNumber = requireElement(',
+              "    '#brush-spray-particle-size-number',",
+              '    HTMLInputElement,',
+              '  );',
+              "  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);",
+              '""",',
+              '    """  const sprayParticleSizeRange = requireElement(',
+              "    '#brush-spray-particle-size-range',",
+              '    HTMLInputElement,',
+              '  );',
+              '  const sprayParticleSizeNumber = requireElement(',
+              "    '#brush-spray-particle-size-number',",
+              '    HTMLInputElement,',
+              '  );',
+              '  const sprayParticleDensityRange = requireElement(',
+              "    '#brush-spray-particle-density-range',",
+              '    HTMLInputElement,',
+              '  );',
+              '  const sprayParticleDensityNumber = requireElement(',
+              "    '#brush-spray-particle-density-number',",
+              '    HTMLInputElement,',
+              '  );',
+              "  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);",
+              '""",',
+          ])
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one UI anchor source block, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Apply M6A-059 particle-density patch
         run: python3 scripts/patch-m6a059-particle-density.py
       - name: Format changed TypeScript and verifier
