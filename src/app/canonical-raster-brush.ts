@@ -116,6 +116,11 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly velocityOpacityEnabled?: boolean;
       readonly velocityFlowEnabled?: boolean;
       readonly velocityResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly randomSizeEnabled?: boolean;
+      readonly randomOpacityEnabled?: boolean;
+      readonly randomFlowEnabled?: boolean;
+      readonly randomResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -192,6 +197,19 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.velocityResponseCurve === undefined
         ? {}
         : { velocityResponseCurve: options.velocityResponseCurve }),
+      ...(options.randomSizeEnabled === undefined
+        ? {}
+        : { randomSizeEnabled: options.randomSizeEnabled }),
+      ...(options.randomOpacityEnabled === undefined
+        ? {}
+        : { randomOpacityEnabled: options.randomOpacityEnabled }),
+      ...(options.randomFlowEnabled === undefined
+        ? {}
+        : { randomFlowEnabled: options.randomFlowEnabled }),
+      ...(options.randomResponseCurve === undefined
+        ? {}
+        : { randomResponseCurve: options.randomResponseCurve }),
+      ...(options.randomSeed === undefined ? {} : { randomSeed: options.randomSeed }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined

@@ -38,6 +38,10 @@ import {
   withBrushVelocityFlowEnabledV1,
   withBrushVelocityResponseCurveV1,
   withBrushVelocityMaximumPxPerSecondV1,
+  withBrushRandomSizeEnabledV1,
+  withBrushRandomOpacityEnabledV1,
+  withBrushRandomFlowEnabledV1,
+  withBrushRandomResponseCurveV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -1011,6 +1015,82 @@ export function updateBrushPresetVelocityMaximumV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushVelocityMaximumPxPerSecondV1(item.preset, maximumPxPerSecond);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetRandomSizeV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  enabled: boolean,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushRandomSizeEnabledV1(item.preset, enabled);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetRandomOpacityV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  enabled: boolean,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushRandomOpacityEnabledV1(item.preset, enabled);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetRandomFlowV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  enabled: boolean,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushRandomFlowEnabledV1(item.preset, enabled);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetRandomResponseCurveV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  curve: readonly ResponseCurvePointV1[],
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushRandomResponseCurveV1(item.preset, curve);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

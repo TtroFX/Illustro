@@ -37,6 +37,10 @@ import {
   brushVelocityFlowEnabledV1,
   brushVelocityResponseCurveV1,
   brushVelocityMaximumPxPerSecondV1,
+  brushRandomSizeEnabledV1,
+  brushRandomOpacityEnabledV1,
+  brushRandomFlowEnabledV1,
+  brushRandomResponseCurveV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -104,6 +108,10 @@ import {
   updateBrushPresetVelocityFlowV1,
   updateBrushPresetVelocityResponseCurveV1,
   updateBrushPresetVelocityMaximumV1,
+  updateBrushPresetRandomSizeV1,
+  updateBrushPresetRandomOpacityV1,
+  updateBrushPresetRandomFlowV1,
+  updateBrushPresetRandomResponseCurveV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -231,6 +239,15 @@ export function installBrushPresetControllerV1(input: {
   const velocityCurveOutput = requireElement('#brush-velocity-curve-output', HTMLInputElement);
   const velocityCurveDelete = requireElement('#brush-velocity-curve-delete', HTMLButtonElement);
   const velocityCurveReset = requireElement('#brush-velocity-curve-reset', HTMLButtonElement);
+  const randomSizeButton = requireElement('#brush-random-size', HTMLButtonElement);
+  const randomOpacityButton = requireElement('#brush-random-opacity', HTMLButtonElement);
+  const randomFlowButton = requireElement('#brush-random-flow', HTMLButtonElement);
+  const randomCurveCanvas = requireElement('#brush-random-curve', HTMLCanvasElement);
+  const randomCurvePreset = requireElement('#brush-random-curve-preset', HTMLSelectElement);
+  const randomCurveInput = requireElement('#brush-random-curve-input', HTMLInputElement);
+  const randomCurveOutput = requireElement('#brush-random-curve-output', HTMLInputElement);
+  const randomCurveDelete = requireElement('#brush-random-curve-delete', HTMLButtonElement);
+  const randomCurveReset = requireElement('#brush-random-curve-reset', HTMLButtonElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -245,6 +262,7 @@ export function installBrushPresetControllerV1(input: {
   let pressureCurveEditor: SharedCurveEditorV1 | null = null;
   let tiltCurveEditor: SharedCurveEditorV1 | null = null;
   let velocityCurveEditor: SharedCurveEditorV1 | null = null;
+  let randomCurveEditor: SharedCurveEditorV1 | null = null;
   let idCounter = 0;
 
   const nextId = (): string => {
@@ -337,6 +355,14 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushVelocityResponseCurve(velocityResponseCurve);
     const velocityMaximum = brushVelocityMaximumPxPerSecondV1(item.preset);
     input.paintSession.setBrushVelocityMaximumPxPerSecond(velocityMaximum);
+    const randomSizeEnabled = brushRandomSizeEnabledV1(item.preset);
+    input.paintSession.setBrushRandomSizeEnabled(randomSizeEnabled);
+    const randomOpacityEnabled = brushRandomOpacityEnabledV1(item.preset);
+    input.paintSession.setBrushRandomOpacityEnabled(randomOpacityEnabled);
+    const randomFlowEnabled = brushRandomFlowEnabledV1(item.preset);
+    input.paintSession.setBrushRandomFlowEnabled(randomFlowEnabled);
+    const randomResponseCurve = brushRandomResponseCurveV1(item.preset);
+    input.paintSession.setBrushRandomResponseCurve(randomResponseCurve);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -398,6 +424,10 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushVelocityFlow = String(velocityFlowEnabled);
     input.root.dataset.illustroBrushVelocityCurvePoints = String(velocityResponseCurve.length);
     input.root.dataset.illustroBrushVelocityMaximumPxPerSecond = String(velocityMaximum);
+    input.root.dataset.illustroBrushRandomSize = String(randomSizeEnabled);
+    input.root.dataset.illustroBrushRandomOpacity = String(randomOpacityEnabled);
+    input.root.dataset.illustroBrushRandomFlow = String(randomFlowEnabled);
+    input.root.dataset.illustroBrushRandomCurvePoints = String(randomResponseCurve.length);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -612,6 +642,17 @@ export function installBrushPresetControllerV1(input: {
     configurePair(velocityMaximumRange, velocityMaximumNumber, 100, 20000, 100, velocityMaximum);
     const velocityResponseCurve = brushVelocityResponseCurveV1(selected.preset);
     velocityCurveEditor?.setCurve(velocityResponseCurve);
+    const randomSizeEnabled = brushRandomSizeEnabledV1(selected.preset);
+    randomSizeButton.textContent = randomSizeEnabled ? 'ON' : 'OFF';
+    randomSizeButton.setAttribute('aria-pressed', String(randomSizeEnabled));
+    const randomOpacityEnabled = brushRandomOpacityEnabledV1(selected.preset);
+    randomOpacityButton.textContent = randomOpacityEnabled ? 'ON' : 'OFF';
+    randomOpacityButton.setAttribute('aria-pressed', String(randomOpacityEnabled));
+    const randomFlowEnabled = brushRandomFlowEnabledV1(selected.preset);
+    randomFlowButton.textContent = randomFlowEnabled ? 'ON' : 'OFF';
+    randomFlowButton.setAttribute('aria-pressed', String(randomFlowEnabled));
+    const randomResponseCurve = brushRandomResponseCurveV1(selected.preset);
+    randomCurveEditor?.setCurve(randomResponseCurve);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -690,7 +731,11 @@ export function installBrushPresetControllerV1(input: {
       velocitySizeEnabled || velocityOpacityEnabled || velocityFlowEnabled
         ? ` · Vmax${Math.round(velocityMaximum)}px/s`
         : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}`;
+    const randomSizeLabel = randomSizeEnabled ? ' · R→Size' : '';
+    const randomOpacityLabel = randomOpacityEnabled ? ' · R→Opacity' : '';
+    const randomFlowLabel = randomFlowEnabled ? ' · R→Flow' : '';
+    const randomCurveLabel = responseCurveIsLinearV1(randomResponseCurve) ? '' : ' · R-Curve';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -747,6 +792,9 @@ export function installBrushPresetControllerV1(input: {
       velocityFlowButton,
       velocityMaximumRange,
       velocityMaximumNumber,
+      randomSizeButton,
+      randomOpacityButton,
+      randomFlowButton,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -756,6 +804,7 @@ export function installBrushPresetControllerV1(input: {
     pressureCurveEditor?.setDisabled(locked);
     tiltCurveEditor?.setDisabled(locked);
     velocityCurveEditor?.setDisabled(locked);
+    randomCurveEditor?.setDisabled(locked);
     tipAssetSelect.disabled = locked || tipAssets.length === 0;
     tipAssetAdd.disabled = locked || tipAssets.length >= BRUSH_TIP_ASSET_LIMIT_V1;
     tipAssetDelete.disabled = locked || tipAssets.length <= 1;
@@ -822,6 +871,20 @@ export function installBrushPresetControllerV1(input: {
     initialCurve: brushVelocityResponseCurveV1(selectedBrushPresetItemV1(state).preset),
     onChange: (curve) =>
       mutate(() => updateBrushPresetVelocityResponseCurveV1(state, state.selectedPresetId, curve)),
+  });
+
+  randomCurveEditor = installSharedCurveEditorV1({
+    elements: {
+      canvas: randomCurveCanvas,
+      preset: randomCurvePreset,
+      inputNumber: randomCurveInput,
+      outputNumber: randomCurveOutput,
+      deleteButton: randomCurveDelete,
+      resetButton: randomCurveReset,
+    },
+    initialCurve: brushRandomResponseCurveV1(selectedBrushPresetItemV1(state).preset),
+    onChange: (curve) =>
+      mutate(() => updateBrushPresetRandomResponseCurveV1(state, state.selectedPresetId, curve)),
   });
 
   const onSearch = (): void => {
@@ -1061,6 +1124,30 @@ export function installBrushPresetControllerV1(input: {
     updateVelocityMaximum(Number(velocityMaximumRange.value));
   const onVelocityMaximumNumber = (): void =>
     updateVelocityMaximum(Number(velocityMaximumNumber.value));
+  const onRandomSize = (): void =>
+    mutate(() =>
+      updateBrushPresetRandomSizeV1(
+        state,
+        state.selectedPresetId,
+        !brushRandomSizeEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
+  const onRandomOpacity = (): void =>
+    mutate(() =>
+      updateBrushPresetRandomOpacityV1(
+        state,
+        state.selectedPresetId,
+        !brushRandomOpacityEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
+  const onRandomFlow = (): void =>
+    mutate(() =>
+      updateBrushPresetRandomFlowV1(
+        state,
+        state.selectedPresetId,
+        !brushRandomFlowEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -1184,6 +1271,9 @@ export function installBrushPresetControllerV1(input: {
   velocityFlowButton.addEventListener('click', onVelocityFlow);
   velocityMaximumRange.addEventListener('input', onVelocityMaximumRange);
   velocityMaximumNumber.addEventListener('change', onVelocityMaximumNumber);
+  randomSizeButton.addEventListener('click', onRandomSize);
+  randomOpacityButton.addEventListener('click', onRandomOpacity);
+  randomFlowButton.addEventListener('click', onRandomFlow);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -1260,12 +1350,17 @@ export function installBrushPresetControllerV1(input: {
       velocityFlowButton.removeEventListener('click', onVelocityFlow);
       velocityMaximumRange.removeEventListener('input', onVelocityMaximumRange);
       velocityMaximumNumber.removeEventListener('change', onVelocityMaximumNumber);
+      randomSizeButton.removeEventListener('click', onRandomSize);
+      randomOpacityButton.removeEventListener('click', onRandomOpacity);
+      randomFlowButton.removeEventListener('click', onRandomFlow);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();
       tiltCurveEditor = null;
       velocityCurveEditor?.dispose();
       velocityCurveEditor = null;
+      randomCurveEditor?.dispose();
+      randomCurveEditor = null;
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);

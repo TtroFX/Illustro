@@ -376,11 +376,34 @@ function deterministicBrushTipIndexV1(seed: number, stampIndex: number, count: n
   return value % count;
 }
 
+const BASELINE_BRUSH_RANDOM_DYNAMICS_SALT_V1 = 0xa511e9b3 as const;
+
+export function deterministicBaselineBrushRandomV1(seed: number, stampIndex: number): number {
+  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
+    throw new RangeError('baseline brush random seed must be uint32');
+  }
+  if (!Number.isSafeInteger(stampIndex) || stampIndex < 0) {
+    throw new RangeError('baseline brush random stamp index must be a non-negative safe integer');
+  }
+  let value =
+    (seed ^
+      BASELINE_BRUSH_RANDOM_DYNAMICS_SALT_V1 ^
+      Math.imul((stampIndex + 1) >>> 0, 0x9e3779b1)) >>>
+    0;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d) >>> 0;
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b) >>> 0;
+  value ^= value >>> 16;
+  return (value >>> 0) / 0x100000000;
+}
+
 interface BaselineLogicalStampRecordV1 {
   readonly x: number;
   readonly y: number;
   readonly pressure: number;
   readonly velocity: number;
+  readonly randomInput: number;
   readonly tiltUprightness: number;
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
@@ -412,6 +435,11 @@ export class BaselineBrushDabBuilderV1 {
   readonly #velocityOpacityEnabled: boolean;
   readonly #velocityFlowEnabled: boolean;
   readonly #velocityResponseCurve: CompiledResponseCurveV1;
+  readonly #randomSizeEnabled: boolean;
+  readonly #randomOpacityEnabled: boolean;
+  readonly #randomFlowEnabled: boolean;
+  readonly #randomResponseCurve: CompiledResponseCurveV1;
+  readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -427,6 +455,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #tipSelectionSeed: number;
   readonly #logicalStamps: BaselineLogicalStampRecordV1[] = [];
   #logicalStampIndex = 0;
+  #randomStampIndex = 0;
   #pathDistancePx = 0;
   #lastPoint: {
     x: number;
@@ -467,6 +496,11 @@ export class BaselineBrushDabBuilderV1 {
       readonly velocityOpacityEnabled?: boolean;
       readonly velocityFlowEnabled?: boolean;
       readonly velocityResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly randomSizeEnabled?: boolean;
+      readonly randomOpacityEnabled?: boolean;
+      readonly randomFlowEnabled?: boolean;
+      readonly randomResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -508,6 +542,10 @@ export class BaselineBrushDabBuilderV1 {
     const velocitySizeEnabled = options.velocitySizeEnabled ?? false;
     const velocityOpacityEnabled = options.velocityOpacityEnabled ?? false;
     const velocityFlowEnabled = options.velocityFlowEnabled ?? false;
+    const randomSizeEnabled = options.randomSizeEnabled ?? false;
+    const randomOpacityEnabled = options.randomOpacityEnabled ?? false;
+    const randomFlowEnabled = options.randomFlowEnabled ?? false;
+    const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -593,6 +631,16 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new TypeError('baseline brush velocity mapping flags must be boolean');
     }
+    if (
+      typeof randomSizeEnabled !== 'boolean' ||
+      typeof randomOpacityEnabled !== 'boolean' ||
+      typeof randomFlowEnabled !== 'boolean'
+    ) {
+      throw new TypeError('baseline brush random mapping flags must be boolean');
+    }
+    if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
+      throw new RangeError('baseline brush random seed must be uint32');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -634,6 +682,16 @@ export class BaselineBrushDabBuilderV1 {
         { input: 1, output: 1 },
       ],
     );
+    this.#randomSizeEnabled = randomSizeEnabled;
+    this.#randomOpacityEnabled = randomOpacityEnabled;
+    this.#randomFlowEnabled = randomFlowEnabled;
+    this.#randomResponseCurve = compileResponseCurveV1(
+      options.randomResponseCurve ?? [
+        { input: 0, output: 0 },
+        { input: 1, output: 1 },
+      ],
+    );
+    this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -866,6 +924,7 @@ export class BaselineBrushDabBuilderV1 {
       | 'y'
       | 'pressure'
       | 'velocity'
+      | 'randomInput'
       | 'tiltUprightness'
       | 'tipAngleDegrees'
       | 'sampledTipAlpha'
@@ -898,6 +957,12 @@ export class BaselineBrushDabBuilderV1 {
     const velocitySizeScale = this.#velocitySizeEnabled ? velocityResponse : 1;
     const velocityOpacityScale = this.#velocityOpacityEnabled ? velocityResponse : 1;
     const velocityFlowScale = this.#velocityFlowEnabled ? velocityResponse : 1;
+    const usesRandom =
+      this.#randomSizeEnabled || this.#randomOpacityEnabled || this.#randomFlowEnabled;
+    const randomResponse = usesRandom ? this.#randomResponseCurve.sample(stamp.randomInput) : 1;
+    const randomSizeScale = this.#randomSizeEnabled ? randomResponse : 1;
+    const randomOpacityScale = this.#randomOpacityEnabled ? randomResponse : 1;
+    const randomFlowScale = this.#randomFlowEnabled ? randomResponse : 1;
     if (
       sizeScale <= 0 ||
       opacityScale <= 0 ||
@@ -909,7 +974,10 @@ export class BaselineBrushDabBuilderV1 {
       tiltFlowScale <= 0 ||
       velocitySizeScale <= 0 ||
       velocityOpacityScale <= 0 ||
-      velocityFlowScale <= 0
+      velocityFlowScale <= 0 ||
+      randomSizeScale <= 0 ||
+      randomOpacityScale <= 0 ||
+      randomFlowScale <= 0
     ) {
       return;
     }
@@ -917,9 +985,23 @@ export class BaselineBrushDabBuilderV1 {
       target,
       stamp.x,
       stamp.y,
-      this.#radius * sizeScale * pressureSizeScale * tiltSizeScale * velocitySizeScale,
-      this.#flow * opacityScale * pressureFlowScale * tiltFlowScale * velocityFlowScale,
-      this.#strokeOpacity * pressureOpacityScale * tiltOpacityScale * velocityOpacityScale,
+      this.#radius *
+        sizeScale *
+        pressureSizeScale *
+        tiltSizeScale *
+        velocitySizeScale *
+        randomSizeScale,
+      this.#flow *
+        opacityScale *
+        pressureFlowScale *
+        tiltFlowScale *
+        velocityFlowScale *
+        randomFlowScale,
+      this.#strokeOpacity *
+        pressureOpacityScale *
+        tiltOpacityScale *
+        velocityOpacityScale *
+        randomOpacityScale,
       this.#hardness,
       this.#tipDensity,
       stamp.tipAngleDegrees,
@@ -939,12 +1021,19 @@ export class BaselineBrushDabBuilderV1 {
     pathDistancePx: number,
   ): void {
     const startEnvelope = this.#startEnvelopeAtDistance(pathDistancePx);
+    const usesRandom =
+      this.#randomSizeEnabled || this.#randomOpacityEnabled || this.#randomFlowEnabled;
+    const randomInput = usesRandom
+      ? deterministicBaselineBrushRandomV1(this.#randomSeed, this.#randomStampIndex)
+      : 1;
+    if (usesRandom) this.#randomStampIndex += 1;
     const sampledTipAlpha = this.#sampledTipAlphaForLogicalStamp();
     const record: BaselineLogicalStampRecordV1 = {
       x,
       y,
       pressure,
       velocity,
+      randomInput,
       tiltUprightness,
       tipAngleDegrees,
       pathDistancePx,

@@ -1035,6 +1035,99 @@ export function withBrushVelocityMaximumPxPerSecondV1(
   });
 }
 
+export const DEFAULT_BRUSH_RANDOM_SIZE_ENABLED_V1 = false as const;
+export const DEFAULT_BRUSH_RANDOM_OPACITY_ENABLED_V1 = false as const;
+export const DEFAULT_BRUSH_RANDOM_FLOW_ENABLED_V1 = false as const;
+
+export function brushRandomSizeEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.randomSizeEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_RANDOM_SIZE_ENABLED_V1;
+}
+
+export function withBrushRandomSizeEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') throw new TypeError('brush random size flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_RANDOM_SIZE_ENABLED_V1) {
+    const { randomSizeEnabled: _randomSizeEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, randomSizeEnabled: enabled },
+  });
+}
+
+export function brushRandomOpacityEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.randomOpacityEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_RANDOM_OPACITY_ENABLED_V1;
+}
+
+export function withBrushRandomOpacityEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean')
+    throw new TypeError('brush random opacity flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_RANDOM_OPACITY_ENABLED_V1) {
+    const { randomOpacityEnabled: _randomOpacityEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, randomOpacityEnabled: enabled },
+  });
+}
+
+export function brushRandomFlowEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.randomFlowEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_RANDOM_FLOW_ENABLED_V1;
+}
+
+export function withBrushRandomFlowEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') throw new TypeError('brush random flow flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_RANDOM_FLOW_ENABLED_V1) {
+    const { randomFlowEnabled: _randomFlowEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, randomFlowEnabled: enabled },
+  });
+}
+
+export function brushRandomResponseCurveV1(preset: BrushPresetV1): readonly ResponseCurvePointV1[] {
+  const value = preset.dynamics.randomResponseCurve;
+  if (value === undefined) return LINEAR_RESPONSE_CURVE_V1;
+  try {
+    return normalizeResponseCurveV1(value);
+  } catch {
+    return LINEAR_RESPONSE_CURVE_V1;
+  }
+}
+
+export function withBrushRandomResponseCurveV1(
+  preset: BrushPresetV1,
+  curve: readonly ResponseCurvePointV1[],
+): BrushPresetV1 {
+  const normalized = normalizeResponseCurveV1(curve);
+  if (responseCurveIsLinearV1(normalized)) {
+    const { randomResponseCurve: _randomResponseCurve, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  const stored = toJsonValue(
+    normalized.map((pointValue) => ({ input: pointValue.input, output: pointValue.output })),
+  );
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, randomResponseCurve: stored },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

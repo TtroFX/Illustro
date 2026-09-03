@@ -868,8 +868,8 @@ requireText(
 );
 requireText(
   read('src/gpu/baseline-brush.ts'),
-  'this.#radius * sizeScale * pressureSizeScale',
-  'pressure is not resolved into dab radius',
+  'const pressureSizeScale = this.#pressureSizeEnabled ? pressureResponse : 1;',
+  'pressure-size response is not resolved for logical stamps',
 );
 requireText(
   read('src/app/paint-session-controller.ts'),
@@ -895,8 +895,8 @@ requireText(
 );
 requireText(
   read('src/gpu/baseline-brush.ts'),
-  'this.#strokeOpacity * pressureOpacityScale',
-  'pressure is not resolved into the opacity cap',
+  'const pressureOpacityScale = this.#pressureOpacityEnabled ? pressureResponse : 1;',
+  'pressure-opacity response is not resolved for logical stamps',
 );
 requireText(
   read('src/gpu/baseline-raster-tile-store.ts'),
@@ -927,8 +927,8 @@ requireText(
 );
 requireText(
   read('src/gpu/baseline-brush.ts'),
-  'this.#flow * opacityScale * pressureFlowScale',
-  'pressure is not resolved into per-dab flow',
+  'const pressureFlowScale = this.#pressureFlowEnabled ? pressureResponse : 1;',
+  'pressure-flow response is not resolved for logical stamps',
 );
 requireText(
   read('src/app/paint-session-controller.ts'),
@@ -1099,6 +1099,58 @@ requireText(
   read('tests/unit/brush-velocity-mapping.test.ts'),
   'keeps velocity independent from pressure and tilt while resolving the same primitive fields',
   'velocity composition regression coverage missing',
+);
+
+requireText(progress, 'M6A-048 random dynamics:完了', 'M6A-048 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushRandomResponseCurveV1',
+  'random dynamics preset response helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushRandomV1',
+  'deterministic random dynamics source missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  '#randomStampIndex',
+  'random dynamics does not own an attempt index independent from visible tip repetition',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#randomResponseCurve.sample(stamp.randomInput)',
+  'shared random response is not sampled from the stored logical-stamp random input',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  "this.#brushTipSelectionMode === 'random-per-stamp' || randomDynamicsEnabled",
+  'random dynamics does not capture a persistent deterministic stroke seed',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushRandomResponseCurve',
+  'random dynamics is not connected to runtime brush state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-random-size"',
+  'reachable random-size control missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-random-curve"',
+  'reachable random Curve Editor missing',
+);
+requireText(
+  read('tests/unit/brush-random-dynamics.test.ts'),
+  'advances the random attempt index even when a taper suppresses the first logical stamp',
+  'random attempt-index regression coverage missing',
+);
+requireText(
+  read('tests/unit/brush-random-dynamics.test.ts'),
+  'uses an independent random channel without changing random tip-selection order',
+  'random/tip-selection channel independence coverage missing',
 );
 
 requireText(

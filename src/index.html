@@ -378,6 +378,40 @@
                 </div>
               </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-random-size">ランダム→サイズ</label>
+                <button id="brush-random-size" type="button" aria-pressed="false" title="ストロークseed由来のランダム値をブラシサイズへ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Random</span>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-random-opacity">ランダム→不透明度</label>
+                <button id="brush-random-opacity" type="button" aria-pressed="false" title="ストロークseed由来のランダム値を不透明度へ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Random</span>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-random-flow">ランダム→流量</label>
+                <button id="brush-random-flow" type="button" aria-pressed="false" title="ストロークseed由来のランダム値を流量へ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Random</span>
+              </div>
+              <div class="shell-brush-pressure-curve-editor shell-brush-random-curve-editor" aria-label="ランダムレスポンスカーブ">
+                <div class="shell-brush-pressure-curve-header">
+                  <label for="brush-random-curve-preset">ランダムカーブ</label>
+                  <select id="brush-random-curve-preset" aria-label="ランダムカーブプリセット">
+                    <option value="linear">Linear</option>
+                    <option value="soft">Soft</option>
+                    <option value="hard">Hard</option>
+                    <option value="s-curve">S Curve</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <canvas id="brush-random-curve" width="240" height="128" tabindex="0" aria-label="ランダムレスポンスカーブ。論理スタンプごとの決定的なランダム入力を出力へ変換"></canvas>
+                <div class="shell-brush-pressure-curve-values">
+                  <label>入力 <input id="brush-random-curve-input" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <label>出力 <input id="brush-random-curve-output" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <button id="brush-random-curve-delete" type="button">点を削除</button>
+                  <button id="brush-random-curve-reset" type="button">Reset</button>
+                </div>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tip-shape">ブラシ形状</label>
                 <select id="brush-tip-shape" aria-label="ブラシ先端形状">
                   <option value="round">円形</option>

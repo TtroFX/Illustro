@@ -5824,3 +5824,13 @@ Verification must cover at minimum:
 - Normalized velocity is attached only to the transient canonical brush sample and linearly interpolated at logical-stamp positions. It composes multiplicatively and independently with pressure and tilt responses. It may reduce size, the per-dab stroke-opacity cap, and/or flow, but it cannot raise an M6A-032 forced zero taper endpoint above zero.
 - Post-stroke correction recomputes the same velocity series from canonical raw samples before rebuilding final dabs. Primitive dabs persist only the already-resolved `radius`, `strokeOpacity`, and `flow`; no velocity-specific renderer, Worker, history, or recovery field is added.
 - M6A-049/M6A-050 own later minimum/maximum-response remapping. M6A-047 intentionally does not pre-implement those clamps.
+
+#### M6A random-dynamics boundary — 2026-09-03
+
+- M6A-048 models Random/Fuzzy dynamics as a deterministic `0..1` sensor sampled once for each **logical stamp attempt**. It never calls global RNG and never depends on presentation frame timing.
+- A randomized stroke uses the existing persisted `PaintStrokeV1.randomSeed`. The random-dynamics stream has its own fixed salt and its own attempt index, separate from M6A-027 multi-tip `random-per-stamp` selection. Enabling Random dynamics therefore cannot reorder selected tip assets.
+- `dynamics.randomSizeEnabled`, `randomOpacityEnabled`, and `randomFlowEnabled` are independent opt-in mappings and default to `false`. `randomResponseCurve` reuses the IP-12 Shared Curve Editor and defaults to exact linear identity.
+- The random attempt index advances even when taper or another response suppresses that stamp. A visible logical-stamp record stores its already-generated `randomInput`, so bounded end-tail reconciliation reuses the same value rather than re-rolling.
+- One shared Random response may multiply resolved size, the per-dab stroke-opacity cap, and/or flow. It composes independently with Pressure, Tilt, Velocity and taper; M6A-032 forced zero endpoints remain authoritative because random can only multiply the existing result.
+- Primitive dabs persist only resolved `radius`, `strokeOpacity`, and `flow`; Random adds no renderer, Worker, history, or recovery field. Post-stroke correction rebuilds from the same captured seed and therefore reproduces the same random stream.
+- M6A-049/M6A-050 own minimum/maximum response remapping. M6A-048 deliberately does not pre-implement either clamp.

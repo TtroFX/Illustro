@@ -252,6 +252,10 @@ export interface PaintSessionSnapshotV1 {
   readonly brushVelocityFlowEnabled: boolean;
   readonly brushVelocityResponseCurve: readonly ResponseCurvePointV1[];
   readonly brushVelocityMaximumPxPerSecond: number;
+  readonly brushRandomSizeEnabled: boolean;
+  readonly brushRandomOpacityEnabled: boolean;
+  readonly brushRandomFlowEnabled: boolean;
+  readonly brushRandomResponseCurve: readonly ResponseCurvePointV1[];
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -772,6 +776,10 @@ export class PaintSessionControllerV1 {
   #brushVelocityFlowEnabled = false;
   #brushVelocityResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
   #brushVelocityMaximumPxPerSecond: number = DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1;
+  #brushRandomSizeEnabled = false;
+  #brushRandomOpacityEnabled = false;
+  #brushRandomFlowEnabled = false;
+  #brushRandomResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -832,6 +840,10 @@ export class PaintSessionControllerV1 {
       brushVelocityFlowEnabled: this.#brushVelocityFlowEnabled,
       brushVelocityResponseCurve: this.#brushVelocityResponseCurve,
       brushVelocityMaximumPxPerSecond: this.#brushVelocityMaximumPxPerSecond,
+      brushRandomSizeEnabled: this.#brushRandomSizeEnabled,
+      brushRandomOpacityEnabled: this.#brushRandomOpacityEnabled,
+      brushRandomFlowEnabled: this.#brushRandomFlowEnabled,
+      brushRandomResponseCurve: this.#brushRandomResponseCurve,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1315,6 +1327,53 @@ export class PaintSessionControllerV1 {
 
   brushVelocityMaximumPxPerSecond(): number {
     return this.#brushVelocityMaximumPxPerSecond;
+  }
+
+  setBrushRandomSizeEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime random-size flag');
+    if (enabled !== this.#brushRandomSizeEnabled) this.#clearActiveStroke();
+    this.#brushRandomSizeEnabled = enabled;
+    return this.#brushRandomSizeEnabled;
+  }
+
+  brushRandomSizeEnabled(): boolean {
+    return this.#brushRandomSizeEnabled;
+  }
+
+  setBrushRandomOpacityEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime random-opacity flag');
+    if (enabled !== this.#brushRandomOpacityEnabled) this.#clearActiveStroke();
+    this.#brushRandomOpacityEnabled = enabled;
+    return this.#brushRandomOpacityEnabled;
+  }
+
+  brushRandomOpacityEnabled(): boolean {
+    return this.#brushRandomOpacityEnabled;
+  }
+
+  setBrushRandomFlowEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime random-flow flag');
+    if (enabled !== this.#brushRandomFlowEnabled) this.#clearActiveStroke();
+    this.#brushRandomFlowEnabled = enabled;
+    return this.#brushRandomFlowEnabled;
+  }
+
+  brushRandomFlowEnabled(): boolean {
+    return this.#brushRandomFlowEnabled;
+  }
+
+  setBrushRandomResponseCurve(
+    curve: readonly ResponseCurvePointV1[],
+  ): readonly ResponseCurvePointV1[] {
+    const normalized = normalizeResponseCurveV1(curve);
+    if (!responseCurveEqualsV1(normalized, this.#brushRandomResponseCurve))
+      this.#clearActiveStroke();
+    this.#brushRandomResponseCurve = normalized;
+    return this.#brushRandomResponseCurve;
+  }
+
+  brushRandomResponseCurve(): readonly ResponseCurvePointV1[] {
+    return this.#brushRandomResponseCurve;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2172,8 +2231,12 @@ export class PaintSessionControllerV1 {
     this.#activeSamples.length = 0;
     this.#activeSamples.push(...samples);
     const strokeId = crypto.randomUUID();
+    const randomDynamicsEnabled =
+      this.#brushRandomSizeEnabled ||
+      this.#brushRandomOpacityEnabled ||
+      this.#brushRandomFlowEnabled;
     const randomSeed =
-      this.#brushTipSelectionMode === 'random-per-stamp'
+      this.#brushTipSelectionMode === 'random-per-stamp' || randomDynamicsEnabled
         ? deterministicPaintStrokeSeedV1(strokeId)
         : undefined;
     this.#activeStroke = Object.freeze({
@@ -2233,6 +2296,11 @@ export class PaintSessionControllerV1 {
         velocityOpacityEnabled: this.#brushVelocityOpacityEnabled,
         velocityFlowEnabled: this.#brushVelocityFlowEnabled,
         velocityResponseCurve: this.#brushVelocityResponseCurve,
+        randomSizeEnabled: this.#brushRandomSizeEnabled,
+        randomOpacityEnabled: this.#brushRandomOpacityEnabled,
+        randomFlowEnabled: this.#brushRandomFlowEnabled,
+        randomResponseCurve: this.#brushRandomResponseCurve,
+        randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,
