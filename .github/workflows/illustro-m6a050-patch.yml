@@ -22,6 +22,28 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Normalize M6A-049 UI anchor for patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/brush-preset-controller.ts')
+          text = path.read_text()
+          old = """  const flowMinimumResponseRange = requireElement(
+            '#brush-flow-minimum-response-range',
+            HTMLInputElement,
+          );
+          const flowMinimumResponseNumber = requireElement(
+            '#brush-flow-minimum-response-number',
+            HTMLInputElement,
+          );
+          const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);"""
+          new = """  const flowMinimumResponseRange = requireElement('#brush-flow-minimum-response-range', HTMLInputElement);
+          const flowMinimumResponseNumber = requireElement('#brush-flow-minimum-response-number', HTMLInputElement);
+          const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);"""
+          if old not in text:
+              raise SystemExit('M6A-049 UI anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Apply M6A-050 maximum-response patch
         run: python3 .github/illustro-m6a050-patch.py
       - name: Format changed TypeScript and verifier
