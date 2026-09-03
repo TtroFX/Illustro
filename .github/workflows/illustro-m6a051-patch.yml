@@ -28,8 +28,18 @@ jobs:
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts src/index.html tests/unit/brush-size-jitter.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
         run: npm run typecheck
-      - name: M6A-051 size-jitter tests
-        run: npx vitest run tests/unit/brush-size-jitter.test.ts
+      - name: Size jitter preset contract
+        run: npx vitest run tests/unit/brush-size-jitter.test.ts -t 'stores a normalized direct jitter amount with an exact zero default'
+      - name: Size jitter zero identity
+        run: npx vitest run tests/unit/brush-size-jitter.test.ts -t 'keeps zero jitter as an exact radius identity'
+      - name: Size jitter deterministic variation
+        run: npx vitest run tests/unit/brush-size-jitter.test.ts -t 'applies deterministic one-sided size variation per logical stamp attempt'
+      - name: Size jitter suppressed-attempt index
+        run: npx vitest run tests/unit/brush-size-jitter.test.ts -t 'advances the size-jitter attempt index even when taper suppresses a logical stamp'
+      - name: Size jitter random-channel independence
+        run: npx vitest run tests/unit/brush-size-jitter.test.ts -t 'uses a random channel independent from generalized random dynamics'
+      - name: Size jitter mutable-tail reuse
+        run: npx vitest run tests/unit/brush-size-jitter.test.ts -t 'reuses the stored jitter scale when reconciling the mutable end tail'
       - name: Existing brush regression tests
         run: npx vitest run tests/unit/brush-random-dynamics.test.ts tests/unit/brush-maximum-response.test.ts tests/unit/brush-minimum-response.test.ts tests/unit/brush-forced-taper.test.ts tests/unit/brush-post-stroke-correction.test.ts tests/unit/brush-stroke-repetition.test.ts
       - name: M6A verification
