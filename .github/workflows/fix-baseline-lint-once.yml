@@ -54,9 +54,6 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts --prefer-offline
 
-      - name: Format repaired file
-        run: npx biome format --write src/index.html
-
       - name: Lint
         run: npx biome lint --max-diagnostics=200 src tests scripts bench vitest.config.ts
 
