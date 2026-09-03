@@ -1409,6 +1409,59 @@ export function withBrushDensityJitterV1(preset: BrushPresetV1, amount: number):
   });
 }
 
+export const DEFAULT_BRUSH_HUE_JITTER_V1 = 0 as const;
+export const DEFAULT_BRUSH_SATURATION_JITTER_V1 = 0 as const;
+export const DEFAULT_BRUSH_VALUE_JITTER_V1 = 0 as const;
+
+function brushColorJitterValueV1(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : 0;
+}
+
+export function brushHueJitterV1(preset: BrushPresetV1): number {
+  return brushColorJitterValueV1(preset.jitter.hue);
+}
+
+export function brushSaturationJitterV1(preset: BrushPresetV1): number {
+  return brushColorJitterValueV1(preset.jitter.saturation);
+}
+
+export function brushValueJitterV1(preset: BrushPresetV1): number {
+  return brushColorJitterValueV1(preset.jitter.value);
+}
+
+function withBrushColorJitterFieldV1(
+  preset: BrushPresetV1,
+  field: 'hue' | 'saturation' | 'value',
+  amount: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+    throw new RangeError(`brush ${field} jitter must be within 0..1`);
+  }
+  if (amount === 0) {
+    const jitter = { ...preset.jitter } as Record<string, JsonValue>;
+    delete jitter[field];
+    return normalizeBrushPresetV1({ ...preset, jitter });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    jitter: { ...preset.jitter, [field]: amount },
+  });
+}
+
+export function withBrushHueJitterV1(preset: BrushPresetV1, amount: number): BrushPresetV1 {
+  return withBrushColorJitterFieldV1(preset, 'hue', amount);
+}
+
+export function withBrushSaturationJitterV1(preset: BrushPresetV1, amount: number): BrushPresetV1 {
+  return withBrushColorJitterFieldV1(preset, 'saturation', amount);
+}
+
+export function withBrushValueJitterV1(preset: BrushPresetV1, amount: number): BrushPresetV1 {
+  return withBrushColorJitterFieldV1(preset, 'value', amount);
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

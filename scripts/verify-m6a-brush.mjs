@@ -1467,6 +1467,68 @@ requireText(
   'density-jitter tail reconciliation regression missing',
 );
 
+requireText(progress, 'M6A-056 color jitter:完了', 'M6A-056 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushHueJitterV1',
+  'color-jitter preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushColorJitterV1',
+  'deterministic HSV color-jitter channel missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'color: resolvedColor',
+  'resolved color jitter is not stored on logical stamps',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'stamp.color',
+  'resolved logical-stamp color is not forwarded to primitive dabs',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushColorJitter',
+  'color jitter is not connected to runtime brush state',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'colorJitterEnabled',
+  'color jitter does not capture a deterministic persistent stroke seed',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-hue-jitter-range"',
+  'reachable hue-jitter control missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-saturation-jitter-range"',
+  'reachable saturation-jitter control missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-value-jitter-range"',
+  'reachable value-jitter control missing',
+);
+requireText(
+  read('tests/unit/brush-color-jitter.test.ts'),
+  'shares one resolved color across sampled-tip micro dabs',
+  'color-jitter logical-stamp sharing regression missing',
+);
+requireText(
+  read('tests/unit/brush-color-jitter.test.ts'),
+  'advances the color-jitter attempt index even when taper suppresses a logical stamp',
+  'color-jitter attempt-index regression missing',
+);
+requireText(
+  read('tests/unit/brush-color-jitter.test.ts'),
+  'reuses the resolved color when reconciling the mutable end tail',
+  'color-jitter tail reconciliation regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

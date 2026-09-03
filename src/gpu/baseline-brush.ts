@@ -29,6 +29,9 @@ export const BASELINE_BRUSH_OPACITY_JITTER = 0 as const;
 export const BASELINE_BRUSH_ROTATION_JITTER = 0 as const;
 export const BASELINE_BRUSH_POSITION_JITTER = 0 as const;
 export const BASELINE_BRUSH_DENSITY_JITTER = 0 as const;
+export const BASELINE_BRUSH_HUE_JITTER = 0 as const;
+export const BASELINE_BRUSH_SATURATION_JITTER = 0 as const;
+export const BASELINE_BRUSH_VALUE_JITTER = 0 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 export type BaselineBrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
@@ -388,6 +391,9 @@ const BASELINE_BRUSH_ROTATION_JITTER_SALT_V1 = 0xb5297a4d as const;
 const BASELINE_BRUSH_POSITION_JITTER_ANGLE_SALT_V1 = 0x9e6c63d1 as const;
 const BASELINE_BRUSH_POSITION_JITTER_RADIUS_SALT_V1 = 0xc2b2ae35 as const;
 const BASELINE_BRUSH_DENSITY_JITTER_SALT_V1 = 0x165667b1 as const;
+const BASELINE_BRUSH_HUE_JITTER_SALT_V1 = 0xd3a2646c as const;
+const BASELINE_BRUSH_SATURATION_JITTER_SALT_V1 = 0xfd7046c5 as const;
+const BASELINE_BRUSH_VALUE_JITTER_SALT_V1 = 0xb55a4f09 as const;
 
 export function deterministicBaselineBrushSizeJitterV1(seed: number, stampIndex: number): number {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
@@ -528,6 +534,113 @@ export function deterministicBaselineBrushDensityJitterV1(
   return (value >>> 0) / 0x100000000;
 }
 
+function deterministicBaselineBrushColorComponentV1(
+  seed: number,
+  stampIndex: number,
+  salt: number,
+): number {
+  let value = (seed ^ salt ^ Math.imul((stampIndex + 1) >>> 0, 0x9e3779b1)) >>> 0;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d) >>> 0;
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b) >>> 0;
+  value ^= value >>> 16;
+  return (value >>> 0) / 0x100000000;
+}
+
+export function deterministicBaselineBrushColorJitterV1(
+  seed: number,
+  stampIndex: number,
+): Readonly<{ hue: number; saturation: number; value: number }> {
+  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
+    throw new RangeError('baseline brush color jitter seed must be uint32');
+  }
+  if (!Number.isSafeInteger(stampIndex) || stampIndex < 0) {
+    throw new RangeError(
+      'baseline brush color jitter stamp index must be a non-negative safe integer',
+    );
+  }
+  return Object.freeze({
+    hue: deterministicBaselineBrushColorComponentV1(
+      seed,
+      stampIndex,
+      BASELINE_BRUSH_HUE_JITTER_SALT_V1,
+    ),
+    saturation: deterministicBaselineBrushColorComponentV1(
+      seed,
+      stampIndex,
+      BASELINE_BRUSH_SATURATION_JITTER_SALT_V1,
+    ),
+    value: deterministicBaselineBrushColorComponentV1(
+      seed,
+      stampIndex,
+      BASELINE_BRUSH_VALUE_JITTER_SALT_V1,
+    ),
+  });
+}
+
+function baselineBrushRgbToHsvV1(
+  color: BaselineBrushColorV1,
+): Readonly<{ h: number; s: number; v: number }> {
+  const [r, g, b] = color;
+  const maximum = Math.max(r, g, b);
+  const minimum = Math.min(r, g, b);
+  const delta = maximum - minimum;
+  let h = 0;
+  if (delta > 0) {
+    if (maximum === r) h = ((g - b) / delta) % 6;
+    else if (maximum === g) h = (b - r) / delta + 2;
+    else h = (r - g) / delta + 4;
+    h /= 6;
+    if (h < 0) h += 1;
+  }
+  return Object.freeze({ h, s: maximum <= 0 ? 0 : delta / maximum, v: maximum });
+}
+
+function baselineBrushHsvToRgbV1(h: number, s: number, v: number): BaselineBrushColorV1 {
+  const normalizedHue = ((h % 1) + 1) % 1;
+  const chroma = v * s;
+  const sector = normalizedHue * 6;
+  const x = chroma * (1 - Math.abs((sector % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (sector < 1) [r, g] = [chroma, x];
+  else if (sector < 2) [r, g] = [x, chroma];
+  else if (sector < 3) [g, b] = [chroma, x];
+  else if (sector < 4) [g, b] = [x, chroma];
+  else if (sector < 5) [r, b] = [x, chroma];
+  else [r, b] = [chroma, x];
+  const match = v - chroma;
+  return freezeBaselineBrushColorV1([r + match, g + match, b + match]);
+}
+
+export function applyBaselineBrushColorJitterV1(
+  color: BaselineBrushColorV1,
+  random: Readonly<{ hue: number; saturation: number; value: number }>,
+  hueAmount: number,
+  saturationAmount: number,
+  valueAmount: number,
+): BaselineBrushColorV1 {
+  for (const [label, amount] of [
+    ['hue', hueAmount],
+    ['saturation', saturationAmount],
+    ['value', valueAmount],
+  ] as const) {
+    if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+      throw new RangeError(`baseline brush ${label} jitter must be within 0..1`);
+    }
+  }
+  const hsv = baselineBrushRgbToHsvV1(color);
+  const hue = (((hsv.h + (random.hue - 0.5) * hueAmount) % 1) + 1) % 1;
+  const saturation = Math.max(
+    0,
+    Math.min(1, hsv.s + (random.saturation - 0.5) * 2 * saturationAmount),
+  );
+  const value = Math.max(0, Math.min(1, hsv.v + (random.value - 0.5) * 2 * valueAmount));
+  return baselineBrushHsvToRgbV1(hue, saturation, value);
+}
+
 export function deterministicBaselineBrushRandomV1(seed: number, stampIndex: number): number {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new RangeError('baseline brush random seed must be uint32');
@@ -557,6 +670,7 @@ interface BaselineLogicalStampRecordV1 {
   readonly sizeJitterScale: number;
   readonly opacityJitterScale: number;
   readonly densityJitterScale: number;
+  readonly color: BaselineBrushColorV1;
   readonly tiltUprightness: number;
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
@@ -603,6 +717,9 @@ export class BaselineBrushDabBuilderV1 {
   readonly #rotationJitter: number;
   readonly #positionJitter: number;
   readonly #densityJitter: number;
+  readonly #hueJitter: number;
+  readonly #saturationJitter: number;
+  readonly #valueJitter: number;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -625,6 +742,7 @@ export class BaselineBrushDabBuilderV1 {
   #rotationJitterStampIndex = 0;
   #positionJitterStampIndex = 0;
   #densityJitterStampIndex = 0;
+  #colorJitterStampIndex = 0;
   #pathDistancePx = 0;
   #lastPoint: {
     x: number;
@@ -680,6 +798,9 @@ export class BaselineBrushDabBuilderV1 {
       readonly rotationJitter?: number;
       readonly positionJitter?: number;
       readonly densityJitter?: number;
+      readonly hueJitter?: number;
+      readonly saturationJitter?: number;
+      readonly valueJitter?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -736,6 +857,9 @@ export class BaselineBrushDabBuilderV1 {
     const rotationJitter = options.rotationJitter ?? BASELINE_BRUSH_ROTATION_JITTER;
     const positionJitter = options.positionJitter ?? BASELINE_BRUSH_POSITION_JITTER;
     const densityJitter = options.densityJitter ?? BASELINE_BRUSH_DENSITY_JITTER;
+    const hueJitter = options.hueJitter ?? BASELINE_BRUSH_HUE_JITTER;
+    const saturationJitter = options.saturationJitter ?? BASELINE_BRUSH_SATURATION_JITTER;
+    const valueJitter = options.valueJitter ?? BASELINE_BRUSH_VALUE_JITTER;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -877,6 +1001,15 @@ export class BaselineBrushDabBuilderV1 {
     if (!Number.isFinite(densityJitter) || densityJitter < 0 || densityJitter > 1) {
       throw new RangeError('baseline brush density jitter must be within 0..1');
     }
+    for (const [label, amount] of [
+      ['hue', hueJitter],
+      ['saturation', saturationJitter],
+      ['value', valueJitter],
+    ] as const) {
+      if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+        throw new RangeError(`baseline brush ${label} jitter must be within 0..1`);
+      }
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -941,6 +1074,9 @@ export class BaselineBrushDabBuilderV1 {
     this.#rotationJitter = rotationJitter;
     this.#positionJitter = positionJitter;
     this.#densityJitter = densityJitter;
+    this.#hueJitter = hueJitter;
+    this.#saturationJitter = saturationJitter;
+    this.#valueJitter = valueJitter;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -1178,6 +1314,7 @@ export class BaselineBrushDabBuilderV1 {
       | 'sizeJitterScale'
       | 'opacityJitterScale'
       | 'densityJitterScale'
+      | 'color'
       | 'tiltUprightness'
       | 'tipAngleDegrees'
       | 'sampledTipAlpha'
@@ -1277,7 +1414,7 @@ export class BaselineBrushDabBuilderV1 {
       this.#hardness,
       this.#tipDensity * stamp.densityJitterScale,
       stamp.tipAngleDegrees,
-      this.#color,
+      stamp.color,
       this.#tipShape,
       stamp.sampledTipAlpha,
     );
@@ -1353,6 +1490,22 @@ export class BaselineBrushDabBuilderV1 {
             )
         : 1;
     if (this.#densityJitter > 0) this.#densityJitterStampIndex += 1;
+    const usesColorJitter =
+      this.#hueJitter > 0 || this.#saturationJitter > 0 || this.#valueJitter > 0;
+    const colorJitterRandom = usesColorJitter
+      ? deterministicBaselineBrushColorJitterV1(this.#randomSeed, this.#colorJitterStampIndex)
+      : null;
+    if (usesColorJitter) this.#colorJitterStampIndex += 1;
+    const resolvedColor =
+      colorJitterRandom === null
+        ? this.#color
+        : applyBaselineBrushColorJitterV1(
+            this.#color,
+            colorJitterRandom,
+            this.#hueJitter,
+            this.#saturationJitter,
+            this.#valueJitter,
+          );
     const sampledTipAlpha = this.#sampledTipAlphaForLogicalStamp();
     const record: BaselineLogicalStampRecordV1 = {
       x: jitteredX,
@@ -1363,6 +1516,7 @@ export class BaselineBrushDabBuilderV1 {
       sizeJitterScale,
       opacityJitterScale,
       densityJitterScale,
+      color: resolvedColor,
       tiltUprightness,
       tipAngleDegrees: jitteredTipAngleDegrees,
       pathDistancePx,
