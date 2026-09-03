@@ -72,6 +72,8 @@ export interface BaselineBrushSampleV1 {
   readonly tiltX?: number;
   readonly tiltY?: number;
   readonly altitudeAngle?: number | null;
+  readonly azimuthAngle?: number | null;
+  readonly twist?: number;
 }
 
 export function baselineBrushSamplePressureV1(sample: BaselineBrushSampleV1): number {
@@ -108,6 +110,53 @@ export function baselineBrushSampleTiltUprightnessV1(sample: BaselineBrushSample
   const tangentY = Math.tan((tiltY * Math.PI) / 180);
   const altitudeFromTilt = Math.atan2(1, Math.hypot(tangentX, tangentY));
   return Math.max(0, Math.min(1, altitudeFromTilt / (Math.PI / 2)));
+}
+
+/**
+ * Clockwise pen orientation in canvas coordinates. Pointer Events azimuthAngle is preferred;
+ * tiltX/tiltY use the W3C conversion fallback. Twist is then added as barrel-axis rotation.
+ */
+export function baselineBrushSampleOrientationDegreesV1(sample: BaselineBrushSampleV1): number {
+  let azimuthRadians: number;
+  const azimuth = sample.azimuthAngle;
+  if (azimuth !== undefined && azimuth !== null) {
+    if (!Number.isFinite(azimuth) || azimuth < 0 || azimuth > Math.PI * 2) {
+      throw new RangeError('baseline brush azimuth angle must be within 0..2pi');
+    }
+    azimuthRadians = azimuth === Math.PI * 2 ? 0 : azimuth;
+  } else {
+    const tiltX = sample.tiltX ?? 0;
+    const tiltY = sample.tiltY ?? 0;
+    if (!Number.isFinite(tiltX) || tiltX < -90 || tiltX > 90) {
+      throw new RangeError('baseline brush tiltX must be within -90..90');
+    }
+    if (!Number.isFinite(tiltY) || tiltY < -90 || tiltY > 90) {
+      throw new RangeError('baseline brush tiltY must be within -90..90');
+    }
+    if (tiltX === 0) {
+      azimuthRadians = tiltY > 0 ? Math.PI / 2 : tiltY < 0 ? (3 * Math.PI) / 2 : 0;
+    } else if (tiltY === 0) {
+      azimuthRadians = tiltX < 0 ? Math.PI : 0;
+    } else if (Math.abs(tiltX) === 90 || Math.abs(tiltY) === 90) {
+      azimuthRadians = 0;
+    } else {
+      const tangentX = Math.tan((tiltX * Math.PI) / 180);
+      const tangentY = Math.tan((tiltY * Math.PI) / 180);
+      azimuthRadians = Math.atan2(tangentY, tangentX);
+      if (azimuthRadians < 0) azimuthRadians += Math.PI * 2;
+    }
+  }
+  const twist = sample.twist ?? 0;
+  if (!Number.isFinite(twist) || twist < 0 || twist > 359) {
+    throw new RangeError('baseline brush twist must be within 0..359');
+  }
+  return normalizeBaselineBrushTipAngleDegreesV1((azimuthRadians * 180) / Math.PI + twist);
+}
+
+function shortestAngularDeltaDegreesV1(fromDegrees: number, toDegrees: number): number {
+  const from = normalizeBaselineBrushTipAngleDegreesV1(fromDegrees);
+  const to = normalizeBaselineBrushTipAngleDegreesV1(toDegrees);
+  return ((to - from + 540) % 360) - 180;
 }
 
 export interface BaselineBrushDabV1 {
@@ -205,6 +254,7 @@ function assertFinitePoint(sample: BaselineBrushSampleV1): void {
   }
   baselineBrushSamplePressureV1(sample);
   baselineBrushSampleTiltUprightnessV1(sample);
+  baselineBrushSampleOrientationDegreesV1(sample);
 }
 
 function freezeDab(
@@ -354,6 +404,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #tipAngleDegrees: number;
   readonly #tipDirectionDegrees: number;
   readonly #followStrokeRotation: boolean;
+  readonly #penOrientationEnabled: boolean;
   readonly #tipShape: BaselineBrushTipShapeV1;
   readonly #sampledTipAlphas: readonly BaselineBrushSampledTipAlphaV1[];
   readonly #tipSelectionMode: BaselineBrushTipSelectionModeV1;
@@ -362,7 +413,13 @@ export class BaselineBrushDabBuilderV1 {
   readonly #logicalStamps: BaselineLogicalStampRecordV1[] = [];
   #logicalStampIndex = 0;
   #pathDistancePx = 0;
-  #lastPoint: { x: number; y: number; pressure: number; tiltUprightness: number } | null = null;
+  #lastPoint: {
+    x: number;
+    y: number;
+    pressure: number;
+    tiltUprightness: number;
+    orientationDegrees: number;
+  } | null = null;
   #lastStampPoint: { x: number; y: number } | null = null;
   #lastStrokeDirectionDegrees: number | null = null;
   #distanceUntilNext: number;
@@ -395,6 +452,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly tipAngleDegrees?: number;
       readonly tipDirectionDegrees?: number;
       readonly followStrokeRotation?: boolean;
+      readonly penOrientationEnabled?: boolean;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: readonly number[];
       readonly sampledTipAlphas?: readonly (readonly number[])[];
@@ -436,8 +494,12 @@ export class BaselineBrushDabBuilderV1 {
       options.tipDirectionDegrees ?? BASELINE_BRUSH_TIP_DIRECTION_DEGREES,
     );
     const followStrokeRotation = options.followStrokeRotation ?? false;
+    const penOrientationEnabled = options.penOrientationEnabled ?? false;
     if (typeof followStrokeRotation !== 'boolean') {
       throw new TypeError('baseline brush follow rotation must be boolean');
+    }
+    if (typeof penOrientationEnabled !== 'boolean') {
+      throw new TypeError('baseline brush pen orientation flag must be boolean');
     }
     if (!Number.isFinite(sizePx) || sizePx <= 0 || sizePx > 4096) {
       throw new RangeError('baseline brush size must be finite and within 0..4096 px');
@@ -540,6 +602,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#tipAngleDegrees = tipAngleDegrees;
     this.#tipDirectionDegrees = tipDirectionDegrees;
     this.#followStrokeRotation = followStrokeRotation;
+    this.#penOrientationEnabled = penOrientationEnabled;
     this.#tipShape = options.tipShape ?? 'round';
     if (
       this.#tipShape !== 'round' &&
@@ -602,13 +665,20 @@ export class BaselineBrushDabBuilderV1 {
     const start = this.#dabs.length;
     const pressure = baselineBrushSamplePressureV1(sample);
     const tiltUprightness = baselineBrushSampleTiltUprightnessV1(sample);
-    this.#lastPoint = { x: sample.documentX, y: sample.documentY, pressure, tiltUprightness };
+    const orientationDegrees = baselineBrushSampleOrientationDegreesV1(sample);
+    this.#lastPoint = {
+      x: sample.documentX,
+      y: sample.documentY,
+      pressure,
+      tiltUprightness,
+      orientationDegrees,
+    };
     this.#pushLogicalStamp(
       sample.documentX,
       sample.documentY,
       pressure,
       tiltUprightness,
-      this.#resolvedTipAngleDegrees(),
+      this.#resolvedTipAngleDegrees(undefined, orientationDegrees),
       0,
     );
     this.#lastStampPoint = { x: sample.documentX, y: sample.documentY };
@@ -635,6 +705,7 @@ export class BaselineBrushDabBuilderV1 {
           sample.documentY,
           baselineBrushSamplePressureV1(sample),
           baselineBrushSampleTiltUprightnessV1(sample),
+          baselineBrushSampleOrientationDegreesV1(sample),
         );
       }
       return this.#deltaFrom(start);
@@ -647,6 +718,7 @@ export class BaselineBrushDabBuilderV1 {
         sample.documentY,
         baselineBrushSamplePressureV1(sample),
         baselineBrushSampleTiltUprightnessV1(sample),
+        baselineBrushSampleOrientationDegreesV1(sample),
       );
     }
     return this.#deltaFrom(start);
@@ -670,7 +742,10 @@ export class BaselineBrushDabBuilderV1 {
           lastPoint.y,
           lastPoint.pressure,
           lastPoint.tiltUprightness,
-          this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
+          this.#resolvedTipAngleDegrees(
+            this.#lastStrokeDirectionDegrees ?? undefined,
+            lastPoint.orientationDegrees,
+          ),
           this.#pathDistancePx,
         );
       }
@@ -843,17 +918,28 @@ export class BaselineBrushDabBuilderV1 {
     }
   }
 
-  #resolvedTipAngleDegrees(strokeDirectionDegrees?: number): number {
-    const followAngle =
-      this.#followStrokeRotation && strokeDirectionDegrees !== undefined
-        ? strokeDirectionDegrees
-        : 0;
+  #resolvedTipAngleDegrees(
+    strokeDirectionDegrees?: number,
+    penOrientationDegrees?: number,
+  ): number {
+    const sourceAngle =
+      this.#penOrientationEnabled && penOrientationDegrees !== undefined
+        ? penOrientationDegrees
+        : this.#followStrokeRotation && strokeDirectionDegrees !== undefined
+          ? strokeDirectionDegrees
+          : 0;
     return normalizeBaselineBrushTipAngleDegreesV1(
-      followAngle + this.#tipAngleDegrees - this.#tipDirectionDegrees,
+      sourceAngle + this.#tipAngleDegrees - this.#tipDirectionDegrees,
     );
   }
 
-  #appendPoint(x: number, y: number, pressure: number, tiltUprightness: number): void {
+  #appendPoint(
+    x: number,
+    y: number,
+    pressure: number,
+    tiltUprightness: number,
+    orientationDegrees: number,
+  ): void {
     const lastPoint = this.#lastPoint;
     if (lastPoint === null) return;
 
@@ -861,6 +947,7 @@ export class BaselineBrushDabBuilderV1 {
     let cursorY = lastPoint.y;
     let cursorPressure = lastPoint.pressure;
     let cursorTiltUprightness = lastPoint.tiltUprightness;
+    let cursorOrientationDegrees = lastPoint.orientationDegrees;
     const segmentLength = Math.hypot(x - cursorX, y - cursorY);
     let remaining = segmentLength;
     let segmentAdvancedPx = 0;
@@ -877,13 +964,20 @@ export class BaselineBrushDabBuilderV1 {
       cursorY += (y - cursorY) * ratio;
       cursorPressure += (pressure - cursorPressure) * ratio;
       cursorTiltUprightness += (tiltUprightness - cursorTiltUprightness) * ratio;
+      cursorOrientationDegrees = normalizeBaselineBrushTipAngleDegreesV1(
+        cursorOrientationDegrees +
+          shortestAngularDeltaDegreesV1(cursorOrientationDegrees, orientationDegrees) * ratio,
+      );
       segmentAdvancedPx += stepDistancePx;
       this.#pushLogicalStamp(
         cursorX,
         cursorY,
         cursorPressure,
         cursorTiltUprightness,
-        this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
+        this.#resolvedTipAngleDegrees(
+          this.#lastStrokeDirectionDegrees ?? undefined,
+          cursorOrientationDegrees,
+        ),
         this.#pathDistancePx + segmentAdvancedPx,
       );
       this.#lastStampPoint = { x: cursorX, y: cursorY };
@@ -893,7 +987,7 @@ export class BaselineBrushDabBuilderV1 {
 
     if (remaining > 0) this.#distanceUntilNext -= remaining;
     this.#pathDistancePx += segmentLength;
-    this.#lastPoint = { x, y, pressure, tiltUprightness };
+    this.#lastPoint = { x, y, pressure, tiltUprightness, orientationDegrees };
   }
 }
 

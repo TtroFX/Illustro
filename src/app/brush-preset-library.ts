@@ -10,6 +10,7 @@ import {
   withBrushTipAngleDegreesV1,
   withBrushTipDirectionDegreesV1,
   withBrushFollowStrokeRotationV1,
+  withBrushPenOrientationEnabledV1,
   withBrushTipSelectionModeV1,
   withBrushStrokeStartLengthPxV1,
   withBrushStrokeEndLengthPxV1,
@@ -466,6 +467,31 @@ export function updateBrushPresetFollowRotationV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushFollowStrokeRotationV1(item.preset, enabled);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export type BrushRotationSourceV1 = 'fixed' | 'stroke' | 'pen';
+
+export function updateBrushPresetRotationSourceV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  source: BrushRotationSourceV1,
+): BrushPresetLibraryStateV1 {
+  if (source !== 'fixed' && source !== 'stroke' && source !== 'pen') {
+    throw new TypeError('unsupported brush rotation source');
+  }
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const rotation = withBrushFollowStrokeRotationV1(item.preset, source === 'stroke');
+    const current = withBrushPenOrientationEnabledV1(rotation, source === 'pen');
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

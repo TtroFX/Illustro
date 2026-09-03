@@ -50,6 +50,8 @@ export interface CanonicalRasterBrushSampleV1 {
   readonly tiltX?: number;
   readonly tiltY?: number;
   readonly altitudeAngle?: number | null;
+  readonly azimuthAngle?: number | null;
+  readonly twist?: number;
 }
 
 export interface CanonicalRasterBrushWorkSnapshotV1 {
@@ -114,6 +116,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly tipAngleDegrees?: number;
       readonly tipDirectionDegrees?: number;
       readonly followStrokeRotation?: boolean;
+      readonly penOrientationEnabled?: boolean;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: BaselineBrushSampledTipAlphaV1;
       readonly sampledTipAlphas?: readonly BaselineBrushSampledTipAlphaV1[];
@@ -183,6 +186,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.followStrokeRotation === undefined
         ? {}
         : { followStrokeRotation: options.followStrokeRotation }),
+      ...(options.penOrientationEnabled === undefined
+        ? {}
+        : { penOrientationEnabled: options.penOrientationEnabled }),
       ...(options.tipShape === undefined ? {} : { tipShape: options.tipShape }),
       ...(options.sampledTipAlpha === undefined
         ? {}

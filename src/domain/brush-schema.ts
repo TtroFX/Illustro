@@ -275,6 +275,29 @@ export function withBrushFollowStrokeRotationV1(
   });
 }
 
+export const DEFAULT_BRUSH_PEN_ORIENTATION_ENABLED_V1 = false as const;
+
+export function brushPenOrientationEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.penOrientationEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_PEN_ORIENTATION_ENABLED_V1;
+}
+
+export function withBrushPenOrientationEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean')
+    throw new TypeError('brush pen orientation flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_PEN_ORIENTATION_ENABLED_V1) {
+    const { penOrientationEnabled: _penOrientationEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, penOrientationEnabled: enabled },
+  });
+}
+
 export const DEFAULT_BRUSH_STROKE_START_LENGTH_PX_V1 = 0 as const;
 export const MAX_BRUSH_STROKE_START_LENGTH_PX_V1 = 4096 as const;
 

@@ -247,6 +247,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
+  readonly brushPenOrientationEnabled: boolean;
   readonly brushTipSelectionMode: BaselineBrushTipSelectionModeV1;
   readonly brushTipAlternativeCount: number;
   readonly brushTipShape: BaselineBrushTipShapeV1;
@@ -706,6 +707,7 @@ export class PaintSessionControllerV1 {
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
+  #brushPenOrientationEnabled = false;
   #brushTipSelectionMode: BaselineBrushTipSelectionModeV1 = 'fixed';
   #brushSampledTipAlphas: readonly BaselineBrushSampledTipAlphaV1[] = Object.freeze([]);
   #brushTipSelectionStartIndex = 0;
@@ -760,6 +762,7 @@ export class PaintSessionControllerV1 {
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
+      brushPenOrientationEnabled: this.#brushPenOrientationEnabled,
       brushTipSelectionMode: this.#brushTipSelectionMode,
       brushTipAlternativeCount: this.#brushSampledTipAlphas.length,
       brushTipShape: this.#brushTipShape,
@@ -1208,6 +1211,17 @@ export class PaintSessionControllerV1 {
 
   brushFollowStrokeRotation(): boolean {
     return this.#brushFollowStrokeRotation;
+  }
+
+  setBrushPenOrientationEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime pen orientation flag');
+    if (enabled !== this.#brushPenOrientationEnabled) this.#clearActiveStroke();
+    this.#brushPenOrientationEnabled = enabled;
+    return this.#brushPenOrientationEnabled;
+  }
+
+  brushPenOrientationEnabled(): boolean {
+    return this.#brushPenOrientationEnabled;
   }
 
   setBrushTipSelection(
@@ -1815,6 +1829,8 @@ export class PaintSessionControllerV1 {
               tiltX: completed.source === 'pen' ? sample.tiltX : 0,
               tiltY: completed.source === 'pen' ? sample.tiltY : 0,
               altitudeAngle: completed.source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
+              azimuthAngle: completed.source === 'pen' ? sample.azimuthAngle : 0,
+              twist: completed.source === 'pen' ? sample.twist : 0,
             });
           });
           const rawEndpoint = this.#activeSamples.at(-1);
@@ -1829,6 +1845,8 @@ export class PaintSessionControllerV1 {
                   tiltY: completed.source === 'pen' ? rawEndpoint.tiltY : 0,
                   altitudeAngle:
                     completed.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,
+                  azimuthAngle: completed.source === 'pen' ? rawEndpoint.azimuthAngle : 0,
+                  twist: completed.source === 'pen' ? rawEndpoint.twist : 0,
                 }),
               );
             }
@@ -1844,6 +1862,8 @@ export class PaintSessionControllerV1 {
               tiltX: liveGeometry[index]?.tiltX ?? 0,
               tiltY: liveGeometry[index]?.tiltY ?? 0,
               altitudeAngle: liveGeometry[index]?.altitudeAngle ?? Math.PI / 2,
+              azimuthAngle: liveGeometry[index]?.azimuthAngle ?? 0,
+              twist: liveGeometry[index]?.twist ?? 0,
             }),
           );
           const firstCorrected = correctedSamples[0];
@@ -2031,6 +2051,8 @@ export class PaintSessionControllerV1 {
         tiltX: source === 'pen' ? sample.tiltX : 0,
         tiltY: source === 'pen' ? sample.tiltY : 0,
         altitudeAngle: source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
+        azimuthAngle: source === 'pen' ? sample.azimuthAngle : 0,
+        twist: source === 'pen' ? sample.twist : 0,
       });
     });
     const firstStabilizedSample = stabilizedSamples[0];
@@ -2064,6 +2086,7 @@ export class PaintSessionControllerV1 {
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,
         followStrokeRotation: this.#brushFollowStrokeRotation,
+        penOrientationEnabled: this.#brushPenOrientationEnabled,
         tipDensity: this.#brushTipDensity,
         tipShape: this.#brushTipShape,
         tipSelectionMode: this.#brushTipSelectionMode,
@@ -2102,6 +2125,8 @@ export class PaintSessionControllerV1 {
         tiltX: active.source === 'pen' ? sample.tiltX : 0,
         tiltY: active.source === 'pen' ? sample.tiltY : 0,
         altitudeAngle: active.source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
+        azimuthAngle: active.source === 'pen' ? sample.azimuthAngle : 0,
+        twist: active.source === 'pen' ? sample.twist : 0,
       });
     });
     this.#queueActiveDabDelta(builder.appendConfirmed(stabilizedAdditions));
@@ -2118,6 +2143,8 @@ export class PaintSessionControllerV1 {
                 tiltX: active.source === 'pen' ? rawEndpoint.tiltX : 0,
                 tiltY: active.source === 'pen' ? rawEndpoint.tiltY : 0,
                 altitudeAngle: active.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,
+                azimuthAngle: active.source === 'pen' ? rawEndpoint.azimuthAngle : 0,
+                twist: active.source === 'pen' ? rawEndpoint.twist : 0,
               }),
             ]),
           );

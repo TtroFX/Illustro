@@ -9,6 +9,7 @@ import {
   brushTipAngleDegreesV1,
   brushTipDirectionDegreesV1,
   brushFollowStrokeRotationV1,
+  brushPenOrientationEnabledV1,
   brushTipSelectionModeV1,
   brushStrokeStartLengthPxV1,
   brushStrokeEndLengthPxV1,
@@ -70,7 +71,7 @@ import {
   updateBrushPresetTipDensityV1,
   updateBrushPresetTipAngleV1,
   updateBrushPresetTipDirectionV1,
-  updateBrushPresetFollowRotationV1,
+  updateBrushPresetRotationSourceV1,
   updateBrushPresetTipSelectionModeV1,
   updateBrushPresetStartLengthV1,
   updateBrushPresetEndLengthV1,
@@ -166,6 +167,7 @@ export function installBrushPresetControllerV1(input: {
   const tipDirectionRange = requireElement('#brush-tip-direction-range', HTMLInputElement);
   const tipDirectionNumber = requireElement('#brush-tip-direction-number', HTMLInputElement);
   const followRotationButton = requireElement('#brush-follow-rotation', HTMLButtonElement);
+  const penOrientationButton = requireElement('#brush-pen-orientation', HTMLButtonElement);
   const tipRepeatMode = requireElement('#brush-tip-repeat-mode', HTMLSelectElement);
   const startLengthRange = requireElement('#brush-start-length-range', HTMLInputElement);
   const startLengthNumber = requireElement('#brush-start-length-number', HTMLInputElement);
@@ -253,7 +255,11 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushSpacing(spacing.spacingRatio, spacing.minimumStampDistancePx);
     input.paintSession.setBrushTipAngleDegrees(brushTipAngleDegreesV1(item.preset));
     input.paintSession.setBrushTipDirectionDegrees(brushTipDirectionDegreesV1(item.preset));
-    input.paintSession.setBrushFollowStrokeRotation(brushFollowStrokeRotationV1(item.preset));
+    const penOrientationEnabled = brushPenOrientationEnabledV1(item.preset);
+    input.paintSession.setBrushPenOrientationEnabled(penOrientationEnabled);
+    input.paintSession.setBrushFollowStrokeRotation(
+      penOrientationEnabled ? false : brushFollowStrokeRotationV1(item.preset),
+    );
     const startLengthPx = brushStrokeStartLengthPxV1(item.preset);
     input.paintSession.setBrushStartTaperLengthPx(startLengthPx);
     const endLengthPx = brushStrokeEndLengthPxV1(item.preset);
@@ -329,8 +335,9 @@ export function installBrushPresetControllerV1(input: {
       brushTipDirectionDegreesV1(item.preset),
     );
     input.root.dataset.illustroBrushFollowRotation = String(
-      brushFollowStrokeRotationV1(item.preset),
+      penOrientationEnabled ? false : brushFollowStrokeRotationV1(item.preset),
     );
+    input.root.dataset.illustroBrushPenOrientation = String(penOrientationEnabled);
     input.root.dataset.illustroBrushTipSelectionMode = brushTipSelectionModeV1(item.preset);
     input.root.dataset.illustroBrushStartLengthPx = String(startLengthPx);
     input.root.dataset.illustroBrushEndLengthPx = String(endLengthPx);
@@ -456,9 +463,12 @@ export function installBrushPresetControllerV1(input: {
     configurePair(tipAngleRange, tipAngleNumber, 0, 359, 1, tipAngleDegrees);
     const tipDirectionDegrees = brushTipDirectionDegreesV1(selected.preset);
     configurePair(tipDirectionRange, tipDirectionNumber, 0, 359, 1, tipDirectionDegrees);
-    const followRotation = brushFollowStrokeRotationV1(selected.preset);
+    const penOrientationEnabled = brushPenOrientationEnabledV1(selected.preset);
+    const followRotation = !penOrientationEnabled && brushFollowStrokeRotationV1(selected.preset);
     followRotationButton.textContent = followRotation ? 'ON' : 'OFF';
     followRotationButton.setAttribute('aria-pressed', String(followRotation));
+    penOrientationButton.textContent = penOrientationEnabled ? 'ON' : 'OFF';
+    penOrientationButton.setAttribute('aria-pressed', String(penOrientationEnabled));
     const tipSelectionMode = brushTipSelectionModeV1(selected.preset);
     tipRepeatMode.value = tipSelectionMode;
     const startLengthPx = brushStrokeStartLengthPxV1(selected.preset);
@@ -622,7 +632,7 @@ export function installBrushPresetControllerV1(input: {
     const tiltOpacityLabel = tiltOpacityEnabled ? ' · T→Opacity' : '';
     const tiltFlowLabel = tiltFlowEnabled ? ' · T→Flow' : '';
     const tiltCurveLabel = responseCurveIsLinearV1(tiltResponseCurve) ? '' : ' · T-Curve';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -643,6 +653,7 @@ export function installBrushPresetControllerV1(input: {
       tipDirectionRange,
       tipDirectionNumber,
       followRotationButton,
+      penOrientationButton,
       tipRepeatMode,
       startLengthRange,
       startLengthNumber,
@@ -783,14 +794,24 @@ export function installBrushPresetControllerV1(input: {
     mutate(() => updateBrushPresetTipDirectionV1(state, state.selectedPresetId, directionDegrees));
   const onTipDirectionRange = (): void => updateTipDirection(Number(tipDirectionRange.value));
   const onTipDirectionNumber = (): void => updateTipDirection(Number(tipDirectionNumber.value));
-  const onFollowRotation = (): void =>
+  const onFollowRotation = (): void => {
+    const selected = selectedBrushPresetItemV1(state).preset;
+    const enabled =
+      !brushPenOrientationEnabledV1(selected) && brushFollowStrokeRotationV1(selected);
     mutate(() =>
-      updateBrushPresetFollowRotationV1(
+      updateBrushPresetRotationSourceV1(
         state,
         state.selectedPresetId,
-        !brushFollowStrokeRotationV1(selectedBrushPresetItemV1(state).preset),
+        enabled ? 'fixed' : 'stroke',
       ),
     );
+  };
+  const onPenOrientation = (): void => {
+    const enabled = brushPenOrientationEnabledV1(selectedBrushPresetItemV1(state).preset);
+    mutate(() =>
+      updateBrushPresetRotationSourceV1(state, state.selectedPresetId, enabled ? 'fixed' : 'pen'),
+    );
+  };
   const onTipRepeatMode = (): void => {
     const mode: BrushTipSelectionModeV1 =
       tipRepeatMode.value === 'sequence'
@@ -1019,6 +1040,7 @@ export function installBrushPresetControllerV1(input: {
   tipDirectionRange.addEventListener('input', onTipDirectionRange);
   tipDirectionNumber.addEventListener('change', onTipDirectionNumber);
   followRotationButton.addEventListener('click', onFollowRotation);
+  penOrientationButton.addEventListener('click', onPenOrientation);
   tipRepeatMode.addEventListener('change', onTipRepeatMode);
   startLengthRange.addEventListener('input', onStartLengthRange);
   startLengthNumber.addEventListener('change', onStartLengthNumber);
@@ -1089,6 +1111,7 @@ export function installBrushPresetControllerV1(input: {
       tipDirectionRange.removeEventListener('input', onTipDirectionRange);
       tipDirectionNumber.removeEventListener('change', onTipDirectionNumber);
       followRotationButton.removeEventListener('click', onFollowRotation);
+      penOrientationButton.removeEventListener('click', onPenOrientation);
       tipRepeatMode.removeEventListener('change', onTipRepeatMode);
       startLengthRange.removeEventListener('input', onStartLengthRange);
       startLengthNumber.removeEventListener('change', onStartLengthNumber);

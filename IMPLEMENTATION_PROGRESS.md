@@ -475,7 +475,8 @@ M6A-044 pressure response curve:完了
 再開メモ: M6A-044 pressure response curveはIP-12 Shared Curve Editor契約に従い、0→0 / 1→1固定・input昇順・output単調の2..16 node canonical curveを追加した。runtime評価はmonotone PCHIP/Fritsch-Carlson-style補間をstroke開始時にcompileし、logical stampごとに補間済みraw pressureをcurveへ1回だけ通して、その同一responseをM6A-041 size / 042 opacity / 043 flowの各opt-in mappingへ配る。linearはexact identity/defaultでpreset fieldを省略する。Tool Propertiesには共有Curve Editorを接続し、canvas上tapでnode追加、drag編集、選択nodeの正確な入出力%、Delete、Reset、Linear/Soft/Hard/S presetsを提供する。Mouseはneutral 1.0のまま。M6A-049/050のminimum/maximum responseは未適用で、forced taper zero endpointは引き続き優先する。次はM6A-045 tilt mappingから再開する。
 M6A-045 tilt mapping:完了
 再開メモ: M6A-045 tilt mappingはPenのaltitudeAngleを優先し、未提供時はPointer Events tiltX/tiltYから同じ高度角へ変換して、0=水平・1=直立のnormalized tilt uprightnessをlogical stamp位置へ距離比例補間する。直立/tilt未報告/Mouseは1.0となるため既存ブラシはneutral fallbackを維持する。BrushPresetV1.dynamicsにはtiltSizeEnabled / tiltOpacityEnabled / tiltFlowEnabled（既定false）とtiltResponseCurve（linear既定）を追加し、shared Curve Editorを再利用する。各mappingはpressureとは独立に同じtilt responseをsize / opacity cap / flowへ乗算し、primitive dabには解決済みradius/strokeOpacity/flowのみを残す。M6A-046 orientation mappingがazimuth/pen direction/twist系の角度方向を所有し、M6A-049/050が後続のminimum/maximum responseを所有する。次はM6A-046 orientation mappingから再開する。
-M6A-046 orientation mapping:未完了
+M6A-046 orientation mapping:完了
+再開メモ: M6A-046 orientation mappingはPenのazimuthAngleを画面+X基準の時計回り方位として優先し、未提供時はPointer Events仕様のtiltX/tiltY→azimuth変換規則で復元する。twistはスタイラス主軸回りの時計回り追加回転として方位へ加算する。stamp間の角度補間は最短円弧を使い、359°→1°で180°側へ回り込まない。`dynamics.penOrientationEnabled`は既定false。ON時の最終先端角は `pen orientation + tip.angleDegrees - tip.directionDegrees`、OFF時は既存のstroke.followRotation/fixed規則を保持する。Pen orientationはstroke-followより優先し、UIでは両者を排他的rotation sourceとして選択する。primitive dabには従来どおり解決済みtipAngleDegreesだけを保存しWorker/history ABIは増やさない。次はM6A-047 velocity mappingから再開する。
 M6A-047 velocity mapping:未完了
 M6A-048 random dynamics:未完了
 M6A-049 minimum response:未完了

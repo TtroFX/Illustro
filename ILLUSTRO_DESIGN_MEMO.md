@@ -5805,3 +5805,13 @@ Verification must cover at minimum:
 - Tilt response affects resolved size, opacity cap and flow only. Primitive dabs continue to store only resolved `radius`, `strokeOpacity` and `flow`; no renderer/history/Worker tilt ABI is introduced.
 - M6A-046 owns directional orientation inputs such as azimuth/twist/pen direction; M6A-049/050 own minimum/maximum response bounds. Those stages must extend this source pipeline rather than duplicate input sampling.
 - The UI reuses the IP-12 Shared Curve Editor grammar (direct node editing, exact input/output values, presets and Reset) rather than inventing a tilt-specific nonlinear control.
+
+
+## M6A pen-orientation mapping boundary — 2026-09-03
+
+- Pen orientation is an angular brush-tip source, distinct from M6A-045 tilt magnitude. `PointerEvent.azimuthAngle` is preferred and uses the Pointer Events canvas convention: `0` at +X and clockwise growth. When azimuth is unavailable, `tiltX`/`tiltY` are converted using the W3C Pointer Events conversion rules.
+- `twist` is clockwise barrel-axis rotation in degrees and is added to the projected pen azimuth. Unsupported azimuth/tilt/twist values resolve to zero orientation, preserving the existing fixed tip angle when the mapping is enabled on hardware without directional data.
+- Angular interpolation between confirmed samples follows the shortest circular arc. This prevents wraparound discontinuities such as `359° → 1°` rotating through `180°`.
+- `dynamics.penOrientationEnabled` is opt-in and defaults to false. Pen orientation and `stroke.followRotation` are alternative rotation sources; pen orientation has runtime precedence for defensive compatibility, while Tool Properties presents them as mutually exclusive choices.
+- Final orientation remains `source angle + tip.angleDegrees - tip.directionDegrees`. The source is Pen orientation when enabled, otherwise local stroke tangent when Follow is enabled, otherwise zero/fixed.
+- Stabilization modifies coordinates only. Azimuth/twist stay paired with confirmed samples and are preserved by index through post-stroke correction. Primitive dabs store only resolved `tipAngleDegrees`; Worker/history/recovery schemas do not gain a second orientation representation.

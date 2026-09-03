@@ -447,7 +447,7 @@ requireText(
 );
 requireText(
   read('src/gpu/baseline-brush.ts'),
-  'followAngle + this.#tipAngleDegrees - this.#tipDirectionDegrees',
+  'this.#followStrokeRotation && strokeDirectionDegrees !== undefined',
   'local stroke tangent is not composed into resolved tip orientation',
 );
 requireText(
@@ -1015,6 +1015,38 @@ requireText(
   read('tests/unit/brush-tilt-mapping.test.ts'),
   'keeps pressure and tilt independent while sharing resolved primitive fields',
   'tilt/pressure composition regression missing',
+);
+
+requireText(progress, 'M6A-046 orientation mapping:完了', 'M6A-046 progress is not complete');
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'baselineBrushSampleOrientationDegreesV1',
+  'pen orientation source resolver missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'shortestAngularDeltaDegreesV1',
+  'circular orientation interpolation missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#penOrientationEnabled && penOrientationDegrees !== undefined',
+  'pen orientation does not take explicit precedence over stroke-follow rotation',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushPenOrientationEnabled',
+  'pen orientation mapping is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-pen-orientation"',
+  'reachable pen-orientation control missing',
+);
+requireText(
+  read('tests/unit/brush-orientation-mapping.test.ts'),
+  'interpolates orientation on the shortest circular arc at logical stamp positions',
+  'orientation wraparound regression missing',
 );
 
 requireText(
