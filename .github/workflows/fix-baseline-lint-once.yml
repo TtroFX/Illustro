@@ -18,40 +18,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Remove four pre-existing non-null assertions
+      - name: Fix curve-editor ARIA roles
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('src/app/layer-workflow-controller.ts')
+          path = Path('src/index.html')
           text = path.read_text(encoding='utf-8')
-
-          replacements = [
-              (
-                  '!canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, 1)',
-                  'projectSnapshot === null || !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, 1)',
-              ),
-              (
-                  '!canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, -1)',
-                  'projectSnapshot === null || !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, -1)',
-              ),
-              (
-                  'if (target.layerId === null || target.maskId === null) return;',
-                  'const layerId = target.layerId;\n      const maskId = target.maskId;\n      if (layerId === null || maskId === null) return;',
-              ),
-              ('target.layerId!', 'layerId'),
-              ('target.maskId!', 'maskId'),
-              ('() => target.layerId,', '() => layerId,'),
+          anchors = [
+              '<div class="shell-brush-pressure-curve-editor" aria-label="筆圧レスポンスカーブ">',
+              '<div class="shell-brush-pressure-curve-editor shell-brush-tilt-curve-editor" aria-label="傾きレスポンスカーブ">',
+              '<div class="shell-brush-pressure-curve-editor shell-brush-velocity-curve-editor" aria-label="速度レスポンスカーブ">',
+              '<div class="shell-brush-pressure-curve-editor shell-brush-random-curve-editor" aria-label="ランダムレスポンスカーブ">',
           ]
-
-          for old, new in replacements:
+          for old in anchors:
               count = text.count(old)
               if count != 1:
-                  raise SystemExit(f'expected one lint-repair anchor, found {count}: {old!r}')
-              text = text.replace(old, new, 1)
-
+                  raise SystemExit(f'expected one curve-editor ARIA anchor, found {count}: {old!r}')
+              text = text.replace(old, old.replace(' aria-label=', ' role="group" aria-label='), 1)
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -69,7 +55,7 @@ jobs:
         run: npm ci --ignore-scripts --prefer-offline
 
       - name: Format repaired file
-        run: npx biome format --write src/app/layer-workflow-controller.ts
+        run: npx biome format --write src/index.html
 
       - name: Lint
         run: npx biome lint --max-diagnostics=200 src tests scripts bench vitest.config.ts
@@ -95,7 +81,7 @@ jobs:
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/app/layer-workflow-controller.ts
+          git add src/index.html
           git diff --cached --check
-          git commit -m 'fix: clear pre-existing lint errors'
+          git commit -m 'fix: repair brush curve editor ARIA roles'
           git push origin HEAD:main
