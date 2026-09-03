@@ -10,6 +10,7 @@ export const BASELINE_BRUSH_RADIUS_PX = 8 as const;
 export const BASELINE_BRUSH_SPACING_PX = 4 as const;
 export const BASELINE_BRUSH_SPACING_RATIO = 0.25 as const;
 export const BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX = 1 as const;
+export const BASELINE_BRUSH_START_TAPER_LENGTH_PX = 0 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
 export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
@@ -270,6 +271,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #color: BaselineBrushColorV1;
   readonly #radius: number;
   readonly #spacing: number;
+  readonly #startTaperLengthPx: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -283,6 +285,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #tipSelectionStartIndex: number;
   readonly #tipSelectionSeed: number;
   #logicalStampIndex = 0;
+  #pathDistancePx = 0;
   #lastPoint: { x: number; y: number } | null = null;
   #lastStampPoint: { x: number; y: number } | null = null;
   #lastStrokeDirectionDegrees: number | null = null;
@@ -297,6 +300,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly flow?: number;
       readonly spacingRatio?: number;
       readonly minimumStampDistancePx?: number;
+      readonly startTaperLengthPx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -320,6 +324,7 @@ export class BaselineBrushDabBuilderV1 {
     const spacingRatio = options.spacingRatio ?? BASELINE_BRUSH_SPACING_RATIO;
     const minimumStampDistancePx =
       options.minimumStampDistancePx ?? BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
+    const startTaperLengthPx = options.startTaperLengthPx ?? BASELINE_BRUSH_START_TAPER_LENGTH_PX;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -351,6 +356,13 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new RangeError('baseline brush minimum stamp distance must be within 0..4096 px');
     }
+    if (
+      !Number.isFinite(startTaperLengthPx) ||
+      startTaperLengthPx < 0 ||
+      startTaperLengthPx > 4096
+    ) {
+      throw new RangeError('baseline brush start taper length must be within 0..4096 px');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -359,6 +371,7 @@ export class BaselineBrushDabBuilderV1 {
     }
     this.#radius = sizePx / 2;
     this.#spacing = Math.max(minimumStampDistancePx, sizePx * spacingRatio);
+    this.#startTaperLengthPx = startTaperLengthPx;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -427,7 +440,7 @@ export class BaselineBrushDabBuilderV1 {
     assertFinitePoint(sample);
     const start = this.#dabs.length;
     this.#lastPoint = { x: sample.documentX, y: sample.documentY };
-    this.#pushLogicalStamp(sample.documentX, sample.documentY, this.#resolvedTipAngleDegrees());
+    this.#pushLogicalStamp(sample.documentX, sample.documentY, this.#resolvedTipAngleDegrees(), 0);
     this.#lastStampPoint = { x: sample.documentX, y: sample.documentY };
     this.#distanceUntilNext = this.#spacing;
     return this.#deltaFrom(start);
@@ -477,6 +490,7 @@ export class BaselineBrushDabBuilderV1 {
           lastPoint.x,
           lastPoint.y,
           this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
+          this.#pathDistancePx,
         );
       }
     }
@@ -506,14 +520,21 @@ export class BaselineBrushDabBuilderV1 {
     return this.#sampledTipAlphas[index] ?? this.#sampledTipAlphas[0]!;
   }
 
-  #pushLogicalStamp(x: number, y: number, tipAngleDegrees: number): void {
+  #startEnvelopeAtDistance(pathDistancePx: number): number {
+    if (this.#startTaperLengthPx <= 0) return 1;
+    return Math.max(0, Math.min(1, pathDistancePx / this.#startTaperLengthPx));
+  }
+
+  #pushLogicalStamp(x: number, y: number, tipAngleDegrees: number, pathDistancePx: number): void {
+    const startEnvelope = this.#startEnvelopeAtDistance(pathDistancePx);
+    if (startEnvelope <= 0) return;
     pushBaselineBrushStampV1(
       this.#dabs,
       x,
       y,
-      this.#radius,
+      this.#radius * startEnvelope,
       this.#flow,
-      this.#strokeOpacity,
+      this.#strokeOpacity * startEnvelope,
       this.#hardness,
       this.#tipDensity,
       tipAngleDegrees,
@@ -540,7 +561,9 @@ export class BaselineBrushDabBuilderV1 {
 
     let cursorX = lastPoint.x;
     let cursorY = lastPoint.y;
-    let remaining = Math.hypot(x - cursorX, y - cursorY);
+    const segmentLength = Math.hypot(x - cursorX, y - cursorY);
+    let remaining = segmentLength;
+    let segmentAdvancedPx = 0;
     if (remaining > 0) {
       this.#lastStrokeDirectionDegrees = normalizeBaselineBrushTipAngleDegreesV1(
         (Math.atan2(y - lastPoint.y, x - lastPoint.x) * 180) / Math.PI,
@@ -548,13 +571,16 @@ export class BaselineBrushDabBuilderV1 {
     }
 
     while (remaining + 1e-9 >= this.#distanceUntilNext && remaining > 0) {
-      const ratio = this.#distanceUntilNext / remaining;
+      const stepDistancePx = this.#distanceUntilNext;
+      const ratio = stepDistancePx / remaining;
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
+      segmentAdvancedPx += stepDistancePx;
       this.#pushLogicalStamp(
         cursorX,
         cursorY,
         this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
+        this.#pathDistancePx + segmentAdvancedPx,
       );
       this.#lastStampPoint = { x: cursorX, y: cursorY };
       remaining = Math.hypot(x - cursorX, y - cursorY);
@@ -562,6 +588,7 @@ export class BaselineBrushDabBuilderV1 {
     }
 
     if (remaining > 0) this.#distanceUntilNext -= remaining;
+    this.#pathDistancePx += segmentLength;
     this.#lastPoint = { x, y };
   }
 }

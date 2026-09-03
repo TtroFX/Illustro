@@ -5642,3 +5642,12 @@ Verification must cover at minimum:
 - The selected asset remains the preview/fixed asset and the sequence anchor. Existing single-tip/built-in sampled brushes behave exactly as one-element collections.
 - Tip selection happens before the existing sampled-tip micro-dab expansion, so history, Worker transport and canonical raster rendering continue to persist/render only resolved primitive dabs.
 - The canonical release scope for this stage is the already-adopted `fixed` / `sequence` / `random-per-stamp` model. Dual Brush and independent second-brush compositing remain explicitly excluded.
+
+#### M6A stroke-start boundary — 2026-09-03
+
+- M6A-028 stores start-side stroke behavior as `stroke.startLengthPx` in document-space pixels. `0` is the compatibility/default mode and preserves the immediate-start behavior of older presets.
+- A positive start length produces a linear start envelope from `0` at path distance `0` to `1` at `startLengthPx`. The envelope is computed only when a new logical stamp is emitted from confirmed input; already-emitted stable-prefix dabs are never revisited.
+- At this stage the common start envelope resolves into both primitive-dab radius and stroke opacity so the behavior is production-visible rather than UI-only. M6A-030 size taper and M6A-031 opacity taper own the later independent minimum/strength controls and may replace the current fixed zero minima without changing start-distance tracking.
+- The zero-strength start stamp is omitted instead of creating an invalid zero-radius dab, and it does not consume the M6A-027 sequence/random tip-selection index. The first visible repeated tip therefore remains anchored to the selected asset.
+- The runtime persists only the resolved primitive dabs. No new Worker/history dab field is needed, and Main/Worker/canonical raster paths remain compatible.
+- End-side behavior is intentionally not inferred from current stroke length. M6A-029 must preserve the incremental-rendering invariant and must not silently rewrite already-presented stable-prefix dabs.

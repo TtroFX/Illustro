@@ -90,6 +90,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly flow?: number;
       readonly spacingRatio?: number;
       readonly minimumStampDistancePx?: number;
+      readonly startTaperLengthPx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -113,6 +114,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.minimumStampDistancePx === undefined
         ? {}
         : { minimumStampDistancePx: options.minimumStampDistancePx }),
+      ...(options.startTaperLengthPx === undefined
+        ? {}
+        : { startTaperLengthPx: options.startTaperLengthPx }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined

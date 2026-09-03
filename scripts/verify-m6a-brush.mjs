@@ -493,6 +493,33 @@ requireText(
   'stroke repetition regression coverage missing',
 );
 
+requireText(progress, 'M6A-028 stroke-start behavior:完了', 'M6A-028 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushStrokeStartLengthPxV1',
+  'stroke-start preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  '#startEnvelopeAtDistance',
+  'incremental stroke-start envelope missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'startTaperLengthPx: this.#brushStartTaperLengthPx',
+  'stroke-start behavior is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-start-length-range"',
+  'reachable stroke-start control missing',
+);
+requireText(
+  read('tests/unit/brush-stroke-start.test.ts'),
+  'without rewriting prior dabs',
+  'stroke-start regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

@@ -10,6 +10,7 @@ import {
   brushTipDirectionDegreesV1,
   brushFollowStrokeRotationV1,
   brushTipSelectionModeV1,
+  brushStrokeStartLengthPxV1,
   brushStrokeSpacingV1,
   brushTipAssetsV1,
   brushTipShapeV1,
@@ -46,6 +47,7 @@ import {
   updateBrushPresetTipDirectionV1,
   updateBrushPresetFollowRotationV1,
   updateBrushPresetTipSelectionModeV1,
+  updateBrushPresetStartLengthV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -120,6 +122,8 @@ export function installBrushPresetControllerV1(input: {
   const tipDirectionNumber = requireElement('#brush-tip-direction-number', HTMLInputElement);
   const followRotationButton = requireElement('#brush-follow-rotation', HTMLButtonElement);
   const tipRepeatMode = requireElement('#brush-tip-repeat-mode', HTMLSelectElement);
+  const startLengthRange = requireElement('#brush-start-length-range', HTMLInputElement);
+  const startLengthNumber = requireElement('#brush-start-length-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -164,6 +168,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushTipAngleDegrees(brushTipAngleDegreesV1(item.preset));
     input.paintSession.setBrushTipDirectionDegrees(brushTipDirectionDegreesV1(item.preset));
     input.paintSession.setBrushFollowStrokeRotation(brushFollowStrokeRotationV1(item.preset));
+    const startLengthPx = brushStrokeStartLengthPxV1(item.preset);
+    input.paintSession.setBrushStartTaperLengthPx(startLengthPx);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -197,6 +203,7 @@ export function installBrushPresetControllerV1(input: {
       brushFollowStrokeRotationV1(item.preset),
     );
     input.root.dataset.illustroBrushTipSelectionMode = brushTipSelectionModeV1(item.preset);
+    input.root.dataset.illustroBrushStartLengthPx = String(startLengthPx);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -304,6 +311,8 @@ export function installBrushPresetControllerV1(input: {
     followRotationButton.setAttribute('aria-pressed', String(followRotation));
     const tipSelectionMode = brushTipSelectionModeV1(selected.preset);
     tipRepeatMode.value = tipSelectionMode;
+    const startLengthPx = brushStrokeStartLengthPxV1(selected.preset);
+    configurePair(startLengthRange, startLengthNumber, 0, 4096, 1, startLengthPx);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -340,7 +349,8 @@ export function installBrushPresetControllerV1(input: {
         : tipSelectionMode === 'random-per-stamp'
           ? ' · Random'
           : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}`;
+    const startLabel = startLengthPx > 0 ? ` · In${Math.round(startLengthPx)}px` : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -362,6 +372,8 @@ export function installBrushPresetControllerV1(input: {
       tipDirectionNumber,
       followRotationButton,
       tipRepeatMode,
+      startLengthRange,
+      startLengthNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -459,6 +471,10 @@ export function installBrushPresetControllerV1(input: {
           : 'fixed';
     mutate(() => updateBrushPresetTipSelectionModeV1(state, state.selectedPresetId, mode));
   };
+  const updateStartLength = (lengthPx: number): void =>
+    mutate(() => updateBrushPresetStartLengthV1(state, state.selectedPresetId, lengthPx));
+  const onStartLengthRange = (): void => updateStartLength(Number(startLengthRange.value));
+  const onStartLengthNumber = (): void => updateStartLength(Number(startLengthNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -547,6 +563,8 @@ export function installBrushPresetControllerV1(input: {
   tipDirectionNumber.addEventListener('change', onTipDirectionNumber);
   followRotationButton.addEventListener('click', onFollowRotation);
   tipRepeatMode.addEventListener('change', onTipRepeatMode);
+  startLengthRange.addEventListener('input', onStartLengthRange);
+  startLengthNumber.addEventListener('change', onStartLengthNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -588,6 +606,8 @@ export function installBrushPresetControllerV1(input: {
       tipDirectionNumber.removeEventListener('change', onTipDirectionNumber);
       followRotationButton.removeEventListener('click', onFollowRotation);
       tipRepeatMode.removeEventListener('change', onTipRepeatMode);
+      startLengthRange.removeEventListener('input', onStartLengthRange);
+      startLengthNumber.removeEventListener('change', onStartLengthNumber);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
