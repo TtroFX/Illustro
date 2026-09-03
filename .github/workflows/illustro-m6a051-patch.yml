@@ -28,8 +28,10 @@ jobs:
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts src/index.html tests/unit/brush-size-jitter.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
         run: npm run typecheck
-      - name: Targeted regression tests
-        run: npx vitest run tests/unit/brush-size-jitter.test.ts tests/unit/brush-random-dynamics.test.ts tests/unit/brush-maximum-response.test.ts tests/unit/brush-minimum-response.test.ts tests/unit/brush-forced-taper.test.ts tests/unit/brush-post-stroke-correction.test.ts tests/unit/brush-stroke-repetition.test.ts
+      - name: M6A-051 size-jitter tests
+        run: npx vitest run tests/unit/brush-size-jitter.test.ts
+      - name: Existing brush regression tests
+        run: npx vitest run tests/unit/brush-random-dynamics.test.ts tests/unit/brush-maximum-response.test.ts tests/unit/brush-minimum-response.test.ts tests/unit/brush-forced-taper.test.ts tests/unit/brush-post-stroke-correction.test.ts tests/unit/brush-stroke-repetition.test.ts
       - name: M6A verification
         run: npm run verify:m6a
       - name: Production build
