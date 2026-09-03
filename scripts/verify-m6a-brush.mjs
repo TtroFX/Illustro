@@ -828,6 +828,33 @@ requireText(
   'texture rotation orthogonality regression missing',
 );
 
+requireText(progress, 'M6A-040 texture blend behavior:完了', 'M6A-040 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'BrushTextureBlendModeV1',
+  'texture blend-mode schema missing',
+);
+requireText(
+  read('src/gpu/brush-texture-composite.ts'),
+  'combineBrushTextureCoverageV1',
+  'coverage-domain texture combination missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushTextureBlendMode',
+  'texture blend mode is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-texture-blend-mode"',
+  'reachable texture blend-mode control missing',
+);
+requireText(
+  read('tests/unit/brush-texture-blend.test.ts'),
+  'deterministic scalar coverage combination without touching color',
+  'texture blend coverage regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

@@ -257,6 +257,15 @@
                 <span class="shell-brush-property-number"><input id="brush-texture-rotation-number" type="number" inputmode="numeric" min="0" max="359" step="1" value="0" aria-label="ブラシテクスチャ回転" /><span>°</span></span>
               </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-texture-blend-mode">テクスチャ合成</label>
+                <select id="brush-texture-blend-mode" aria-label="ブラシテクスチャ合成方法">
+                  <option value="multiply">乗算</option>
+                  <option value="subtract">減算</option>
+                  <option value="add">加算</option>
+                </select>
+                <span class="shell-brush-tip-kind">Coverage</span>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tip-shape">ブラシ形状</label>
                 <select id="brush-tip-shape" aria-label="ブラシ先端形状">
                   <option value="round">円形</option>

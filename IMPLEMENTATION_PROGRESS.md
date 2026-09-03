@@ -463,7 +463,8 @@ M6A-038 texture scale:完了
 再開メモ: M6A-038 texture scaleはBrushPresetV1.texture.scaleをtexture-space倍率として0.01..16で保持し、1.0をidentity/defaultとしてfield省略可能にした。UIは1..1600%で編集し、grain/paper resource identity・strengthとは独立にpreset persistenceとPaintSession snapshotへcaptureする。M6A-071/073のsampled payloadが未解決な間はscaleだけで描画結果を変えず、実payload接続後に同じ倍率をsampling transformへ適用する。次はM6A-039 texture rotationから再開する。
 M6A-039 texture rotation:完了
 再開メモ: M6A-039 texture rotationはBrushPresetV1.texture.rotationDegreesを有限degreeとして受け、0..360へ正規化して0°をidentity/defaultとしてfield省略可能にした。UIは0..359°、PaintSessionも同じ正規化済み値を保持し、resource subtype・strength・scaleから独立する。sampled payload未解決中はrotationだけでcanonical pixelsを変えず、M6A-071/073接続後にscaleと合成したsampling transformへ適用する。次はM6A-040 texture blend behaviorから再開する。
-M6A-040 texture blend behavior:未完了
+M6A-040 texture blend behavior:完了
+再開メモ: M6A-040 texture blend behaviorはBrushPresetV1.texture.blendModeをmultiply/subtract/addの3種coverage-domain modeとして定義し、multiplyをdefault/field省略値にした。layer RGB Blend Modeとは別系統で、pure helper combineBrushTextureCoverageV1がbrush coverage・sampled texture scalar・strengthだけを0..1で決定論的に合成し、RGB/色空間へ触れない。preset persistence・PaintSession snapshot・Brush Properties chooserへ接続済み。M6A-071/073で実sampled payloadが解決されるまではこのhelperをcanonical raster hot pathへ接続せず、既存stroke pixelsを変更しない。次はM6A-041 pressure→sizeから再開する。
 M6A-041 pressure→size:未完了
 M6A-042 pressure→opacity:未完了
 M6A-043 pressure→flow:未完了

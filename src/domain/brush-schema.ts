@@ -664,6 +664,31 @@ export function withBrushTextureRotationDegreesV1(
   });
 }
 
+export type BrushTextureBlendModeV1 = 'multiply' | 'subtract' | 'add';
+export const DEFAULT_BRUSH_TEXTURE_BLEND_MODE_V1: BrushTextureBlendModeV1 = 'multiply';
+
+export function brushTextureBlendModeV1(preset: BrushPresetV1): BrushTextureBlendModeV1 {
+  const value = preset.texture.blendMode;
+  return value === 'subtract' || value === 'add' ? value : DEFAULT_BRUSH_TEXTURE_BLEND_MODE_V1;
+}
+
+export function withBrushTextureBlendModeV1(
+  preset: BrushPresetV1,
+  blendMode: BrushTextureBlendModeV1,
+): BrushPresetV1 {
+  if (blendMode !== 'multiply' && blendMode !== 'subtract' && blendMode !== 'add') {
+    throw new TypeError('unsupported brush texture blend mode');
+  }
+  if (blendMode === DEFAULT_BRUSH_TEXTURE_BLEND_MODE_V1) {
+    const { blendMode: _blendMode, ...texture } = preset.texture;
+    return normalizeBrushPresetV1({ ...preset, texture });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    texture: { ...preset.texture, blendMode },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

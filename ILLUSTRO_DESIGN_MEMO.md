@@ -5753,3 +5753,11 @@ Verification must cover at minimum:
 - Rotation is orthogonal to grain/paper resource identity, M6A-037 strength and M6A-038 scale. Runtime captures only the normalized value and active strokes are invalidated on configuration changes so one stroke cannot mix sampling transforms.
 - No texture pixels are synthesized before M6A-071/073 resource loading. Once payloads are available, rotation composes with scale in the texture sampling transform; it does not rotate the brush tip geometry itself.
 - M6A-040 owns the coverage-combination/blend rule and must not redefine strength, scale or rotation semantics.
+
+#### M6A texture-blend boundary — 2026-09-03
+
+- M6A-040 defines texture combination as **scalar coverage-domain behavior**, not layer/RGB blending. The supported v1 modes are `multiply`, `subtract`, and `add`; `multiply` is the default and may be omitted from serialized preset data.
+- `combineBrushTextureCoverageV1` is the canonical deterministic combination rule. It consumes only brush coverage, sampled texture coverage and M6A-037 strength, clamps the result to `0..1`, and never reads or modifies RGB or document color-space metadata.
+- `multiply` attenuates brush coverage by the sampled texture; `subtract` performs a stronger cutout from low texture coverage; `add` raises coverage only inside an already-covered brush footprint. Strength `0` is exact identity for every mode.
+- Blend mode is orthogonal to resource identity/subtype, scale and rotation. Changing it during an active stroke invalidates that stroke configuration rather than mixing two texture semantics.
+- M6A-071/073 remains responsible for sampled resource payload resolution and the actual call-site in canonical rasterization. Until then, no surrogate texture is generated and existing raster output stays unchanged.

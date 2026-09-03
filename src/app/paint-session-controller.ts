@@ -7,6 +7,7 @@ import {
 import {
   DEFAULT_BRUSH_PARAMETER_VALUES_V1,
   type BrushParameterValuesV1,
+  type BrushTextureBlendModeV1,
 } from '../domain/brush-schema.js';
 import {
   isUuid,
@@ -228,6 +229,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTextureStrength: number;
   readonly brushTextureScale: number;
   readonly brushTextureRotationDegrees: number;
+  readonly brushTextureBlendMode: BrushTextureBlendModeV1;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -678,6 +680,7 @@ export class PaintSessionControllerV1 {
   #brushTextureStrength = 0;
   #brushTextureScale = 1;
   #brushTextureRotationDegrees = 0;
+  #brushTextureBlendMode: BrushTextureBlendModeV1 = 'multiply';
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -723,6 +726,7 @@ export class PaintSessionControllerV1 {
       brushTextureStrength: this.#brushTextureStrength,
       brushTextureScale: this.#brushTextureScale,
       brushTextureRotationDegrees: this.#brushTextureRotationDegrees,
+      brushTextureBlendMode: this.#brushTextureBlendMode,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1035,6 +1039,19 @@ export class PaintSessionControllerV1 {
 
   brushTextureRotationDegrees(): number {
     return this.#brushTextureRotationDegrees;
+  }
+
+  setBrushTextureBlendMode(blendMode: BrushTextureBlendModeV1): BrushTextureBlendModeV1 {
+    if (blendMode !== 'multiply' && blendMode !== 'subtract' && blendMode !== 'add') {
+      throw new TypeError('unsupported runtime brush texture blend mode');
+    }
+    if (blendMode !== this.#brushTextureBlendMode) this.#clearActiveStroke();
+    this.#brushTextureBlendMode = blendMode;
+    return this.#brushTextureBlendMode;
+  }
+
+  brushTextureBlendMode(): BrushTextureBlendModeV1 {
+    return this.#brushTextureBlendMode;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
