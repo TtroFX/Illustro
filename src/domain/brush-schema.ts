@@ -601,6 +601,38 @@ export function withBrushTextureStrengthV1(preset: BrushPresetV1, strength: numb
   });
 }
 
+export const DEFAULT_BRUSH_TEXTURE_SCALE_V1 = 1 as const;
+export const MIN_BRUSH_TEXTURE_SCALE_V1 = 0.01 as const;
+export const MAX_BRUSH_TEXTURE_SCALE_V1 = 16 as const;
+
+export function brushTextureScaleV1(preset: BrushPresetV1): number {
+  const value = preset.texture.scale;
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_BRUSH_TEXTURE_SCALE_V1 &&
+    value <= MAX_BRUSH_TEXTURE_SCALE_V1
+    ? value
+    : DEFAULT_BRUSH_TEXTURE_SCALE_V1;
+}
+
+export function withBrushTextureScaleV1(preset: BrushPresetV1, scale: number): BrushPresetV1 {
+  if (
+    !Number.isFinite(scale) ||
+    scale < MIN_BRUSH_TEXTURE_SCALE_V1 ||
+    scale > MAX_BRUSH_TEXTURE_SCALE_V1
+  ) {
+    throw new RangeError('brush texture scale must be within 0.01..16');
+  }
+  if (scale === DEFAULT_BRUSH_TEXTURE_SCALE_V1) {
+    const { scale: _scale, ...texture } = preset.texture;
+    return normalizeBrushPresetV1({ ...preset, texture });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    texture: { ...preset.texture, scale },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

@@ -5739,3 +5739,10 @@ Verification must cover at minimum:
 - Strength is independent from texture resource identity and subtype. Switching between ordinary grain and paper preserves the amount; selecting no resource may also retain it for later reuse.
 - M6A-037 does **not** synthesize a surrogate procedural texture. Until M6A-071/073 resolves the accepted sampled grain/paper payload, nonzero strength is stored/runtime-visible but must not alter canonical raster pixels. This prevents saved strokes from changing meaning when the real resource loader arrives.
 - Once a texture payload is resolved, this same strength value is the modulation-depth authority. M6A-038, M6A-039 and M6A-040 own scale, rotation and combination/blend behavior respectively and must remain orthogonal to strength.
+
+#### M6A texture-scale boundary — 2026-09-03
+
+- M6A-038 defines `BrushPresetV1.texture.scale` as a texture-space multiplier in the finite range `0.01..16`. `1` is the exact identity/default and may be omitted from serialized preset data.
+- Scale is orthogonal to resource identity/subtype and M6A-037 strength. Switching grain/paper resources must not silently reset it.
+- The Brush Properties UI exposes the same range as `1..1600%`. Runtime captures the multiplier at brush-configuration time and changing it invalidates an active stroke so one stroke cannot mix sampling transforms.
+- As with strength, M6A-038 does not invent a surrogate texture before M6A-071/073 resolves the accepted sampled resource. When payload loading is connected, this multiplier becomes the sampling-scale authority without changing stored parameter semantics.

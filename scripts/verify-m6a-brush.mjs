@@ -784,6 +784,28 @@ requireText(
   'texture strength/resource-identity regression missing',
 );
 
+requireText(progress, 'M6A-038 texture scale:完了', 'M6A-038 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTextureScaleV1',
+  'texture-scale preset helper missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushTextureScale',
+  'texture scale is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-texture-scale-range"',
+  'reachable texture-scale control missing',
+);
+requireText(
+  read('tests/unit/brush-texture-scale.test.ts'),
+  'keeps scale orthogonal to resource subtype and strength',
+  'texture scale orthogonality regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',
