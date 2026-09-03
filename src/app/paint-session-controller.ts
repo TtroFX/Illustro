@@ -47,6 +47,7 @@ import {
   BASELINE_BRUSH_OPACITY_JITTER,
   BASELINE_BRUSH_ROTATION_JITTER,
   BASELINE_BRUSH_POSITION_JITTER,
+  BASELINE_BRUSH_DENSITY_JITTER,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -270,6 +271,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushOpacityJitter: number;
   readonly brushRotationJitter: number;
   readonly brushPositionJitter: number;
+  readonly brushDensityJitter: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -804,6 +806,7 @@ export class PaintSessionControllerV1 {
   #brushOpacityJitter: number = BASELINE_BRUSH_OPACITY_JITTER;
   #brushRotationJitter: number = BASELINE_BRUSH_ROTATION_JITTER;
   #brushPositionJitter: number = BASELINE_BRUSH_POSITION_JITTER;
+  #brushDensityJitter: number = BASELINE_BRUSH_DENSITY_JITTER;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -878,6 +881,7 @@ export class PaintSessionControllerV1 {
       brushOpacityJitter: this.#brushOpacityJitter,
       brushRotationJitter: this.#brushRotationJitter,
       brushPositionJitter: this.#brushPositionJitter,
+      brushDensityJitter: this.#brushDensityJitter,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1594,6 +1598,19 @@ export class PaintSessionControllerV1 {
 
   brushPositionJitter(): number {
     return this.#brushPositionJitter;
+  }
+
+  setBrushDensityJitter(amount: number): number {
+    if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+      throw new RangeError('invalid runtime brush density jitter');
+    }
+    if (amount !== this.#brushDensityJitter) this.#clearActiveStroke();
+    this.#brushDensityJitter = amount;
+    return this.#brushDensityJitter;
+  }
+
+  brushDensityJitter(): number {
+    return this.#brushDensityJitter;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2459,13 +2476,15 @@ export class PaintSessionControllerV1 {
     const opacityJitterEnabled = this.#brushOpacityJitter > 0;
     const rotationJitterEnabled = this.#brushRotationJitter > 0;
     const positionJitterEnabled = this.#brushPositionJitter > 0;
+    const densityJitterEnabled = this.#brushDensityJitter > 0;
     const randomSeed =
       this.#brushTipSelectionMode === 'random-per-stamp' ||
       randomDynamicsEnabled ||
       sizeJitterEnabled ||
       opacityJitterEnabled ||
       rotationJitterEnabled ||
-      positionJitterEnabled
+      positionJitterEnabled ||
+      densityJitterEnabled
         ? deterministicPaintStrokeSeedV1(strokeId)
         : undefined;
     this.#activeStroke = Object.freeze({
@@ -2539,6 +2558,7 @@ export class PaintSessionControllerV1 {
         opacityJitter: this.#brushOpacityJitter,
         rotationJitter: this.#brushRotationJitter,
         positionJitter: this.#brushPositionJitter,
+        densityJitter: this.#brushDensityJitter,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,

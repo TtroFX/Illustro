@@ -1420,6 +1420,53 @@ requireText(
   'position-jitter tail reconciliation regression missing',
 );
 
+requireText(progress, 'M6A-055 density jitter:完了', 'M6A-055 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushDensityJitterV1',
+  'density-jitter preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushDensityJitterV1',
+  'deterministic density-jitter channel missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#tipDensity * stamp.densityJitterScale',
+  'density jitter is not applied to canonical tip density',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushDensityJitter',
+  'density jitter is not connected to runtime brush state',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'densityJitterEnabled',
+  'density jitter does not capture a deterministic persistent stroke seed',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-density-jitter-range"',
+  'reachable density-jitter control missing',
+);
+requireText(
+  read('tests/unit/brush-density-jitter.test.ts'),
+  'shares one logical-stamp density sample across sampled-tip micro dabs',
+  'density-jitter logical-stamp sharing regression missing',
+);
+requireText(
+  read('tests/unit/brush-density-jitter.test.ts'),
+  'advances the density-jitter attempt index even when taper suppresses a logical stamp',
+  'density-jitter attempt-index regression missing',
+);
+requireText(
+  read('tests/unit/brush-density-jitter.test.ts'),
+  'reuses the resolved density scale when reconciling the mutable end tail',
+  'density-jitter tail reconciliation regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

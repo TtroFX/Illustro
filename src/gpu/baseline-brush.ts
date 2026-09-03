@@ -28,6 +28,7 @@ export const BASELINE_BRUSH_SIZE_JITTER = 0 as const;
 export const BASELINE_BRUSH_OPACITY_JITTER = 0 as const;
 export const BASELINE_BRUSH_ROTATION_JITTER = 0 as const;
 export const BASELINE_BRUSH_POSITION_JITTER = 0 as const;
+export const BASELINE_BRUSH_DENSITY_JITTER = 0 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 export type BaselineBrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
@@ -386,6 +387,7 @@ const BASELINE_BRUSH_OPACITY_JITTER_SALT_V1 = 0x27d4eb2f as const;
 const BASELINE_BRUSH_ROTATION_JITTER_SALT_V1 = 0xb5297a4d as const;
 const BASELINE_BRUSH_POSITION_JITTER_ANGLE_SALT_V1 = 0x9e6c63d1 as const;
 const BASELINE_BRUSH_POSITION_JITTER_RADIUS_SALT_V1 = 0xc2b2ae35 as const;
+const BASELINE_BRUSH_DENSITY_JITTER_SALT_V1 = 0x165667b1 as const;
 
 export function deterministicBaselineBrushSizeJitterV1(seed: number, stampIndex: number): number {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
@@ -501,6 +503,31 @@ export function deterministicBaselineBrushPositionJitterV1(
   return Object.freeze({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
 }
 
+export function deterministicBaselineBrushDensityJitterV1(
+  seed: number,
+  stampIndex: number,
+): number {
+  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
+    throw new RangeError('baseline brush density jitter seed must be uint32');
+  }
+  if (!Number.isSafeInteger(stampIndex) || stampIndex < 0) {
+    throw new RangeError(
+      'baseline brush density jitter stamp index must be a non-negative safe integer',
+    );
+  }
+  let value =
+    (seed ^
+      BASELINE_BRUSH_DENSITY_JITTER_SALT_V1 ^
+      Math.imul((stampIndex + 1) >>> 0, 0x9e3779b1)) >>>
+    0;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d) >>> 0;
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b) >>> 0;
+  value ^= value >>> 16;
+  return (value >>> 0) / 0x100000000;
+}
+
 export function deterministicBaselineBrushRandomV1(seed: number, stampIndex: number): number {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new RangeError('baseline brush random seed must be uint32');
@@ -529,6 +556,7 @@ interface BaselineLogicalStampRecordV1 {
   readonly randomInput: number;
   readonly sizeJitterScale: number;
   readonly opacityJitterScale: number;
+  readonly densityJitterScale: number;
   readonly tiltUprightness: number;
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
@@ -574,6 +602,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #opacityJitter: number;
   readonly #rotationJitter: number;
   readonly #positionJitter: number;
+  readonly #densityJitter: number;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -595,6 +624,7 @@ export class BaselineBrushDabBuilderV1 {
   #opacityJitterStampIndex = 0;
   #rotationJitterStampIndex = 0;
   #positionJitterStampIndex = 0;
+  #densityJitterStampIndex = 0;
   #pathDistancePx = 0;
   #lastPoint: {
     x: number;
@@ -649,6 +679,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly opacityJitter?: number;
       readonly rotationJitter?: number;
       readonly positionJitter?: number;
+      readonly densityJitter?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -704,6 +735,7 @@ export class BaselineBrushDabBuilderV1 {
     const opacityJitter = options.opacityJitter ?? BASELINE_BRUSH_OPACITY_JITTER;
     const rotationJitter = options.rotationJitter ?? BASELINE_BRUSH_ROTATION_JITTER;
     const positionJitter = options.positionJitter ?? BASELINE_BRUSH_POSITION_JITTER;
+    const densityJitter = options.densityJitter ?? BASELINE_BRUSH_DENSITY_JITTER;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -842,6 +874,9 @@ export class BaselineBrushDabBuilderV1 {
     if (!Number.isFinite(positionJitter) || positionJitter < 0 || positionJitter > 1) {
       throw new RangeError('baseline brush position jitter must be within 0..1');
     }
+    if (!Number.isFinite(densityJitter) || densityJitter < 0 || densityJitter > 1) {
+      throw new RangeError('baseline brush density jitter must be within 0..1');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -905,6 +940,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#opacityJitter = opacityJitter;
     this.#rotationJitter = rotationJitter;
     this.#positionJitter = positionJitter;
+    this.#densityJitter = densityJitter;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -1141,6 +1177,7 @@ export class BaselineBrushDabBuilderV1 {
       | 'randomInput'
       | 'sizeJitterScale'
       | 'opacityJitterScale'
+      | 'densityJitterScale'
       | 'tiltUprightness'
       | 'tipAngleDegrees'
       | 'sampledTipAlpha'
@@ -1238,7 +1275,7 @@ export class BaselineBrushDabBuilderV1 {
       this.#flow * opacityScale * flowResponse,
       this.#strokeOpacity * opacityResponse * stamp.opacityJitterScale,
       this.#hardness,
-      this.#tipDensity,
+      this.#tipDensity * stamp.densityJitterScale,
       stamp.tipAngleDegrees,
       this.#color,
       this.#tipShape,
@@ -1306,6 +1343,16 @@ export class BaselineBrushDabBuilderV1 {
       positionJitterVector === null ? x : x + positionJitterVector.x * maximumPositionOffsetPx;
     const jitteredY =
       positionJitterVector === null ? y : y + positionJitterVector.y * maximumPositionOffsetPx;
+    const densityJitterScale =
+      this.#densityJitter > 0
+        ? 1 -
+          this.#densityJitter *
+            deterministicBaselineBrushDensityJitterV1(
+              this.#randomSeed,
+              this.#densityJitterStampIndex,
+            )
+        : 1;
+    if (this.#densityJitter > 0) this.#densityJitterStampIndex += 1;
     const sampledTipAlpha = this.#sampledTipAlphaForLogicalStamp();
     const record: BaselineLogicalStampRecordV1 = {
       x: jitteredX,
@@ -1315,6 +1362,7 @@ export class BaselineBrushDabBuilderV1 {
       randomInput,
       sizeJitterScale,
       opacityJitterScale,
+      densityJitterScale,
       tiltUprightness,
       tipAngleDegrees: jitteredTipAngleDegrees,
       pathDistancePx,

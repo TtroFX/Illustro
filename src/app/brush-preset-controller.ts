@@ -51,6 +51,7 @@ import {
   brushOpacityJitterV1,
   brushRotationJitterV1,
   brushPositionJitterV1,
+  brushDensityJitterV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -132,6 +133,7 @@ import {
   updateBrushPresetOpacityJitterV1,
   updateBrushPresetRotationJitterV1,
   updateBrushPresetPositionJitterV1,
+  updateBrushPresetDensityJitterV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -324,6 +326,8 @@ export function installBrushPresetControllerV1(input: {
   const rotationJitterNumber = requireElement('#brush-rotation-jitter-number', HTMLInputElement);
   const positionJitterRange = requireElement('#brush-position-jitter-range', HTMLInputElement);
   const positionJitterNumber = requireElement('#brush-position-jitter-number', HTMLInputElement);
+  const densityJitterRange = requireElement('#brush-density-jitter-range', HTMLInputElement);
+  const densityJitterNumber = requireElement('#brush-density-jitter-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -458,6 +462,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushRotationJitter(rotationJitter);
     const positionJitter = brushPositionJitterV1(item.preset);
     input.paintSession.setBrushPositionJitter(positionJitter);
+    const densityJitter = brushDensityJitterV1(item.preset);
+    input.paintSession.setBrushDensityJitter(densityJitter);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -533,6 +539,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushOpacityJitter = String(opacityJitter);
     input.root.dataset.illustroBrushRotationJitter = String(rotationJitter);
     input.root.dataset.illustroBrushPositionJitter = String(positionJitter);
+    input.root.dataset.illustroBrushDensityJitter = String(densityJitter);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -832,6 +839,8 @@ export function installBrushPresetControllerV1(input: {
     configurePair(rotationJitterRange, rotationJitterNumber, 0, 100, 1, rotationJitter * 100);
     const positionJitter = brushPositionJitterV1(selected.preset);
     configurePair(positionJitterRange, positionJitterNumber, 0, 100, 1, positionJitter * 100);
+    const densityJitter = brushDensityJitterV1(selected.preset);
+    configurePair(densityJitterRange, densityJitterNumber, 0, 100, 1, densityJitter * 100);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -935,7 +944,9 @@ export function installBrushPresetControllerV1(input: {
       rotationJitter > 0 ? ` · RotationJitter${Math.round(rotationJitter * 100)}%` : '';
     const positionJitterLabel =
       positionJitter > 0 ? ` · PositionJitter${Math.round(positionJitter * 100)}%` : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}${maximumResponseLabel}${sizeJitterLabel}${opacityJitterLabel}${rotationJitterLabel}${positionJitterLabel}`;
+    const densityJitterLabel =
+      densityJitter > 0 ? ` · DensityJitter${Math.round(densityJitter * 100)}%` : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}${maximumResponseLabel}${sizeJitterLabel}${opacityJitterLabel}${rotationJitterLabel}${positionJitterLabel}${densityJitterLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -1015,6 +1026,8 @@ export function installBrushPresetControllerV1(input: {
       rotationJitterNumber,
       positionJitterRange,
       positionJitterNumber,
+      densityJitterRange,
+      densityJitterNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -1440,6 +1453,12 @@ export function installBrushPresetControllerV1(input: {
   const onPositionJitterRange = (): void => updatePositionJitter(Number(positionJitterRange.value));
   const onPositionJitterNumber = (): void =>
     updatePositionJitter(Number(positionJitterNumber.value));
+  const updateDensityJitter = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetDensityJitterV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const onDensityJitterRange = (): void => updateDensityJitter(Number(densityJitterRange.value));
+  const onDensityJitterNumber = (): void => updateDensityJitter(Number(densityJitterNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -1586,6 +1605,8 @@ export function installBrushPresetControllerV1(input: {
   rotationJitterNumber.addEventListener('change', onRotationJitterNumber);
   positionJitterRange.addEventListener('input', onPositionJitterRange);
   positionJitterNumber.addEventListener('change', onPositionJitterNumber);
+  densityJitterRange.addEventListener('input', onDensityJitterRange);
+  densityJitterNumber.addEventListener('change', onDensityJitterNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -1685,6 +1706,8 @@ export function installBrushPresetControllerV1(input: {
       rotationJitterNumber.removeEventListener('change', onRotationJitterNumber);
       positionJitterRange.removeEventListener('input', onPositionJitterRange);
       positionJitterNumber.removeEventListener('change', onPositionJitterNumber);
+      densityJitterRange.removeEventListener('input', onDensityJitterRange);
+      densityJitterNumber.removeEventListener('change', onDensityJitterNumber);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();
