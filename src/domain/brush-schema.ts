@@ -11,6 +11,10 @@ export type BrushBehaviorV1 = 'paint' | 'erase' | 'smudge' | 'blur';
 export type BrushProceduralTipShapeV1 = 'round' | 'square';
 export type BrushTipShapeV1 = BrushProceduralTipShapeV1 | 'sampled-image';
 export const BUILTIN_SAMPLED_IMAGE_BRUSH_TIP_ID_V1 = 'builtin.sampled-tip.ink-v1' as const;
+export const CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1 = 5 as const;
+export const CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_PIXEL_COUNT_V1 =
+  CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1 * CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1;
+export type BrushSampledTipAlphaV1 = readonly number[];
 export type BrushPresetSectionV1 = Readonly<Record<string, JsonValue>>;
 
 export interface BrushParameterRangeV1 {
@@ -119,6 +123,38 @@ export function withBrushParameterValuesV1(
   });
 }
 
+function brushTipBaseV1(tip: BrushPresetSectionV1): BrushPresetSectionV1 {
+  const copy: Record<string, JsonValue> = { ...tip };
+  delete copy.kind;
+  delete copy.sampleId;
+  delete copy.side;
+  delete copy.alpha;
+  return Object.freeze(copy);
+}
+
+function freezeCustomSampledTipAlphaV1(value: unknown): BrushSampledTipAlphaV1 {
+  if (!Array.isArray(value) || value.length !== CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_PIXEL_COUNT_V1) {
+    throw new RangeError('custom sampled brush tip requires exactly 25 alpha values');
+  }
+  const alpha = value.map((entry) => {
+    if (typeof entry !== 'number' || !Number.isInteger(entry) || entry < 0 || entry > 255) {
+      throw new RangeError('custom sampled brush tip alpha values must be integer bytes');
+    }
+    return entry;
+  });
+  if (!alpha.some((entry) => entry > 0)) {
+    throw new RangeError('custom sampled brush tip cannot be fully transparent');
+  }
+  return Object.freeze(alpha);
+}
+
+export function brushSampledTipAlphaV1(preset: BrushPresetV1): BrushSampledTipAlphaV1 | null {
+  if (preset.tip.kind !== 'sampled-image-custom') return null;
+  if (preset.tip.side !== CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1) {
+    throw new RangeError('unsupported custom sampled brush tip side');
+  }
+  return freezeCustomSampledTipAlphaV1(preset.tip.alpha);
+}
 export function brushProceduralTipShapeV1(preset: BrushPresetV1): BrushProceduralTipShapeV1 {
   return preset.tip.kind === 'procedural-square' ? 'square' : 'round';
 }
@@ -131,11 +167,18 @@ export function withBrushProceduralTipShapeV1(
     throw new TypeError('unsupported procedural tip shape');
   return normalizeBrushPresetV1({
     ...preset,
-    tip: { ...preset.tip, kind: shape === 'square' ? 'procedural-square' : 'procedural-round' },
+    tip: {
+      ...brushTipBaseV1(preset.tip),
+      kind: shape === 'square' ? 'procedural-square' : 'procedural-round',
+    },
   });
 }
 
 export function brushTipShapeV1(preset: BrushPresetV1): BrushTipShapeV1 {
+  if (preset.tip.kind === 'sampled-image-custom') {
+    brushSampledTipAlphaV1(preset);
+    return 'sampled-image';
+  }
   if (preset.tip.kind === 'sampled-image') {
     if (preset.tip.sampleId !== BUILTIN_SAMPLED_IMAGE_BRUSH_TIP_ID_V1) {
       throw new TypeError('unsupported sampled brush tip resource');
@@ -150,13 +193,28 @@ export function withBrushTipShapeV1(preset: BrushPresetV1, shape: BrushTipShapeV
   return normalizeBrushPresetV1({
     ...preset,
     tip: {
-      ...preset.tip,
+      ...brushTipBaseV1(preset.tip),
       kind: 'sampled-image',
       sampleId: BUILTIN_SAMPLED_IMAGE_BRUSH_TIP_ID_V1,
     },
   });
 }
 
+export function withBrushCustomSampledTipV1(
+  preset: BrushPresetV1,
+  alpha: readonly number[],
+): BrushPresetV1 {
+  const normalizedAlpha = freezeCustomSampledTipAlphaV1(alpha);
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: {
+      ...brushTipBaseV1(preset.tip),
+      kind: 'sampled-image-custom',
+      side: CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1,
+      alpha: [...normalizedAlpha],
+    },
+  });
+}
 export interface BrushPresetV1 {
   readonly schema: typeof BRUSH_V1_SCHEMA;
   readonly id: string;
@@ -221,6 +279,13 @@ export function normalizeBrushPresetV1(input: BrushPresetV1): BrushPresetV1 {
   const tags = Object.freeze(
     [...new Set(input.tags.map((tag) => normalizedText(tag, 'brush tag', 80)))].slice(0, 64),
   );
+  const tip = normalizeSection(input.tip, 'brush tip');
+  if (tip.kind === 'sampled-image-custom') {
+    if (tip.side !== CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1) {
+      throw new RangeError('unsupported custom sampled brush tip side');
+    }
+    freezeCustomSampledTipAlphaV1(tip.alpha);
+  }
   return Object.freeze({
     schema: BRUSH_V1_SCHEMA,
     id: normalizedText(input.id, 'brush id', 160),
@@ -230,7 +295,7 @@ export function normalizeBrushPresetV1(input: BrushPresetV1): BrushPresetV1 {
     tags,
     behavior: input.behavior,
     defaultSizePx: input.defaultSizePx,
-    tip: normalizeSection(input.tip, 'brush tip'),
+    tip,
     stroke: normalizeSection(input.stroke, 'brush stroke'),
     ink: normalizeSection(input.ink, 'brush ink'),
     dynamics: normalizeSection(input.dynamics, 'brush dynamics'),

@@ -161,6 +161,13 @@
                 </select>
                 <span class="shell-brush-tip-kind">先端</span>
               </div>
+              <div class="shell-brush-custom-tip-row">
+                <span class="shell-brush-custom-tip-label">カスタム先端</span>
+                <button id="brush-tip-custom-create" type="button" title="黒い部分ほど強い先端として画像から作成">画像から作成</button>
+                <input id="brush-tip-custom-file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+                <canvas id="brush-tip-custom-preview" width="5" height="5" aria-label="カスタムブラシ先端プレビュー" hidden></canvas>
+                <output id="brush-tip-custom-status" aria-live="polite">標準サンプル</output>
+              </div>
             </div>
           </section>
           <section class="shell-inspector-card shell-color-panel" aria-label="カラー">

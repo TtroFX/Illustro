@@ -1957,3 +1957,42 @@ body {
   font-size: 9px;
   text-align: right;
 }
+
+/* M6A custom sampled brush tip */
+.shell-brush-custom-tip-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) auto auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+}
+
+.shell-brush-custom-tip-label,
+#brush-tip-custom-status {
+  color: #68758c;
+  font-size: 10px;
+}
+
+#brush-tip-custom-create {
+  min-height: 32px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  padding: 0 9px;
+  background: #fff;
+  color: #38445d;
+  font: inherit;
+}
+
+#brush-tip-custom-preview {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #dfe5ef;
+  border-radius: 6px;
+  background: #fff;
+  image-rendering: pixelated;
+}
+
+#brush-tip-custom-status {
+  grid-column: 1 / -1;
+  text-align: right;
+}

@@ -3,6 +3,7 @@ import {
   type BaselineBrushColorV1,
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
+  type BaselineBrushSampledTipAlphaV1,
   type BaselineBrushTipShapeV1,
 } from '../gpu/baseline-brush.js';
 
@@ -87,6 +88,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly opacity?: number;
       readonly flow?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
+      readonly sampledTipAlpha?: BaselineBrushSampledTipAlphaV1;
     } = {},
   ) {
     this.#mode = options.mode ?? 'raster';
@@ -96,6 +98,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
       ...(options.flow === undefined ? {} : { flow: options.flow }),
       ...(options.tipShape === undefined ? {} : { tipShape: options.tipShape }),
+      ...(options.sampledTipAlpha === undefined
+        ? {}
+        : { sampledTipAlpha: options.sampledTipAlpha }),
     });
   }
 

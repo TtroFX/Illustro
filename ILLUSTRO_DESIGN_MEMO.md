@@ -5568,3 +5568,11 @@ Verification must cover at minimum:
 - The alpha image is sampled at logical-stamp generation time into deterministic alpha-weighted round primitive dabs. Canonical Raster Tile, Worker/Main WebGPU presentation, Canvas2D compatibility, History, Persistence, and recovery therefore continue to consume the existing primitive-dab contract instead of gaining a competing sampled renderer path.
 - The logical sampled tip is captured at stroke start with the rest of the brush parameters. Existing strokes persist their resolved primitive dabs and cannot change if the selected preset changes later.
 - M6A-019 owns creation of custom sampled tips; M6A-020 owns multiple tip assets; M6A-071/072 own final sampled-resource loading and brush-tip resource management. M6A-018 must not expand into those responsibilities.
+
+#### M6A custom-tip-creation boundary — 2026-09-03
+
+- M6A-019 creates exactly one custom sampled tip for the selected brush preset. The custom tip is stored inside that preset as a fixed 5×5 alpha mask (sampled-image-custom); it does not introduce a global asset collection or multiple active tips, which remain M6A-020/M6A-072 responsibilities.
+- Image creation uses a centered square crop, browser downsampling to 5×5, and grayscale-darkness multiplied by source alpha. Black opaque pixels produce full tip coverage; white or transparent pixels produce no coverage. Empty masks and oversized (>16 MiB) source files are rejected before preset mutation.
+- Runtime captures the custom alpha mask when the stroke begins and resolves it through the existing M6A-018 sampled-image primitive-dab expansion. Persisted strokes therefore continue to contain resolved primitive dabs, leaving Worker/Main WebGPU, Canvas2D compatibility, canonical Raster Tile History, save/recovery, and export contracts unchanged.
+- Logical stamp position is tracked independently from the last emitted primitive dab. This is required because a valid custom tip may have a transparent center; endpoint detection must not accidentally duplicate the final logical stamp based on the geometry of the last non-transparent micro-dab.
+- Selecting procedural or built-in sampled tip kinds removes stale custom sampled identity fields from the effective preset tip descriptor. Reset/duplicate/persistence continue to use the existing Brush Preset library semantics.

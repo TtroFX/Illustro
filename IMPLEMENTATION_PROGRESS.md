@@ -424,7 +424,8 @@ M6A-015 flow/density:完了
 M6A-016 per-brush parameter limits:完了
 M6A-017 procedural tip:完了
 M6A-018 sampled image tip:完了
-M6A-019 custom tip creation:未完了
+M6A-019 custom tip creation:完了
+再開メモ: M6A-019 custom tip creationは選択preset内に単一5×5 alpha maskを保持し、画像入力を中央square crop→5×5へ縮小→黒/暗部をcoverageとして正規化する。stroke開始時にcustom alphaをcaptureし、M6A-018と同じprimitive round dab展開へ流すためrenderer/History/Persistenceの別経路は追加しない。centerが透明なcustom tipでも終端重複しないようlogical stamp位置をdab列とは別に追跡する。次はM6A-020 multiple tip assets without Dual Brush semanticsから再開する。
 M6A-020 multiple tip assets without Dual Brush semantics:未完了
 M6A-021 hardness:未完了
 M6A-022 tip density:未完了

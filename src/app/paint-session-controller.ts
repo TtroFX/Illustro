@@ -25,9 +25,11 @@ import {
 import {
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
+  freezeBaselineBrushSampledTipAlphaV1,
   type BaselineBrushColorV1,
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
+  type BaselineBrushSampledTipAlphaV1,
   type BaselineBrushTipShapeV1,
 } from '../gpu/baseline-brush.js';
 import {
@@ -192,6 +194,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushMode: CanonicalBrushModeV1;
   readonly brushParameters: BrushParameterValuesV1;
   readonly brushTipShape: BaselineBrushTipShapeV1;
+  readonly brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
   readonly activeStrokeId: string | null;
   readonly activeStrokeSampleCount: number;
@@ -213,6 +216,14 @@ function finiteNumber(value: unknown, label: string): number {
   return value;
 }
 
+function equalSampledTipAlphaV1(
+  left: BaselineBrushSampledTipAlphaV1 | null,
+  right: BaselineBrushSampledTipAlphaV1 | null,
+): boolean {
+  if (left === right) return true;
+  if (left === null || right === null || left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
+}
 function parseStoredStrokeSample(value: unknown): PaintStrokeSampleV1 {
   if (!isRecord(value) || value.schema !== 'illustro.paint-stroke-sample/1') {
     throw new TypeError('invalid paint stroke sample schema');
@@ -559,6 +570,7 @@ export class PaintSessionControllerV1 {
   #brushMode: CanonicalBrushModeV1 = 'raster';
   #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
   #brushTipShape: BaselineBrushTipShapeV1 = 'round';
+  #brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null = null;
   #disposed = false;
 
   constructor(
@@ -579,6 +591,7 @@ export class PaintSessionControllerV1 {
       brushMode: this.#brushMode,
       brushParameters: this.#brushParameters,
       brushTipShape: this.#brushTipShape,
+      brushSampledTipAlpha: this.#brushSampledTipAlpha,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
       activeStrokeSampleCount: this.#activeSamples.length,
@@ -631,11 +644,25 @@ export class PaintSessionControllerV1 {
     return this.#brushParameters;
   }
 
-  setBrushTipShape(shape: BaselineBrushTipShapeV1): BaselineBrushTipShapeV1 {
-    if (shape !== 'round' && shape !== 'square' && shape !== 'sampled-image')
+  setBrushTipShape(
+    shape: BaselineBrushTipShapeV1,
+    sampledTipAlpha?: readonly number[],
+  ): BaselineBrushTipShapeV1 {
+    if (shape !== 'round' && shape !== 'square' && shape !== 'sampled-image') {
       throw new TypeError('unsupported runtime brush tip shape');
-    if (shape !== this.#brushTipShape) this.#clearActiveStroke();
+    }
+    const nextSampledTipAlpha =
+      shape === 'sampled-image' && sampledTipAlpha !== undefined
+        ? freezeBaselineBrushSampledTipAlphaV1(sampledTipAlpha)
+        : null;
+    if (
+      shape !== this.#brushTipShape ||
+      !equalSampledTipAlphaV1(nextSampledTipAlpha, this.#brushSampledTipAlpha)
+    ) {
+      this.#clearActiveStroke();
+    }
     this.#brushTipShape = shape;
+    this.#brushSampledTipAlpha = nextSampledTipAlpha;
     return this.#brushTipShape;
   }
 
@@ -1335,6 +1362,9 @@ export class PaintSessionControllerV1 {
       opacity: parameters.opacity,
       flow: parameters.flow,
       tipShape: this.#brushTipShape,
+      ...(this.#brushSampledTipAlpha === null
+        ? {}
+        : { sampledTipAlpha: this.#brushSampledTipAlpha }),
     });
     this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
     this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));

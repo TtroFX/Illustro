@@ -17,6 +17,25 @@ export const BASELINE_SAMPLED_IMAGE_TIP_ALPHA_V1 = Object.freeze([
   0, 42, 86, 34, 0, 28, 134, 218, 112, 18, 72, 230, 255, 184, 38, 36, 152, 206, 96, 12, 0, 48, 104,
   24, 0,
 ] as const);
+export type BaselineBrushSampledTipAlphaV1 = readonly number[];
+
+export function freezeBaselineBrushSampledTipAlphaV1(
+  alpha: readonly number[],
+): BaselineBrushSampledTipAlphaV1 {
+  if (alpha.length !== BASELINE_SAMPLED_IMAGE_TIP_SIDE_V1 * BASELINE_SAMPLED_IMAGE_TIP_SIDE_V1) {
+    throw new RangeError('sampled brush tip requires exactly 25 alpha values');
+  }
+  const normalized = alpha.map((value) => {
+    if (!Number.isInteger(value) || value < 0 || value > 255) {
+      throw new RangeError('sampled brush tip alpha values must be integer bytes');
+    }
+    return value;
+  });
+  if (!normalized.some((value) => value > 0)) {
+    throw new RangeError('sampled brush tip cannot be fully transparent');
+  }
+  return Object.freeze(normalized);
+}
 export type BaselineBrushCompositeOperationV1 = 'paint' | 'erase' | 'smudge' | 'blur';
 export const DEFAULT_BASELINE_BRUSH_COLOR_V1: BaselineBrushColorV1 = Object.freeze([0, 0, 0]);
 
@@ -116,6 +135,7 @@ function pushBaselineBrushStampV1(
   strokeOpacity: number,
   color: BaselineBrushColorV1,
   tipShape: BaselineBrushTipShapeV1,
+  sampledTipAlpha: BaselineBrushSampledTipAlphaV1,
 ): void {
   if (tipShape !== 'sampled-image') {
     target.push(freezeDab(x, y, radius, flow, strokeOpacity, color, tipShape));
@@ -123,10 +143,11 @@ function pushBaselineBrushStampV1(
   }
 
   const side = BASELINE_SAMPLED_IMAGE_TIP_SIDE_V1;
+  const alphaImage = sampledTipAlpha;
   const microRadius = (radius / side) * 1.1;
   const centerIndex = Math.floor(side / 2) * side + Math.floor(side / 2);
   const emit = (index: number): void => {
-    const alphaByte = BASELINE_SAMPLED_IMAGE_TIP_ALPHA_V1[index] ?? 0;
+    const alphaByte = alphaImage[index] ?? 0;
     if (alphaByte <= 0) return;
     const row = Math.floor(index / side);
     const column = index % side;
@@ -145,7 +166,7 @@ function pushBaselineBrushStampV1(
     );
   };
 
-  for (let index = 0; index < BASELINE_SAMPLED_IMAGE_TIP_ALPHA_V1.length; index += 1) {
+  for (let index = 0; index < alphaImage.length; index += 1) {
     if (index !== centerIndex) emit(index);
   }
   // Keep the center primitive last so existing finish detection remains tied to the logical stamp center.
@@ -160,7 +181,9 @@ export class BaselineBrushDabBuilderV1 {
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #tipShape: BaselineBrushTipShapeV1;
+  readonly #sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
   #lastPoint: { x: number; y: number } | null = null;
+  #lastStampPoint: { x: number; y: number } | null = null;
   #distanceUntilNext: number;
   #finished = false;
 
@@ -171,6 +194,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly opacity?: number;
       readonly flow?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
+      readonly sampledTipAlpha?: readonly number[];
     } = {},
   ) {
     this.#color =
@@ -201,6 +225,9 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new TypeError('unsupported baseline brush tip shape');
     }
+    this.#sampledTipAlpha = freezeBaselineBrushSampledTipAlphaV1(
+      options.sampledTipAlpha ?? BASELINE_SAMPLED_IMAGE_TIP_ALPHA_V1,
+    );
     this.#distanceUntilNext = this.#spacing;
   }
 
@@ -224,7 +251,9 @@ export class BaselineBrushDabBuilderV1 {
       this.#strokeOpacity,
       this.#color,
       this.#tipShape,
+      this.#sampledTipAlpha,
     );
+    this.#lastStampPoint = { x: sample.documentX, y: sample.documentY };
     this.#distanceUntilNext = this.#spacing;
     return this.#deltaFrom(start);
   }
@@ -265,9 +294,9 @@ export class BaselineBrushDabBuilderV1 {
     const start = this.#dabs.length;
     this.#finished = true;
     const lastPoint = this.#lastPoint;
-    const lastDab = this.#dabs.at(-1);
-    if (lastPoint !== null && lastDab !== undefined) {
-      const distance = Math.hypot(lastPoint.x - lastDab.x, lastPoint.y - lastDab.y);
+    const lastStampPoint = this.#lastStampPoint;
+    if (lastPoint !== null && lastStampPoint !== null) {
+      const distance = Math.hypot(lastPoint.x - lastStampPoint.x, lastPoint.y - lastStampPoint.y);
       if (distance > 1e-6) {
         pushBaselineBrushStampV1(
           this.#dabs,
@@ -278,6 +307,7 @@ export class BaselineBrushDabBuilderV1 {
           this.#strokeOpacity,
           this.#color,
           this.#tipShape,
+          this.#sampledTipAlpha,
         );
       }
     }
@@ -317,7 +347,9 @@ export class BaselineBrushDabBuilderV1 {
         this.#strokeOpacity,
         this.#color,
         this.#tipShape,
+        this.#sampledTipAlpha,
       );
+      this.#lastStampPoint = { x: cursorX, y: cursorY };
       remaining = Math.hypot(x - cursorX, y - cursorY);
       this.#distanceUntilNext = this.#spacing;
     }

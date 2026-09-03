@@ -244,6 +244,27 @@ requireText(
   'square corners',
   'procedural tip raster regression coverage missing',
 );
+requireText(progress, 'M6A-019 custom tip creation:完了', 'M6A-019 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'withBrushCustomSampledTipV1',
+  'custom sampled tip preset mutation missing',
+);
+requireText(
+  read('src/app/brush-preset-controller.ts'),
+  'customBrushTipAlphaFromFileV1',
+  'custom sampled tip image creation is not production-connected',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-custom-create"',
+  'reachable custom sampled tip creation control missing',
+);
+requireText(
+  read('tests/unit/custom-brush-tip.test.ts'),
+  'custom alpha mask',
+  'custom sampled tip regression coverage missing',
+);
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

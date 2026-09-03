@@ -1,11 +1,13 @@
 import {
   brushParameterLimitsV1,
   brushParameterValuesV1,
+  brushSampledTipAlphaV1,
   brushTipShapeV1,
   type BrushBehaviorV1,
   type BrushParameterValuesV1,
   type BrushTipShapeV1,
 } from '../domain/brush-schema.js';
+import { customBrushTipAlphaFromFileV1, drawCustomBrushTipPreviewV1 } from './custom-brush-tip.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import {
   brushPresetCategoriesV1,
@@ -23,6 +25,7 @@ import {
   setBrushPresetCategoryV1,
   setBrushPresetLockedV1,
   setBrushPresetSearchV1,
+  updateBrushPresetCustomTipV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
   type BrushPresetLibraryStateV1,
@@ -85,6 +88,10 @@ export function installBrushPresetControllerV1(input: {
   const flowRange = requireElement('#brush-flow-range', HTMLInputElement);
   const flowNumber = requireElement('#brush-flow-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
+  const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
+  const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
+  const customTipStatus = requireElement('#brush-tip-custom-status', HTMLOutputElement);
+  const customTipPreview = requireElement('#brush-tip-custom-preview', HTMLCanvasElement);
   let state = loadState(storage);
   let idCounter = 0;
 
@@ -105,7 +112,10 @@ export function installBrushPresetControllerV1(input: {
     const parameters = brushParameterValuesV1(item.preset);
     input.paintSession.setBrushMode(modeForBehavior(item.preset.behavior));
     input.paintSession.setBrushParameters(parameters);
-    input.paintSession.setBrushTipShape(brushTipShapeV1(item.preset));
+    input.paintSession.setBrushTipShape(
+      brushTipShapeV1(item.preset),
+      brushSampledTipAlphaV1(item.preset) ?? undefined,
+    );
     input.root.dataset.illustroBrushPreset = item.preset.id;
     input.root.dataset.illustroBrushPresetSource = item.source;
     input.root.dataset.illustroBrushPresetModified = String(item.modified);
@@ -206,6 +216,10 @@ export function installBrushPresetControllerV1(input: {
     );
     configurePair(flowRange, flowNumber, limits.flow.min, limits.flow.max, 0.01, parameters.flow);
     tipShape.value = brushTipShapeV1(selected.preset);
+    const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
+    customTipStatus.textContent = customTipAlpha === null ? '標準サンプル' : 'カスタム 5×5';
+    customTipPreview.hidden = customTipAlpha === null;
+    drawCustomBrushTipPreviewV1(customTipPreview, customTipAlpha);
     propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}%`;
 
     const locked = selected.locked;
@@ -217,6 +231,8 @@ export function installBrushPresetControllerV1(input: {
       flowRange,
       flowNumber,
       tipShape,
+      customTipCreate,
+      customTipFile,
     ]) {
       control.disabled = locked;
     }
@@ -280,6 +296,25 @@ export function installBrushPresetControllerV1(input: {
     mutate(() => updateBrushPresetTipShapeV1(state, state.selectedPresetId, shape));
   };
 
+  const onCustomTipCreate = (): void => {
+    customTipFile.value = '';
+    customTipFile.click();
+  };
+  const onCustomTipFile = async (): Promise<void> => {
+    const file = customTipFile.files?.[0];
+    if (file === undefined) return;
+    try {
+      const alpha = await customBrushTipAlphaFromFileV1(file);
+      state = updateBrushPresetCustomTipV1(state, state.selectedPresetId, alpha);
+      persist();
+      applySelected();
+      render();
+      status.textContent = '画像からカスタム先端を作成しました';
+    } catch (error) {
+      status.textContent =
+        error instanceof Error ? error.message : 'カスタム先端の作成に失敗しました';
+    }
+  };
   search.addEventListener('input', onSearch);
   category.addEventListener('change', onCategory);
   createButton.addEventListener('click', onCreate);
@@ -295,6 +330,8 @@ export function installBrushPresetControllerV1(input: {
   flowRange.addEventListener('input', onFlowRange);
   flowNumber.addEventListener('change', onFlowNumber);
   tipShape.addEventListener('change', onTipShape);
+  customTipCreate.addEventListener('click', onCustomTipCreate);
+  customTipFile.addEventListener('change', onCustomTipFile);
 
   applySelected();
   render();
@@ -318,6 +355,8 @@ export function installBrushPresetControllerV1(input: {
       flowRange.removeEventListener('input', onFlowRange);
       flowNumber.removeEventListener('change', onFlowNumber);
       tipShape.removeEventListener('change', onTipShape);
+      customTipCreate.removeEventListener('click', onCustomTipCreate);
+      customTipFile.removeEventListener('change', onCustomTipFile);
     },
   });
 }
