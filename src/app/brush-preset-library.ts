@@ -1,8 +1,14 @@
 import {
   BRUSH_V1_SCHEMA,
+  brushSelectedTipAssetIdV1,
+  brushTipAssetsV1,
   createBaselineBrushPresetV1,
   normalizeBrushPresetV1,
   withBrushCustomSampledTipV1,
+  withBrushTipAssetAddedV1,
+  withBrushTipAssetDeletedV1,
+  withBrushTipAssetReplacementV1,
+  withBrushTipAssetSelectionV1,
   withBrushParameterValuesV1,
   withBrushProceduralTipShapeV1,
   withBrushTipShapeV1,
@@ -10,6 +16,7 @@ import {
   type BrushParameterValuesV1,
   type BrushProceduralTipShapeV1,
   type BrushSampledTipAlphaV1,
+  type BrushTipAssetV1,
   type BrushTipShapeV1,
   type BrushPresetV1,
 } from '../domain/brush-schema.js';
@@ -333,8 +340,66 @@ export function updateBrushPresetCustomTipV1(
 ): BrushPresetLibraryStateV1 {
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
-    const current = withBrushCustomSampledTipV1(item.preset, alpha);
+    const selectedAssetId = brushSelectedTipAssetIdV1(item.preset);
+    const current =
+      brushTipAssetsV1(item.preset).length > 0 && selectedAssetId !== null
+        ? withBrushTipAssetReplacementV1(item.preset, selectedAssetId, alpha)
+        : withBrushCustomSampledTipV1(item.preset, alpha);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+export function addBrushPresetTipAssetV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  asset: BrushTipAssetV1,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushTipAssetAddedV1(item.preset, asset);
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function selectBrushPresetTipAssetV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  assetId: string,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushTipAssetSelectionV1(item.preset, assetId);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function deleteBrushPresetTipAssetV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  assetId: string,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushTipAssetDeletedV1(item.preset, assetId);
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({
       source: item.source,

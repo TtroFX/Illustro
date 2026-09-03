@@ -267,6 +267,31 @@ requireText(
 );
 requireText(
   progress,
+  'M6A-020 multiple tip assets without Dual Brush semantics:完了',
+  'M6A-020 progress is not complete',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'withBrushTipAssetSelectionV1',
+  'multiple brush tip asset selection missing',
+);
+requireText(
+  read('src/app/brush-preset-controller.ts'),
+  'brush-tip-asset-select',
+  'multiple brush tip asset UI is not production-connected',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-asset-add"',
+  'reachable multiple tip asset add control missing',
+);
+requireText(
+  read('tests/unit/multiple-brush-tip-assets.test.ts'),
+  'never merges two masks as Dual Brush',
+  'multiple tip asset regression coverage missing',
+);
+requireText(
+  progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',
   'performance gate must remain separately incomplete',
 );

@@ -15,6 +15,12 @@ export const CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1 = 5 as const;
 export const CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_PIXEL_COUNT_V1 =
   CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1 * CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1;
 export type BrushSampledTipAlphaV1 = readonly number[];
+export const BRUSH_TIP_ASSET_LIMIT_V1 = 16 as const;
+export interface BrushTipAssetV1 {
+  readonly id: string;
+  readonly name: string;
+  readonly alpha: BrushSampledTipAlphaV1;
+}
 export type BrushPresetSectionV1 = Readonly<Record<string, JsonValue>>;
 
 export interface BrushParameterRangeV1 {
@@ -148,6 +154,67 @@ function freezeCustomSampledTipAlphaV1(value: unknown): BrushSampledTipAlphaV1 {
   return Object.freeze(alpha);
 }
 
+function normalizedTipAssetTextV1(value: unknown, label: string, maximum: number): string {
+  if (typeof value !== 'string') throw new TypeError(label + ' must be text');
+  const normalized = value.trim();
+  if (normalized.length < 1 || normalized.length > maximum) {
+    throw new RangeError(label + ' must be 1..' + maximum + ' characters');
+  }
+  return normalized;
+}
+
+function normalizeBrushTipAssetV1(value: JsonValue, index: number): BrushTipAssetV1 {
+  const record = jsonRecord(value);
+  if (record === null) throw new TypeError('brush tip asset ' + index + ' must be an object');
+  if (record.side !== CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1) {
+    throw new RangeError('brush tip asset side must be 5');
+  }
+  return Object.freeze({
+    id: normalizedTipAssetTextV1(record.id, 'brush tip asset id', 120),
+    name: normalizedTipAssetTextV1(record.name, 'brush tip asset name', 80),
+    alpha: freezeCustomSampledTipAlphaV1(record.alpha),
+  });
+}
+
+function brushTipAssetStateV1(extensions: BrushPresetSectionV1): Readonly<{
+  assets: readonly BrushTipAssetV1[];
+  selectedAssetId: string | null;
+}> {
+  const rawAssets = extensions.tipAssets;
+  const rawSelected = extensions.selectedTipAssetId;
+  if (rawAssets === undefined) {
+    if (rawSelected !== undefined)
+      throw new TypeError('selected tip asset requires a tip asset collection');
+    return Object.freeze({ assets: Object.freeze([]), selectedAssetId: null });
+  }
+  if (
+    !Array.isArray(rawAssets) ||
+    rawAssets.length < 1 ||
+    rawAssets.length > BRUSH_TIP_ASSET_LIMIT_V1
+  ) {
+    throw new RangeError('brush tip assets must contain 1..' + BRUSH_TIP_ASSET_LIMIT_V1 + ' items');
+  }
+  const assets = Object.freeze(
+    rawAssets.map((value, index) => normalizeBrushTipAssetV1(value, index)),
+  );
+  const ids = new Set<string>();
+  for (const asset of assets) {
+    if (ids.has(asset.id)) throw new TypeError('duplicate brush tip asset id: ' + asset.id);
+    ids.add(asset.id);
+  }
+  if (typeof rawSelected !== 'string' || !ids.has(rawSelected)) {
+    throw new RangeError('selected brush tip asset is missing');
+  }
+  return Object.freeze({ assets, selectedAssetId: rawSelected });
+}
+
+export function brushTipAssetsV1(preset: BrushPresetV1): readonly BrushTipAssetV1[] {
+  return brushTipAssetStateV1(preset.extensions).assets;
+}
+
+export function brushSelectedTipAssetIdV1(preset: BrushPresetV1): string | null {
+  return brushTipAssetStateV1(preset.extensions).selectedAssetId;
+}
 export function brushSampledTipAlphaV1(preset: BrushPresetV1): BrushSampledTipAlphaV1 | null {
   if (preset.tip.kind !== 'sampled-image-custom') return null;
   if (preset.tip.side !== CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1) {
@@ -214,6 +281,106 @@ export function withBrushCustomSampledTipV1(
       alpha: [...normalizedAlpha],
     },
   });
+}
+function serializedBrushTipAssetV1(asset: BrushTipAssetV1): JsonValue {
+  return {
+    id: asset.id,
+    name: asset.name,
+    side: CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1,
+    alpha: [...asset.alpha],
+  };
+}
+
+function withBrushTipAssetStateV1(
+  preset: BrushPresetV1,
+  assets: readonly BrushTipAssetV1[],
+  selectedAssetId: string,
+): BrushPresetV1 {
+  const selected = assets.find((asset) => asset.id === selectedAssetId);
+  if (selected === undefined) throw new RangeError('selected brush tip asset is missing');
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: {
+      ...brushTipBaseV1(preset.tip),
+      kind: 'sampled-image-custom',
+      side: CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1,
+      alpha: [...selected.alpha],
+    },
+    extensions: {
+      ...preset.extensions,
+      tipAssets: assets.map(serializedBrushTipAssetV1),
+      selectedTipAssetId: selectedAssetId,
+    },
+  });
+}
+
+export function withBrushTipAssetAddedV1(
+  preset: BrushPresetV1,
+  asset: BrushTipAssetV1,
+): BrushPresetV1 {
+  const currentAssets = [...brushTipAssetsV1(preset)];
+  if (currentAssets.length === 0 && preset.tip.kind === 'sampled-image-custom') {
+    const existingAlpha = brushSampledTipAlphaV1(preset);
+    if (existingAlpha !== null) {
+      currentAssets.push(
+        Object.freeze({ id: 'm6a019-custom', name: '先端 1', alpha: existingAlpha }),
+      );
+    }
+  }
+  if (currentAssets.length >= BRUSH_TIP_ASSET_LIMIT_V1) {
+    throw new RangeError('brush tip asset limit reached');
+  }
+  const normalized = normalizeBrushTipAssetV1(
+    {
+      id: asset.id,
+      name: asset.name,
+      side: CUSTOM_SAMPLED_IMAGE_BRUSH_TIP_SIDE_V1,
+      alpha: [...asset.alpha],
+    },
+    currentAssets.length,
+  );
+  if (currentAssets.some((entry) => entry.id === normalized.id)) {
+    throw new RangeError('brush tip asset id already exists');
+  }
+  return withBrushTipAssetStateV1(preset, [...currentAssets, normalized], normalized.id);
+}
+
+export function withBrushTipAssetSelectionV1(
+  preset: BrushPresetV1,
+  assetId: string,
+): BrushPresetV1 {
+  const assets = brushTipAssetsV1(preset);
+  if (!assets.some((asset) => asset.id === assetId))
+    throw new RangeError('brush tip asset not found');
+  return withBrushTipAssetStateV1(preset, assets, assetId);
+}
+
+export function withBrushTipAssetReplacementV1(
+  preset: BrushPresetV1,
+  assetId: string,
+  alpha: BrushSampledTipAlphaV1,
+): BrushPresetV1 {
+  const normalizedAlpha = freezeCustomSampledTipAlphaV1(alpha);
+  const assets = brushTipAssetsV1(preset).map((asset) =>
+    asset.id === assetId ? Object.freeze({ ...asset, alpha: normalizedAlpha }) : asset,
+  );
+  if (!assets.some((asset) => asset.id === assetId))
+    throw new RangeError('brush tip asset not found');
+  return withBrushTipAssetStateV1(preset, assets, assetId);
+}
+
+export function withBrushTipAssetDeletedV1(preset: BrushPresetV1, assetId: string): BrushPresetV1 {
+  const assets = brushTipAssetsV1(preset);
+  if (!assets.some((asset) => asset.id === assetId))
+    throw new RangeError('brush tip asset not found');
+  if (assets.length <= 1) throw new RangeError('at least one brush tip asset must remain');
+  const remaining = assets.filter((asset) => asset.id !== assetId);
+  const selectedAssetId = brushSelectedTipAssetIdV1(preset);
+  const nextSelected =
+    selectedAssetId === assetId || selectedAssetId === null
+      ? (remaining[0]?.id ?? '')
+      : selectedAssetId;
+  return withBrushTipAssetStateV1(preset, remaining, nextSelected);
 }
 export interface BrushPresetV1 {
   readonly schema: typeof BRUSH_V1_SCHEMA;
@@ -286,6 +453,8 @@ export function normalizeBrushPresetV1(input: BrushPresetV1): BrushPresetV1 {
     }
     freezeCustomSampledTipAlphaV1(tip.alpha);
   }
+  const extensions = normalizeSection(input.extensions, 'brush extensions');
+  brushTipAssetStateV1(extensions);
   return Object.freeze({
     schema: BRUSH_V1_SCHEMA,
     id: normalizedText(input.id, 'brush id', 160),
@@ -308,7 +477,7 @@ export function normalizeBrushPresetV1(input: BrushPresetV1): BrushPresetV1 {
     antiAlias: normalizeSection(input.antiAlias, 'brush antiAlias'),
     provenance: normalizeSection(input.provenance, 'brush provenance'),
     importCompatibility: normalizeSection(input.importCompatibility, 'brush importCompatibility'),
-    extensions: normalizeSection(input.extensions, 'brush extensions'),
+    extensions,
   });
 }
 

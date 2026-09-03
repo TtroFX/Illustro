@@ -1996,3 +1996,48 @@ body {
   grid-column: 1 / -1;
   text-align: right;
 }
+
+/* M6A multiple brush tip assets */
+.shell-brush-tip-assets-row {
+  display: grid;
+  grid-template-columns: minmax(72px, 1fr) minmax(0, 1.35fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid #edf0f5;
+}
+
+.shell-brush-tip-assets-row label,
+#brush-tip-asset-status {
+  color: #68758c;
+  font-size: 10px;
+}
+
+#brush-tip-asset-select,
+.shell-brush-tip-asset-actions button {
+  min-height: 32px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #38445d;
+  font: inherit;
+}
+
+#brush-tip-asset-select {
+  min-width: 0;
+  padding: 0 7px;
+}
+
+.shell-brush-tip-asset-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.shell-brush-tip-asset-actions button {
+  padding: 0 7px;
+}
+
+#brush-tip-asset-status {
+  grid-column: 1 / -1;
+  text-align: right;
+}

@@ -5576,3 +5576,11 @@ Verification must cover at minimum:
 - Runtime captures the custom alpha mask when the stroke begins and resolves it through the existing M6A-018 sampled-image primitive-dab expansion. Persisted strokes therefore continue to contain resolved primitive dabs, leaving Worker/Main WebGPU, Canvas2D compatibility, canonical Raster Tile History, save/recovery, and export contracts unchanged.
 - Logical stamp position is tracked independently from the last emitted primitive dab. This is required because a valid custom tip may have a transparent center; endpoint detection must not accidentally duplicate the final logical stamp based on the geometry of the last non-transparent micro-dab.
 - Selecting procedural or built-in sampled tip kinds removes stale custom sampled identity fields from the effective preset tip descriptor. Reset/duplicate/persistence continue to use the existing Brush Preset library semantics.
+
+#### M6A multiple-tip-assets boundary — 2026-09-03
+
+- M6A-020 permits up to 16 sampled tip assets inside one brush preset. The collection is preset-local metadata in extensions; it is not the global resource manager reserved for M6A-072.
+- Exactly one asset is selected by selectedTipAssetId. Selecting an asset copies that asset alpha mask into the existing active sampled-image-custom tip descriptor, so the runtime, canonical Raster Tile path, History, Persistence, recovery, and export still observe one active tip only.
+- An M6A-019 single custom tip is promoted into the collection when another tip asset is added, preserving the original tip as the first asset. Replacing the custom tip while a collection exists replaces the selected asset rather than discarding sibling assets.
+- This item explicitly does not implement Dual Brush semantics: no simultaneous mask multiplication, secondary-tip compositing, random multi-tip mixing, or more than one tip contribution per logical stamp is introduced.
+- Asset add/select/delete operations use the existing preset revision, lock, reset, duplicate, and serialization boundaries. At least one asset must remain once a collection exists; explicit single-tip creation outside an asset collection remains supported for backward compatibility.

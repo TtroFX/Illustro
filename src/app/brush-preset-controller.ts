@@ -1,7 +1,10 @@
 import {
+  BRUSH_TIP_ASSET_LIMIT_V1,
   brushParameterLimitsV1,
   brushParameterValuesV1,
   brushSampledTipAlphaV1,
+  brushSelectedTipAssetIdV1,
+  brushTipAssetsV1,
   brushTipShapeV1,
   type BrushBehaviorV1,
   type BrushParameterValuesV1,
@@ -10,6 +13,7 @@ import {
 import { customBrushTipAlphaFromFileV1, drawCustomBrushTipPreviewV1 } from './custom-brush-tip.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import {
+  addBrushPresetTipAssetV1,
   brushPresetCategoriesV1,
   createBrushPresetLibraryStateV1,
   createUserBrushPresetV1,
@@ -19,12 +23,14 @@ import {
   parseBrushPresetLibraryV1,
   renameBrushPresetV1,
   resetBrushPresetV1,
+  selectBrushPresetTipAssetV1,
   selectBrushPresetV1,
   selectedBrushPresetItemV1,
   serializeBrushPresetLibraryV1,
   setBrushPresetCategoryV1,
   setBrushPresetLockedV1,
   setBrushPresetSearchV1,
+  deleteBrushPresetTipAssetV1,
   updateBrushPresetCustomTipV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -92,6 +98,11 @@ export function installBrushPresetControllerV1(input: {
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
   const customTipStatus = requireElement('#brush-tip-custom-status', HTMLOutputElement);
   const customTipPreview = requireElement('#brush-tip-custom-preview', HTMLCanvasElement);
+  const tipAssetSelect = requireElement('#brush-tip-asset-select', HTMLSelectElement);
+  const tipAssetAdd = requireElement('#brush-tip-asset-add', HTMLButtonElement);
+  const tipAssetDelete = requireElement('#brush-tip-asset-delete', HTMLButtonElement);
+  const tipAssetFile = requireElement('#brush-tip-asset-file', HTMLInputElement);
+  const tipAssetStatus = requireElement('#brush-tip-asset-status', HTMLOutputElement);
   let state = loadState(storage);
   let idCounter = 0;
 
@@ -103,6 +114,13 @@ export function installBrushPresetControllerV1(input: {
       : `user.brush.${uuid}`;
   };
 
+  const nextTipAssetId = (): string => {
+    idCounter += 1;
+    const uuid = globalThis.crypto?.randomUUID?.();
+    return uuid === undefined
+      ? 'user.tip.' + Date.now().toString(36) + '.' + idCounter.toString(36)
+      : 'user.tip.' + uuid;
+  };
   const persist = (): void => {
     storage?.setItem(STORAGE_KEY, serializeBrushPresetLibraryV1(state));
   };
@@ -217,9 +235,34 @@ export function installBrushPresetControllerV1(input: {
     configurePair(flowRange, flowNumber, limits.flow.min, limits.flow.max, 0.01, parameters.flow);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
-    customTipStatus.textContent = customTipAlpha === null ? '標準サンプル' : 'カスタム 5×5';
+    const tipAssets = brushTipAssetsV1(selected.preset);
+    const selectedTipAssetId = brushSelectedTipAssetIdV1(selected.preset);
+    customTipStatus.textContent =
+      customTipAlpha === null
+        ? tipAssets.length > 0
+          ? '保存済み ' + tipAssets.length + ' assets'
+          : '標準サンプル'
+        : tipAssets.length > 0
+          ? 'カスタム 5×5 · ' + tipAssets.length + ' assets'
+          : 'カスタム 5×5';
     customTipPreview.hidden = customTipAlpha === null;
     drawCustomBrushTipPreviewV1(customTipPreview, customTipAlpha);
+    tipAssetSelect.replaceChildren();
+    if (tipAssets.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = '未登録';
+      tipAssetSelect.append(option);
+    } else {
+      for (const asset of tipAssets) {
+        const option = document.createElement('option');
+        option.value = asset.id;
+        option.textContent = asset.name;
+        tipAssetSelect.append(option);
+      }
+      tipAssetSelect.value = selectedTipAssetId ?? tipAssets[0]?.id ?? '';
+    }
+    tipAssetStatus.textContent = tipAssets.length + '/' + BRUSH_TIP_ASSET_LIMIT_V1;
     propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}%`;
 
     const locked = selected.locked;
@@ -236,6 +279,10 @@ export function installBrushPresetControllerV1(input: {
     ]) {
       control.disabled = locked;
     }
+    tipAssetSelect.disabled = locked || tipAssets.length === 0;
+    tipAssetAdd.disabled = locked || tipAssets.length >= BRUSH_TIP_ASSET_LIMIT_V1;
+    tipAssetDelete.disabled = locked || tipAssets.length <= 1;
+    tipAssetFile.disabled = locked;
     duplicateButton.disabled = false;
     renameButton.disabled = locked;
     deleteButton.disabled = locked || selected.source === 'factory';
@@ -315,6 +362,39 @@ export function installBrushPresetControllerV1(input: {
         error instanceof Error ? error.message : 'カスタム先端の作成に失敗しました';
     }
   };
+  const onTipAssetAdd = (): void => {
+    tipAssetFile.value = '';
+    tipAssetFile.click();
+  };
+  const onTipAssetFile = async (): Promise<void> => {
+    const file = tipAssetFile.files?.[0];
+    if (file === undefined) return;
+    try {
+      const alpha = await customBrushTipAlphaFromFileV1(file);
+      const count = brushTipAssetsV1(selectedBrushPresetItemV1(state).preset).length;
+      state = addBrushPresetTipAssetV1(state, state.selectedPresetId, {
+        id: nextTipAssetId(),
+        name: '先端 ' + (count + 1),
+        alpha,
+      });
+      persist();
+      applySelected();
+      render();
+      status.textContent = '先端アセットを追加しました';
+    } catch (error) {
+      status.textContent =
+        error instanceof Error ? error.message : '先端アセットの追加に失敗しました';
+    }
+  };
+  const onTipAssetSelect = (): void => {
+    if (tipAssetSelect.value === '') return;
+    mutate(() => selectBrushPresetTipAssetV1(state, state.selectedPresetId, tipAssetSelect.value));
+  };
+  const onTipAssetDelete = (): void => {
+    const assetId = brushSelectedTipAssetIdV1(selectedBrushPresetItemV1(state).preset);
+    if (assetId === null) return;
+    mutate(() => deleteBrushPresetTipAssetV1(state, state.selectedPresetId, assetId));
+  };
   search.addEventListener('input', onSearch);
   category.addEventListener('change', onCategory);
   createButton.addEventListener('click', onCreate);
@@ -332,6 +412,10 @@ export function installBrushPresetControllerV1(input: {
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
+  tipAssetAdd.addEventListener('click', onTipAssetAdd);
+  tipAssetFile.addEventListener('change', onTipAssetFile);
+  tipAssetSelect.addEventListener('change', onTipAssetSelect);
+  tipAssetDelete.addEventListener('click', onTipAssetDelete);
 
   applySelected();
   render();
@@ -357,6 +441,10 @@ export function installBrushPresetControllerV1(input: {
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
+      tipAssetAdd.removeEventListener('click', onTipAssetAdd);
+      tipAssetFile.removeEventListener('change', onTipAssetFile);
+      tipAssetSelect.removeEventListener('change', onTipAssetSelect);
+      tipAssetDelete.removeEventListener('click', onTipAssetDelete);
     },
   });
 }
