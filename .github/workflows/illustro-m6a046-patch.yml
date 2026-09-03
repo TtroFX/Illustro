@@ -22,6 +22,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Align release endpoint patch anchor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/illustro-m6a046-patch.py')
+          text = path.read_text()
+          old = '''    """                altitudeAngle:\n                  active.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,\n""",\n    """                altitudeAngle:\n                  active.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,\n                azimuthAngle: active.source === 'pen' ? rawEndpoint.azimuthAngle : 0,\n                twist: active.source === 'pen' ? rawEndpoint.twist : 0,\n""",'''
+          new = '''    """                altitudeAngle: active.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,\n""",\n    """                altitudeAngle: active.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,\n                azimuthAngle: active.source === 'pen' ? rawEndpoint.azimuthAngle : 0,\n                twist: active.source === 'pen' ? rawEndpoint.twist : 0,\n""",'''
+          if old not in text:
+              raise SystemExit('M6A-046 release endpoint patch-source anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Apply M6A-046 orientation patch
         run: python3 .github/illustro-m6a046-patch.py
       - name: Format changed TypeScript and verifier
