@@ -466,6 +466,33 @@ requireText(
   'follow-stroke rotation regression coverage missing',
 );
 
+requireText(progress, 'M6A-027 stroke repetition:完了', 'M6A-027 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'BrushTipSelectionModeV1',
+  'multi-tip selection mode schema missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBrushTipIndexV1',
+  'deterministic per-stamp tip selector missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'randomSeed',
+  'randomized stroke seed is not persisted',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-repeat-mode"',
+  'reachable stroke repetition control missing',
+);
+requireText(
+  read('tests/unit/brush-stroke-repetition.test.ts'),
+  'without Dual Brush compositing',
+  'stroke repetition regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

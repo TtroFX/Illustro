@@ -437,7 +437,8 @@ M6A-025 tip direction:完了
 再開メモ: M6A-025 tip directionはtip.directionDegreesを先端アセット固有の前方向として0..360°に正規化し、固定モードの実効角をtip.angleDegrees - tip.directionDegreesとしてstroke開始時に解決する。primitive dabには既存tipAngleDegreesへ解決済み角度だけを保存し、directionをdab schemaへ重複保存しない。procedural/sampled/custom tipはM6A-024の同一回転経路を共有する。次はM6A-026 follow stroke rotationから再開し、stroke tangentをこの固定角へ合成する。
 M6A-026 follow stroke rotation:完了
 再開メモ: M6A-026 follow stroke rotationはstroke.followRotationのbooleanをpreset正本とし、falseではM6A-025の固定実効角、trueでは各新規logical stampに局所stroke tangent + tip.angleDegrees - tip.directionDegreesを適用する。開始stampはまだtangentが無いため固定角のまま確定し、後から回し直さない。短い終端stampは最後に確認した移動方向を使う。解決済みtipAngleDegreesだけをdabへ保存するためWorker/History schemaは増やさずstable-prefixを維持する。次はM6A-027 stroke repetitionから再開する。
-M6A-027 stroke repetition:未完了
+M6A-027 stroke repetition:完了
+再開メモ: M6A-027 stroke repetitionはCanonical Brush Modelのtip selection modeをfixed/sequence/random-per-stampとして実装し、M6A-020のordered tipAssetsからlogical stampごとに常に1つだけ選択する。fixedはselected asset、sequenceはselected assetを起点に順番反復、random-per-stampはstrokeId由来の保存済みuint32 randomSeedでdeterministic選択する。primitive dabは選択後の既存M6A-018 micro-dabへ解決されるためDual Brush合成や新renderer pathは追加しない。次はM6A-028 stroke-start behaviorから再開する。
 M6A-028 stroke-start behavior:未完了
 M6A-029 stroke-end behavior:未完了
 M6A-030 size taper:未完了

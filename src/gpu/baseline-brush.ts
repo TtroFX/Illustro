@@ -17,6 +17,7 @@ export const BASELINE_BRUSH_TIP_ANGLE_DEGREES = 0 as const;
 export const BASELINE_BRUSH_TIP_DIRECTION_DEGREES = 0 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
+export type BaselineBrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 
 export const BASELINE_SAMPLED_IMAGE_TIP_SIDE_V1 = 5 as const;
 export const BASELINE_SAMPLED_IMAGE_TIP_ALPHA_V1 = Object.freeze([
@@ -254,6 +255,16 @@ function pushBaselineBrushStampV1(
   emit(centerIndex);
 }
 
+function deterministicBrushTipIndexV1(seed: number, stampIndex: number, count: number): number {
+  let value = (seed ^ Math.imul((stampIndex + 1) >>> 0, 0x9e3779b1)) >>> 0;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d) >>> 0;
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b) >>> 0;
+  value ^= value >>> 16;
+  return value % count;
+}
+
 export class BaselineBrushDabBuilderV1 {
   readonly #dabs: BaselineBrushDabV1[] = [];
   readonly #color: BaselineBrushColorV1;
@@ -267,7 +278,11 @@ export class BaselineBrushDabBuilderV1 {
   readonly #tipDirectionDegrees: number;
   readonly #followStrokeRotation: boolean;
   readonly #tipShape: BaselineBrushTipShapeV1;
-  readonly #sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
+  readonly #sampledTipAlphas: readonly BaselineBrushSampledTipAlphaV1[];
+  readonly #tipSelectionMode: BaselineBrushTipSelectionModeV1;
+  readonly #tipSelectionStartIndex: number;
+  readonly #tipSelectionSeed: number;
+  #logicalStampIndex = 0;
   #lastPoint: { x: number; y: number } | null = null;
   #lastStampPoint: { x: number; y: number } | null = null;
   #lastStrokeDirectionDegrees: number | null = null;
@@ -289,6 +304,10 @@ export class BaselineBrushDabBuilderV1 {
       readonly followStrokeRotation?: boolean;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: readonly number[];
+      readonly sampledTipAlphas?: readonly (readonly number[])[];
+      readonly tipSelectionMode?: BaselineBrushTipSelectionModeV1;
+      readonly tipSelectionStartIndex?: number;
+      readonly tipSelectionSeed?: number;
     } = {},
   ) {
     this.#color =
@@ -355,9 +374,45 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new TypeError('unsupported baseline brush tip shape');
     }
-    this.#sampledTipAlpha = freezeBaselineBrushSampledTipAlphaV1(
+    const primarySampledTipAlpha = freezeBaselineBrushSampledTipAlphaV1(
       options.sampledTipAlpha ?? BASELINE_SAMPLED_IMAGE_TIP_ALPHA_V1,
     );
+    const providedAlternatives = options.sampledTipAlphas ?? [];
+    if (providedAlternatives.length > 64) {
+      throw new RangeError('baseline brush sampled tip alternatives exceed 64 items');
+    }
+    this.#sampledTipAlphas = Object.freeze(
+      providedAlternatives.length === 0
+        ? [primarySampledTipAlpha]
+        : providedAlternatives.map((alpha) => freezeBaselineBrushSampledTipAlphaV1(alpha)),
+    );
+    const tipSelectionMode = options.tipSelectionMode ?? 'fixed';
+    if (
+      tipSelectionMode !== 'fixed' &&
+      tipSelectionMode !== 'sequence' &&
+      tipSelectionMode !== 'random-per-stamp'
+    ) {
+      throw new TypeError('unsupported baseline brush tip selection mode');
+    }
+    const tipSelectionStartIndex = options.tipSelectionStartIndex ?? 0;
+    if (
+      !Number.isSafeInteger(tipSelectionStartIndex) ||
+      tipSelectionStartIndex < 0 ||
+      tipSelectionStartIndex >= this.#sampledTipAlphas.length
+    ) {
+      throw new RangeError('baseline brush tip selection start index is out of range');
+    }
+    const tipSelectionSeed = options.tipSelectionSeed ?? 0;
+    if (
+      !Number.isSafeInteger(tipSelectionSeed) ||
+      tipSelectionSeed < 0 ||
+      tipSelectionSeed > 0xffffffff
+    ) {
+      throw new RangeError('baseline brush tip selection seed must be uint32');
+    }
+    this.#tipSelectionMode = tipSelectionMode;
+    this.#tipSelectionStartIndex = tipSelectionStartIndex;
+    this.#tipSelectionSeed = tipSelectionSeed >>> 0;
     this.#distanceUntilNext = this.#spacing;
   }
 
@@ -372,20 +427,7 @@ export class BaselineBrushDabBuilderV1 {
     assertFinitePoint(sample);
     const start = this.#dabs.length;
     this.#lastPoint = { x: sample.documentX, y: sample.documentY };
-    pushBaselineBrushStampV1(
-      this.#dabs,
-      sample.documentX,
-      sample.documentY,
-      this.#radius,
-      this.#flow,
-      this.#strokeOpacity,
-      this.#hardness,
-      this.#tipDensity,
-      this.#resolvedTipAngleDegrees(),
-      this.#color,
-      this.#tipShape,
-      this.#sampledTipAlpha,
-    );
+    this.#pushLogicalStamp(sample.documentX, sample.documentY, this.#resolvedTipAngleDegrees());
     this.#lastStampPoint = { x: sample.documentX, y: sample.documentY };
     this.#distanceUntilNext = this.#spacing;
     return this.#deltaFrom(start);
@@ -431,19 +473,10 @@ export class BaselineBrushDabBuilderV1 {
     if (lastPoint !== null && lastStampPoint !== null) {
       const distance = Math.hypot(lastPoint.x - lastStampPoint.x, lastPoint.y - lastStampPoint.y);
       if (distance > 1e-6) {
-        pushBaselineBrushStampV1(
-          this.#dabs,
+        this.#pushLogicalStamp(
           lastPoint.x,
           lastPoint.y,
-          this.#radius,
-          this.#flow,
-          this.#strokeOpacity,
-          this.#hardness,
-          this.#tipDensity,
           this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
-          this.#color,
-          this.#tipShape,
-          this.#sampledTipAlpha,
         );
       }
     }
@@ -460,6 +493,35 @@ export class BaselineBrushDabBuilderV1 {
 
   #deltaFrom(start: number): readonly BaselineBrushDabV1[] {
     return Object.freeze(this.#dabs.slice(start));
+  }
+
+  #sampledTipAlphaForLogicalStamp(): BaselineBrushSampledTipAlphaV1 {
+    const count = this.#sampledTipAlphas.length;
+    let index = this.#tipSelectionStartIndex;
+    if (this.#tipSelectionMode === 'sequence') {
+      index = (this.#tipSelectionStartIndex + this.#logicalStampIndex) % count;
+    } else if (this.#tipSelectionMode === 'random-per-stamp') {
+      index = deterministicBrushTipIndexV1(this.#tipSelectionSeed, this.#logicalStampIndex, count);
+    }
+    return this.#sampledTipAlphas[index] ?? this.#sampledTipAlphas[0]!;
+  }
+
+  #pushLogicalStamp(x: number, y: number, tipAngleDegrees: number): void {
+    pushBaselineBrushStampV1(
+      this.#dabs,
+      x,
+      y,
+      this.#radius,
+      this.#flow,
+      this.#strokeOpacity,
+      this.#hardness,
+      this.#tipDensity,
+      tipAngleDegrees,
+      this.#color,
+      this.#tipShape,
+      this.#sampledTipAlphaForLogicalStamp(),
+    );
+    this.#logicalStampIndex += 1;
   }
 
   #resolvedTipAngleDegrees(strokeDirectionDegrees?: number): number {
@@ -489,19 +551,10 @@ export class BaselineBrushDabBuilderV1 {
       const ratio = this.#distanceUntilNext / remaining;
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
-      pushBaselineBrushStampV1(
-        this.#dabs,
+      this.#pushLogicalStamp(
         cursorX,
         cursorY,
-        this.#radius,
-        this.#flow,
-        this.#strokeOpacity,
-        this.#hardness,
-        this.#tipDensity,
         this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
-        this.#color,
-        this.#tipShape,
-        this.#sampledTipAlpha,
       );
       this.#lastStampPoint = { x: cursorX, y: cursorY };
       remaining = Math.hypot(x - cursorX, y - cursorY);

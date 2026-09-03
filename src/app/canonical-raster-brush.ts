@@ -4,6 +4,7 @@ import {
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
   type BaselineBrushSampledTipAlphaV1,
+  type BaselineBrushTipSelectionModeV1,
   type BaselineBrushTipShapeV1,
 } from '../gpu/baseline-brush.js';
 
@@ -96,6 +97,10 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly followStrokeRotation?: boolean;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: BaselineBrushSampledTipAlphaV1;
+      readonly sampledTipAlphas?: readonly BaselineBrushSampledTipAlphaV1[];
+      readonly tipSelectionMode?: BaselineBrushTipSelectionModeV1;
+      readonly tipSelectionStartIndex?: number;
+      readonly tipSelectionSeed?: number;
     } = {},
   ) {
     this.#mode = options.mode ?? 'raster';
@@ -123,6 +128,18 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.sampledTipAlpha === undefined
         ? {}
         : { sampledTipAlpha: options.sampledTipAlpha }),
+      ...(options.sampledTipAlphas === undefined
+        ? {}
+        : { sampledTipAlphas: options.sampledTipAlphas }),
+      ...(options.tipSelectionMode === undefined
+        ? {}
+        : { tipSelectionMode: options.tipSelectionMode }),
+      ...(options.tipSelectionStartIndex === undefined
+        ? {}
+        : { tipSelectionStartIndex: options.tipSelectionStartIndex }),
+      ...(options.tipSelectionSeed === undefined
+        ? {}
+        : { tipSelectionSeed: options.tipSelectionSeed }),
     });
   }
 

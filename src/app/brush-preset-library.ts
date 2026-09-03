@@ -10,6 +10,7 @@ import {
   withBrushTipAngleDegreesV1,
   withBrushTipDirectionDegreesV1,
   withBrushFollowStrokeRotationV1,
+  withBrushTipSelectionModeV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -23,6 +24,7 @@ import {
   type BrushProceduralTipShapeV1,
   type BrushSampledTipAlphaV1,
   type BrushTipAssetV1,
+  type BrushTipSelectionModeV1,
   type BrushTipShapeV1,
   type BrushPresetV1,
 } from '../domain/brush-schema.js';
@@ -441,6 +443,25 @@ export function updateBrushPresetFollowRotationV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushFollowStrokeRotationV1(item.preset, enabled);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetTipSelectionModeV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  mode: BrushTipSelectionModeV1,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushTipSelectionModeV1(item.preset, mode);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

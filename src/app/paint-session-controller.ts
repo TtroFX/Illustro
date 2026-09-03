@@ -37,6 +37,7 @@ import {
   type BaselineBrushCompositeOperationV1,
   type BaselineBrushDabV1,
   type BaselineBrushSampledTipAlphaV1,
+  type BaselineBrushTipSelectionModeV1,
   type BaselineBrushTipShapeV1,
 } from '../gpu/baseline-brush.js';
 import {
@@ -127,6 +128,7 @@ export interface PaintStrokeV1 {
   readonly source: PaintStrokeSourceV1;
   readonly layerId: LayerId;
   readonly brushMode: CanonicalBrushModeV1;
+  readonly randomSeed?: number;
   readonly samples: readonly PaintStrokeSampleV1[];
 }
 
@@ -207,6 +209,8 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
+  readonly brushTipSelectionMode: BaselineBrushTipSelectionModeV1;
+  readonly brushTipAlternativeCount: number;
   readonly brushTipShape: BaselineBrushTipShapeV1;
   readonly brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
@@ -238,6 +242,25 @@ function equalSampledTipAlphaV1(
   if (left === null || right === null || left.length !== right.length) return false;
   return left.every((value, index) => value === right[index]);
 }
+function equalSampledTipAlphaSetsV1(
+  left: readonly BaselineBrushSampledTipAlphaV1[],
+  right: readonly BaselineBrushSampledTipAlphaV1[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((alpha, index) => equalSampledTipAlphaV1(alpha, right[index] ?? null))
+  );
+}
+
+function deterministicPaintStrokeSeedV1(strokeId: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < strokeId.length; index += 1) {
+    hash ^= strokeId.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
 function parseStoredStrokeSample(value: unknown): PaintStrokeSampleV1 {
   if (!isRecord(value) || value.schema !== 'illustro.paint-stroke-sample/1') {
     throw new TypeError('invalid paint stroke sample schema');
@@ -354,6 +377,16 @@ function parseStoredCompletedStroke(value: unknown): CompletedPaintStrokeV1 {
   if (!isImplementedCanonicalBrushModeV1(storedBrushMode)) {
     throw new TypeError(`unsupported recovered brush mode: ${String(storedBrushMode)}`);
   }
+  const randomSeed =
+    stroke.randomSeed === undefined
+      ? undefined
+      : finiteNumber(stroke.randomSeed, 'paint stroke random seed');
+  if (
+    randomSeed !== undefined &&
+    (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff)
+  ) {
+    throw new RangeError('paint stroke random seed must be uint32');
+  }
   const normalizedStroke: PaintStrokeV1 = Object.freeze({
     schema: 'illustro.paint-stroke/1' as const,
     strokeId: stroke.strokeId,
@@ -361,6 +394,7 @@ function parseStoredCompletedStroke(value: unknown): CompletedPaintStrokeV1 {
     source: stroke.source,
     layerId: parseLayerId(stroke.layerId),
     brushMode: storedBrushMode,
+    ...(randomSeed === undefined ? {} : { randomSeed }),
     samples: Object.freeze(stroke.samples.map(parseStoredStrokeSample)),
   });
   if (value.bakedToRasterLayer !== undefined && typeof value.bakedToRasterLayer !== 'boolean') {
@@ -609,6 +643,9 @@ export class PaintSessionControllerV1 {
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
+  #brushTipSelectionMode: BaselineBrushTipSelectionModeV1 = 'fixed';
+  #brushSampledTipAlphas: readonly BaselineBrushSampledTipAlphaV1[] = Object.freeze([]);
+  #brushTipSelectionStartIndex = 0;
   #brushTipShape: BaselineBrushTipShapeV1 = 'round';
   #brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null = null;
   #disposed = false;
@@ -637,6 +674,8 @@ export class PaintSessionControllerV1 {
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
+      brushTipSelectionMode: this.#brushTipSelectionMode,
+      brushTipAlternativeCount: this.#brushSampledTipAlphas.length,
       brushTipShape: this.#brushTipShape,
       brushSampledTipAlpha: this.#brushSampledTipAlpha,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
@@ -773,6 +812,44 @@ export class PaintSessionControllerV1 {
 
   brushFollowStrokeRotation(): boolean {
     return this.#brushFollowStrokeRotation;
+  }
+
+  setBrushTipSelection(
+    mode: BaselineBrushTipSelectionModeV1,
+    sampledTipAlphas: readonly (readonly number[])[],
+    startIndex = 0,
+  ): BaselineBrushTipSelectionModeV1 {
+    if (mode !== 'fixed' && mode !== 'sequence' && mode !== 'random-per-stamp') {
+      throw new TypeError('unsupported runtime brush tip selection mode');
+    }
+    if (sampledTipAlphas.length > 64)
+      throw new RangeError('too many runtime brush tip alternatives');
+    const normalized = Object.freeze(
+      sampledTipAlphas.map((alpha) => freezeBaselineBrushSampledTipAlphaV1(alpha)),
+    );
+    const normalizedStartIndex = normalized.length === 0 ? 0 : startIndex;
+    if (
+      !Number.isSafeInteger(normalizedStartIndex) ||
+      normalizedStartIndex < 0 ||
+      (normalized.length > 0 && normalizedStartIndex >= normalized.length)
+    ) {
+      throw new RangeError('runtime brush tip selection start index is out of range');
+    }
+    if (
+      mode !== this.#brushTipSelectionMode ||
+      normalizedStartIndex !== this.#brushTipSelectionStartIndex ||
+      !equalSampledTipAlphaSetsV1(normalized, this.#brushSampledTipAlphas)
+    ) {
+      this.#clearActiveStroke();
+    }
+    this.#brushTipSelectionMode = mode;
+    this.#brushSampledTipAlphas = normalized;
+    this.#brushTipSelectionStartIndex = normalizedStartIndex;
+    return this.#brushTipSelectionMode;
+  }
+
+  brushTipSelectionMode(): BaselineBrushTipSelectionModeV1 {
+    return this.#brushTipSelectionMode;
   }
 
   setBrushTipShape(
@@ -1476,13 +1553,19 @@ export class PaintSessionControllerV1 {
 
     this.#activeSamples.length = 0;
     this.#activeSamples.push(...samples);
+    const strokeId = crypto.randomUUID();
+    const randomSeed =
+      this.#brushTipSelectionMode === 'random-per-stamp'
+        ? deterministicPaintStrokeSeedV1(strokeId)
+        : undefined;
     this.#activeStroke = Object.freeze({
       schema: 'illustro.paint-stroke/1' as const,
-      strokeId: crypto.randomUUID(),
+      strokeId,
       pointerId: batch.pointerId,
       source,
       layerId,
       brushMode: this.#brushMode,
+      ...(randomSeed === undefined ? {} : { randomSeed }),
       samples: Object.freeze([]),
     });
     const parameters = this.#brushParameters;
@@ -1500,9 +1583,15 @@ export class PaintSessionControllerV1 {
       followStrokeRotation: this.#brushFollowStrokeRotation,
       tipDensity: this.#brushTipDensity,
       tipShape: this.#brushTipShape,
+      tipSelectionMode: this.#brushTipSelectionMode,
+      tipSelectionStartIndex: this.#brushTipSelectionStartIndex,
+      tipSelectionSeed: randomSeed ?? 0,
       ...(this.#brushSampledTipAlpha === null
         ? {}
         : { sampledTipAlpha: this.#brushSampledTipAlpha }),
+      ...(this.#brushSampledTipAlphas.length === 0
+        ? {}
+        : { sampledTipAlphas: this.#brushSampledTipAlphas }),
     });
     this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
     this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));

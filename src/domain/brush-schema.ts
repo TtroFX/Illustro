@@ -269,6 +269,33 @@ export function withBrushFollowStrokeRotationV1(
   });
 }
 
+export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
+export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
+
+export function brushTipSelectionModeV1(preset: BrushPresetV1): BrushTipSelectionModeV1 {
+  const value = preset.tip.selectionMode;
+  return value === 'sequence' || value === 'random-per-stamp'
+    ? value
+    : DEFAULT_BRUSH_TIP_SELECTION_MODE_V1;
+}
+
+export function withBrushTipSelectionModeV1(
+  preset: BrushPresetV1,
+  selectionMode: BrushTipSelectionModeV1,
+): BrushPresetV1 {
+  if (
+    selectionMode !== 'fixed' &&
+    selectionMode !== 'sequence' &&
+    selectionMode !== 'random-per-stamp'
+  ) {
+    throw new TypeError('unsupported brush tip selection mode');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: { ...preset.tip, selectionMode },
+  });
+}
+
 export function withBrushParameterValuesV1(
   preset: BrushPresetV1,
   patch: Partial<BrushParameterValuesV1>,

@@ -5633,3 +5633,12 @@ Verification must cover at minimum:
 - Each non-zero confirmed pointer segment updates the local tangent. Stamps emitted on that segment use that tangent, and a short retained endpoint uses the last confirmed non-zero movement direction.
 - Primitive dabs continue to store only their resolved `tipAngleDegrees`. Follow mode is stroke-generation configuration, so Worker/history/recovery rendering requires no parallel follow-rotation field.
 - This stage does not add rotation jitter, pen orientation mapping, stabilization look-ahead or post-stroke correction; those remain their later M6A items.
+
+#### M6A multi-tip stroke-repetition boundary — 2026-09-03
+
+- M6A-027 implements the Canonical Brush Model tip-selection modes `fixed`, `sequence`, and `random-per-stamp` over the ordered M6A-020 tip-asset collection. This is the stroke repetition/repeat-method capability; it is not another spacing parameter.
+- Exactly one tip asset contributes to each logical stamp. `fixed` uses the selected asset, `sequence` cycles through ordered assets beginning at the selected asset, and `random-per-stamp` chooses one asset from the collection for each logical stamp. No Dual Brush multiplication/compositing is introduced.
+- Random selection is deterministic. When `random-per-stamp` is active, the paint stroke stores a uint32 `randomSeed`; the selector derives each stamp choice from `(seed, logicalStampIndex)` without mutable global RNG state.
+- The selected asset remains the preview/fixed asset and the sequence anchor. Existing single-tip/built-in sampled brushes behave exactly as one-element collections.
+- Tip selection happens before the existing sampled-tip micro-dab expansion, so history, Worker transport and canonical raster rendering continue to persist/render only resolved primitive dabs.
+- The canonical release scope for this stage is the already-adopted `fixed` / `sequence` / `random-per-stamp` model. Dual Brush and independent second-brush compositing remain explicitly excluded.
