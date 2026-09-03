@@ -36,6 +36,18 @@ jobs:
               raise SystemExit('M6A-047 velocity maximum field anchor not found')
           path.write_text(text.replace(old, new, 1))
           PY
+      - name: Align legacy stabilizer verifier with velocity enrichment
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify-m6a-brush.mjs')
+          text = path.read_text()
+          old = "'const stabilizedAdditions = additions.map((sample) => {'"
+          new = "'const stabilizedAdditions = additions.map((sample, index) => {'"
+          if old not in text:
+              raise SystemExit('M6A-033 stabilizer verifier anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Format changed TypeScript and verifier
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts tests/unit/brush-velocity-mapping.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
