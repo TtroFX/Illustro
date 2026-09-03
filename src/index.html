@@ -339,6 +339,45 @@
                 </div>
               </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-velocity-size">速度→サイズ</label>
+                <button id="brush-velocity-size" type="button" aria-pressed="false" title="描画速度をブラシサイズへ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Velocity</span>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-velocity-opacity">速度→不透明度</label>
+                <button id="brush-velocity-opacity" type="button" aria-pressed="false" title="描画速度をストローク不透明度上限へ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Velocity</span>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-velocity-flow">速度→流量</label>
+                <button id="brush-velocity-flow" type="button" aria-pressed="false" title="描画速度をブラシ流量へ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Velocity</span>
+              </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-velocity-maximum-range">速度100%</label>
+                <input id="brush-velocity-maximum-range" type="range" min="100" max="20000" step="100" value="2000" />
+                <span class="shell-brush-property-number"><input id="brush-velocity-maximum-number" type="number" inputmode="numeric" min="100" max="20000" step="100" value="2000" aria-label="速度レスポンス100パーセント基準" /><span>px/s</span></span>
+              </div>
+              <div class="shell-brush-pressure-curve-editor shell-brush-velocity-curve-editor" aria-label="速度レスポンスカーブ">
+                <div class="shell-brush-pressure-curve-header">
+                  <label for="brush-velocity-curve-preset">速度カーブ</label>
+                  <select id="brush-velocity-curve-preset" aria-label="速度カーブプリセット">
+                    <option value="linear">Linear</option>
+                    <option value="soft">Soft</option>
+                    <option value="hard">Hard</option>
+                    <option value="s-curve">S Curve</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <canvas id="brush-velocity-curve" width="240" height="128" tabindex="0" aria-label="描画速度レスポンスカーブ。入力100パーセントは設定した速度基準。空いている場所をタップして点を追加、点をドラッグして編集"></canvas>
+                <div class="shell-brush-pressure-curve-values">
+                  <label>入力 <input id="brush-velocity-curve-input" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <label>出力 <input id="brush-velocity-curve-output" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <button id="brush-velocity-curve-delete" type="button">点を削除</button>
+                  <button id="brush-velocity-curve-reset" type="button">Reset</button>
+                </div>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tip-shape">ブラシ形状</label>
                 <select id="brush-tip-shape" aria-label="ブラシ先端形状">
                   <option value="round">円形</option>

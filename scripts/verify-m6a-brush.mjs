@@ -661,7 +661,7 @@ requireText(
 );
 requireText(
   read('src/app/paint-session-controller.ts'),
-  'const stabilizedAdditions = additions.map((sample) => {',
+  'const stabilizedAdditions = additions.map((sample, index) => {',
   'paint session does not stabilize render geometry incrementally',
 );
 requireText(
@@ -1047,6 +1047,58 @@ requireText(
   read('tests/unit/brush-orientation-mapping.test.ts'),
   'interpolates orientation on the shortest circular arc at logical stamp positions',
   'orientation wraparound regression missing',
+);
+
+requireText(progress, 'M6A-047 velocity mapping:完了', 'M6A-047 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushVelocityMaximumPxPerSecondV1',
+  'velocity normalization maximum preset helper missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'normalizedPaintVelocityV1',
+  'confirmed timestamp velocity resolver missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'cursorVelocity += (velocity - cursorVelocity) * ratio',
+  'velocity is not interpolated at logical stamp positions',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#velocityResponseCurve.sample(stamp.velocity)',
+  'shared velocity response is not resolved before independent mappings',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushVelocityResponseCurve',
+  'velocity mapping is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-velocity-size"',
+  'reachable velocity-size control missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-velocity-maximum-range"',
+  'reachable velocity normalization control missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-velocity-curve"',
+  'reachable velocity Curve Editor missing',
+);
+requireText(
+  read('tests/unit/brush-velocity-mapping.test.ts'),
+  'derives document-space velocity only from confirmed sample distance and timestamps',
+  'velocity source regression coverage missing',
+);
+requireText(
+  read('tests/unit/brush-velocity-mapping.test.ts'),
+  'keeps velocity independent from pressure and tilt while resolving the same primitive fields',
+  'velocity composition regression coverage missing',
 );
 
 requireText(

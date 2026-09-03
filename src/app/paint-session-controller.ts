@@ -6,6 +6,9 @@ import {
 } from '../domain/document.js';
 import {
   DEFAULT_BRUSH_PARAMETER_VALUES_V1,
+  DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1,
+  MIN_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1,
+  MAX_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1,
   type BrushParameterValuesV1,
   type BrushTextureBlendModeV1,
 } from '../domain/brush-schema.js';
@@ -244,6 +247,11 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTiltOpacityEnabled: boolean;
   readonly brushTiltFlowEnabled: boolean;
   readonly brushTiltResponseCurve: readonly ResponseCurvePointV1[];
+  readonly brushVelocitySizeEnabled: boolean;
+  readonly brushVelocityOpacityEnabled: boolean;
+  readonly brushVelocityFlowEnabled: boolean;
+  readonly brushVelocityResponseCurve: readonly ResponseCurvePointV1[];
+  readonly brushVelocityMaximumPxPerSecond: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -289,6 +297,60 @@ function equalSampledTipAlphaSetsV1(
     left.length === right.length &&
     left.every((alpha, index) => equalSampledTipAlphaV1(alpha, right[index] ?? null))
   );
+}
+
+export interface PaintVelocitySampleV1 {
+  readonly documentX: number;
+  readonly documentY: number;
+  readonly timestampMs: number;
+}
+
+export function normalizedPaintVelocityV1(
+  previous: PaintVelocitySampleV1 | null,
+  current: PaintVelocitySampleV1,
+  previousNormalizedVelocity: number,
+  maximumPxPerSecond: number,
+): number {
+  if (
+    !Number.isFinite(previousNormalizedVelocity) ||
+    previousNormalizedVelocity < 0 ||
+    previousNormalizedVelocity > 1
+  ) {
+    throw new RangeError('previous normalized paint velocity must be within 0..1');
+  }
+  if (
+    !Number.isFinite(maximumPxPerSecond) ||
+    maximumPxPerSecond < MIN_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1 ||
+    maximumPxPerSecond > MAX_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1
+  ) {
+    throw new RangeError('paint velocity maximum must be within 100..20000 document px/s');
+  }
+  if (previous === null) return 0;
+  const dtMs = current.timestampMs - previous.timestampMs;
+  if (!Number.isFinite(dtMs) || dtMs <= 0) return previousNormalizedVelocity;
+  const distancePx = Math.hypot(
+    current.documentX - previous.documentX,
+    current.documentY - previous.documentY,
+  );
+  const velocityPxPerSecond = (distancePx * 1000) / dtMs;
+  return Math.max(0, Math.min(1, velocityPxPerSecond / maximumPxPerSecond));
+}
+
+function velocitySeriesV1(
+  samples: readonly PaintStrokeSampleV1[],
+  maximumPxPerSecond: number,
+  previousSample: PaintStrokeSampleV1 | null = null,
+  previousVelocity = 0,
+): Readonly<{ values: readonly number[]; lastVelocity: number }> {
+  const values: number[] = [];
+  let prior = previousSample;
+  let velocity = previousVelocity;
+  for (const sample of samples) {
+    velocity = normalizedPaintVelocityV1(prior, sample, velocity, maximumPxPerSecond);
+    values.push(velocity);
+    prior = sample;
+  }
+  return Object.freeze({ values: Object.freeze(values), lastVelocity: velocity });
 }
 
 function deterministicPaintStrokeSeedV1(strokeId: string): number {
@@ -663,6 +725,7 @@ export class PaintSessionControllerV1 {
   #activeBrushStroke: CanonicalRasterBrushStrokeV1 | null = null;
   #activeBrushFactory: (() => CanonicalRasterBrushStrokeV1) | null = null;
   #activeRealtimeStabilizer: RealtimeBrushStabilizerV1 | null = null;
+  #activeVelocity = 0;
   #activeDabDelta: readonly BaselineBrushDabV1[] = Object.freeze([]);
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
   readonly #committedStrokes: CompletedPaintStrokeV1[] = [];
@@ -704,6 +767,11 @@ export class PaintSessionControllerV1 {
   #brushTiltOpacityEnabled = false;
   #brushTiltFlowEnabled = false;
   #brushTiltResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
+  #brushVelocitySizeEnabled = false;
+  #brushVelocityOpacityEnabled = false;
+  #brushVelocityFlowEnabled = false;
+  #brushVelocityResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
+  #brushVelocityMaximumPxPerSecond: number = DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -759,6 +827,11 @@ export class PaintSessionControllerV1 {
       brushTiltOpacityEnabled: this.#brushTiltOpacityEnabled,
       brushTiltFlowEnabled: this.#brushTiltFlowEnabled,
       brushTiltResponseCurve: this.#brushTiltResponseCurve,
+      brushVelocitySizeEnabled: this.#brushVelocitySizeEnabled,
+      brushVelocityOpacityEnabled: this.#brushVelocityOpacityEnabled,
+      brushVelocityFlowEnabled: this.#brushVelocityFlowEnabled,
+      brushVelocityResponseCurve: this.#brushVelocityResponseCurve,
+      brushVelocityMaximumPxPerSecond: this.#brushVelocityMaximumPxPerSecond,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1178,6 +1251,70 @@ export class PaintSessionControllerV1 {
 
   brushTiltResponseCurve(): readonly ResponseCurvePointV1[] {
     return this.#brushTiltResponseCurve;
+  }
+
+  setBrushVelocitySizeEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime velocity-size flag');
+    if (enabled !== this.#brushVelocitySizeEnabled) this.#clearActiveStroke();
+    this.#brushVelocitySizeEnabled = enabled;
+    return this.#brushVelocitySizeEnabled;
+  }
+
+  brushVelocitySizeEnabled(): boolean {
+    return this.#brushVelocitySizeEnabled;
+  }
+
+  setBrushVelocityOpacityEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime velocity-opacity flag');
+    if (enabled !== this.#brushVelocityOpacityEnabled) this.#clearActiveStroke();
+    this.#brushVelocityOpacityEnabled = enabled;
+    return this.#brushVelocityOpacityEnabled;
+  }
+
+  brushVelocityOpacityEnabled(): boolean {
+    return this.#brushVelocityOpacityEnabled;
+  }
+
+  setBrushVelocityFlowEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime velocity-flow flag');
+    if (enabled !== this.#brushVelocityFlowEnabled) this.#clearActiveStroke();
+    this.#brushVelocityFlowEnabled = enabled;
+    return this.#brushVelocityFlowEnabled;
+  }
+
+  brushVelocityFlowEnabled(): boolean {
+    return this.#brushVelocityFlowEnabled;
+  }
+
+  setBrushVelocityResponseCurve(
+    curve: readonly ResponseCurvePointV1[],
+  ): readonly ResponseCurvePointV1[] {
+    const normalized = normalizeResponseCurveV1(curve);
+    if (!responseCurveEqualsV1(normalized, this.#brushVelocityResponseCurve))
+      this.#clearActiveStroke();
+    this.#brushVelocityResponseCurve = normalized;
+    return this.#brushVelocityResponseCurve;
+  }
+
+  brushVelocityResponseCurve(): readonly ResponseCurvePointV1[] {
+    return this.#brushVelocityResponseCurve;
+  }
+
+  setBrushVelocityMaximumPxPerSecond(maximumPxPerSecond: number): number {
+    if (
+      !Number.isFinite(maximumPxPerSecond) ||
+      maximumPxPerSecond < MIN_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1 ||
+      maximumPxPerSecond > MAX_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1
+    ) {
+      throw new RangeError('invalid runtime velocity maximum');
+    }
+    if (maximumPxPerSecond !== this.#brushVelocityMaximumPxPerSecond) this.#clearActiveStroke();
+    this.#brushVelocityMaximumPxPerSecond = maximumPxPerSecond;
+    return this.#brushVelocityMaximumPxPerSecond;
+  }
+
+  brushVelocityMaximumPxPerSecond(): number {
+    return this.#brushVelocityMaximumPxPerSecond;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1821,11 +1958,16 @@ export class PaintSessionControllerV1 {
           const replayStabilizer = new RealtimeBrushStabilizerV1(
             this.#activeRealtimeStabilizer?.amount() ?? this.#brushRealtimeStabilizationAmount,
           );
-          const liveGeometry = this.#activeSamples.map((sample) => {
+          const replayVelocities = velocitySeriesV1(
+            this.#activeSamples,
+            this.#brushVelocityMaximumPxPerSecond,
+          ).values;
+          const liveGeometry = this.#activeSamples.map((sample, index) => {
             const point = replayStabilizer.push(sample);
             return Object.freeze({
               ...point,
               pressure: completed.source === 'pen' ? sample.pressure : 1,
+              velocity: replayVelocities[index] ?? 0,
               tiltX: completed.source === 'pen' ? sample.tiltX : 0,
               tiltY: completed.source === 'pen' ? sample.tiltY : 0,
               altitudeAngle: completed.source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
@@ -1841,6 +1983,7 @@ export class PaintSessionControllerV1 {
                 Object.freeze({
                   ...releasePoint,
                   pressure: completed.source === 'pen' ? rawEndpoint.pressure : 1,
+                  velocity: replayVelocities.at(-1) ?? 0,
                   tiltX: completed.source === 'pen' ? rawEndpoint.tiltX : 0,
                   tiltY: completed.source === 'pen' ? rawEndpoint.tiltY : 0,
                   altitudeAngle:
@@ -1859,6 +2002,7 @@ export class PaintSessionControllerV1 {
             Object.freeze({
               ...point,
               pressure: liveGeometry[index]?.pressure ?? 1,
+              velocity: liveGeometry[index]?.velocity ?? 0,
               tiltX: liveGeometry[index]?.tiltX ?? 0,
               tiltY: liveGeometry[index]?.tiltY ?? 0,
               altitudeAngle: liveGeometry[index]?.altitudeAngle ?? Math.PI / 2,
@@ -2043,11 +2187,14 @@ export class PaintSessionControllerV1 {
       samples: Object.freeze([]),
     });
     const stabilizer = new RealtimeBrushStabilizerV1(this.#brushRealtimeStabilizationAmount);
-    const stabilizedSamples = samples.map((sample) => {
+    const velocitySeries = velocitySeriesV1(samples, this.#brushVelocityMaximumPxPerSecond);
+    this.#activeVelocity = velocitySeries.lastVelocity;
+    const stabilizedSamples = samples.map((sample, index) => {
       const point = stabilizer.push(sample);
       return Object.freeze({
         ...point,
         pressure: source === 'pen' ? sample.pressure : 1,
+        velocity: velocitySeries.values[index] ?? 0,
         tiltX: source === 'pen' ? sample.tiltX : 0,
         tiltY: source === 'pen' ? sample.tiltY : 0,
         altitudeAngle: source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
@@ -2082,6 +2229,10 @@ export class PaintSessionControllerV1 {
         tiltOpacityEnabled: this.#brushTiltOpacityEnabled,
         tiltFlowEnabled: this.#brushTiltFlowEnabled,
         tiltResponseCurve: this.#brushTiltResponseCurve,
+        velocitySizeEnabled: this.#brushVelocitySizeEnabled,
+        velocityOpacityEnabled: this.#brushVelocityOpacityEnabled,
+        velocityFlowEnabled: this.#brushVelocityFlowEnabled,
+        velocityResponseCurve: this.#brushVelocityResponseCurve,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,
@@ -2116,12 +2267,21 @@ export class PaintSessionControllerV1 {
       .filter((sample) => sample.pointerId === active.pointerId && sample.source === active.source)
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
     if (additions.length === 0) return;
+    const previousRawSample = this.#activeSamples.at(-1) ?? null;
+    const velocitySeries = velocitySeriesV1(
+      additions,
+      this.#brushVelocityMaximumPxPerSecond,
+      previousRawSample,
+      this.#activeVelocity,
+    );
+    this.#activeVelocity = velocitySeries.lastVelocity;
     this.#activeSamples.push(...additions);
-    const stabilizedAdditions = additions.map((sample) => {
+    const stabilizedAdditions = additions.map((sample, index) => {
       const point = stabilizer.push(sample);
       return Object.freeze({
         ...point,
         pressure: active.source === 'pen' ? sample.pressure : 1,
+        velocity: velocitySeries.values[index] ?? this.#activeVelocity,
         tiltX: active.source === 'pen' ? sample.tiltX : 0,
         tiltY: active.source === 'pen' ? sample.tiltY : 0,
         altitudeAngle: active.source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
@@ -2140,6 +2300,7 @@ export class PaintSessionControllerV1 {
               Object.freeze({
                 ...releasePoint,
                 pressure: active.source === 'pen' ? rawEndpoint.pressure : 1,
+                velocity: this.#activeVelocity,
                 tiltX: active.source === 'pen' ? rawEndpoint.tiltX : 0,
                 tiltY: active.source === 'pen' ? rawEndpoint.tiltY : 0,
                 altitudeAngle: active.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,
@@ -2168,6 +2329,7 @@ export class PaintSessionControllerV1 {
     this.#activeBrushStroke = null;
     this.#activeBrushFactory = null;
     this.#activeRealtimeStabilizer = null;
+    this.#activeVelocity = 0;
     this.#activeDabDelta = Object.freeze([]);
   }
 }

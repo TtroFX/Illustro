@@ -5815,3 +5815,12 @@ Verification must cover at minimum:
 - `dynamics.penOrientationEnabled` is opt-in and defaults to false. Pen orientation and `stroke.followRotation` are alternative rotation sources; pen orientation has runtime precedence for defensive compatibility, while Tool Properties presents them as mutually exclusive choices.
 - Final orientation remains `source angle + tip.angleDegrees - tip.directionDegrees`. The source is Pen orientation when enabled, otherwise local stroke tangent when Follow is enabled, otherwise zero/fixed.
 - Stabilization modifies coordinates only. Azimuth/twist stay paired with confirmed samples and are preserved by index through post-stroke correction. Primitive dabs store only resolved `tipAngleDegrees`; Worker/history/recovery schemas do not gain a second orientation representation.
+
+#### M6A velocity-mapping boundary — 2026-09-03
+
+- M6A-047 defines brush velocity from **raw confirmed document-space samples**, not display-frame timing and not the already-stabilized path. Consecutive `PaintStrokeSampleV1` positions and `timestampMs` determine speed, so a given confirmed input stream remains deterministic across presentation FPS and stabilization settings.
+- The preset normalization reference is `dynamics.velocityMaximumPxPerSecond`, default `2000` document px/s and constrained to `100..20000`. Speed is clamped to normalized `0..1`. The first sample resolves to `0`; non-increasing timestamps retain the prior normalized value rather than producing an unbounded spike.
+- `dynamics.velocitySizeEnabled`, `velocityOpacityEnabled`, and `velocityFlowEnabled` are independent opt-in mappings and default to `false`. `velocityResponseCurve` reuses the IP-12 Shared Curve Editor and defaults to exact linear identity.
+- Normalized velocity is attached only to the transient canonical brush sample and linearly interpolated at logical-stamp positions. It composes multiplicatively and independently with pressure and tilt responses. It may reduce size, the per-dab stroke-opacity cap, and/or flow, but it cannot raise an M6A-032 forced zero taper endpoint above zero.
+- Post-stroke correction recomputes the same velocity series from canonical raw samples before rebuilding final dabs. Primitive dabs persist only the already-resolved `radius`, `strokeOpacity`, and `flow`; no velocity-specific renderer, Worker, history, or recovery field is added.
+- M6A-049/M6A-050 own later minimum/maximum-response remapping. M6A-047 intentionally does not pre-implement those clamps.

@@ -47,6 +47,7 @@ export interface CanonicalRasterBrushSampleV1 {
   readonly documentX: number;
   readonly documentY: number;
   readonly pressure?: number;
+  readonly velocity?: number;
   readonly tiltX?: number;
   readonly tiltY?: number;
   readonly altitudeAngle?: number | null;
@@ -111,6 +112,10 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly tiltOpacityEnabled?: boolean;
       readonly tiltFlowEnabled?: boolean;
       readonly tiltResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly velocitySizeEnabled?: boolean;
+      readonly velocityOpacityEnabled?: boolean;
+      readonly velocityFlowEnabled?: boolean;
+      readonly velocityResponseCurve?: readonly ResponseCurvePointV1[];
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -175,6 +180,18 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.tiltResponseCurve === undefined
         ? {}
         : { tiltResponseCurve: options.tiltResponseCurve }),
+      ...(options.velocitySizeEnabled === undefined
+        ? {}
+        : { velocitySizeEnabled: options.velocitySizeEnabled }),
+      ...(options.velocityOpacityEnabled === undefined
+        ? {}
+        : { velocityOpacityEnabled: options.velocityOpacityEnabled }),
+      ...(options.velocityFlowEnabled === undefined
+        ? {}
+        : { velocityFlowEnabled: options.velocityFlowEnabled }),
+      ...(options.velocityResponseCurve === undefined
+        ? {}
+        : { velocityResponseCurve: options.velocityResponseCurve }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined

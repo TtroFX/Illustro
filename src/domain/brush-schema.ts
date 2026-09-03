@@ -904,6 +904,137 @@ export function withBrushTiltResponseCurveV1(
   });
 }
 
+export const DEFAULT_BRUSH_VELOCITY_SIZE_ENABLED_V1 = false as const;
+export const DEFAULT_BRUSH_VELOCITY_OPACITY_ENABLED_V1 = false as const;
+export const DEFAULT_BRUSH_VELOCITY_FLOW_ENABLED_V1 = false as const;
+export const DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1 = 2000 as const;
+export const MIN_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1 = 100 as const;
+export const MAX_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1 = 20000 as const;
+
+export function brushVelocitySizeEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.velocitySizeEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_VELOCITY_SIZE_ENABLED_V1;
+}
+
+export function withBrushVelocitySizeEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') throw new TypeError('brush velocity size flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_VELOCITY_SIZE_ENABLED_V1) {
+    const { velocitySizeEnabled: _velocitySizeEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, velocitySizeEnabled: enabled },
+  });
+}
+
+export function brushVelocityOpacityEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.velocityOpacityEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_VELOCITY_OPACITY_ENABLED_V1;
+}
+
+export function withBrushVelocityOpacityEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') {
+    throw new TypeError('brush velocity opacity flag must be boolean');
+  }
+  if (enabled === DEFAULT_BRUSH_VELOCITY_OPACITY_ENABLED_V1) {
+    const { velocityOpacityEnabled: _velocityOpacityEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, velocityOpacityEnabled: enabled },
+  });
+}
+
+export function brushVelocityFlowEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.velocityFlowEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_VELOCITY_FLOW_ENABLED_V1;
+}
+
+export function withBrushVelocityFlowEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') throw new TypeError('brush velocity flow flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_VELOCITY_FLOW_ENABLED_V1) {
+    const { velocityFlowEnabled: _velocityFlowEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, velocityFlowEnabled: enabled },
+  });
+}
+
+export function brushVelocityResponseCurveV1(
+  preset: BrushPresetV1,
+): readonly ResponseCurvePointV1[] {
+  const value = preset.dynamics.velocityResponseCurve;
+  if (value === undefined) return LINEAR_RESPONSE_CURVE_V1;
+  try {
+    return normalizeResponseCurveV1(value);
+  } catch {
+    return LINEAR_RESPONSE_CURVE_V1;
+  }
+}
+
+export function withBrushVelocityResponseCurveV1(
+  preset: BrushPresetV1,
+  curve: readonly ResponseCurvePointV1[],
+): BrushPresetV1 {
+  const normalized = normalizeResponseCurveV1(curve);
+  if (responseCurveIsLinearV1(normalized)) {
+    const { velocityResponseCurve: _velocityResponseCurve, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  const stored = toJsonValue(
+    normalized.map((pointValue) => ({ input: pointValue.input, output: pointValue.output })),
+  );
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, velocityResponseCurve: stored },
+  });
+}
+
+export function brushVelocityMaximumPxPerSecondV1(preset: BrushPresetV1): number {
+  const value = preset.dynamics.velocityMaximumPxPerSecond;
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1 &&
+    value <= MAX_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1
+    ? value
+    : DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1;
+}
+
+export function withBrushVelocityMaximumPxPerSecondV1(
+  preset: BrushPresetV1,
+  maximumPxPerSecond: number,
+): BrushPresetV1 {
+  if (
+    !Number.isFinite(maximumPxPerSecond) ||
+    maximumPxPerSecond < MIN_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1 ||
+    maximumPxPerSecond > MAX_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1
+  ) {
+    throw new RangeError('brush velocity maximum must be within 100..20000 document px/s');
+  }
+  if (maximumPxPerSecond === DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1) {
+    const { velocityMaximumPxPerSecond: _velocityMaximumPxPerSecond, ...dynamics } =
+      preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, velocityMaximumPxPerSecond: maximumPxPerSecond },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

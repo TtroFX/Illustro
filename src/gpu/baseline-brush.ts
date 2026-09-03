@@ -69,6 +69,7 @@ export interface BaselineBrushSampleV1 {
   readonly documentX: number;
   readonly documentY: number;
   readonly pressure?: number;
+  readonly velocity?: number;
   readonly tiltX?: number;
   readonly tiltY?: number;
   readonly altitudeAngle?: number | null;
@@ -82,6 +83,14 @@ export function baselineBrushSamplePressureV1(sample: BaselineBrushSampleV1): nu
     throw new RangeError('baseline brush pressure must be within 0..1');
   }
   return pressure;
+}
+
+export function baselineBrushSampleVelocityV1(sample: BaselineBrushSampleV1): number {
+  const velocity = sample.velocity ?? 0;
+  if (!Number.isFinite(velocity) || velocity < 0 || velocity > 1) {
+    throw new RangeError('baseline brush normalized velocity must be within 0..1');
+  }
+  return velocity;
 }
 
 /**
@@ -253,6 +262,7 @@ function assertFinitePoint(sample: BaselineBrushSampleV1): void {
     throw new RangeError('baseline brush samples require finite document coordinates');
   }
   baselineBrushSamplePressureV1(sample);
+  baselineBrushSampleVelocityV1(sample);
   baselineBrushSampleTiltUprightnessV1(sample);
   baselineBrushSampleOrientationDegreesV1(sample);
 }
@@ -370,6 +380,7 @@ interface BaselineLogicalStampRecordV1 {
   readonly x: number;
   readonly y: number;
   readonly pressure: number;
+  readonly velocity: number;
   readonly tiltUprightness: number;
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
@@ -397,6 +408,10 @@ export class BaselineBrushDabBuilderV1 {
   readonly #tiltOpacityEnabled: boolean;
   readonly #tiltFlowEnabled: boolean;
   readonly #tiltResponseCurve: CompiledResponseCurveV1;
+  readonly #velocitySizeEnabled: boolean;
+  readonly #velocityOpacityEnabled: boolean;
+  readonly #velocityFlowEnabled: boolean;
+  readonly #velocityResponseCurve: CompiledResponseCurveV1;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -417,6 +432,7 @@ export class BaselineBrushDabBuilderV1 {
     x: number;
     y: number;
     pressure: number;
+    velocity: number;
     tiltUprightness: number;
     orientationDegrees: number;
   } | null = null;
@@ -447,6 +463,10 @@ export class BaselineBrushDabBuilderV1 {
       readonly tiltOpacityEnabled?: boolean;
       readonly tiltFlowEnabled?: boolean;
       readonly tiltResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly velocitySizeEnabled?: boolean;
+      readonly velocityOpacityEnabled?: boolean;
+      readonly velocityFlowEnabled?: boolean;
+      readonly velocityResponseCurve?: readonly ResponseCurvePointV1[];
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -485,6 +505,9 @@ export class BaselineBrushDabBuilderV1 {
     const tiltSizeEnabled = options.tiltSizeEnabled ?? false;
     const tiltOpacityEnabled = options.tiltOpacityEnabled ?? false;
     const tiltFlowEnabled = options.tiltFlowEnabled ?? false;
+    const velocitySizeEnabled = options.velocitySizeEnabled ?? false;
+    const velocityOpacityEnabled = options.velocityOpacityEnabled ?? false;
+    const velocityFlowEnabled = options.velocityFlowEnabled ?? false;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -563,6 +586,13 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new TypeError('baseline brush tilt mapping flags must be boolean');
     }
+    if (
+      typeof velocitySizeEnabled !== 'boolean' ||
+      typeof velocityOpacityEnabled !== 'boolean' ||
+      typeof velocityFlowEnabled !== 'boolean'
+    ) {
+      throw new TypeError('baseline brush velocity mapping flags must be boolean');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -591,6 +621,15 @@ export class BaselineBrushDabBuilderV1 {
     this.#tiltFlowEnabled = tiltFlowEnabled;
     this.#tiltResponseCurve = compileResponseCurveV1(
       options.tiltResponseCurve ?? [
+        { input: 0, output: 0 },
+        { input: 1, output: 1 },
+      ],
+    );
+    this.#velocitySizeEnabled = velocitySizeEnabled;
+    this.#velocityOpacityEnabled = velocityOpacityEnabled;
+    this.#velocityFlowEnabled = velocityFlowEnabled;
+    this.#velocityResponseCurve = compileResponseCurveV1(
+      options.velocityResponseCurve ?? [
         { input: 0, output: 0 },
         { input: 1, output: 1 },
       ],
@@ -664,12 +703,14 @@ export class BaselineBrushDabBuilderV1 {
     assertFinitePoint(sample);
     const start = this.#dabs.length;
     const pressure = baselineBrushSamplePressureV1(sample);
+    const velocity = baselineBrushSampleVelocityV1(sample);
     const tiltUprightness = baselineBrushSampleTiltUprightnessV1(sample);
     const orientationDegrees = baselineBrushSampleOrientationDegreesV1(sample);
     this.#lastPoint = {
       x: sample.documentX,
       y: sample.documentY,
       pressure,
+      velocity,
       tiltUprightness,
       orientationDegrees,
     };
@@ -677,6 +718,7 @@ export class BaselineBrushDabBuilderV1 {
       sample.documentX,
       sample.documentY,
       pressure,
+      velocity,
       tiltUprightness,
       this.#resolvedTipAngleDegrees(undefined, orientationDegrees),
       0,
@@ -704,6 +746,7 @@ export class BaselineBrushDabBuilderV1 {
           sample.documentX,
           sample.documentY,
           baselineBrushSamplePressureV1(sample),
+          baselineBrushSampleVelocityV1(sample),
           baselineBrushSampleTiltUprightnessV1(sample),
           baselineBrushSampleOrientationDegreesV1(sample),
         );
@@ -717,6 +760,7 @@ export class BaselineBrushDabBuilderV1 {
         sample.documentX,
         sample.documentY,
         baselineBrushSamplePressureV1(sample),
+        baselineBrushSampleVelocityV1(sample),
         baselineBrushSampleTiltUprightnessV1(sample),
         baselineBrushSampleOrientationDegreesV1(sample),
       );
@@ -741,6 +785,7 @@ export class BaselineBrushDabBuilderV1 {
           lastPoint.x,
           lastPoint.y,
           lastPoint.pressure,
+          lastPoint.velocity,
           lastPoint.tiltUprightness,
           this.#resolvedTipAngleDegrees(
             this.#lastStrokeDirectionDegrees ?? undefined,
@@ -817,7 +862,13 @@ export class BaselineBrushDabBuilderV1 {
     target: BaselineBrushDabV1[],
     stamp: Pick<
       BaselineLogicalStampRecordV1,
-      'x' | 'y' | 'pressure' | 'tiltUprightness' | 'tipAngleDegrees' | 'sampledTipAlpha'
+      | 'x'
+      | 'y'
+      | 'pressure'
+      | 'velocity'
+      | 'tiltUprightness'
+      | 'tipAngleDegrees'
+      | 'sampledTipAlpha'
     >,
     startEnvelope: number,
     endEnvelope = 1,
@@ -841,6 +892,12 @@ export class BaselineBrushDabBuilderV1 {
     const tiltSizeScale = this.#tiltSizeEnabled ? tiltResponse : 1;
     const tiltOpacityScale = this.#tiltOpacityEnabled ? tiltResponse : 1;
     const tiltFlowScale = this.#tiltFlowEnabled ? tiltResponse : 1;
+    const usesVelocity =
+      this.#velocitySizeEnabled || this.#velocityOpacityEnabled || this.#velocityFlowEnabled;
+    const velocityResponse = usesVelocity ? this.#velocityResponseCurve.sample(stamp.velocity) : 1;
+    const velocitySizeScale = this.#velocitySizeEnabled ? velocityResponse : 1;
+    const velocityOpacityScale = this.#velocityOpacityEnabled ? velocityResponse : 1;
+    const velocityFlowScale = this.#velocityFlowEnabled ? velocityResponse : 1;
     if (
       sizeScale <= 0 ||
       opacityScale <= 0 ||
@@ -849,7 +906,10 @@ export class BaselineBrushDabBuilderV1 {
       pressureFlowScale <= 0 ||
       tiltSizeScale <= 0 ||
       tiltOpacityScale <= 0 ||
-      tiltFlowScale <= 0
+      tiltFlowScale <= 0 ||
+      velocitySizeScale <= 0 ||
+      velocityOpacityScale <= 0 ||
+      velocityFlowScale <= 0
     ) {
       return;
     }
@@ -857,9 +917,9 @@ export class BaselineBrushDabBuilderV1 {
       target,
       stamp.x,
       stamp.y,
-      this.#radius * sizeScale * pressureSizeScale * tiltSizeScale,
-      this.#flow * opacityScale * pressureFlowScale * tiltFlowScale,
-      this.#strokeOpacity * pressureOpacityScale * tiltOpacityScale,
+      this.#radius * sizeScale * pressureSizeScale * tiltSizeScale * velocitySizeScale,
+      this.#flow * opacityScale * pressureFlowScale * tiltFlowScale * velocityFlowScale,
+      this.#strokeOpacity * pressureOpacityScale * tiltOpacityScale * velocityOpacityScale,
       this.#hardness,
       this.#tipDensity,
       stamp.tipAngleDegrees,
@@ -873,6 +933,7 @@ export class BaselineBrushDabBuilderV1 {
     x: number,
     y: number,
     pressure: number,
+    velocity: number,
     tiltUprightness: number,
     tipAngleDegrees: number,
     pathDistancePx: number,
@@ -883,6 +944,7 @@ export class BaselineBrushDabBuilderV1 {
       x,
       y,
       pressure,
+      velocity,
       tiltUprightness,
       tipAngleDegrees,
       pathDistancePx,
@@ -937,6 +999,7 @@ export class BaselineBrushDabBuilderV1 {
     x: number,
     y: number,
     pressure: number,
+    velocity: number,
     tiltUprightness: number,
     orientationDegrees: number,
   ): void {
@@ -946,6 +1009,7 @@ export class BaselineBrushDabBuilderV1 {
     let cursorX = lastPoint.x;
     let cursorY = lastPoint.y;
     let cursorPressure = lastPoint.pressure;
+    let cursorVelocity = lastPoint.velocity;
     let cursorTiltUprightness = lastPoint.tiltUprightness;
     let cursorOrientationDegrees = lastPoint.orientationDegrees;
     const segmentLength = Math.hypot(x - cursorX, y - cursorY);
@@ -963,6 +1027,7 @@ export class BaselineBrushDabBuilderV1 {
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
       cursorPressure += (pressure - cursorPressure) * ratio;
+      cursorVelocity += (velocity - cursorVelocity) * ratio;
       cursorTiltUprightness += (tiltUprightness - cursorTiltUprightness) * ratio;
       cursorOrientationDegrees = normalizeBaselineBrushTipAngleDegreesV1(
         cursorOrientationDegrees +
@@ -973,6 +1038,7 @@ export class BaselineBrushDabBuilderV1 {
         cursorX,
         cursorY,
         cursorPressure,
+        cursorVelocity,
         cursorTiltUprightness,
         this.#resolvedTipAngleDegrees(
           this.#lastStrokeDirectionDegrees ?? undefined,
@@ -987,7 +1053,7 @@ export class BaselineBrushDabBuilderV1 {
 
     if (remaining > 0) this.#distanceUntilNext -= remaining;
     this.#pathDistancePx += segmentLength;
-    this.#lastPoint = { x, y, pressure, tiltUprightness, orientationDegrees };
+    this.#lastPoint = { x, y, pressure, velocity, tiltUprightness, orientationDegrees };
   }
 }
 
