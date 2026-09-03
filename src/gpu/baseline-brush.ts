@@ -35,6 +35,8 @@ export const BASELINE_BRUSH_VALUE_JITTER = 0 as const;
 export const BASELINE_BRUSH_SPRAY_ENABLED = false as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1 = 4 as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1 = 0.35 as const;
+export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MIN_V1 = 0.01 as const;
+export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MAX_V1 = 4 as const;
 export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 = 1 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
@@ -782,6 +784,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #saturationJitter: number;
   readonly #valueJitter: number;
   readonly #sprayEnabled: boolean;
+  readonly #sprayParticleSizeRatio: number;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -865,6 +868,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly saturationJitter?: number;
       readonly valueJitter?: number;
       readonly sprayEnabled?: boolean;
+      readonly sprayParticleSizeRatio?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -925,6 +929,8 @@ export class BaselineBrushDabBuilderV1 {
     const saturationJitter = options.saturationJitter ?? BASELINE_BRUSH_SATURATION_JITTER;
     const valueJitter = options.valueJitter ?? BASELINE_BRUSH_VALUE_JITTER;
     const sprayEnabled = options.sprayEnabled ?? BASELINE_BRUSH_SPRAY_ENABLED;
+    const sprayParticleSizeRatio =
+      options.sprayParticleSizeRatio ?? BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -1078,6 +1084,13 @@ export class BaselineBrushDabBuilderV1 {
     if (typeof sprayEnabled !== 'boolean') {
       throw new TypeError('baseline brush spray enabled flag must be boolean');
     }
+    if (
+      !Number.isFinite(sprayParticleSizeRatio) ||
+      sprayParticleSizeRatio < BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MIN_V1 ||
+      sprayParticleSizeRatio > BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MAX_V1
+    ) {
+      throw new RangeError('baseline brush spray particle size ratio must be within 0.01..4');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -1146,6 +1159,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#saturationJitter = saturationJitter;
     this.#valueJitter = valueJitter;
     this.#sprayEnabled = sprayEnabled;
+    this.#sprayParticleSizeRatio = sprayParticleSizeRatio;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -1498,7 +1512,7 @@ export class BaselineBrushDabBuilderV1 {
       return;
     }
     for (const particle of stamp.sprayParticles) {
-      emitParticle(particle.x, particle.y, BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1);
+      emitParticle(particle.x, particle.y, this.#sprayParticleSizeRatio);
     }
   }
 

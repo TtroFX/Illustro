@@ -486,6 +486,11 @@
                 <button id="brush-spray-enabled" type="button" aria-pressed="false" title="ブラシパターンを複数粒子として決定論的に散布">OFF</button>
                 <span class="shell-brush-tip-kind">Spray</span>
               </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-spray-particle-size-range">粒子サイズ</label>
+                <input id="brush-spray-particle-size-range" type="range" min="1" max="400" step="1" value="35" disabled />
+                <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-spray-particle-size-number" type="number" inputmode="decimal" min="1" max="400" step="1" value="35" aria-label="散布粒子サイズ" disabled /><span>%</span></span>
+              </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tip-shape">ブラシ形状</label>
                 <select id="brush-tip-shape" aria-label="ブラシ先端形状">

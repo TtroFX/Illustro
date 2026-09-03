@@ -1579,3 +1579,30 @@ requireText(
 );
 
 console.log('M6A Raster Brush contract verification: PASS');
+
+requireText(progress, 'M6A-058 particle size:完了', 'M6A-058 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSprayParticleSizeRatioV1',
+  'spray particle-size preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#sprayParticleSizeRatio',
+  'spray particle-size ratio is not connected to canonical particle radius',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSprayParticleSizeRatio',
+  'spray particle size is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-spray-particle-size-range"',
+  'reachable spray particle-size control missing',
+);
+requireText(
+  read('tests/unit/brush-particle-size.test.ts'),
+  'without changing the deterministic particle centers or burst count',
+  'spray particle-size regression coverage missing',
+);

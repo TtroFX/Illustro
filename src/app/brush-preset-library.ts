@@ -57,6 +57,7 @@ import {
   withBrushSaturationJitterV1,
   withBrushValueJitterV1,
   withBrushSprayEnabledV1,
+  withBrushSprayParticleSizeRatioV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -1645,4 +1646,23 @@ export function parseBrushPresetLibraryV1(
     );
   }
   return stateV1(items, payload.selectedPresetId);
+}
+
+export function updateBrushPresetSprayParticleSizeRatioV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  particleSizeRatio: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushSprayParticleSizeRatioV1(item.preset, particleSizeRatio);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
 }

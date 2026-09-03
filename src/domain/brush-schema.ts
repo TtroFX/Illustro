@@ -1478,6 +1478,41 @@ export function withBrushSprayEnabledV1(preset: BrushPresetV1, enabled: boolean)
   return normalizeBrushPresetV1({ ...preset, spray: { ...preset.spray, enabled } });
 }
 
+export const DEFAULT_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1 = 0.35 as const;
+export const MIN_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1 = 0.01 as const;
+export const MAX_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1 = 4 as const;
+
+export function brushSprayParticleSizeRatioV1(preset: BrushPresetV1): number {
+  const value = preset.spray.particleSizeRatio;
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1 &&
+    value <= MAX_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1
+    ? value
+    : DEFAULT_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1;
+}
+
+export function withBrushSprayParticleSizeRatioV1(
+  preset: BrushPresetV1,
+  particleSizeRatio: number,
+): BrushPresetV1 {
+  if (
+    !Number.isFinite(particleSizeRatio) ||
+    particleSizeRatio < MIN_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1 ||
+    particleSizeRatio > MAX_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1
+  ) {
+    throw new RangeError('brush spray particle size ratio must be within 0.01..4');
+  }
+  if (particleSizeRatio === DEFAULT_BRUSH_SPRAY_PARTICLE_SIZE_RATIO_V1) {
+    const { particleSizeRatio: _particleSizeRatio, ...spray } = preset.spray;
+    return normalizeBrushPresetV1({ ...preset, spray });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    spray: { ...preset.spray, particleSizeRatio },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

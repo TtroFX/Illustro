@@ -52,6 +52,7 @@ import {
   BASELINE_BRUSH_SATURATION_JITTER,
   BASELINE_BRUSH_VALUE_JITTER,
   BASELINE_BRUSH_SPRAY_ENABLED,
+  BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -280,6 +281,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushSaturationJitter: number;
   readonly brushValueJitter: number;
   readonly brushSprayEnabled: boolean;
+  readonly brushSprayParticleSizeRatio: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -819,6 +821,7 @@ export class PaintSessionControllerV1 {
   #brushSaturationJitter: number = BASELINE_BRUSH_SATURATION_JITTER;
   #brushValueJitter: number = BASELINE_BRUSH_VALUE_JITTER;
   #brushSprayEnabled: boolean = BASELINE_BRUSH_SPRAY_ENABLED;
+  #brushSprayParticleSizeRatio: number = BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -898,6 +901,7 @@ export class PaintSessionControllerV1 {
       brushSaturationJitter: this.#brushSaturationJitter,
       brushValueJitter: this.#brushValueJitter,
       brushSprayEnabled: this.#brushSprayEnabled,
+      brushSprayParticleSizeRatio: this.#brushSprayParticleSizeRatio,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1677,6 +1681,19 @@ export class PaintSessionControllerV1 {
 
   brushSprayEnabled(): boolean {
     return this.#brushSprayEnabled;
+  }
+
+  setBrushSprayParticleSizeRatio(particleSizeRatio: number): number {
+    if (!Number.isFinite(particleSizeRatio) || particleSizeRatio < 0.01 || particleSizeRatio > 4) {
+      throw new RangeError('invalid runtime brush spray particle size ratio');
+    }
+    if (particleSizeRatio !== this.#brushSprayParticleSizeRatio) this.#clearActiveStroke();
+    this.#brushSprayParticleSizeRatio = particleSizeRatio;
+    return this.#brushSprayParticleSizeRatio;
+  }
+
+  brushSprayParticleSizeRatio(): number {
+    return this.#brushSprayParticleSizeRatio;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2634,6 +2651,7 @@ export class PaintSessionControllerV1 {
         saturationJitter: this.#brushSaturationJitter,
         valueJitter: this.#brushValueJitter,
         sprayEnabled: this.#brushSprayEnabled,
+        sprayParticleSizeRatio: this.#brushSprayParticleSizeRatio,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
