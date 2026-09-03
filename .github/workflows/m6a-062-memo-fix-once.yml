@@ -30,3 +30,4 @@ jobs:
           git add ILLUSTRO_DESIGN_MEMO.md
           git commit -m 'docs: restore M6A brush section order'
           git push origin HEAD:main
+# retry after trailing-newline normalization
