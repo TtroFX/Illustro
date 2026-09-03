@@ -24,6 +24,19 @@ jobs:
       - run: npm ci
       - name: Apply M6A-041 pressure-size patch
         run: python .github/illustro-m6a041-patch.py
+      - name: Update stabilization verifier for pressure-aware geometry
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify-m6a-brush.mjs')
+          source = path.read_text(encoding='utf-8')
+          old = "const stabilizedAdditions = additions.map((sample) => stabilizer.push(sample));"
+          new = "const stabilizedAdditions = additions.map((sample) => {"
+          if source.count(old) != 1:
+              raise RuntimeError(f'expected one legacy stabilization verifier marker, found {source.count(old)}')
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Format changed TypeScript and verifier
         run: >-
           npx biome format --write
