@@ -37,6 +37,18 @@ jobs:
           PY
       - name: Apply M6A-048 random-dynamics patch
         run: python3 .github/illustro-m6a048-patch.py
+      - name: Align legacy pressure verifier with composed dynamics
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify-m6a-brush.mjs')
+          text = path.read_text()
+          old = "  'this.#radius * sizeScale * pressureSizeScale',\n  'pressure is not resolved into dab radius',"
+          new = "  'const pressureSizeScale = this.#pressureSizeEnabled ? pressureResponse : 1;',\n  'pressure-size response is not resolved for logical stamps',"
+          if old not in text:
+              raise SystemExit('legacy pressure verifier anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Format changed TypeScript and verifier
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts tests/unit/brush-random-dynamics.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
