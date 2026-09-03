@@ -806,6 +806,28 @@ requireText(
   'texture scale orthogonality regression missing',
 );
 
+requireText(progress, 'M6A-039 texture rotation:完了', 'M6A-039 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTextureRotationDegreesV1',
+  'texture-rotation preset helper missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushTextureRotationDegrees',
+  'texture rotation is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-texture-rotation-range"',
+  'reachable texture-rotation control missing',
+);
+requireText(
+  read('tests/unit/brush-texture-rotation.test.ts'),
+  'keeps rotation orthogonal to paper identity, strength, and scale',
+  'texture rotation orthogonality regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

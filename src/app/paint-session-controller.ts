@@ -227,6 +227,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTextureResourceId: string | null;
   readonly brushTextureStrength: number;
   readonly brushTextureScale: number;
+  readonly brushTextureRotationDegrees: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -676,6 +677,7 @@ export class PaintSessionControllerV1 {
   #brushTextureResourceId: string | null = null;
   #brushTextureStrength = 0;
   #brushTextureScale = 1;
+  #brushTextureRotationDegrees = 0;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -720,6 +722,7 @@ export class PaintSessionControllerV1 {
       brushTextureResourceId: this.#brushTextureResourceId,
       brushTextureStrength: this.#brushTextureStrength,
       brushTextureScale: this.#brushTextureScale,
+      brushTextureRotationDegrees: this.#brushTextureRotationDegrees,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1017,6 +1020,21 @@ export class PaintSessionControllerV1 {
 
   brushTextureScale(): number {
     return this.#brushTextureScale;
+  }
+
+  setBrushTextureRotationDegrees(rotationDegrees: number): number {
+    if (!Number.isFinite(rotationDegrees)) {
+      throw new TypeError('invalid runtime brush texture rotation');
+    }
+    const normalized = ((rotationDegrees % 360) + 360) % 360;
+    const value = Object.is(normalized, -0) ? 0 : normalized;
+    if (value !== this.#brushTextureRotationDegrees) this.#clearActiveStroke();
+    this.#brushTextureRotationDegrees = value;
+    return this.#brushTextureRotationDegrees;
+  }
+
+  brushTextureRotationDegrees(): number {
+    return this.#brushTextureRotationDegrees;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {

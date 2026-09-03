@@ -5746,3 +5746,10 @@ Verification must cover at minimum:
 - Scale is orthogonal to resource identity/subtype and M6A-037 strength. Switching grain/paper resources must not silently reset it.
 - The Brush Properties UI exposes the same range as `1..1600%`. Runtime captures the multiplier at brush-configuration time and changing it invalidates an active stroke so one stroke cannot mix sampling transforms.
 - As with strength, M6A-038 does not invent a surrogate texture before M6A-071/073 resolves the accepted sampled resource. When payload loading is connected, this multiplier becomes the sampling-scale authority without changing stored parameter semantics.
+
+#### M6A texture-rotation boundary — 2026-09-03
+
+- M6A-039 defines `BrushPresetV1.texture.rotationDegrees` as a finite degree value normalized into `[0, 360)`. `0°` is the exact identity/default and may be omitted from serialized preset data.
+- Rotation is orthogonal to grain/paper resource identity, M6A-037 strength and M6A-038 scale. Runtime captures only the normalized value and active strokes are invalidated on configuration changes so one stroke cannot mix sampling transforms.
+- No texture pixels are synthesized before M6A-071/073 resource loading. Once payloads are available, rotation composes with scale in the texture sampling transform; it does not rotate the brush tip geometry itself.
+- M6A-040 owns the coverage-combination/blend rule and must not redefine strength, scale or rotation semantics.

@@ -633,6 +633,37 @@ export function withBrushTextureScaleV1(preset: BrushPresetV1, scale: number): B
   });
 }
 
+export const DEFAULT_BRUSH_TEXTURE_ROTATION_DEGREES_V1 = 0 as const;
+
+function normalizeBrushTextureRotationDegreesV1(rotationDegrees: number): number {
+  if (!Number.isFinite(rotationDegrees))
+    throw new TypeError('brush texture rotation must be finite');
+  const normalized = ((rotationDegrees % 360) + 360) % 360;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+export function brushTextureRotationDegreesV1(preset: BrushPresetV1): number {
+  const value = preset.texture.rotationDegrees;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? normalizeBrushTextureRotationDegreesV1(value)
+    : DEFAULT_BRUSH_TEXTURE_ROTATION_DEGREES_V1;
+}
+
+export function withBrushTextureRotationDegreesV1(
+  preset: BrushPresetV1,
+  rotationDegrees: number,
+): BrushPresetV1 {
+  const normalized = normalizeBrushTextureRotationDegreesV1(rotationDegrees);
+  if (normalized === DEFAULT_BRUSH_TEXTURE_ROTATION_DEGREES_V1) {
+    const { rotationDegrees: _rotationDegrees, ...texture } = preset.texture;
+    return normalizeBrushPresetV1({ ...preset, texture });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    texture: { ...preset.texture, rotationDegrees: normalized },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 
