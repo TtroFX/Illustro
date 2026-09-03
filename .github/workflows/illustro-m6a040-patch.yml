@@ -22,6 +22,33 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Align patch with current brush-schema import layout
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/illustro-m6a040-patch.py')
+          source = path.read_text(encoding='utf-8')
+          anchor = source.index('# Runtime state captures mode independently of the sampled resource payload.')
+          first = source.index('replace_once(', anchor)
+          second = source.index('\nreplace_once(', first + 1)
+          replacement = '''replace_once(
+              'src/app/paint-session-controller.ts',
+              """import {
+            DEFAULT_BRUSH_PARAMETER_VALUES_V1,
+            type BrushParameterValuesV1,
+          } from '../domain/brush-schema.js';
+          """,
+              """import {
+            DEFAULT_BRUSH_PARAMETER_VALUES_V1,
+            type BrushParameterValuesV1,
+            type BrushTextureBlendModeV1,
+          } from '../domain/brush-schema.js';
+          """,
+          )
+          '''
+          path.write_text(source[:first] + replacement + source[second:], encoding='utf-8')
+          PY
       - name: Apply M6A-040 texture-blend patch
         run: python .github/illustro-m6a040-patch.py
       - name: Format changed TypeScript and verifier
