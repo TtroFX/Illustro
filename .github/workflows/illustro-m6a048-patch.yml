@@ -22,14 +22,18 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Align progress labels in patch source
+      - name: Align patch-source details
         run: |
           python3 - <<'PY'
           from pathlib import Path
           path = Path('.github/illustro-m6a048-patch.py')
           text = path.read_text()
           text = text.replace('M6A-049 min response:未完了', 'M6A-049 minimum response:未完了')
-          path.write_text(text)
+          old = '  return value / 0x100000000;'
+          new = '  return (value >>> 0) / 0x100000000;'
+          if old not in text:
+              raise SystemExit('M6A-048 uint32 normalization anchor not found')
+          path.write_text(text.replace(old, new, 1))
           PY
       - name: Apply M6A-048 random-dynamics patch
         run: python3 .github/illustro-m6a048-patch.py
