@@ -69,6 +69,9 @@ export interface BaselineBrushSampleV1 {
   readonly documentX: number;
   readonly documentY: number;
   readonly pressure?: number;
+  readonly tiltX?: number;
+  readonly tiltY?: number;
+  readonly altitudeAngle?: number | null;
 }
 
 export function baselineBrushSamplePressureV1(sample: BaselineBrushSampleV1): number {
@@ -77,6 +80,34 @@ export function baselineBrushSamplePressureV1(sample: BaselineBrushSampleV1): nu
     throw new RangeError('baseline brush pressure must be within 0..1');
   }
   return pressure;
+}
+
+/**
+ * Canonical tilt scalar for M6A dynamics: 1 means perpendicular/upright and 0 means parallel.
+ * This makes zero/unsupported tilt data neutral by default while still allowing physical tilt to
+ * attenuate mapped parameters. altitudeAngle is preferred when available; Pointer Events tiltX/Y
+ * are converted to the same altitude-domain fallback otherwise.
+ */
+export function baselineBrushSampleTiltUprightnessV1(sample: BaselineBrushSampleV1): number {
+  const altitude = sample.altitudeAngle;
+  if (altitude !== undefined && altitude !== null) {
+    if (!Number.isFinite(altitude) || altitude < 0 || altitude > Math.PI / 2) {
+      throw new RangeError('baseline brush altitude angle must be within 0..pi/2');
+    }
+    return Math.max(0, Math.min(1, altitude / (Math.PI / 2)));
+  }
+  const tiltX = sample.tiltX ?? 0;
+  const tiltY = sample.tiltY ?? 0;
+  if (!Number.isFinite(tiltX) || tiltX < -90 || tiltX > 90) {
+    throw new RangeError('baseline brush tiltX must be within -90..90');
+  }
+  if (!Number.isFinite(tiltY) || tiltY < -90 || tiltY > 90) {
+    throw new RangeError('baseline brush tiltY must be within -90..90');
+  }
+  const tangentX = Math.tan((tiltX * Math.PI) / 180);
+  const tangentY = Math.tan((tiltY * Math.PI) / 180);
+  const altitudeFromTilt = Math.atan2(1, Math.hypot(tangentX, tangentY));
+  return Math.max(0, Math.min(1, altitudeFromTilt / (Math.PI / 2)));
 }
 
 export interface BaselineBrushDabV1 {
@@ -173,6 +204,7 @@ function assertFinitePoint(sample: BaselineBrushSampleV1): void {
     throw new RangeError('baseline brush samples require finite document coordinates');
   }
   baselineBrushSamplePressureV1(sample);
+  baselineBrushSampleTiltUprightnessV1(sample);
 }
 
 function freezeDab(
@@ -288,6 +320,7 @@ interface BaselineLogicalStampRecordV1 {
   readonly x: number;
   readonly y: number;
   readonly pressure: number;
+  readonly tiltUprightness: number;
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
   readonly sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
@@ -310,6 +343,10 @@ export class BaselineBrushDabBuilderV1 {
   readonly #pressureOpacityEnabled: boolean;
   readonly #pressureFlowEnabled: boolean;
   readonly #pressureResponseCurve: CompiledResponseCurveV1;
+  readonly #tiltSizeEnabled: boolean;
+  readonly #tiltOpacityEnabled: boolean;
+  readonly #tiltFlowEnabled: boolean;
+  readonly #tiltResponseCurve: CompiledResponseCurveV1;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -325,7 +362,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #logicalStamps: BaselineLogicalStampRecordV1[] = [];
   #logicalStampIndex = 0;
   #pathDistancePx = 0;
-  #lastPoint: { x: number; y: number; pressure: number } | null = null;
+  #lastPoint: { x: number; y: number; pressure: number; tiltUprightness: number } | null = null;
   #lastStampPoint: { x: number; y: number } | null = null;
   #lastStrokeDirectionDegrees: number | null = null;
   #distanceUntilNext: number;
@@ -349,6 +386,10 @@ export class BaselineBrushDabBuilderV1 {
       readonly pressureOpacityEnabled?: boolean;
       readonly pressureFlowEnabled?: boolean;
       readonly pressureResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly tiltSizeEnabled?: boolean;
+      readonly tiltOpacityEnabled?: boolean;
+      readonly tiltFlowEnabled?: boolean;
+      readonly tiltResponseCurve?: readonly ResponseCurvePointV1[];
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -383,6 +424,9 @@ export class BaselineBrushDabBuilderV1 {
     const pressureSizeEnabled = options.pressureSizeEnabled ?? false;
     const pressureOpacityEnabled = options.pressureOpacityEnabled ?? false;
     const pressureFlowEnabled = options.pressureFlowEnabled ?? false;
+    const tiltSizeEnabled = options.tiltSizeEnabled ?? false;
+    const tiltOpacityEnabled = options.tiltOpacityEnabled ?? false;
+    const tiltFlowEnabled = options.tiltFlowEnabled ?? false;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -450,6 +494,13 @@ export class BaselineBrushDabBuilderV1 {
     if (typeof pressureFlowEnabled !== 'boolean') {
       throw new TypeError('baseline brush pressure flow flag must be boolean');
     }
+    if (
+      typeof tiltSizeEnabled !== 'boolean' ||
+      typeof tiltOpacityEnabled !== 'boolean' ||
+      typeof tiltFlowEnabled !== 'boolean'
+    ) {
+      throw new TypeError('baseline brush tilt mapping flags must be boolean');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -469,6 +520,15 @@ export class BaselineBrushDabBuilderV1 {
     this.#pressureFlowEnabled = pressureFlowEnabled;
     this.#pressureResponseCurve = compileResponseCurveV1(
       options.pressureResponseCurve ?? [
+        { input: 0, output: 0 },
+        { input: 1, output: 1 },
+      ],
+    );
+    this.#tiltSizeEnabled = tiltSizeEnabled;
+    this.#tiltOpacityEnabled = tiltOpacityEnabled;
+    this.#tiltFlowEnabled = tiltFlowEnabled;
+    this.#tiltResponseCurve = compileResponseCurveV1(
+      options.tiltResponseCurve ?? [
         { input: 0, output: 0 },
         { input: 1, output: 1 },
       ],
@@ -541,11 +601,13 @@ export class BaselineBrushDabBuilderV1 {
     assertFinitePoint(sample);
     const start = this.#dabs.length;
     const pressure = baselineBrushSamplePressureV1(sample);
-    this.#lastPoint = { x: sample.documentX, y: sample.documentY, pressure };
+    const tiltUprightness = baselineBrushSampleTiltUprightnessV1(sample);
+    this.#lastPoint = { x: sample.documentX, y: sample.documentY, pressure, tiltUprightness };
     this.#pushLogicalStamp(
       sample.documentX,
       sample.documentY,
       pressure,
+      tiltUprightness,
       this.#resolvedTipAngleDegrees(),
       0,
     );
@@ -572,6 +634,7 @@ export class BaselineBrushDabBuilderV1 {
           sample.documentX,
           sample.documentY,
           baselineBrushSamplePressureV1(sample),
+          baselineBrushSampleTiltUprightnessV1(sample),
         );
       }
       return this.#deltaFrom(start);
@@ -579,7 +642,12 @@ export class BaselineBrushDabBuilderV1 {
 
     for (const sample of samples) {
       assertFinitePoint(sample);
-      this.#appendPoint(sample.documentX, sample.documentY, baselineBrushSamplePressureV1(sample));
+      this.#appendPoint(
+        sample.documentX,
+        sample.documentY,
+        baselineBrushSamplePressureV1(sample),
+        baselineBrushSampleTiltUprightnessV1(sample),
+      );
     }
     return this.#deltaFrom(start);
   }
@@ -601,6 +669,7 @@ export class BaselineBrushDabBuilderV1 {
           lastPoint.x,
           lastPoint.y,
           lastPoint.pressure,
+          lastPoint.tiltUprightness,
           this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
           this.#pathDistancePx,
         );
@@ -673,7 +742,7 @@ export class BaselineBrushDabBuilderV1 {
     target: BaselineBrushDabV1[],
     stamp: Pick<
       BaselineLogicalStampRecordV1,
-      'x' | 'y' | 'pressure' | 'tipAngleDegrees' | 'sampledTipAlpha'
+      'x' | 'y' | 'pressure' | 'tiltUprightness' | 'tipAngleDegrees' | 'sampledTipAlpha'
     >,
     startEnvelope: number,
     endEnvelope = 1,
@@ -692,12 +761,20 @@ export class BaselineBrushDabBuilderV1 {
     const pressureSizeScale = this.#pressureSizeEnabled ? pressureResponse : 1;
     const pressureOpacityScale = this.#pressureOpacityEnabled ? pressureResponse : 1;
     const pressureFlowScale = this.#pressureFlowEnabled ? pressureResponse : 1;
+    const usesTilt = this.#tiltSizeEnabled || this.#tiltOpacityEnabled || this.#tiltFlowEnabled;
+    const tiltResponse = usesTilt ? this.#tiltResponseCurve.sample(stamp.tiltUprightness) : 1;
+    const tiltSizeScale = this.#tiltSizeEnabled ? tiltResponse : 1;
+    const tiltOpacityScale = this.#tiltOpacityEnabled ? tiltResponse : 1;
+    const tiltFlowScale = this.#tiltFlowEnabled ? tiltResponse : 1;
     if (
       sizeScale <= 0 ||
       opacityScale <= 0 ||
       pressureSizeScale <= 0 ||
       pressureOpacityScale <= 0 ||
-      pressureFlowScale <= 0
+      pressureFlowScale <= 0 ||
+      tiltSizeScale <= 0 ||
+      tiltOpacityScale <= 0 ||
+      tiltFlowScale <= 0
     ) {
       return;
     }
@@ -705,9 +782,9 @@ export class BaselineBrushDabBuilderV1 {
       target,
       stamp.x,
       stamp.y,
-      this.#radius * sizeScale * pressureSizeScale,
-      this.#flow * opacityScale * pressureFlowScale,
-      this.#strokeOpacity * pressureOpacityScale,
+      this.#radius * sizeScale * pressureSizeScale * tiltSizeScale,
+      this.#flow * opacityScale * pressureFlowScale * tiltFlowScale,
+      this.#strokeOpacity * pressureOpacityScale * tiltOpacityScale,
       this.#hardness,
       this.#tipDensity,
       stamp.tipAngleDegrees,
@@ -721,6 +798,7 @@ export class BaselineBrushDabBuilderV1 {
     x: number,
     y: number,
     pressure: number,
+    tiltUprightness: number,
     tipAngleDegrees: number,
     pathDistancePx: number,
   ): void {
@@ -730,6 +808,7 @@ export class BaselineBrushDabBuilderV1 {
       x,
       y,
       pressure,
+      tiltUprightness,
       tipAngleDegrees,
       pathDistancePx,
       sampledTipAlpha,
@@ -774,13 +853,14 @@ export class BaselineBrushDabBuilderV1 {
     );
   }
 
-  #appendPoint(x: number, y: number, pressure: number): void {
+  #appendPoint(x: number, y: number, pressure: number, tiltUprightness: number): void {
     const lastPoint = this.#lastPoint;
     if (lastPoint === null) return;
 
     let cursorX = lastPoint.x;
     let cursorY = lastPoint.y;
     let cursorPressure = lastPoint.pressure;
+    let cursorTiltUprightness = lastPoint.tiltUprightness;
     const segmentLength = Math.hypot(x - cursorX, y - cursorY);
     let remaining = segmentLength;
     let segmentAdvancedPx = 0;
@@ -796,11 +876,13 @@ export class BaselineBrushDabBuilderV1 {
       cursorX += (x - cursorX) * ratio;
       cursorY += (y - cursorY) * ratio;
       cursorPressure += (pressure - cursorPressure) * ratio;
+      cursorTiltUprightness += (tiltUprightness - cursorTiltUprightness) * ratio;
       segmentAdvancedPx += stepDistancePx;
       this.#pushLogicalStamp(
         cursorX,
         cursorY,
         cursorPressure,
+        cursorTiltUprightness,
         this.#resolvedTipAngleDegrees(this.#lastStrokeDirectionDegrees ?? undefined),
         this.#pathDistancePx + segmentAdvancedPx,
       );
@@ -811,7 +893,7 @@ export class BaselineBrushDabBuilderV1 {
 
     if (remaining > 0) this.#distanceUntilNext -= remaining;
     this.#pathDistancePx += segmentLength;
-    this.#lastPoint = { x, y, pressure };
+    this.#lastPoint = { x, y, pressure, tiltUprightness };
   }
 }
 

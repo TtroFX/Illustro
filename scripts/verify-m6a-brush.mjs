@@ -988,6 +988,35 @@ requireText(
   'pressure response mapping regression missing',
 );
 
+requireText(progress, 'M6A-045 tilt mapping:完了', 'M6A-045 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTiltSizeEnabledV1',
+  'tilt mapping preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'baselineBrushSampleTiltUprightnessV1',
+  'tilt source normalization missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'cursorTiltUprightness += (tiltUprightness - cursorTiltUprightness) * ratio',
+  'tilt source is not interpolated at logical stamp positions',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushTiltResponseCurve',
+  'tilt mapping is not connected to runtime state',
+);
+requireText(read('src/index.html'), 'id="brush-tilt-size"', 'reachable tilt-size control missing');
+requireText(read('src/index.html'), 'id="brush-tilt-curve"', 'reachable tilt Curve Editor missing');
+requireText(
+  read('tests/unit/brush-tilt-mapping.test.ts'),
+  'keeps pressure and tilt independent while sharing resolved primitive fields',
+  'tilt/pressure composition regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

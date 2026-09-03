@@ -300,6 +300,40 @@
                 </div>
               </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-tilt-size">傾き→サイズ</label>
+                <button id="brush-tilt-size" type="button" aria-pressed="false" title="ペンの傾き（直立度）をブラシサイズへ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Tilt</span>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-tilt-opacity">傾き→不透明度</label>
+                <button id="brush-tilt-opacity" type="button" aria-pressed="false" title="ペンの傾き（直立度）をストローク不透明度上限へ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Tilt</span>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
+                <label for="brush-tilt-flow">傾き→流量</label>
+                <button id="brush-tilt-flow" type="button" aria-pressed="false" title="ペンの傾き（直立度）をブラシ流量へ反映">OFF</button>
+                <span class="shell-brush-tip-kind">Tilt</span>
+              </div>
+              <div class="shell-brush-pressure-curve-editor shell-brush-tilt-curve-editor" aria-label="傾きレスポンスカーブ">
+                <div class="shell-brush-pressure-curve-header">
+                  <label for="brush-tilt-curve-preset">傾きカーブ</label>
+                  <select id="brush-tilt-curve-preset" aria-label="傾きカーブプリセット">
+                    <option value="linear">Linear</option>
+                    <option value="soft">Soft</option>
+                    <option value="hard">Hard</option>
+                    <option value="s-curve">S Curve</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <canvas id="brush-tilt-curve" width="240" height="128" tabindex="0" aria-label="ペン傾きレスポンスカーブ。入力0は水平、100は直立。空いている場所をタップして点を追加、点をドラッグして編集"></canvas>
+                <div class="shell-brush-pressure-curve-values">
+                  <label>入力 <input id="brush-tilt-curve-input" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <label>出力 <input id="brush-tilt-curve-output" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <button id="brush-tilt-curve-delete" type="button">点を削除</button>
+                  <button id="brush-tilt-curve-reset" type="button">Reset</button>
+                </div>
+              </div>
+              <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tip-shape">ブラシ形状</label>
                 <select id="brush-tip-shape" aria-label="ブラシ先端形状">
                   <option value="round">円形</option>

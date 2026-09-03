@@ -240,6 +240,10 @@ export interface PaintSessionSnapshotV1 {
   readonly brushPressureOpacityEnabled: boolean;
   readonly brushPressureFlowEnabled: boolean;
   readonly brushPressureResponseCurve: readonly ResponseCurvePointV1[];
+  readonly brushTiltSizeEnabled: boolean;
+  readonly brushTiltOpacityEnabled: boolean;
+  readonly brushTiltFlowEnabled: boolean;
+  readonly brushTiltResponseCurve: readonly ResponseCurvePointV1[];
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -695,6 +699,10 @@ export class PaintSessionControllerV1 {
   #brushPressureOpacityEnabled = false;
   #brushPressureFlowEnabled = false;
   #brushPressureResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
+  #brushTiltSizeEnabled = false;
+  #brushTiltOpacityEnabled = false;
+  #brushTiltFlowEnabled = false;
+  #brushTiltResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -745,6 +753,10 @@ export class PaintSessionControllerV1 {
       brushPressureOpacityEnabled: this.#brushPressureOpacityEnabled,
       brushPressureFlowEnabled: this.#brushPressureFlowEnabled,
       brushPressureResponseCurve: this.#brushPressureResponseCurve,
+      brushTiltSizeEnabled: this.#brushTiltSizeEnabled,
+      brushTiltOpacityEnabled: this.#brushTiltOpacityEnabled,
+      brushTiltFlowEnabled: this.#brushTiltFlowEnabled,
+      brushTiltResponseCurve: this.#brushTiltResponseCurve,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1117,6 +1129,52 @@ export class PaintSessionControllerV1 {
 
   brushPressureResponseCurve(): readonly ResponseCurvePointV1[] {
     return this.#brushPressureResponseCurve;
+  }
+
+  setBrushTiltSizeEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime tilt-size flag');
+    if (enabled !== this.#brushTiltSizeEnabled) this.#clearActiveStroke();
+    this.#brushTiltSizeEnabled = enabled;
+    return this.#brushTiltSizeEnabled;
+  }
+
+  brushTiltSizeEnabled(): boolean {
+    return this.#brushTiltSizeEnabled;
+  }
+
+  setBrushTiltOpacityEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime tilt-opacity flag');
+    if (enabled !== this.#brushTiltOpacityEnabled) this.#clearActiveStroke();
+    this.#brushTiltOpacityEnabled = enabled;
+    return this.#brushTiltOpacityEnabled;
+  }
+
+  brushTiltOpacityEnabled(): boolean {
+    return this.#brushTiltOpacityEnabled;
+  }
+
+  setBrushTiltFlowEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime tilt-flow flag');
+    if (enabled !== this.#brushTiltFlowEnabled) this.#clearActiveStroke();
+    this.#brushTiltFlowEnabled = enabled;
+    return this.#brushTiltFlowEnabled;
+  }
+
+  brushTiltFlowEnabled(): boolean {
+    return this.#brushTiltFlowEnabled;
+  }
+
+  setBrushTiltResponseCurve(
+    curve: readonly ResponseCurvePointV1[],
+  ): readonly ResponseCurvePointV1[] {
+    const normalized = normalizeResponseCurveV1(curve);
+    if (!responseCurveEqualsV1(normalized, this.#brushTiltResponseCurve)) this.#clearActiveStroke();
+    this.#brushTiltResponseCurve = normalized;
+    return this.#brushTiltResponseCurve;
+  }
+
+  brushTiltResponseCurve(): readonly ResponseCurvePointV1[] {
+    return this.#brushTiltResponseCurve;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1754,6 +1812,9 @@ export class PaintSessionControllerV1 {
             return Object.freeze({
               ...point,
               pressure: completed.source === 'pen' ? sample.pressure : 1,
+              tiltX: completed.source === 'pen' ? sample.tiltX : 0,
+              tiltY: completed.source === 'pen' ? sample.tiltY : 0,
+              altitudeAngle: completed.source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
             });
           });
           const rawEndpoint = this.#activeSamples.at(-1);
@@ -1764,6 +1825,10 @@ export class PaintSessionControllerV1 {
                 Object.freeze({
                   ...releasePoint,
                   pressure: completed.source === 'pen' ? rawEndpoint.pressure : 1,
+                  tiltX: completed.source === 'pen' ? rawEndpoint.tiltX : 0,
+                  tiltY: completed.source === 'pen' ? rawEndpoint.tiltY : 0,
+                  altitudeAngle:
+                    completed.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,
                 }),
               );
             }
@@ -1776,6 +1841,9 @@ export class PaintSessionControllerV1 {
             Object.freeze({
               ...point,
               pressure: liveGeometry[index]?.pressure ?? 1,
+              tiltX: liveGeometry[index]?.tiltX ?? 0,
+              tiltY: liveGeometry[index]?.tiltY ?? 0,
+              altitudeAngle: liveGeometry[index]?.altitudeAngle ?? Math.PI / 2,
             }),
           );
           const firstCorrected = correctedSamples[0];
@@ -1957,7 +2025,13 @@ export class PaintSessionControllerV1 {
     const stabilizer = new RealtimeBrushStabilizerV1(this.#brushRealtimeStabilizationAmount);
     const stabilizedSamples = samples.map((sample) => {
       const point = stabilizer.push(sample);
-      return Object.freeze({ ...point, pressure: source === 'pen' ? sample.pressure : 1 });
+      return Object.freeze({
+        ...point,
+        pressure: source === 'pen' ? sample.pressure : 1,
+        tiltX: source === 'pen' ? sample.tiltX : 0,
+        tiltY: source === 'pen' ? sample.tiltY : 0,
+        altitudeAngle: source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
+      });
     });
     const firstStabilizedSample = stabilizedSamples[0];
     if (firstStabilizedSample === undefined) return;
@@ -1982,6 +2056,10 @@ export class PaintSessionControllerV1 {
         pressureOpacityEnabled: this.#brushPressureOpacityEnabled,
         pressureFlowEnabled: this.#brushPressureFlowEnabled,
         pressureResponseCurve: this.#brushPressureResponseCurve,
+        tiltSizeEnabled: this.#brushTiltSizeEnabled,
+        tiltOpacityEnabled: this.#brushTiltOpacityEnabled,
+        tiltFlowEnabled: this.#brushTiltFlowEnabled,
+        tiltResponseCurve: this.#brushTiltResponseCurve,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,
@@ -2018,7 +2096,13 @@ export class PaintSessionControllerV1 {
     this.#activeSamples.push(...additions);
     const stabilizedAdditions = additions.map((sample) => {
       const point = stabilizer.push(sample);
-      return Object.freeze({ ...point, pressure: active.source === 'pen' ? sample.pressure : 1 });
+      return Object.freeze({
+        ...point,
+        pressure: active.source === 'pen' ? sample.pressure : 1,
+        tiltX: active.source === 'pen' ? sample.tiltX : 0,
+        tiltY: active.source === 'pen' ? sample.tiltY : 0,
+        altitudeAngle: active.source === 'pen' ? sample.altitudeAngle : Math.PI / 2,
+      });
     });
     this.#queueActiveDabDelta(builder.appendConfirmed(stabilizedAdditions));
     if (release) {
@@ -2031,6 +2115,9 @@ export class PaintSessionControllerV1 {
               Object.freeze({
                 ...releasePoint,
                 pressure: active.source === 'pen' ? rawEndpoint.pressure : 1,
+                tiltX: active.source === 'pen' ? rawEndpoint.tiltX : 0,
+                tiltY: active.source === 'pen' ? rawEndpoint.tiltY : 0,
+                altitudeAngle: active.source === 'pen' ? rawEndpoint.altitudeAngle : Math.PI / 2,
               }),
             ]),
           );

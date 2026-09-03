@@ -473,7 +473,8 @@ M6A-043 pressure→flow:完了
 再開メモ: M6A-043 pressure→flowはBrushPresetV1.dynamics.pressureFlowEnabledをopt-in booleanとして追加し、既定falseで既存strokeを互換維持する。有効時はM6A-041/042と同じPen raw pressureをlogical stamp位置へ距離比例補間し、base flow × taper deposit scale × pressureへ解決する。strokeOpacity capは変更しないためM6A-042とは独立し、Raster paintではflowが現在のeffective coverageからopacity capへ近づく速度だけを制御する。Mouseはneutral 1.0、primitive dabには既存flowへ解決済み値だけを保存するためrenderer/history schema追加は不要。pressure→size/opacity/flowを同時に有効化しても同一pressure scalarから各軸を独立解決する。次はM6A-044 pressure response curveから再開する。
 M6A-044 pressure response curve:完了
 再開メモ: M6A-044 pressure response curveはIP-12 Shared Curve Editor契約に従い、0→0 / 1→1固定・input昇順・output単調の2..16 node canonical curveを追加した。runtime評価はmonotone PCHIP/Fritsch-Carlson-style補間をstroke開始時にcompileし、logical stampごとに補間済みraw pressureをcurveへ1回だけ通して、その同一responseをM6A-041 size / 042 opacity / 043 flowの各opt-in mappingへ配る。linearはexact identity/defaultでpreset fieldを省略する。Tool Propertiesには共有Curve Editorを接続し、canvas上tapでnode追加、drag編集、選択nodeの正確な入出力%、Delete、Reset、Linear/Soft/Hard/S presetsを提供する。Mouseはneutral 1.0のまま。M6A-049/050のminimum/maximum responseは未適用で、forced taper zero endpointは引き続き優先する。次はM6A-045 tilt mappingから再開する。
-M6A-045 tilt mapping:未完了
+M6A-045 tilt mapping:完了
+再開メモ: M6A-045 tilt mappingはPenのaltitudeAngleを優先し、未提供時はPointer Events tiltX/tiltYから同じ高度角へ変換して、0=水平・1=直立のnormalized tilt uprightnessをlogical stamp位置へ距離比例補間する。直立/tilt未報告/Mouseは1.0となるため既存ブラシはneutral fallbackを維持する。BrushPresetV1.dynamicsにはtiltSizeEnabled / tiltOpacityEnabled / tiltFlowEnabled（既定false）とtiltResponseCurve（linear既定）を追加し、shared Curve Editorを再利用する。各mappingはpressureとは独立に同じtilt responseをsize / opacity cap / flowへ乗算し、primitive dabには解決済みradius/strokeOpacity/flowのみを残す。M6A-046 orientation mappingがazimuth/pen direction/twist系の角度方向を所有し、M6A-049/050が後続のminimum/maximum responseを所有する。次はM6A-046 orientation mappingから再開する。
 M6A-046 orientation mapping:未完了
 M6A-047 velocity mapping:未完了
 M6A-048 random dynamics:未完了

@@ -793,6 +793,94 @@ export function withBrushPressureResponseCurveV1(
   });
 }
 
+export const DEFAULT_BRUSH_TILT_SIZE_ENABLED_V1 = false as const;
+
+export function brushTiltSizeEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.tiltSizeEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_TILT_SIZE_ENABLED_V1;
+}
+
+export function withBrushTiltSizeEnabledV1(preset: BrushPresetV1, enabled: boolean): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') throw new TypeError('brush tilt size flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_TILT_SIZE_ENABLED_V1) {
+    const { tiltSizeEnabled: _tiltSizeEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, tiltSizeEnabled: enabled },
+  });
+}
+
+export const DEFAULT_BRUSH_TILT_OPACITY_ENABLED_V1 = false as const;
+
+export function brushTiltOpacityEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.tiltOpacityEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_TILT_OPACITY_ENABLED_V1;
+}
+
+export function withBrushTiltOpacityEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') throw new TypeError('brush tilt opacity flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_TILT_OPACITY_ENABLED_V1) {
+    const { tiltOpacityEnabled: _tiltOpacityEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, tiltOpacityEnabled: enabled },
+  });
+}
+
+export const DEFAULT_BRUSH_TILT_FLOW_ENABLED_V1 = false as const;
+
+export function brushTiltFlowEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.tiltFlowEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_TILT_FLOW_ENABLED_V1;
+}
+
+export function withBrushTiltFlowEnabledV1(preset: BrushPresetV1, enabled: boolean): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') throw new TypeError('brush tilt flow flag must be boolean');
+  if (enabled === DEFAULT_BRUSH_TILT_FLOW_ENABLED_V1) {
+    const { tiltFlowEnabled: _tiltFlowEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, tiltFlowEnabled: enabled },
+  });
+}
+
+export function brushTiltResponseCurveV1(preset: BrushPresetV1): readonly ResponseCurvePointV1[] {
+  const value = preset.dynamics.tiltResponseCurve;
+  if (value === undefined) return LINEAR_RESPONSE_CURVE_V1;
+  try {
+    return normalizeResponseCurveV1(value);
+  } catch {
+    return LINEAR_RESPONSE_CURVE_V1;
+  }
+}
+
+export function withBrushTiltResponseCurveV1(
+  preset: BrushPresetV1,
+  curve: readonly ResponseCurvePointV1[],
+): BrushPresetV1 {
+  const normalized = normalizeResponseCurveV1(curve);
+  if (responseCurveIsLinearV1(normalized)) {
+    const { tiltResponseCurve: _tiltResponseCurve, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  const stored = toJsonValue(
+    normalized.map((pointValue) => ({ input: pointValue.input, output: pointValue.output })),
+  );
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, tiltResponseCurve: stored },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

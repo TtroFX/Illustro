@@ -5794,3 +5794,14 @@ Verification must cover at minimum:
 - Runtime evaluation uses a monotone PCHIP/Fritsch-Carlson-style cubic compiled once at stroke construction. The interpolated raw Pen pressure is evaluated once per logical stamp and the same resolved response is then supplied independently to size, opacity-cap and flow mappings. Curves therefore do not fork the stamp path or add renderer/history schema.
 - If no pressure mapping is enabled, a non-linear stored curve has no raster effect. Mouse remains neutral response `1.0` because it has no stylus-pressure semantics.
 - M6A-049/050 still own minimum/maximum response bounds and are not encoded into the curve here. Later bounds must compose with this shared response rather than rewriting curve nodes. M6A-032 forced taper zero endpoints remain authoritative.
+
+
+## M6A tilt mapping boundary — 2026-09-03
+
+- `tilt` source is normalized as **uprightness** in `0..1`: `1` means the pen is perpendicular to the surface and `0` means parallel. `PointerEvent.altitudeAngle` is preferred; when absent, `tiltX`/`tiltY` are converted to the equivalent altitude domain.
+- This polarity intentionally makes upright, zero-tilt and unavailable-tilt data neutral (`1`) for multiplicative mappings, so optional hardware cannot make a brush disappear merely because the browser reports no usable tilt. Mouse is also neutral.
+- `dynamics.tiltSizeEnabled`, `tiltOpacityEnabled` and `tiltFlowEnabled` are independent opt-in mappings, all defaulting to false. A single `tiltResponseCurve` is evaluated once per logical stamp and then distributed to the enabled targets, matching the shared response-function architecture used by pressure.
+- Tilt is distance-interpolated at logical stamp positions and is carried alongside stabilized geometry; post-stroke correction changes geometry only and preserves the corresponding tilt source values by sample index.
+- Tilt response affects resolved size, opacity cap and flow only. Primitive dabs continue to store only resolved `radius`, `strokeOpacity` and `flow`; no renderer/history/Worker tilt ABI is introduced.
+- M6A-046 owns directional orientation inputs such as azimuth/twist/pen direction; M6A-049/050 own minimum/maximum response bounds. Those stages must extend this source pipeline rather than duplicate input sampling.
+- The UI reuses the IP-12 Shared Curve Editor grammar (direct node editing, exact input/output values, presets and Reset) rather than inventing a tilt-specific nonlinear control.

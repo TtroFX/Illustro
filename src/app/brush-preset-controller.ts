@@ -27,6 +27,10 @@ import {
   brushPressureOpacityEnabledV1,
   brushPressureFlowEnabledV1,
   brushPressureResponseCurveV1,
+  brushTiltSizeEnabledV1,
+  brushTiltOpacityEnabledV1,
+  brushTiltFlowEnabledV1,
+  brushTiltResponseCurveV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -85,6 +89,10 @@ import {
   updateBrushPresetPressureOpacityV1,
   updateBrushPresetPressureFlowV1,
   updateBrushPresetPressureResponseCurveV1,
+  updateBrushPresetTiltSizeV1,
+  updateBrushPresetTiltOpacityV1,
+  updateBrushPresetTiltFlowV1,
+  updateBrushPresetTiltResponseCurveV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -191,6 +199,15 @@ export function installBrushPresetControllerV1(input: {
   const pressureCurveOutput = requireElement('#brush-pressure-curve-output', HTMLInputElement);
   const pressureCurveDelete = requireElement('#brush-pressure-curve-delete', HTMLButtonElement);
   const pressureCurveReset = requireElement('#brush-pressure-curve-reset', HTMLButtonElement);
+  const tiltSizeButton = requireElement('#brush-tilt-size', HTMLButtonElement);
+  const tiltOpacityButton = requireElement('#brush-tilt-opacity', HTMLButtonElement);
+  const tiltFlowButton = requireElement('#brush-tilt-flow', HTMLButtonElement);
+  const tiltCurveCanvas = requireElement('#brush-tilt-curve', HTMLCanvasElement);
+  const tiltCurvePreset = requireElement('#brush-tilt-curve-preset', HTMLSelectElement);
+  const tiltCurveInput = requireElement('#brush-tilt-curve-input', HTMLInputElement);
+  const tiltCurveOutput = requireElement('#brush-tilt-curve-output', HTMLInputElement);
+  const tiltCurveDelete = requireElement('#brush-tilt-curve-delete', HTMLButtonElement);
+  const tiltCurveReset = requireElement('#brush-tilt-curve-reset', HTMLButtonElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -203,6 +220,7 @@ export function installBrushPresetControllerV1(input: {
   const tipAssetStatus = requireElement('#brush-tip-asset-status', HTMLOutputElement);
   let state = loadState(storage);
   let pressureCurveEditor: SharedCurveEditorV1 | null = null;
+  let tiltCurveEditor: SharedCurveEditorV1 | null = null;
   let idCounter = 0;
 
   const nextId = (): string => {
@@ -273,6 +291,14 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushPressureFlowEnabled(pressureFlowEnabled);
     const pressureResponseCurve = brushPressureResponseCurveV1(item.preset);
     input.paintSession.setBrushPressureResponseCurve(pressureResponseCurve);
+    const tiltSizeEnabled = brushTiltSizeEnabledV1(item.preset);
+    input.paintSession.setBrushTiltSizeEnabled(tiltSizeEnabled);
+    const tiltOpacityEnabled = brushTiltOpacityEnabledV1(item.preset);
+    input.paintSession.setBrushTiltOpacityEnabled(tiltOpacityEnabled);
+    const tiltFlowEnabled = brushTiltFlowEnabledV1(item.preset);
+    input.paintSession.setBrushTiltFlowEnabled(tiltFlowEnabled);
+    const tiltResponseCurve = brushTiltResponseCurveV1(item.preset);
+    input.paintSession.setBrushTiltResponseCurve(tiltResponseCurve);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -324,6 +350,10 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushPressureOpacity = String(pressureOpacityEnabled);
     input.root.dataset.illustroBrushPressureFlow = String(pressureFlowEnabled);
     input.root.dataset.illustroBrushPressureCurvePoints = String(pressureResponseCurve.length);
+    input.root.dataset.illustroBrushTiltSize = String(tiltSizeEnabled);
+    input.root.dataset.illustroBrushTiltOpacity = String(tiltOpacityEnabled);
+    input.root.dataset.illustroBrushTiltFlow = String(tiltFlowEnabled);
+    input.root.dataset.illustroBrushTiltCurvePoints = String(tiltResponseCurve.length);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -511,6 +541,17 @@ export function installBrushPresetControllerV1(input: {
     pressureFlowButton.setAttribute('aria-pressed', String(pressureFlowEnabled));
     const pressureResponseCurve = brushPressureResponseCurveV1(selected.preset);
     pressureCurveEditor?.setCurve(pressureResponseCurve);
+    const tiltSizeEnabled = brushTiltSizeEnabledV1(selected.preset);
+    tiltSizeButton.textContent = tiltSizeEnabled ? 'ON' : 'OFF';
+    tiltSizeButton.setAttribute('aria-pressed', String(tiltSizeEnabled));
+    const tiltOpacityEnabled = brushTiltOpacityEnabledV1(selected.preset);
+    tiltOpacityButton.textContent = tiltOpacityEnabled ? 'ON' : 'OFF';
+    tiltOpacityButton.setAttribute('aria-pressed', String(tiltOpacityEnabled));
+    const tiltFlowEnabled = brushTiltFlowEnabledV1(selected.preset);
+    tiltFlowButton.textContent = tiltFlowEnabled ? 'ON' : 'OFF';
+    tiltFlowButton.setAttribute('aria-pressed', String(tiltFlowEnabled));
+    const tiltResponseCurve = brushTiltResponseCurveV1(selected.preset);
+    tiltCurveEditor?.setCurve(tiltResponseCurve);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -577,7 +618,11 @@ export function installBrushPresetControllerV1(input: {
     const pressureOpacityLabel = pressureOpacityEnabled ? ' · P→Opacity' : '';
     const pressureFlowLabel = pressureFlowEnabled ? ' · P→Flow' : '';
     const pressureCurveLabel = responseCurveIsLinearV1(pressureResponseCurve) ? '' : ' · P-Curve';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}`;
+    const tiltSizeLabel = tiltSizeEnabled ? ' · T→Size' : '';
+    const tiltOpacityLabel = tiltOpacityEnabled ? ' · T→Opacity' : '';
+    const tiltFlowLabel = tiltFlowEnabled ? ' · T→Flow' : '';
+    const tiltCurveLabel = responseCurveIsLinearV1(tiltResponseCurve) ? '' : ' · T-Curve';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -625,6 +670,9 @@ export function installBrushPresetControllerV1(input: {
       pressureSizeButton,
       pressureOpacityButton,
       pressureFlowButton,
+      tiltSizeButton,
+      tiltOpacityButton,
+      tiltFlowButton,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -632,6 +680,7 @@ export function installBrushPresetControllerV1(input: {
       control.disabled = locked;
     }
     pressureCurveEditor?.setDisabled(locked);
+    tiltCurveEditor?.setDisabled(locked);
     tipAssetSelect.disabled = locked || tipAssets.length === 0;
     tipAssetAdd.disabled = locked || tipAssets.length >= BRUSH_TIP_ASSET_LIMIT_V1;
     tipAssetDelete.disabled = locked || tipAssets.length <= 1;
@@ -670,6 +719,20 @@ export function installBrushPresetControllerV1(input: {
     initialCurve: brushPressureResponseCurveV1(selectedBrushPresetItemV1(state).preset),
     onChange: (curve) =>
       mutate(() => updateBrushPresetPressureResponseCurveV1(state, state.selectedPresetId, curve)),
+  });
+
+  tiltCurveEditor = installSharedCurveEditorV1({
+    elements: {
+      canvas: tiltCurveCanvas,
+      preset: tiltCurvePreset,
+      inputNumber: tiltCurveInput,
+      outputNumber: tiltCurveOutput,
+      deleteButton: tiltCurveDelete,
+      resetButton: tiltCurveReset,
+    },
+    initialCurve: brushTiltResponseCurveV1(selectedBrushPresetItemV1(state).preset),
+    onChange: (curve) =>
+      mutate(() => updateBrushPresetTiltResponseCurveV1(state, state.selectedPresetId, curve)),
   });
 
   const onSearch = (): void => {
@@ -845,6 +908,30 @@ export function installBrushPresetControllerV1(input: {
         !brushPressureFlowEnabledV1(selectedBrushPresetItemV1(state).preset),
       ),
     );
+  const onTiltSize = (): void =>
+    mutate(() =>
+      updateBrushPresetTiltSizeV1(
+        state,
+        state.selectedPresetId,
+        !brushTiltSizeEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
+  const onTiltOpacity = (): void =>
+    mutate(() =>
+      updateBrushPresetTiltOpacityV1(
+        state,
+        state.selectedPresetId,
+        !brushTiltOpacityEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
+  const onTiltFlow = (): void =>
+    mutate(() =>
+      updateBrushPresetTiltFlowV1(
+        state,
+        state.selectedPresetId,
+        !brushTiltFlowEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -959,6 +1046,9 @@ export function installBrushPresetControllerV1(input: {
   pressureSizeButton.addEventListener('click', onPressureSize);
   pressureOpacityButton.addEventListener('click', onPressureOpacity);
   pressureFlowButton.addEventListener('click', onPressureFlow);
+  tiltSizeButton.addEventListener('click', onTiltSize);
+  tiltOpacityButton.addEventListener('click', onTiltOpacity);
+  tiltFlowButton.addEventListener('click', onTiltFlow);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -1026,8 +1116,13 @@ export function installBrushPresetControllerV1(input: {
       pressureSizeButton.removeEventListener('click', onPressureSize);
       pressureOpacityButton.removeEventListener('click', onPressureOpacity);
       pressureFlowButton.removeEventListener('click', onPressureFlow);
+      tiltSizeButton.removeEventListener('click', onTiltSize);
+      tiltOpacityButton.removeEventListener('click', onTiltOpacity);
+      tiltFlowButton.removeEventListener('click', onTiltFlow);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
+      tiltCurveEditor?.dispose();
+      tiltCurveEditor = null;
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
