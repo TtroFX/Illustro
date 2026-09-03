@@ -285,7 +285,7 @@
                 <button id="brush-pressure-flow" type="button" aria-pressed="false" title="ペン筆圧をブラシ流量へ反映">OFF</button>
                 <span class="shell-brush-tip-kind">Pressure</span>
               </div>
-              <div class="shell-brush-pressure-curve-editor" aria-label="筆圧レスポンスカーブ">
+              <fieldset class="shell-brush-pressure-curve-editor" aria-label="筆圧レスポンスカーブ">
                 <div class="shell-brush-pressure-curve-header">
                   <label for="brush-pressure-curve-preset">筆圧カーブ</label>
                   <select id="brush-pressure-curve-preset" aria-label="筆圧カーブプリセット">
@@ -303,7 +303,7 @@
                   <button id="brush-pressure-curve-delete" type="button">点を削除</button>
                   <button id="brush-pressure-curve-reset" type="button">Reset</button>
                 </div>
-              </div>
+              </fieldset>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tilt-size">傾き→サイズ</label>
                 <button id="brush-tilt-size" type="button" aria-pressed="false" title="ペンの傾き（直立度）をブラシサイズへ反映">OFF</button>
@@ -319,7 +319,7 @@
                 <button id="brush-tilt-flow" type="button" aria-pressed="false" title="ペンの傾き（直立度）をブラシ流量へ反映">OFF</button>
                 <span class="shell-brush-tip-kind">Tilt</span>
               </div>
-              <div class="shell-brush-pressure-curve-editor shell-brush-tilt-curve-editor" aria-label="傾きレスポンスカーブ">
+              <fieldset class="shell-brush-pressure-curve-editor shell-brush-tilt-curve-editor" aria-label="傾きレスポンスカーブ">
                 <div class="shell-brush-pressure-curve-header">
                   <label for="brush-tilt-curve-preset">傾きカーブ</label>
                   <select id="brush-tilt-curve-preset" aria-label="傾きカーブプリセット">
@@ -337,7 +337,7 @@
                   <button id="brush-tilt-curve-delete" type="button">点を削除</button>
                   <button id="brush-tilt-curve-reset" type="button">Reset</button>
                 </div>
-              </div>
+              </fieldset>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-velocity-size">速度→サイズ</label>
                 <button id="brush-velocity-size" type="button" aria-pressed="false" title="描画速度をブラシサイズへ反映">OFF</button>
@@ -358,7 +358,7 @@
                 <input id="brush-velocity-maximum-range" type="range" min="100" max="20000" step="100" value="2000" />
                 <span class="shell-brush-property-number"><input id="brush-velocity-maximum-number" type="number" inputmode="numeric" min="100" max="20000" step="100" value="2000" aria-label="速度レスポンス100パーセント基準" /><span>px/s</span></span>
               </div>
-              <div class="shell-brush-pressure-curve-editor shell-brush-velocity-curve-editor" aria-label="速度レスポンスカーブ">
+              <fieldset class="shell-brush-pressure-curve-editor shell-brush-velocity-curve-editor" aria-label="速度レスポンスカーブ">
                 <div class="shell-brush-pressure-curve-header">
                   <label for="brush-velocity-curve-preset">速度カーブ</label>
                   <select id="brush-velocity-curve-preset" aria-label="速度カーブプリセット">
@@ -376,7 +376,7 @@
                   <button id="brush-velocity-curve-delete" type="button">点を削除</button>
                   <button id="brush-velocity-curve-reset" type="button">Reset</button>
                 </div>
-              </div>
+              </fieldset>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-random-size">ランダム→サイズ</label>
                 <button id="brush-random-size" type="button" aria-pressed="false" title="ストロークseed由来のランダム値をブラシサイズへ反映">OFF</button>
@@ -392,7 +392,7 @@
                 <button id="brush-random-flow" type="button" aria-pressed="false" title="ストロークseed由来のランダム値を流量へ反映">OFF</button>
                 <span class="shell-brush-tip-kind">Random</span>
               </div>
-              <div class="shell-brush-pressure-curve-editor shell-brush-random-curve-editor" aria-label="ランダムレスポンスカーブ">
+              <fieldset class="shell-brush-pressure-curve-editor shell-brush-random-curve-editor" aria-label="ランダムレスポンスカーブ">
                 <div class="shell-brush-pressure-curve-header">
                   <label for="brush-random-curve-preset">ランダムカーブ</label>
                   <select id="brush-random-curve-preset" aria-label="ランダムカーブプリセット">
@@ -410,7 +410,7 @@
                   <button id="brush-random-curve-delete" type="button">点を削除</button>
                   <button id="brush-random-curve-reset" type="button">Reset</button>
                 </div>
-              </div>
+              </fieldset>
               <div class="shell-brush-property-row">
                 <label for="brush-size-minimum-response-range">動的サイズ下限</label>
                 <input id="brush-size-minimum-response-range" type="range" min="0" max="100" step="1" value="0" />
