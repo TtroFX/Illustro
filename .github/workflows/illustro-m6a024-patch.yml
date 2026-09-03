@@ -23,6 +23,43 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Fix M6A-024 signature matching
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/illustro-m6a024-core.py')
+          source = path.read_text(encoding='utf-8')
+          old = '''replace_once(
+              'src/gpu/baseline-brush.ts',
+              """  hardness: number,
+            tipDensity: number,
+            color: BaselineBrushColorV1,
+          """,
+              """  hardness: number,
+            tipDensity: number,
+            tipAngleDegrees: number,
+            color: BaselineBrushColorV1,
+          """,
+          )'''
+          new = '''replace_once(
+              'src/gpu/baseline-brush.ts',
+              """  hardness: number,
+            tipDensity: number,
+            color: BaselineBrushColorV1,
+            tipShape: Exclude<BaselineBrushTipShapeV1, 'sampled-image'>,
+          """,
+              """  hardness: number,
+            tipDensity: number,
+            tipAngleDegrees: number,
+            color: BaselineBrushColorV1,
+            tipShape: Exclude<BaselineBrushTipShapeV1, 'sampled-image'>,
+          """,
+          )'''
+          if source.count(old) != 1:
+              raise RuntimeError('M6A-024 freezeDab signature patch block did not match exactly once')
+          path.write_text(source.replace(old, new, 1), encoding='utf-8')
+          PY
       - name: Apply M6A-024 core patch
         run: python .github/illustro-m6a024-core.py
       - name: Apply M6A-024 app tests and docs patch
