@@ -12,6 +12,7 @@ import {
   brushTipSelectionModeV1,
   brushStrokeStartLengthPxV1,
   brushStrokeEndLengthPxV1,
+  brushSizeTaperMinimumRatioV1,
   brushStrokeSpacingV1,
   brushTipAssetsV1,
   brushTipShapeV1,
@@ -50,6 +51,7 @@ import {
   updateBrushPresetTipSelectionModeV1,
   updateBrushPresetStartLengthV1,
   updateBrushPresetEndLengthV1,
+  updateBrushPresetSizeTaperV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -128,6 +130,8 @@ export function installBrushPresetControllerV1(input: {
   const startLengthNumber = requireElement('#brush-start-length-number', HTMLInputElement);
   const endLengthRange = requireElement('#brush-end-length-range', HTMLInputElement);
   const endLengthNumber = requireElement('#brush-end-length-number', HTMLInputElement);
+  const sizeTaperRange = requireElement('#brush-size-taper-range', HTMLInputElement);
+  const sizeTaperNumber = requireElement('#brush-size-taper-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -176,6 +180,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushStartTaperLengthPx(startLengthPx);
     const endLengthPx = brushStrokeEndLengthPxV1(item.preset);
     input.paintSession.setBrushEndTaperLengthPx(endLengthPx);
+    const sizeTaperMinimumRatio = brushSizeTaperMinimumRatioV1(item.preset);
+    input.paintSession.setBrushSizeTaperMinimumRatio(sizeTaperMinimumRatio);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -211,6 +217,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushTipSelectionMode = brushTipSelectionModeV1(item.preset);
     input.root.dataset.illustroBrushStartLengthPx = String(startLengthPx);
     input.root.dataset.illustroBrushEndLengthPx = String(endLengthPx);
+    input.root.dataset.illustroBrushSizeTaperMinimumRatio = String(sizeTaperMinimumRatio);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -322,6 +329,8 @@ export function installBrushPresetControllerV1(input: {
     configurePair(startLengthRange, startLengthNumber, 0, 4096, 1, startLengthPx);
     const endLengthPx = brushStrokeEndLengthPxV1(selected.preset);
     configurePair(endLengthRange, endLengthNumber, 0, 4096, 1, endLengthPx);
+    const sizeTaperMinimumRatio = brushSizeTaperMinimumRatioV1(selected.preset);
+    configurePair(sizeTaperRange, sizeTaperNumber, 0, 100, 1, sizeTaperMinimumRatio * 100);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -360,7 +369,9 @@ export function installBrushPresetControllerV1(input: {
           : '';
     const startLabel = startLengthPx > 0 ? ` · In${Math.round(startLengthPx)}px` : '';
     const endLabel = endLengthPx > 0 ? ` · Out${Math.round(endLengthPx)}px` : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}`;
+    const sizeTaperLabel =
+      sizeTaperMinimumRatio > 0 ? ` · SizeMin${Math.round(sizeTaperMinimumRatio * 100)}%` : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -386,6 +397,8 @@ export function installBrushPresetControllerV1(input: {
       startLengthNumber,
       endLengthRange,
       endLengthNumber,
+      sizeTaperRange,
+      sizeTaperNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -491,6 +504,10 @@ export function installBrushPresetControllerV1(input: {
     mutate(() => updateBrushPresetEndLengthV1(state, state.selectedPresetId, lengthPx));
   const onEndLengthRange = (): void => updateEndLength(Number(endLengthRange.value));
   const onEndLengthNumber = (): void => updateEndLength(Number(endLengthNumber.value));
+  const updateSizeTaper = (percent: number): void =>
+    mutate(() => updateBrushPresetSizeTaperV1(state, state.selectedPresetId, percent / 100));
+  const onSizeTaperRange = (): void => updateSizeTaper(Number(sizeTaperRange.value));
+  const onSizeTaperNumber = (): void => updateSizeTaper(Number(sizeTaperNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -583,6 +600,8 @@ export function installBrushPresetControllerV1(input: {
   startLengthNumber.addEventListener('change', onStartLengthNumber);
   endLengthRange.addEventListener('input', onEndLengthRange);
   endLengthNumber.addEventListener('change', onEndLengthNumber);
+  sizeTaperRange.addEventListener('input', onSizeTaperRange);
+  sizeTaperNumber.addEventListener('change', onSizeTaperNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -628,6 +647,8 @@ export function installBrushPresetControllerV1(input: {
       startLengthNumber.removeEventListener('change', onStartLengthNumber);
       endLengthRange.removeEventListener('input', onEndLengthRange);
       endLengthNumber.removeEventListener('change', onEndLengthNumber);
+      sizeTaperRange.removeEventListener('input', onSizeTaperRange);
+      sizeTaperNumber.removeEventListener('change', onSizeTaperNumber);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);

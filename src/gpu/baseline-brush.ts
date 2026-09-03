@@ -12,6 +12,7 @@ export const BASELINE_BRUSH_SPACING_RATIO = 0.25 as const;
 export const BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX = 1 as const;
 export const BASELINE_BRUSH_START_TAPER_LENGTH_PX = 0 as const;
 export const BASELINE_BRUSH_END_TAPER_LENGTH_PX = 0 as const;
+export const BASELINE_BRUSH_SIZE_TAPER_MINIMUM_RATIO = 0 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
 export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
@@ -284,6 +285,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #spacing: number;
   readonly #startTaperLengthPx: number;
   readonly #endTaperLengthPx: number;
+  readonly #sizeTaperMinimumRatio: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -315,6 +317,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly minimumStampDistancePx?: number;
       readonly startTaperLengthPx?: number;
       readonly endTaperLengthPx?: number;
+      readonly sizeTaperMinimumRatio?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -340,6 +343,8 @@ export class BaselineBrushDabBuilderV1 {
       options.minimumStampDistancePx ?? BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
     const startTaperLengthPx = options.startTaperLengthPx ?? BASELINE_BRUSH_START_TAPER_LENGTH_PX;
     const endTaperLengthPx = options.endTaperLengthPx ?? BASELINE_BRUSH_END_TAPER_LENGTH_PX;
+    const sizeTaperMinimumRatio =
+      options.sizeTaperMinimumRatio ?? BASELINE_BRUSH_SIZE_TAPER_MINIMUM_RATIO;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -381,6 +386,13 @@ export class BaselineBrushDabBuilderV1 {
     if (!Number.isFinite(endTaperLengthPx) || endTaperLengthPx < 0 || endTaperLengthPx > 4096) {
       throw new RangeError('baseline brush end taper length must be within 0..4096 px');
     }
+    if (
+      !Number.isFinite(sizeTaperMinimumRatio) ||
+      sizeTaperMinimumRatio < 0 ||
+      sizeTaperMinimumRatio > 1
+    ) {
+      throw new RangeError('baseline brush size taper minimum ratio must be within 0..1');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -391,6 +403,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#spacing = Math.max(minimumStampDistancePx, sizePx * spacingRatio);
     this.#startTaperLengthPx = startTaperLengthPx;
     this.#endTaperLengthPx = endTaperLengthPx;
+    this.#sizeTaperMinimumRatio = sizeTaperMinimumRatio;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -563,17 +576,22 @@ export class BaselineBrushDabBuilderV1 {
     return Math.max(0, Math.min(1, (totalDistancePx - pathDistancePx) / this.#endTaperLengthPx));
   }
 
+  #sizeTaperScale(envelope: number): number {
+    return this.#sizeTaperMinimumRatio + (1 - this.#sizeTaperMinimumRatio) * envelope;
+  }
+
   #emitLogicalStamp(
     target: BaselineBrushDabV1[],
     stamp: Pick<BaselineLogicalStampRecordV1, 'x' | 'y' | 'tipAngleDegrees' | 'sampledTipAlpha'>,
     envelope: number,
   ): void {
     if (envelope <= 0) return;
+    const sizeScale = this.#sizeTaperScale(envelope);
     pushBaselineBrushStampV1(
       target,
       stamp.x,
       stamp.y,
-      this.#radius * envelope,
+      this.#radius * sizeScale,
       this.#flow * envelope,
       this.#strokeOpacity,
       this.#hardness,

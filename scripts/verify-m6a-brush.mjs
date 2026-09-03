@@ -552,6 +552,33 @@ requireText(
   'stroke-end regression coverage missing',
 );
 
+requireText(progress, 'M6A-030 size taper:完了', 'M6A-030 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSizeTaperMinimumRatioV1',
+  'size-taper preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  '#sizeTaperScale',
+  'size-taper minimum is not composed with the common stroke envelope',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSizeTaperMinimumRatio',
+  'size taper is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-size-taper-range"',
+  'reachable size-taper control missing',
+);
+requireText(
+  read('tests/unit/brush-size-taper.test.ts'),
+  'keeps opacity taper independent from the size minimum',
+  'size-taper regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

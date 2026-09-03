@@ -5668,3 +5668,13 @@ Verification must cover at minimum:
 - The current baseline Raster Tile transaction cannot replace only a previously rasterized active tail. Therefore, only when release-time final dabs no longer extend the provisional prefix, the renderer performs one release reconciliation: rollback the provisional stroke transaction, apply the resolved final dab list, then finalize normally. This is never performed per input sample.
 - That release reconciliation is a correctness bridge, not the performance-complete endpoint. M6A-PERF-001/002 remain explicitly incomplete and own tail-only raster/tile reconciliation so long end tapers do not require a one-time whole-stroke reapply at release.
 - A release reconciliation reports the union of provisional and final affected tiles as dirty so pixels touched only by the larger provisional tail are cleared on Main WebGPU, Render Worker and compatibility presentation paths.
+
+#### M6A size-taper boundary — 2026-09-03
+
+- M6A-030 reuses the M6A-028/M6A-029 start/end distance envelopes instead of introducing a second distance tracker. Size taper amount is stored separately as `stroke.sizeTaperMinimumRatio` in the inclusive range `0..1`.
+- The resolved logical-stamp size scale is `minimumRatio + (1 - minimumRatio) * envelope`. `0` preserves the current zero-minimum taper behavior; `1` disables size shrink while leaving the shared deposit envelope active.
+- M6A-030 changes only logical radius. Per-dab flow/deposit continues to use the raw common envelope and the whole-stroke opacity cap remains constant. M6A-031 owns the independent opacity/deposit minimum semantics.
+- Sampled/custom tips inherit size taper before micro-dab expansion, so both micro-dab radius and mask offsets scale from the same resolved logical radius without a new renderer path.
+- Persistence/history/Worker continue to store only resolved primitive dabs; no new dab field is introduced for size taper. The preset retains the editable semantic parameter.
+- The endpoint remains omitted while the current deposit envelope is zero even if the minimum size ratio is nonzero, because it is invisible until M6A-031 defines any nonzero opacity/deposit minimum.
+- M6A-029 stable-prefix and bounded-mutable-tail rules are unchanged. Size taper must not cause stable-prefix regeneration or per-input whole-stroke replay.
