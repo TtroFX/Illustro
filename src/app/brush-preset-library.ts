@@ -45,6 +45,9 @@ import {
   withBrushSizeMinimumResponseV1,
   withBrushOpacityMinimumResponseV1,
   withBrushFlowMinimumResponseV1,
+  withBrushSizeMaximumResponseV1,
+  withBrushOpacityMaximumResponseV1,
+  withBrushFlowMaximumResponseV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -1151,6 +1154,63 @@ export function updateBrushPresetFlowMinimumResponseV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushFlowMinimumResponseV1(item.preset, minimumResponse);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetSizeMaximumResponseV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  maximumResponse: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushSizeMaximumResponseV1(item.preset, maximumResponse);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetOpacityMaximumResponseV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  maximumResponse: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushOpacityMaximumResponseV1(item.preset, maximumResponse);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetFlowMaximumResponseV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  maximumResponse: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushFlowMaximumResponseV1(item.preset, maximumResponse);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

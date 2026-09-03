@@ -442,6 +442,9 @@ export class BaselineBrushDabBuilderV1 {
   readonly #sizeMinimumResponse: number;
   readonly #opacityMinimumResponse: number;
   readonly #flowMinimumResponse: number;
+  readonly #sizeMaximumResponse: number;
+  readonly #opacityMaximumResponse: number;
+  readonly #flowMaximumResponse: number;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -506,6 +509,9 @@ export class BaselineBrushDabBuilderV1 {
       readonly sizeMinimumResponse?: number;
       readonly opacityMinimumResponse?: number;
       readonly flowMinimumResponse?: number;
+      readonly sizeMaximumResponse?: number;
+      readonly opacityMaximumResponse?: number;
+      readonly flowMaximumResponse?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -554,6 +560,9 @@ export class BaselineBrushDabBuilderV1 {
     const sizeMinimumResponse = options.sizeMinimumResponse ?? 0;
     const opacityMinimumResponse = options.opacityMinimumResponse ?? 0;
     const flowMinimumResponse = options.flowMinimumResponse ?? 0;
+    const sizeMaximumResponse = options.sizeMaximumResponse ?? 1;
+    const opacityMaximumResponse = options.opacityMaximumResponse ?? 1;
+    const flowMaximumResponse = options.flowMaximumResponse ?? 1;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -660,6 +669,26 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new RangeError('baseline brush minimum responses must be within 0..1');
     }
+    if (
+      !Number.isFinite(sizeMaximumResponse) ||
+      sizeMaximumResponse < 0 ||
+      sizeMaximumResponse > 1 ||
+      !Number.isFinite(opacityMaximumResponse) ||
+      opacityMaximumResponse < 0 ||
+      opacityMaximumResponse > 1 ||
+      !Number.isFinite(flowMaximumResponse) ||
+      flowMaximumResponse < 0 ||
+      flowMaximumResponse > 1
+    ) {
+      throw new RangeError('baseline brush maximum responses must be within 0..1');
+    }
+    if (
+      sizeMinimumResponse > sizeMaximumResponse ||
+      opacityMinimumResponse > opacityMaximumResponse ||
+      flowMinimumResponse > flowMaximumResponse
+    ) {
+      throw new RangeError('baseline brush minimum response cannot exceed maximum response');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -716,6 +745,9 @@ export class BaselineBrushDabBuilderV1 {
     this.#sizeMinimumResponse = sizeMinimumResponse;
     this.#opacityMinimumResponse = opacityMinimumResponse;
     this.#flowMinimumResponse = flowMinimumResponse;
+    this.#sizeMaximumResponse = sizeMaximumResponse;
+    this.#opacityMaximumResponse = opacityMaximumResponse;
+    this.#flowMaximumResponse = flowMaximumResponse;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -988,18 +1020,48 @@ export class BaselineBrushDabBuilderV1 {
     const randomSizeScale = this.#randomSizeEnabled ? randomResponse : 1;
     const randomOpacityScale = this.#randomOpacityEnabled ? randomResponse : 1;
     const randomFlowScale = this.#randomFlowEnabled ? randomResponse : 1;
-    const sizeResponse = Math.max(
-      this.#sizeMinimumResponse,
-      pressureSizeScale * tiltSizeScale * velocitySizeScale * randomSizeScale,
-    );
-    const opacityResponse = Math.max(
-      this.#opacityMinimumResponse,
-      pressureOpacityScale * tiltOpacityScale * velocityOpacityScale * randomOpacityScale,
-    );
-    const flowResponse = Math.max(
-      this.#flowMinimumResponse,
-      pressureFlowScale * tiltFlowScale * velocityFlowScale * randomFlowScale,
-    );
+    const usesSizeDynamics =
+      this.#pressureSizeEnabled ||
+      this.#tiltSizeEnabled ||
+      this.#velocitySizeEnabled ||
+      this.#randomSizeEnabled;
+    const usesOpacityDynamics =
+      this.#pressureOpacityEnabled ||
+      this.#tiltOpacityEnabled ||
+      this.#velocityOpacityEnabled ||
+      this.#randomOpacityEnabled;
+    const usesFlowDynamics =
+      this.#pressureFlowEnabled ||
+      this.#tiltFlowEnabled ||
+      this.#velocityFlowEnabled ||
+      this.#randomFlowEnabled;
+    const sizeResponse = usesSizeDynamics
+      ? Math.max(
+          this.#sizeMinimumResponse,
+          Math.min(
+            this.#sizeMaximumResponse,
+            pressureSizeScale * tiltSizeScale * velocitySizeScale * randomSizeScale,
+          ),
+        )
+      : 1;
+    const opacityResponse = usesOpacityDynamics
+      ? Math.max(
+          this.#opacityMinimumResponse,
+          Math.min(
+            this.#opacityMaximumResponse,
+            pressureOpacityScale * tiltOpacityScale * velocityOpacityScale * randomOpacityScale,
+          ),
+        )
+      : 1;
+    const flowResponse = usesFlowDynamics
+      ? Math.max(
+          this.#flowMinimumResponse,
+          Math.min(
+            this.#flowMaximumResponse,
+            pressureFlowScale * tiltFlowScale * velocityFlowScale * randomFlowScale,
+          ),
+        )
+      : 1;
     if (
       sizeScale <= 0 ||
       opacityScale <= 0 ||

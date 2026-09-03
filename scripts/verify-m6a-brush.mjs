@@ -1161,17 +1161,17 @@ requireText(
 );
 requireText(
   read('src/gpu/baseline-brush.ts'),
-  'const sizeResponse = Math.max(',
+  'this.#sizeMinimumResponse,',
   'size minimum response is not applied after source composition',
 );
 requireText(
   read('src/gpu/baseline-brush.ts'),
-  'const opacityResponse = Math.max(',
+  'this.#opacityMinimumResponse,',
   'opacity minimum response is not applied after source composition',
 );
 requireText(
   read('src/gpu/baseline-brush.ts'),
-  'const flowResponse = Math.max(',
+  'this.#flowMinimumResponse,',
   'flow minimum response is not applied after source composition',
 );
 requireText(
@@ -1193,6 +1193,43 @@ requireText(
   read('tests/unit/brush-minimum-response.test.ts'),
   'applies the minimum after multiplying independent enabled sources',
   'minimum-response source-composition regression missing',
+);
+
+requireText(progress, 'M6A-050 maximum response:完了', 'M6A-050 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSizeMaximumResponseV1',
+  'maximum-response preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#sizeMaximumResponse',
+  'size maximum response is not connected to the brush kernel',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'const usesSizeDynamics =',
+  'maximum response does not preserve neutral static targets',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushDynamicResponseBounds',
+  'response bounds are not atomically connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-size-maximum-response-range"',
+  'reachable maximum-response control missing',
+);
+requireText(
+  read('tests/unit/brush-maximum-response.test.ts'),
+  'keeps static targets neutral when no dynamic source is enabled',
+  'maximum-response neutral-target regression missing',
+);
+requireText(
+  read('tests/unit/brush-maximum-response.test.ts'),
+  'enforces minimum less than or equal to maximum in preset helpers',
+  'minimum/maximum bound-order regression missing',
 );
 
 requireText(

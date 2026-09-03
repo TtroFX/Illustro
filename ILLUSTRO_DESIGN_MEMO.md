@@ -5845,3 +5845,13 @@ Verification must cover at minimum:
 - Start/end taper remains outside the dynamic clamp. In particular, forced taper zero endpoints stay zero and cannot be revived by minimum response.
 - Primitive dabs continue to store only resolved radius, stroke opacity, and flow; no minimum-response field is added to Worker/history payloads.
 - M6A-050 owns the complementary target-level maximum-response clamp and remains separate from this stage.
+
+
+### M6A dynamic maximum-response clamp boundary — 2026-09-03
+
+- `DynamicMappingV1.clamp.max` complements the M6A-049 target-level minimum with normalized `sizeMaximumResponse`, `opacityMaximumResponse`, and `flowMaximumResponse`; all default to `1`.
+- For a target with one or more enabled dynamic sources, source responses compose first using the current multiply semantics, then the result is clamped to the target's `[minimum, maximum]` interval.
+- A target with no enabled dynamic source remains neutral at response `1`; reducing its maximum does not silently reduce the static brush base value.
+- Preset and runtime APIs enforce `0 <= minimum <= maximum <= 1`. Preset switching captures the three target bound pairs atomically so transient invalid bounds are impossible.
+- Start/end taper remains outside the dynamics clamp and therefore retains authority over forced zero endpoints.
+- Primitive dabs continue to carry only resolved radius, stroke opacity, and flow. No response-bound fields are added to renderer, Worker, or history payloads.

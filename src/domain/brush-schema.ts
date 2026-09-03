@@ -1154,6 +1154,9 @@ export function withBrushSizeMinimumResponseV1(
   minimumResponse: number,
 ): BrushPresetV1 {
   const normalized = requireBrushMinimumResponseV1(minimumResponse, 'size');
+  if (normalized > brushSizeMaximumResponseV1(preset)) {
+    throw new RangeError('brush size minimum response cannot exceed maximum response');
+  }
   if (normalized === DEFAULT_BRUSH_SIZE_MINIMUM_RESPONSE_V1) {
     const { sizeMinimumResponse: _sizeMinimumResponse, ...dynamics } = preset.dynamics;
     return normalizeBrushPresetV1({ ...preset, dynamics });
@@ -1173,6 +1176,9 @@ export function withBrushOpacityMinimumResponseV1(
   minimumResponse: number,
 ): BrushPresetV1 {
   const normalized = requireBrushMinimumResponseV1(minimumResponse, 'opacity');
+  if (normalized > brushOpacityMaximumResponseV1(preset)) {
+    throw new RangeError('brush opacity minimum response cannot exceed maximum response');
+  }
   if (normalized === DEFAULT_BRUSH_OPACITY_MINIMUM_RESPONSE_V1) {
     const { opacityMinimumResponse: _opacityMinimumResponse, ...dynamics } = preset.dynamics;
     return normalizeBrushPresetV1({ ...preset, dynamics });
@@ -1192,6 +1198,9 @@ export function withBrushFlowMinimumResponseV1(
   minimumResponse: number,
 ): BrushPresetV1 {
   const normalized = requireBrushMinimumResponseV1(minimumResponse, 'flow');
+  if (normalized > brushFlowMaximumResponseV1(preset)) {
+    throw new RangeError('brush flow minimum response cannot exceed maximum response');
+  }
   if (normalized === DEFAULT_BRUSH_FLOW_MINIMUM_RESPONSE_V1) {
     const { flowMinimumResponse: _flowMinimumResponse, ...dynamics } = preset.dynamics;
     return normalizeBrushPresetV1({ ...preset, dynamics });
@@ -1199,6 +1208,89 @@ export function withBrushFlowMinimumResponseV1(
   return normalizeBrushPresetV1({
     ...preset,
     dynamics: { ...preset.dynamics, flowMinimumResponse: normalized },
+  });
+}
+
+export const DEFAULT_BRUSH_SIZE_MAXIMUM_RESPONSE_V1 = 1 as const;
+export const DEFAULT_BRUSH_OPACITY_MAXIMUM_RESPONSE_V1 = 1 as const;
+export const DEFAULT_BRUSH_FLOW_MAXIMUM_RESPONSE_V1 = 1 as const;
+
+function brushMaximumResponseValueV1(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : 1;
+}
+
+function requireBrushMaximumResponseV1(value: number, label: string): number {
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new RangeError(`brush ${label} maximum response must be within 0..1`);
+  }
+  return value;
+}
+
+export function brushSizeMaximumResponseV1(preset: BrushPresetV1): number {
+  return brushMaximumResponseValueV1(preset.dynamics.sizeMaximumResponse);
+}
+
+export function withBrushSizeMaximumResponseV1(
+  preset: BrushPresetV1,
+  maximumResponse: number,
+): BrushPresetV1 {
+  const normalized = requireBrushMaximumResponseV1(maximumResponse, 'size');
+  if (normalized < brushSizeMinimumResponseV1(preset)) {
+    throw new RangeError('brush size maximum response cannot be below minimum response');
+  }
+  if (normalized === DEFAULT_BRUSH_SIZE_MAXIMUM_RESPONSE_V1) {
+    const { sizeMaximumResponse: _sizeMaximumResponse, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, sizeMaximumResponse: normalized },
+  });
+}
+
+export function brushOpacityMaximumResponseV1(preset: BrushPresetV1): number {
+  return brushMaximumResponseValueV1(preset.dynamics.opacityMaximumResponse);
+}
+
+export function withBrushOpacityMaximumResponseV1(
+  preset: BrushPresetV1,
+  maximumResponse: number,
+): BrushPresetV1 {
+  const normalized = requireBrushMaximumResponseV1(maximumResponse, 'opacity');
+  if (normalized < brushOpacityMinimumResponseV1(preset)) {
+    throw new RangeError('brush opacity maximum response cannot be below minimum response');
+  }
+  if (normalized === DEFAULT_BRUSH_OPACITY_MAXIMUM_RESPONSE_V1) {
+    const { opacityMaximumResponse: _opacityMaximumResponse, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, opacityMaximumResponse: normalized },
+  });
+}
+
+export function brushFlowMaximumResponseV1(preset: BrushPresetV1): number {
+  return brushMaximumResponseValueV1(preset.dynamics.flowMaximumResponse);
+}
+
+export function withBrushFlowMaximumResponseV1(
+  preset: BrushPresetV1,
+  maximumResponse: number,
+): BrushPresetV1 {
+  const normalized = requireBrushMaximumResponseV1(maximumResponse, 'flow');
+  if (normalized < brushFlowMinimumResponseV1(preset)) {
+    throw new RangeError('brush flow maximum response cannot be below minimum response');
+  }
+  if (normalized === DEFAULT_BRUSH_FLOW_MAXIMUM_RESPONSE_V1) {
+    const { flowMaximumResponse: _flowMaximumResponse, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, flowMaximumResponse: normalized },
   });
 }
 

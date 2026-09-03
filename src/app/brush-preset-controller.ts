@@ -44,6 +44,9 @@ import {
   brushSizeMinimumResponseV1,
   brushOpacityMinimumResponseV1,
   brushFlowMinimumResponseV1,
+  brushSizeMaximumResponseV1,
+  brushOpacityMaximumResponseV1,
+  brushFlowMaximumResponseV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -118,6 +121,9 @@ import {
   updateBrushPresetSizeMinimumResponseV1,
   updateBrushPresetOpacityMinimumResponseV1,
   updateBrushPresetFlowMinimumResponseV1,
+  updateBrushPresetSizeMaximumResponseV1,
+  updateBrushPresetOpacityMaximumResponseV1,
+  updateBrushPresetFlowMaximumResponseV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -278,6 +284,30 @@ export function installBrushPresetControllerV1(input: {
     '#brush-flow-minimum-response-number',
     HTMLInputElement,
   );
+  const sizeMaximumResponseRange = requireElement(
+    '#brush-size-maximum-response-range',
+    HTMLInputElement,
+  );
+  const sizeMaximumResponseNumber = requireElement(
+    '#brush-size-maximum-response-number',
+    HTMLInputElement,
+  );
+  const opacityMaximumResponseRange = requireElement(
+    '#brush-opacity-maximum-response-range',
+    HTMLInputElement,
+  );
+  const opacityMaximumResponseNumber = requireElement(
+    '#brush-opacity-maximum-response-number',
+    HTMLInputElement,
+  );
+  const flowMaximumResponseRange = requireElement(
+    '#brush-flow-maximum-response-range',
+    HTMLInputElement,
+  );
+  const flowMaximumResponseNumber = requireElement(
+    '#brush-flow-maximum-response-number',
+    HTMLInputElement,
+  );
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -394,11 +424,16 @@ export function installBrushPresetControllerV1(input: {
     const randomResponseCurve = brushRandomResponseCurveV1(item.preset);
     input.paintSession.setBrushRandomResponseCurve(randomResponseCurve);
     const sizeMinimumResponse = brushSizeMinimumResponseV1(item.preset);
-    input.paintSession.setBrushSizeMinimumResponse(sizeMinimumResponse);
     const opacityMinimumResponse = brushOpacityMinimumResponseV1(item.preset);
-    input.paintSession.setBrushOpacityMinimumResponse(opacityMinimumResponse);
     const flowMinimumResponse = brushFlowMinimumResponseV1(item.preset);
-    input.paintSession.setBrushFlowMinimumResponse(flowMinimumResponse);
+    const sizeMaximumResponse = brushSizeMaximumResponseV1(item.preset);
+    const opacityMaximumResponse = brushOpacityMaximumResponseV1(item.preset);
+    const flowMaximumResponse = brushFlowMaximumResponseV1(item.preset);
+    input.paintSession.setBrushDynamicResponseBounds(
+      { minimum: sizeMinimumResponse, maximum: sizeMaximumResponse },
+      { minimum: opacityMinimumResponse, maximum: opacityMaximumResponse },
+      { minimum: flowMinimumResponse, maximum: flowMaximumResponse },
+    );
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -467,6 +502,9 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushSizeMinimumResponse = String(sizeMinimumResponse);
     input.root.dataset.illustroBrushOpacityMinimumResponse = String(opacityMinimumResponse);
     input.root.dataset.illustroBrushFlowMinimumResponse = String(flowMinimumResponse);
+    input.root.dataset.illustroBrushSizeMaximumResponse = String(sizeMaximumResponse);
+    input.root.dataset.illustroBrushOpacityMaximumResponse = String(opacityMaximumResponse);
+    input.root.dataset.illustroBrushFlowMaximumResponse = String(flowMaximumResponse);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -719,6 +757,45 @@ export function installBrushPresetControllerV1(input: {
       1,
       flowMinimumResponse * 100,
     );
+    const sizeMaximumResponse = brushSizeMaximumResponseV1(selected.preset);
+    configurePair(
+      sizeMaximumResponseRange,
+      sizeMaximumResponseNumber,
+      0,
+      100,
+      1,
+      sizeMaximumResponse * 100,
+    );
+    sizeMaximumResponseRange.min = String(sizeMinimumResponse * 100);
+    sizeMaximumResponseNumber.min = String(sizeMinimumResponse * 100);
+    sizeMinimumResponseRange.max = String(sizeMaximumResponse * 100);
+    sizeMinimumResponseNumber.max = String(sizeMaximumResponse * 100);
+    const opacityMaximumResponse = brushOpacityMaximumResponseV1(selected.preset);
+    configurePair(
+      opacityMaximumResponseRange,
+      opacityMaximumResponseNumber,
+      0,
+      100,
+      1,
+      opacityMaximumResponse * 100,
+    );
+    opacityMaximumResponseRange.min = String(opacityMinimumResponse * 100);
+    opacityMaximumResponseNumber.min = String(opacityMinimumResponse * 100);
+    opacityMinimumResponseRange.max = String(opacityMaximumResponse * 100);
+    opacityMinimumResponseNumber.max = String(opacityMaximumResponse * 100);
+    const flowMaximumResponse = brushFlowMaximumResponseV1(selected.preset);
+    configurePair(
+      flowMaximumResponseRange,
+      flowMaximumResponseNumber,
+      0,
+      100,
+      1,
+      flowMaximumResponse * 100,
+    );
+    flowMaximumResponseRange.min = String(flowMinimumResponse * 100);
+    flowMaximumResponseNumber.min = String(flowMinimumResponse * 100);
+    flowMinimumResponseRange.max = String(flowMaximumResponse * 100);
+    flowMinimumResponseNumber.max = String(flowMaximumResponse * 100);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -808,7 +885,14 @@ export function installBrushPresetControllerV1(input: {
         ? ` · DynOpacityMin${Math.round(opacityMinimumResponse * 100)}%`
         : ''
     }${flowMinimumResponse > 0 ? ` · DynFlowMin${Math.round(flowMinimumResponse * 100)}%` : ''}`;
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}`;
+    const maximumResponseLabel = `${
+      sizeMaximumResponse < 1 ? ` · DynSizeMax${Math.round(sizeMaximumResponse * 100)}%` : ''
+    }${
+      opacityMaximumResponse < 1
+        ? ` · DynOpacityMax${Math.round(opacityMaximumResponse * 100)}%`
+        : ''
+    }${flowMaximumResponse < 1 ? ` · DynFlowMax${Math.round(flowMaximumResponse * 100)}%` : ''}`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}${maximumResponseLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -874,6 +958,12 @@ export function installBrushPresetControllerV1(input: {
       opacityMinimumResponseNumber,
       flowMinimumResponseRange,
       flowMinimumResponseNumber,
+      sizeMaximumResponseRange,
+      sizeMaximumResponseNumber,
+      opacityMaximumResponseRange,
+      opacityMaximumResponseNumber,
+      flowMaximumResponseRange,
+      flowMaximumResponseNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -1251,6 +1341,30 @@ export function installBrushPresetControllerV1(input: {
     updateFlowMinimumResponse(Number(flowMinimumResponseRange.value));
   const onFlowMinimumResponseNumber = (): void =>
     updateFlowMinimumResponse(Number(flowMinimumResponseNumber.value));
+  const updateSizeMaximumResponse = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetSizeMaximumResponseV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const updateOpacityMaximumResponse = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetOpacityMaximumResponseV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const updateFlowMaximumResponse = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetFlowMaximumResponseV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const onSizeMaximumResponseRange = (): void =>
+    updateSizeMaximumResponse(Number(sizeMaximumResponseRange.value));
+  const onSizeMaximumResponseNumber = (): void =>
+    updateSizeMaximumResponse(Number(sizeMaximumResponseNumber.value));
+  const onOpacityMaximumResponseRange = (): void =>
+    updateOpacityMaximumResponse(Number(opacityMaximumResponseRange.value));
+  const onOpacityMaximumResponseNumber = (): void =>
+    updateOpacityMaximumResponse(Number(opacityMaximumResponseNumber.value));
+  const onFlowMaximumResponseRange = (): void =>
+    updateFlowMaximumResponse(Number(flowMaximumResponseRange.value));
+  const onFlowMaximumResponseNumber = (): void =>
+    updateFlowMaximumResponse(Number(flowMaximumResponseNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -1383,6 +1497,12 @@ export function installBrushPresetControllerV1(input: {
   opacityMinimumResponseNumber.addEventListener('change', onOpacityMinimumResponseNumber);
   flowMinimumResponseRange.addEventListener('input', onFlowMinimumResponseRange);
   flowMinimumResponseNumber.addEventListener('change', onFlowMinimumResponseNumber);
+  sizeMaximumResponseRange.addEventListener('input', onSizeMaximumResponseRange);
+  sizeMaximumResponseNumber.addEventListener('change', onSizeMaximumResponseNumber);
+  opacityMaximumResponseRange.addEventListener('input', onOpacityMaximumResponseRange);
+  opacityMaximumResponseNumber.addEventListener('change', onOpacityMaximumResponseNumber);
+  flowMaximumResponseRange.addEventListener('input', onFlowMaximumResponseRange);
+  flowMaximumResponseNumber.addEventListener('change', onFlowMaximumResponseNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -1468,6 +1588,12 @@ export function installBrushPresetControllerV1(input: {
       opacityMinimumResponseNumber.removeEventListener('change', onOpacityMinimumResponseNumber);
       flowMinimumResponseRange.removeEventListener('input', onFlowMinimumResponseRange);
       flowMinimumResponseNumber.removeEventListener('change', onFlowMinimumResponseNumber);
+      sizeMaximumResponseRange.removeEventListener('input', onSizeMaximumResponseRange);
+      sizeMaximumResponseNumber.removeEventListener('change', onSizeMaximumResponseNumber);
+      opacityMaximumResponseRange.removeEventListener('input', onOpacityMaximumResponseRange);
+      opacityMaximumResponseNumber.removeEventListener('change', onOpacityMaximumResponseNumber);
+      flowMaximumResponseRange.removeEventListener('input', onFlowMaximumResponseRange);
+      flowMaximumResponseNumber.removeEventListener('change', onFlowMaximumResponseNumber);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();

@@ -259,6 +259,9 @@ export interface PaintSessionSnapshotV1 {
   readonly brushSizeMinimumResponse: number;
   readonly brushOpacityMinimumResponse: number;
   readonly brushFlowMinimumResponse: number;
+  readonly brushSizeMaximumResponse: number;
+  readonly brushOpacityMaximumResponse: number;
+  readonly brushFlowMaximumResponse: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -786,6 +789,9 @@ export class PaintSessionControllerV1 {
   #brushSizeMinimumResponse = 0;
   #brushOpacityMinimumResponse = 0;
   #brushFlowMinimumResponse = 0;
+  #brushSizeMaximumResponse = 1;
+  #brushOpacityMaximumResponse = 1;
+  #brushFlowMaximumResponse = 1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -853,6 +859,9 @@ export class PaintSessionControllerV1 {
       brushSizeMinimumResponse: this.#brushSizeMinimumResponse,
       brushOpacityMinimumResponse: this.#brushOpacityMinimumResponse,
       brushFlowMinimumResponse: this.#brushFlowMinimumResponse,
+      brushSizeMaximumResponse: this.#brushSizeMaximumResponse,
+      brushOpacityMaximumResponse: this.#brushOpacityMaximumResponse,
+      brushFlowMaximumResponse: this.#brushFlowMaximumResponse,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1389,6 +1398,9 @@ export class PaintSessionControllerV1 {
     if (!Number.isFinite(minimumResponse) || minimumResponse < 0 || minimumResponse > 1) {
       throw new RangeError('invalid runtime size minimum response');
     }
+    if (minimumResponse > this.#brushSizeMaximumResponse) {
+      throw new RangeError('runtime size minimum response cannot exceed maximum response');
+    }
     if (minimumResponse !== this.#brushSizeMinimumResponse) this.#clearActiveStroke();
     this.#brushSizeMinimumResponse = minimumResponse;
     return this.#brushSizeMinimumResponse;
@@ -1401,6 +1413,9 @@ export class PaintSessionControllerV1 {
   setBrushOpacityMinimumResponse(minimumResponse: number): number {
     if (!Number.isFinite(minimumResponse) || minimumResponse < 0 || minimumResponse > 1) {
       throw new RangeError('invalid runtime opacity minimum response');
+    }
+    if (minimumResponse > this.#brushOpacityMaximumResponse) {
+      throw new RangeError('runtime opacity minimum response cannot exceed maximum response');
     }
     if (minimumResponse !== this.#brushOpacityMinimumResponse) this.#clearActiveStroke();
     this.#brushOpacityMinimumResponse = minimumResponse;
@@ -1415,6 +1430,9 @@ export class PaintSessionControllerV1 {
     if (!Number.isFinite(minimumResponse) || minimumResponse < 0 || minimumResponse > 1) {
       throw new RangeError('invalid runtime flow minimum response');
     }
+    if (minimumResponse > this.#brushFlowMaximumResponse) {
+      throw new RangeError('runtime flow minimum response cannot exceed maximum response');
+    }
     if (minimumResponse !== this.#brushFlowMinimumResponse) this.#clearActiveStroke();
     this.#brushFlowMinimumResponse = minimumResponse;
     return this.#brushFlowMinimumResponse;
@@ -1422,6 +1440,92 @@ export class PaintSessionControllerV1 {
 
   brushFlowMinimumResponse(): number {
     return this.#brushFlowMinimumResponse;
+  }
+
+  setBrushSizeMaximumResponse(maximumResponse: number): number {
+    if (!Number.isFinite(maximumResponse) || maximumResponse < 0 || maximumResponse > 1) {
+      throw new RangeError('invalid runtime size maximum response');
+    }
+    if (maximumResponse < this.#brushSizeMinimumResponse) {
+      throw new RangeError('runtime size maximum response cannot be below minimum response');
+    }
+    if (maximumResponse !== this.#brushSizeMaximumResponse) this.#clearActiveStroke();
+    this.#brushSizeMaximumResponse = maximumResponse;
+    return this.#brushSizeMaximumResponse;
+  }
+
+  brushSizeMaximumResponse(): number {
+    return this.#brushSizeMaximumResponse;
+  }
+
+  setBrushOpacityMaximumResponse(maximumResponse: number): number {
+    if (!Number.isFinite(maximumResponse) || maximumResponse < 0 || maximumResponse > 1) {
+      throw new RangeError('invalid runtime opacity maximum response');
+    }
+    if (maximumResponse < this.#brushOpacityMinimumResponse) {
+      throw new RangeError('runtime opacity maximum response cannot be below minimum response');
+    }
+    if (maximumResponse !== this.#brushOpacityMaximumResponse) this.#clearActiveStroke();
+    this.#brushOpacityMaximumResponse = maximumResponse;
+    return this.#brushOpacityMaximumResponse;
+  }
+
+  brushOpacityMaximumResponse(): number {
+    return this.#brushOpacityMaximumResponse;
+  }
+
+  setBrushFlowMaximumResponse(maximumResponse: number): number {
+    if (!Number.isFinite(maximumResponse) || maximumResponse < 0 || maximumResponse > 1) {
+      throw new RangeError('invalid runtime flow maximum response');
+    }
+    if (maximumResponse < this.#brushFlowMinimumResponse) {
+      throw new RangeError('runtime flow maximum response cannot be below minimum response');
+    }
+    if (maximumResponse !== this.#brushFlowMaximumResponse) this.#clearActiveStroke();
+    this.#brushFlowMaximumResponse = maximumResponse;
+    return this.#brushFlowMaximumResponse;
+  }
+
+  brushFlowMaximumResponse(): number {
+    return this.#brushFlowMaximumResponse;
+  }
+
+  setBrushDynamicResponseBounds(
+    size: Readonly<{ minimum: number; maximum: number }>,
+    opacity: Readonly<{ minimum: number; maximum: number }>,
+    flow: Readonly<{ minimum: number; maximum: number }>,
+  ): void {
+    for (const [label, bounds] of [
+      ['size', size],
+      ['opacity', opacity],
+      ['flow', flow],
+    ] as const) {
+      if (
+        !Number.isFinite(bounds.minimum) ||
+        !Number.isFinite(bounds.maximum) ||
+        bounds.minimum < 0 ||
+        bounds.maximum > 1 ||
+        bounds.minimum > bounds.maximum
+      ) {
+        throw new RangeError(`invalid runtime ${label} response bounds`);
+      }
+    }
+    if (
+      size.minimum !== this.#brushSizeMinimumResponse ||
+      size.maximum !== this.#brushSizeMaximumResponse ||
+      opacity.minimum !== this.#brushOpacityMinimumResponse ||
+      opacity.maximum !== this.#brushOpacityMaximumResponse ||
+      flow.minimum !== this.#brushFlowMinimumResponse ||
+      flow.maximum !== this.#brushFlowMaximumResponse
+    ) {
+      this.#clearActiveStroke();
+    }
+    this.#brushSizeMinimumResponse = size.minimum;
+    this.#brushSizeMaximumResponse = size.maximum;
+    this.#brushOpacityMinimumResponse = opacity.minimum;
+    this.#brushOpacityMaximumResponse = opacity.maximum;
+    this.#brushFlowMinimumResponse = flow.minimum;
+    this.#brushFlowMaximumResponse = flow.maximum;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2351,6 +2455,9 @@ export class PaintSessionControllerV1 {
         sizeMinimumResponse: this.#brushSizeMinimumResponse,
         opacityMinimumResponse: this.#brushOpacityMinimumResponse,
         flowMinimumResponse: this.#brushFlowMinimumResponse,
+        sizeMaximumResponse: this.#brushSizeMaximumResponse,
+        opacityMaximumResponse: this.#brushOpacityMaximumResponse,
+        flowMaximumResponse: this.#brushFlowMaximumResponse,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
