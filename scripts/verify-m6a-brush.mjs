@@ -1529,6 +1529,49 @@ requireText(
   'color-jitter tail reconciliation regression missing',
 );
 
+requireText(progress, 'M6A-057 spray/particle mode:完了', 'M6A-057 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSprayEnabledV1',
+  'spray preset toggle missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushSprayParticleV1',
+  'deterministic spray particle generator missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'sprayParticles',
+  'spray particles are not retained on logical stamp records',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSprayEnabled',
+  'spray mode is not connected to runtime brush state',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'sprayEnabled',
+  'spray mode does not participate in deterministic stroke seeding',
+);
+requireText(read('src/index.html'), 'id="brush-spray-enabled"', 'reachable spray toggle missing');
+requireText(
+  read('tests/unit/brush-spray-mode.test.ts'),
+  'turns one logical stamp into a deterministic bounded multi-particle burst',
+  'spray particle-burst regression missing',
+);
+requireText(
+  read('tests/unit/brush-spray-mode.test.ts'),
+  'advances the spray attempt index when taper suppresses an ordinary logical stamp',
+  'spray attempt-index regression missing',
+);
+requireText(
+  read('tests/unit/brush-spray-mode.test.ts'),
+  'reuses resolved particle centers during mutable end-tail reconciliation',
+  'spray tail-reconciliation regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

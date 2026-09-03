@@ -32,6 +32,10 @@ export const BASELINE_BRUSH_DENSITY_JITTER = 0 as const;
 export const BASELINE_BRUSH_HUE_JITTER = 0 as const;
 export const BASELINE_BRUSH_SATURATION_JITTER = 0 as const;
 export const BASELINE_BRUSH_VALUE_JITTER = 0 as const;
+export const BASELINE_BRUSH_SPRAY_ENABLED = false as const;
+export const BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1 = 4 as const;
+export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1 = 0.35 as const;
+export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 = 1 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 export type BaselineBrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
@@ -394,6 +398,8 @@ const BASELINE_BRUSH_DENSITY_JITTER_SALT_V1 = 0x165667b1 as const;
 const BASELINE_BRUSH_HUE_JITTER_SALT_V1 = 0xd3a2646c as const;
 const BASELINE_BRUSH_SATURATION_JITTER_SALT_V1 = 0xfd7046c5 as const;
 const BASELINE_BRUSH_VALUE_JITTER_SALT_V1 = 0xb55a4f09 as const;
+const BASELINE_BRUSH_SPRAY_ANGLE_SALT_V1 = 0x94d049bb as const;
+const BASELINE_BRUSH_SPRAY_RADIUS_SALT_V1 = 0xed5ad4bb as const;
 
 export function deterministicBaselineBrushSizeJitterV1(seed: number, stampIndex: number): number {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
@@ -641,6 +647,60 @@ export function applyBaselineBrushColorJitterV1(
   return baselineBrushHsvToRgbV1(hue, saturation, value);
 }
 
+function deterministicBaselineBrushSprayComponentV1(
+  seed: number,
+  stampIndex: number,
+  particleIndex: number,
+  salt: number,
+): number {
+  let value =
+    (seed ^
+      salt ^
+      Math.imul((stampIndex + 1) >>> 0, 0x9e3779b1) ^
+      Math.imul((particleIndex + 1) >>> 0, 0x85ebca6b)) >>>
+    0;
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d) >>> 0;
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b) >>> 0;
+  value ^= value >>> 16;
+  return (value >>> 0) / 0x100000000;
+}
+
+export function deterministicBaselineBrushSprayParticleV1(
+  seed: number,
+  stampIndex: number,
+  particleIndex: number,
+): Readonly<{ x: number; y: number }> {
+  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
+    throw new RangeError('baseline brush spray seed must be uint32');
+  }
+  if (!Number.isSafeInteger(stampIndex) || stampIndex < 0) {
+    throw new RangeError('baseline brush spray stamp index must be a non-negative safe integer');
+  }
+  if (!Number.isSafeInteger(particleIndex) || particleIndex < 0) {
+    throw new RangeError('baseline brush spray particle index must be a non-negative safe integer');
+  }
+  const angle =
+    deterministicBaselineBrushSprayComponentV1(
+      seed,
+      stampIndex,
+      particleIndex,
+      BASELINE_BRUSH_SPRAY_ANGLE_SALT_V1,
+    ) *
+    Math.PI *
+    2;
+  const radius = Math.sqrt(
+    deterministicBaselineBrushSprayComponentV1(
+      seed,
+      stampIndex,
+      particleIndex,
+      BASELINE_BRUSH_SPRAY_RADIUS_SALT_V1,
+    ),
+  );
+  return Object.freeze({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
+}
+
 export function deterministicBaselineBrushRandomV1(seed: number, stampIndex: number): number {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new RangeError('baseline brush random seed must be uint32');
@@ -675,6 +735,7 @@ interface BaselineLogicalStampRecordV1 {
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
   readonly sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
+  readonly sprayParticles: readonly Readonly<{ x: number; y: number }>[] | null;
   primitiveStart: number;
   primitiveEnd: number;
 }
@@ -720,6 +781,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #hueJitter: number;
   readonly #saturationJitter: number;
   readonly #valueJitter: number;
+  readonly #sprayEnabled: boolean;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -743,6 +805,7 @@ export class BaselineBrushDabBuilderV1 {
   #positionJitterStampIndex = 0;
   #densityJitterStampIndex = 0;
   #colorJitterStampIndex = 0;
+  #sprayStampIndex = 0;
   #pathDistancePx = 0;
   #lastPoint: {
     x: number;
@@ -801,6 +864,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly hueJitter?: number;
       readonly saturationJitter?: number;
       readonly valueJitter?: number;
+      readonly sprayEnabled?: boolean;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -860,6 +924,7 @@ export class BaselineBrushDabBuilderV1 {
     const hueJitter = options.hueJitter ?? BASELINE_BRUSH_HUE_JITTER;
     const saturationJitter = options.saturationJitter ?? BASELINE_BRUSH_SATURATION_JITTER;
     const valueJitter = options.valueJitter ?? BASELINE_BRUSH_VALUE_JITTER;
+    const sprayEnabled = options.sprayEnabled ?? BASELINE_BRUSH_SPRAY_ENABLED;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -1010,6 +1075,9 @@ export class BaselineBrushDabBuilderV1 {
         throw new RangeError(`baseline brush ${label} jitter must be within 0..1`);
       }
     }
+    if (typeof sprayEnabled !== 'boolean') {
+      throw new TypeError('baseline brush spray enabled flag must be boolean');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -1077,6 +1145,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#hueJitter = hueJitter;
     this.#saturationJitter = saturationJitter;
     this.#valueJitter = valueJitter;
+    this.#sprayEnabled = sprayEnabled;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -1318,6 +1387,7 @@ export class BaselineBrushDabBuilderV1 {
       | 'tiltUprightness'
       | 'tipAngleDegrees'
       | 'sampledTipAlpha'
+      | 'sprayParticles'
     >,
     startEnvelope: number,
     endEnvelope = 1,
@@ -1404,20 +1474,32 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       return;
     }
-    pushBaselineBrushStampV1(
-      target,
-      stamp.x,
-      stamp.y,
-      this.#radius * sizeScale * sizeResponse * stamp.sizeJitterScale,
-      this.#flow * opacityScale * flowResponse,
-      this.#strokeOpacity * opacityResponse * stamp.opacityJitterScale,
-      this.#hardness,
-      this.#tipDensity * stamp.densityJitterScale,
-      stamp.tipAngleDegrees,
-      stamp.color,
-      this.#tipShape,
-      stamp.sampledTipAlpha,
-    );
+    const resolvedRadius = this.#radius * sizeScale * sizeResponse * stamp.sizeJitterScale;
+    const resolvedFlow = this.#flow * opacityScale * flowResponse;
+    const resolvedStrokeOpacity = this.#strokeOpacity * opacityResponse * stamp.opacityJitterScale;
+    const resolvedDensity = this.#tipDensity * stamp.densityJitterScale;
+    const emitParticle = (particleX: number, particleY: number, radiusScale: number): void =>
+      pushBaselineBrushStampV1(
+        target,
+        particleX,
+        particleY,
+        resolvedRadius * radiusScale,
+        resolvedFlow,
+        resolvedStrokeOpacity,
+        this.#hardness,
+        resolvedDensity,
+        stamp.tipAngleDegrees,
+        stamp.color,
+        this.#tipShape,
+        stamp.sampledTipAlpha,
+      );
+    if (stamp.sprayParticles === null) {
+      emitParticle(stamp.x, stamp.y, 1);
+      return;
+    }
+    for (const particle of stamp.sprayParticles) {
+      emitParticle(particle.x, particle.y, BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1);
+    }
   }
 
   #pushLogicalStamp(
@@ -1506,6 +1588,23 @@ export class BaselineBrushDabBuilderV1 {
             this.#saturationJitter,
             this.#valueJitter,
           );
+    const sprayParticles = this.#sprayEnabled
+      ? Object.freeze(
+          Array.from({ length: BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1 }, (_, particleIndex) => {
+            const unit = deterministicBaselineBrushSprayParticleV1(
+              this.#randomSeed,
+              this.#sprayStampIndex,
+              particleIndex,
+            );
+            const spreadRadiusPx = this.#radius * BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1;
+            return Object.freeze({
+              x: jitteredX + unit.x * spreadRadiusPx,
+              y: jitteredY + unit.y * spreadRadiusPx,
+            });
+          }),
+        )
+      : null;
+    if (this.#sprayEnabled) this.#sprayStampIndex += 1;
     const sampledTipAlpha = this.#sampledTipAlphaForLogicalStamp();
     const record: BaselineLogicalStampRecordV1 = {
       x: jitteredX,
@@ -1521,6 +1620,7 @@ export class BaselineBrushDabBuilderV1 {
       tipAngleDegrees: jitteredTipAngleDegrees,
       pathDistancePx,
       sampledTipAlpha,
+      sprayParticles,
       primitiveStart: this.#dabs.length,
       primitiveEnd: this.#dabs.length,
     };

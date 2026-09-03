@@ -51,6 +51,7 @@ import {
   BASELINE_BRUSH_HUE_JITTER,
   BASELINE_BRUSH_SATURATION_JITTER,
   BASELINE_BRUSH_VALUE_JITTER,
+  BASELINE_BRUSH_SPRAY_ENABLED,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -278,6 +279,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushHueJitter: number;
   readonly brushSaturationJitter: number;
   readonly brushValueJitter: number;
+  readonly brushSprayEnabled: boolean;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -816,6 +818,7 @@ export class PaintSessionControllerV1 {
   #brushHueJitter: number = BASELINE_BRUSH_HUE_JITTER;
   #brushSaturationJitter: number = BASELINE_BRUSH_SATURATION_JITTER;
   #brushValueJitter: number = BASELINE_BRUSH_VALUE_JITTER;
+  #brushSprayEnabled: boolean = BASELINE_BRUSH_SPRAY_ENABLED;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -894,6 +897,7 @@ export class PaintSessionControllerV1 {
       brushHueJitter: this.#brushHueJitter,
       brushSaturationJitter: this.#brushSaturationJitter,
       brushValueJitter: this.#brushValueJitter,
+      brushSprayEnabled: this.#brushSprayEnabled,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1662,6 +1666,17 @@ export class PaintSessionControllerV1 {
       saturation: this.#brushSaturationJitter,
       value: this.#brushValueJitter,
     });
+  }
+
+  setBrushSprayEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime brush spray flag');
+    if (enabled !== this.#brushSprayEnabled) this.#clearActiveStroke();
+    this.#brushSprayEnabled = enabled;
+    return this.#brushSprayEnabled;
+  }
+
+  brushSprayEnabled(): boolean {
+    return this.#brushSprayEnabled;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2530,6 +2545,7 @@ export class PaintSessionControllerV1 {
     const densityJitterEnabled = this.#brushDensityJitter > 0;
     const colorJitterEnabled =
       this.#brushHueJitter > 0 || this.#brushSaturationJitter > 0 || this.#brushValueJitter > 0;
+    const sprayEnabled = this.#brushSprayEnabled;
     const randomSeed =
       this.#brushTipSelectionMode === 'random-per-stamp' ||
       randomDynamicsEnabled ||
@@ -2538,7 +2554,8 @@ export class PaintSessionControllerV1 {
       rotationJitterEnabled ||
       positionJitterEnabled ||
       densityJitterEnabled ||
-      colorJitterEnabled
+      colorJitterEnabled ||
+      sprayEnabled
         ? deterministicPaintStrokeSeedV1(strokeId)
         : undefined;
     this.#activeStroke = Object.freeze({
@@ -2616,6 +2633,7 @@ export class PaintSessionControllerV1 {
         hueJitter: this.#brushHueJitter,
         saturationJitter: this.#brushSaturationJitter,
         valueJitter: this.#brushValueJitter,
+        sprayEnabled: this.#brushSprayEnabled,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
