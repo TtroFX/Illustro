@@ -58,6 +58,23 @@ jobs:
           PY
       - name: Apply M6A-050 maximum-response patch
         run: python3 .github/illustro-m6a050-patch.py
+      - name: Align M6A-049 verifier with bounded target response
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify-m6a-brush.mjs')
+          text = path.read_text()
+          replacements = [
+              ("'const sizeResponse = Math.max(',", "'this.#sizeMinimumResponse,',"),
+              ("'const opacityResponse = Math.max(',", "'this.#opacityMinimumResponse,',"),
+              ("'const flowResponse = Math.max(',", "'this.#flowMinimumResponse,',"),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'M6A-049 verifier anchor missing: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
       - name: Format changed TypeScript and verifier
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts tests/unit/brush-maximum-response.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
