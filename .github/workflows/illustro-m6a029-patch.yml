@@ -24,6 +24,9 @@ jobs:
       - run: npm ci
       - name: Apply M6A-029 stroke-end patch
         run: python .github/illustro-m6a029-patch.py
+      - name: Widen reconciliation map key type
+        run: >-
+          python -c "from pathlib import Path; p=Path('src/gpu/baseline-paint-renderer.ts'); s=p.read_text(); old='const finalPlanByKey = new Map(\n      finalPlans.map'; new='const finalPlanByKey = new Map<string, (typeof finalPlans)[number]>(\n      finalPlans.map'; assert s.count(old)==1; p.write_text(s.replace(old,new,1))"
       - name: Format changed TypeScript and verifier
         run: >-
           npx biome format --write
