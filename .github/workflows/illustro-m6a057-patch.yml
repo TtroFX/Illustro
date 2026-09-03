@@ -23,6 +23,9 @@ jobs:
         run: npm ci
       - name: Apply M6A-057 spray-mode patch
         run: python3 scripts/patch-m6a057-spray-mode.py
+      - name: Fix spray runtime boolean annotation
+        run: >-
+          python3 -c "from pathlib import Path; p=Path('src/app/paint-session-controller.ts'); s=p.read_text(); old='  #brushSprayEnabled = BASELINE_BRUSH_SPRAY_ENABLED;'; new='  #brushSprayEnabled: boolean = BASELINE_BRUSH_SPRAY_ENABLED;'; assert s.count(old) == 1; p.write_text(s.replace(old, new, 1))"
       - name: Format changed TypeScript and verifier
         run: >-
           npx biome format --write
