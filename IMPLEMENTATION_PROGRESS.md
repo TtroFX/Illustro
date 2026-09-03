@@ -423,7 +423,7 @@ M6A-014 opacity:完了
 M6A-015 flow/density:完了
 M6A-016 per-brush parameter limits:完了
 M6A-017 procedural tip:完了
-M6A-018 sampled image tip:未完了
+M6A-018 sampled image tip:完了
 M6A-019 custom tip creation:未完了
 M6A-020 multiple tip assets without Dual Brush semantics:未完了
 M6A-021 hardness:未完了
@@ -1296,3 +1296,5 @@ MOBILE-009 smartphone Canvas First operation shell（compact top / bottom action
 MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了
 MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完了
 再開メモ: USER-01スマホdiagnosticsではmain/workerともWebGPU `requestAdapter()` が `adapter-unavailable`。viewport幅やIllustro独自core-limit gate以前の失敗であり、MOBILE-004だけでは編集可能にならない。MOBILE-005のWebGPU非依存compatibility rendererを実装済み。MOBILE-006ではWorker/Main WebGPUが復旧不能になった場合もcanonical Raster TileをStroke replayなしでcompatibility Canvas2Dへ引き継ぎ、History / Persistence / Exportの正本をrenderer backendから分離した。スマホPNG ExportはFile menu導線も共通handlerへ接続し、Androidの非同期download処理より先にBlob URLを破棄しないようobject URL保持を60秒へ延長した。MOBILE-007はスマホ新規作成・描画・性能のみ実機PASS。Undo/Redo・保存再読込・PNG Exportの明示PASSが残るため未完了。USER-01を閉じるまで通常の後続実装へ自動復帰しない。検査は必要最低限とし、実装を優先する。
+
+再開メモ: M6A-018 sampled image tipは、単一のcanonical sampled alpha imageを論理brush tipとしてプリセットへ保存し、stroke開始時に既存BaselineBrushDabBuilderへ固定する構成で完了。sampled stampは5×5 alpha maskを既存rendererが理解するalpha-weighted round primitive dabsへ決定論的に展開するため、WebGPU/Main/Worker/Canvas2D/History/Persistenceにsampled専用renderer分岐やfull-stroke replayを追加しない。M6A-019 custom tip creation、M6A-020 multiple tip assets、M6A-071/072 resource loader/managerは未完了のまま分離する。次はM6A-019 custom tip creationから再開する。

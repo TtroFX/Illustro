@@ -632,7 +632,7 @@ export class PaintSessionControllerV1 {
   }
 
   setBrushTipShape(shape: BaselineBrushTipShapeV1): BaselineBrushTipShapeV1 {
-    if (shape !== 'round' && shape !== 'square')
+    if (shape !== 'round' && shape !== 'square' && shape !== 'sampled-image')
       throw new TypeError('unsupported runtime brush tip shape');
     if (shape !== this.#brushTipShape) this.#clearActiveStroke();
     this.#brushTipShape = shape;

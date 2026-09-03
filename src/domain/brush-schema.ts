@@ -9,6 +9,8 @@ export type BrushSchemaIdentifier = typeof BRUSH_V1_SCHEMA;
 export type BrushSchemaVersion = typeof BRUSH_SCHEMA_VERSION;
 export type BrushBehaviorV1 = 'paint' | 'erase' | 'smudge' | 'blur';
 export type BrushProceduralTipShapeV1 = 'round' | 'square';
+export type BrushTipShapeV1 = BrushProceduralTipShapeV1 | 'sampled-image';
+export const BUILTIN_SAMPLED_IMAGE_BRUSH_TIP_ID_V1 = 'builtin.sampled-tip.ink-v1' as const;
 export type BrushPresetSectionV1 = Readonly<Record<string, JsonValue>>;
 
 export interface BrushParameterRangeV1 {
@@ -130,6 +132,28 @@ export function withBrushProceduralTipShapeV1(
   return normalizeBrushPresetV1({
     ...preset,
     tip: { ...preset.tip, kind: shape === 'square' ? 'procedural-square' : 'procedural-round' },
+  });
+}
+
+export function brushTipShapeV1(preset: BrushPresetV1): BrushTipShapeV1 {
+  if (preset.tip.kind === 'sampled-image') {
+    if (preset.tip.sampleId !== BUILTIN_SAMPLED_IMAGE_BRUSH_TIP_ID_V1) {
+      throw new TypeError('unsupported sampled brush tip resource');
+    }
+    return 'sampled-image';
+  }
+  return brushProceduralTipShapeV1(preset);
+}
+
+export function withBrushTipShapeV1(preset: BrushPresetV1, shape: BrushTipShapeV1): BrushPresetV1 {
+  if (shape !== 'sampled-image') return withBrushProceduralTipShapeV1(preset, shape);
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: {
+      ...preset.tip,
+      kind: 'sampled-image',
+      sampleId: BUILTIN_SAMPLED_IMAGE_BRUSH_TIP_ID_V1,
+    },
   });
 }
 

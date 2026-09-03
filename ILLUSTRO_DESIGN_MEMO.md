@@ -5561,3 +5561,10 @@ Verification must cover at minimum:
 - The selected procedural tip is captured when a stroke begins and is carried by each deterministic dab so Worker/Main/recovery paths cannot reinterpret an existing stroke after the preset changes.
 - Canonical Raster Tile coverage is authoritative. A square paint tip uses incremental affected-tile recomposition rather than the older round-only provisional stamp path, preserving visible/canonical agreement without replaying the full stroke/history.
 - Sampled/custom/multiple tip assets remain separate M6A-018..020 work; M6A-017 does not create a competing resource manager ahead of M6A-072.
+
+#### M6A sampled-image-tip boundary — 2026-09-03
+
+- M6A-018 establishes one canonical sampled-image brush-tip path without pre-implementing the later resource manager. The initial sampled tip is identified in preset data as `builtin.sampled-tip.ink-v1` and uses a fixed 5×5 alpha image.
+- The alpha image is sampled at logical-stamp generation time into deterministic alpha-weighted round primitive dabs. Canonical Raster Tile, Worker/Main WebGPU presentation, Canvas2D compatibility, History, Persistence, and recovery therefore continue to consume the existing primitive-dab contract instead of gaining a competing sampled renderer path.
+- The logical sampled tip is captured at stroke start with the rest of the brush parameters. Existing strokes persist their resolved primitive dabs and cannot change if the selected preset changes later.
+- M6A-019 owns creation of custom sampled tips; M6A-020 owns multiple tip assets; M6A-071/072 own final sampled-resource loading and brush-tip resource management. M6A-018 must not expand into those responsibilities.

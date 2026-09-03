@@ -203,6 +203,27 @@ requireText(
   'brush opacity/flow regression coverage missing',
 );
 requireText(progress, 'M6A-017 procedural tip:完了', 'M6A-017 progress is not complete');
+requireText(progress, 'M6A-018 sampled image tip:完了', 'M6A-018 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTipShapeV1',
+  'sampled brush tip schema normalization missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'BASELINE_SAMPLED_IMAGE_TIP_ALPHA_V1',
+  'sampled brush tip alpha image missing',
+);
+requireText(
+  read('src/app/brush-preset-controller.ts'),
+  'updateBrushPresetTipShapeV1',
+  'sampled brush tip is not production-connected to the preset UI',
+);
+requireText(
+  read('tests/unit/sampled-image-brush-tip.test.ts'),
+  'alpha-weighted primitive dabs',
+  'sampled image brush tip regression coverage missing',
+);
 requireText(
   read('src/domain/brush-schema.ts'),
   'brushProceduralTipShapeV1',

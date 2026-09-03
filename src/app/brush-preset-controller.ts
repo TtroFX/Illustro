@@ -1,9 +1,10 @@
 import {
   brushParameterLimitsV1,
   brushParameterValuesV1,
-  brushProceduralTipShapeV1,
+  brushTipShapeV1,
   type BrushBehaviorV1,
   type BrushParameterValuesV1,
+  type BrushTipShapeV1,
 } from '../domain/brush-schema.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import {
@@ -23,7 +24,7 @@ import {
   setBrushPresetLockedV1,
   setBrushPresetSearchV1,
   updateBrushPresetParametersV1,
-  updateBrushPresetProceduralTipV1,
+  updateBrushPresetTipShapeV1,
   type BrushPresetLibraryStateV1,
 } from './brush-preset-library.js';
 
@@ -104,7 +105,7 @@ export function installBrushPresetControllerV1(input: {
     const parameters = brushParameterValuesV1(item.preset);
     input.paintSession.setBrushMode(modeForBehavior(item.preset.behavior));
     input.paintSession.setBrushParameters(parameters);
-    input.paintSession.setBrushTipShape(brushProceduralTipShapeV1(item.preset));
+    input.paintSession.setBrushTipShape(brushTipShapeV1(item.preset));
     input.root.dataset.illustroBrushPreset = item.preset.id;
     input.root.dataset.illustroBrushPresetSource = item.source;
     input.root.dataset.illustroBrushPresetModified = String(item.modified);
@@ -112,7 +113,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushSize = String(parameters.sizePx);
     input.root.dataset.illustroBrushOpacity = String(parameters.opacity);
     input.root.dataset.illustroBrushFlow = String(parameters.flow);
-    input.root.dataset.illustroBrushTipShape = brushProceduralTipShapeV1(item.preset);
+    input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
 
@@ -204,7 +205,7 @@ export function installBrushPresetControllerV1(input: {
       parameters.opacity,
     );
     configurePair(flowRange, flowNumber, limits.flow.min, limits.flow.max, 0.01, parameters.flow);
-    tipShape.value = brushProceduralTipShapeV1(selected.preset);
+    tipShape.value = brushTipShapeV1(selected.preset);
     propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}%`;
 
     const locked = selected.locked;
@@ -269,14 +270,15 @@ export function installBrushPresetControllerV1(input: {
   const onOpacityNumber = (): void => updateParameter({ opacity: Number(opacityNumber.value) });
   const onFlowRange = (): void => updateParameter({ flow: Number(flowRange.value) });
   const onFlowNumber = (): void => updateParameter({ flow: Number(flowNumber.value) });
-  const onTipShape = (): void =>
-    mutate(() =>
-      updateBrushPresetProceduralTipV1(
-        state,
-        state.selectedPresetId,
-        tipShape.value === 'square' ? 'square' : 'round',
-      ),
-    );
+  const onTipShape = (): void => {
+    const shape: BrushTipShapeV1 =
+      tipShape.value === 'sampled-image'
+        ? 'sampled-image'
+        : tipShape.value === 'square'
+          ? 'square'
+          : 'round';
+    mutate(() => updateBrushPresetTipShapeV1(state, state.selectedPresetId, shape));
+  };
 
   search.addEventListener('input', onSearch);
   category.addEventListener('change', onCategory);
