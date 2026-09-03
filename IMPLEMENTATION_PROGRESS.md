@@ -440,7 +440,7 @@ M6A-026 follow stroke rotation:完了
 M6A-027 stroke repetition:完了
 再開メモ: M6A-027 stroke repetitionはCanonical Brush Modelのtip selection modeをfixed/sequence/random-per-stampとして実装し、M6A-020のordered tipAssetsからlogical stampごとに常に1つだけ選択する。fixedはselected asset、sequenceはselected assetを起点に順番反復、random-per-stampはstrokeId由来の保存済みuint32 randomSeedでdeterministic選択する。primitive dabは選択後の既存M6A-018 micro-dabへ解決されるためDual Brush合成や新renderer pathは追加しない。次はM6A-028 stroke-start behaviorから再開する。
 M6A-028 stroke-start behavior:完了
-再開メモ: M6A-028 stroke-start behaviorはstroke.startLengthPxを0..4096 document pxで保持し、0は従来どおり即時開始とする。startLengthPx>0では開始からの累積path distanceに対する線形envelopeを各新規logical stamp生成時だけ計算し、現段階ではradiusとstrokeOpacityを0→baseへ同率で解決して既存primitive dabへ焼き込む。開始点0% stampは出力せずtip repetition indexも消費しない。確定済みdabを後から変更しないためstable-prefixを維持する。M6A-030/031ではこの共通envelopeに対するsize/opacity各々の最小比率・強度を独立設定へ拡張する。次はM6A-029 stroke-end behaviorから再開する。
+再開メモ: M6A-028 stroke-start behaviorはstroke.startLengthPxを0..4096 document pxで保持し、0は従来どおり即時開始とする。startLengthPx>0では開始からの累積path distanceに対する線形envelopeを各新規logical stamp生成時だけ計算し、現段階ではradiusとper-dab flow/depositを0→baseへ同率で解決しつつ、whole-stroke opacity capはstroke内で一定に保つ。開始点0% stampは出力せずtip repetition indexも消費しない。確定済みdabを後から変更しないためstable-prefixを維持する。M6A-030/031ではこの共通envelopeに対するsize/opacity各々の最小比率・強度を独立設定へ拡張する。次はM6A-029 stroke-end behaviorから再開する。
 M6A-029 stroke-end behavior:未完了
 M6A-030 size taper:未完了
 M6A-031 opacity taper:未完了

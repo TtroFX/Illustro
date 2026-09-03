@@ -5,6 +5,7 @@ import {
   withBrushStrokeStartLengthPxV1,
 } from '../../src/domain/brush-schema.js';
 import { BaselineBrushDabBuilderV1 } from '../../src/gpu/baseline-brush.js';
+import { BaselineRasterTileStoreV1 } from '../../src/gpu/baseline-raster-tile-store.js';
 
 describe('M6A-028 stroke-start behavior', () => {
   it('preserves immediate legacy starts and validates a preset-local start length', () => {
@@ -33,13 +34,22 @@ describe('M6A-028 stroke-start behavior', () => {
     expect(firstDelta).toHaveLength(1);
     expect(firstDelta[0]?.x).toBeCloseTo(10, 6);
     expect(firstDelta[0]?.radius).toBeCloseTo(5, 6);
-    expect(firstDelta[0]?.strokeOpacity).toBeCloseTo(0.5, 6);
+    expect(firstDelta[0]?.flow).toBeCloseTo(0.5, 6);
+    expect(firstDelta[0]?.strokeOpacity).toBeCloseTo(1, 6);
     const stableFirst = firstDelta[0];
     const secondDelta = builder.appendDelta([{ documentX: 20, documentY: 0 }]);
     expect(secondDelta).toHaveLength(1);
     expect(secondDelta[0]?.radius).toBeCloseTo(10, 6);
+    expect(secondDelta[0]?.flow).toBeCloseTo(1, 6);
     expect(secondDelta[0]?.strokeOpacity).toBeCloseTo(1, 6);
     expect(builder.dabs()[0]).toEqual(stableFirst);
+
+    const store = new BaselineRasterTileStoreV1(64, 64, 'rgba8-unorm', [
+      { layerId: 'layer', visible: true, opacity: 1 },
+    ]);
+    store.applyDabs('layer', 'start-cap', firstDelta, 'paint');
+    store.applyDabs('layer', 'start-cap', secondDelta, 'paint');
+    expect(() => store.finalize('start-cap')).not.toThrow();
   });
 
   it('resolves a short stroke endpoint against the same start envelope', () => {
@@ -55,7 +65,9 @@ describe('M6A-028 stroke-start behavior', () => {
     const finishDelta = builder.finishDelta();
     expect(finishDelta).toHaveLength(1);
     expect(finishDelta[0]?.radius).toBeCloseTo(2.5, 6);
-    expect(finishDelta[0]?.strokeOpacity).toBeCloseTo(0.2, 6);
+    expect(finishDelta[0]?.flow).toBeCloseTo(0.25, 6);
+    expect(finishDelta[0]?.strokeOpacity).toBeCloseTo(0.8, 6);
+    expect(finishDelta[0]?.opacity).toBeCloseTo(0.2, 6);
   });
 
   it('keeps the first visible repeated tip asset as the sequence anchor', () => {

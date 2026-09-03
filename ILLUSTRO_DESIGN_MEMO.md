@@ -5651,3 +5651,10 @@ Verification must cover at minimum:
 - The zero-strength start stamp is omitted instead of creating an invalid zero-radius dab, and it does not consume the M6A-027 sequence/random tip-selection index. The first visible repeated tip therefore remains anchored to the selected asset.
 - The runtime persists only the resolved primitive dabs. No new Worker/history dab field is needed, and Main/Worker/canonical raster paths remain compatible.
 - End-side behavior is intentionally not inferred from current stroke length. M6A-029 must preserve the incremental-rendering invariant and must not silently rewrite already-presented stable-prefix dabs.
+
+#### M6A stroke-start opacity-cap correction — 2026-09-03
+
+- The M6A-028 start envelope must not vary `strokeOpacity` from dab to dab. `strokeOpacity` is the canonical whole-stroke alpha cap and remains constant for the lifetime of one stroke.
+- The production-visible start envelope therefore scales primitive-dab radius and per-dab flow/deposit while preserving the captured whole-stroke opacity cap. This supersedes the earlier M6A-028 wording that described scaling `strokeOpacity` itself.
+- Canonical Raster Tile regression coverage must apply multiple differently tapered dabs in one active paint transaction, ensuring the start behavior does not violate the existing constant-opacity-cap contract.
+- M6A-031 remains responsible for the dedicated opacity-taper control semantics; it must build on the common start/end envelope without redefining whole-stroke opacity as a per-dab value.
