@@ -1,0 +1,76 @@
+name: Illustro one-shot M6A-029 patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/illustro-m6a029-patch.py'
+      - '.github/workflows/illustro-m6a029-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply M6A-029 stroke-end patch
+        run: python .github/illustro-m6a029-patch.py
+      - name: Format changed TypeScript and verifier
+        run: >-
+          npx biome format --write
+          src/domain/brush-schema.ts
+          src/gpu/baseline-brush.ts
+          src/gpu/baseline-paint-renderer.ts
+          src/app/canonical-raster-brush.ts
+          src/app/paint-session-controller.ts
+          src/app/brush-preset-library.ts
+          src/app/brush-preset-controller.ts
+          tests/unit/brush-stroke-end.test.ts
+          tests/unit/baseline-paint-renderer.test.ts
+          tests/unit/canonical-raster-brush.test.ts
+          scripts/verify-m6a-brush.mjs
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Targeted regression tests
+        run: >-
+          npx vitest run
+          tests/unit/brush-stroke-end.test.ts
+          tests/unit/brush-stroke-start.test.ts
+          tests/unit/brush-stroke-repetition.test.ts
+          tests/unit/brush-follow-rotation.test.ts
+          tests/unit/brush-tip-direction.test.ts
+          tests/unit/brush-tip-angle.test.ts
+          tests/unit/brush-spacing.test.ts
+          tests/unit/brush-tip-density.test.ts
+          tests/unit/sampled-image-brush-tip.test.ts
+          tests/unit/custom-brush-tip.test.ts
+          tests/unit/procedural-brush-tip.test.ts
+          tests/unit/baseline-brush.test.ts
+          tests/unit/canonical-raster-brush.test.ts
+          tests/unit/paint-session-controller.test.ts
+          tests/unit/baseline-raster-tile-store.test.ts
+          tests/unit/baseline-paint-renderer.test.ts
+      - name: M6A verification
+        run: npm run verify:m6a
+      - name: Production build
+        run: npm run build
+      - name: Commit verified implementation
+        shell: bash
+        run: |
+          rm -f .github/illustro-m6a029-patch.py
+          rm -f .github/workflows/illustro-m6a029-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat: implement M6A stroke end behavior"
+          git push origin HEAD:main
