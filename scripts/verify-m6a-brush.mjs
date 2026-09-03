@@ -680,6 +680,38 @@ requireText(
   'real-time stabilization raw/canonical regression coverage missing',
 );
 
+requireText(progress, 'M6A-034 post-stroke correction:完了', 'M6A-034 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPostStrokeCorrectionAmountV1',
+  'post-stroke correction preset helper missing',
+);
+requireText(
+  read('src/app/post-stroke-correction.ts'),
+  'correctPostStrokeGeometryV1',
+  'release-only post-stroke correction algorithm missing',
+);
+requireText(
+  read('src/app/post-stroke-correction.ts'),
+  'const passCount = Math.max',
+  'post-stroke correction does not bound smoothing passes',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'const correctedBuilder = createBrush();',
+  'paint session does not rebuild corrected final geometry',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-post-correction-range"',
+  'reachable post-stroke correction control missing',
+);
+requireText(
+  read('tests/unit/brush-post-stroke-correction.test.ts'),
+  'preserving canonical raw samples',
+  'post-stroke raw-sample regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

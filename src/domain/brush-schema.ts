@@ -430,6 +430,28 @@ export function withBrushRealtimeStabilizationAmountV1(
   });
 }
 
+export const DEFAULT_BRUSH_POST_STROKE_CORRECTION_AMOUNT_V1 = 0 as const;
+
+export function brushPostStrokeCorrectionAmountV1(preset: BrushPresetV1): number {
+  const value = preset.stabilization.postStrokeAmount;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_POST_STROKE_CORRECTION_AMOUNT_V1;
+}
+
+export function withBrushPostStrokeCorrectionAmountV1(
+  preset: BrushPresetV1,
+  amount: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+    throw new RangeError('brush post-stroke correction amount must be within 0..1');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    stabilization: { ...preset.stabilization, postStrokeAmount: amount },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

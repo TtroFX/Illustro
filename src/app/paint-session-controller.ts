@@ -64,6 +64,8 @@ import type {
   PointerInputSampleV1,
   PointerInputSourceV1,
 } from '../input/pointer-input.js';
+import { correctPostStrokeGeometryV1 } from './post-stroke-correction.js';
+
 import { RealtimeBrushStabilizerV1 } from './realtime-brush-stabilizer.js';
 
 import {
@@ -219,6 +221,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushForceStartTaper: boolean;
   readonly brushForceEndTaper: boolean;
   readonly brushRealtimeStabilizationAmount: number;
+  readonly brushPostStrokeCorrectionAmount: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -635,6 +638,7 @@ export class PaintSessionControllerV1 {
   #activeStroke: PaintStrokeV1 | null = null;
   readonly #activeSamples: PaintStrokeSampleV1[] = [];
   #activeBrushStroke: CanonicalRasterBrushStrokeV1 | null = null;
+  #activeBrushFactory: (() => CanonicalRasterBrushStrokeV1) | null = null;
   #activeRealtimeStabilizer: RealtimeBrushStabilizerV1 | null = null;
   #activeDabDelta: readonly BaselineBrushDabV1[] = Object.freeze([]);
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
@@ -661,6 +665,7 @@ export class PaintSessionControllerV1 {
   #brushForceStartTaper = false;
   #brushForceEndTaper = false;
   #brushRealtimeStabilizationAmount = 0;
+  #brushPostStrokeCorrectionAmount = 0;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -699,6 +704,7 @@ export class PaintSessionControllerV1 {
       brushForceStartTaper: this.#brushForceStartTaper,
       brushForceEndTaper: this.#brushForceEndTaper,
       brushRealtimeStabilizationAmount: this.#brushRealtimeStabilizationAmount,
+      brushPostStrokeCorrectionAmount: this.#brushPostStrokeCorrectionAmount,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -891,6 +897,19 @@ export class PaintSessionControllerV1 {
 
   brushRealtimeStabilizationAmount(): number {
     return this.#brushRealtimeStabilizationAmount;
+  }
+
+  setBrushPostStrokeCorrectionAmount(amount: number): number {
+    if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+      throw new RangeError('invalid runtime post-stroke correction amount');
+    }
+    if (amount !== this.#brushPostStrokeCorrectionAmount) this.#clearActiveStroke();
+    this.#brushPostStrokeCorrectionAmount = amount;
+    return this.#brushPostStrokeCorrectionAmount;
+  }
+
+  brushPostStrokeCorrectionAmount(): number {
+    return this.#brushPostStrokeCorrectionAmount;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1511,9 +1530,38 @@ export class PaintSessionControllerV1 {
     if (batch.eventType === 'pointerup') {
       const completed = this.activeStroke();
       const builder = this.#activeBrushStroke;
+      const createBrush = this.#activeBrushFactory;
       if (completed !== null && builder !== null) {
         builder.finishConfirmed();
-        this.#completedStrokes.push(freezeCompletedStroke(completed, builder.dabs()));
+        let finalDabs = builder.dabs();
+        if (
+          this.#brushPostStrokeCorrectionAmount > 0 &&
+          createBrush !== null &&
+          this.#activeSamples.length >= 3
+        ) {
+          const replayStabilizer = new RealtimeBrushStabilizerV1(
+            this.#activeRealtimeStabilizer?.amount() ?? this.#brushRealtimeStabilizationAmount,
+          );
+          const liveGeometry = this.#activeSamples.map((sample) => replayStabilizer.push(sample));
+          const rawEndpoint = this.#activeSamples.at(-1);
+          if (rawEndpoint !== undefined) {
+            const releasePoint = replayStabilizer.release(rawEndpoint);
+            if (releasePoint !== null) liveGeometry.push(releasePoint);
+          }
+          const correctedGeometry = correctPostStrokeGeometryV1(
+            liveGeometry,
+            this.#brushPostStrokeCorrectionAmount,
+          );
+          const firstCorrected = correctedGeometry[0];
+          if (firstCorrected !== undefined) {
+            const correctedBuilder = createBrush();
+            correctedBuilder.beginConfirmed(firstCorrected);
+            correctedBuilder.appendConfirmed(correctedGeometry.slice(1));
+            correctedBuilder.finishConfirmed();
+            finalDabs = correctedBuilder.dabs();
+          }
+        }
+        this.#completedStrokes.push(freezeCompletedStroke(completed, finalDabs));
       }
       this.#clearActiveStroke();
     }
@@ -1686,36 +1734,39 @@ export class PaintSessionControllerV1 {
     if (firstStabilizedSample === undefined) return;
     this.#activeRealtimeStabilizer = stabilizer;
     const parameters = this.#brushParameters;
-    const builder = new CanonicalRasterBrushStrokeV1({
-      color: this.#paintColor,
-      mode: this.#brushMode,
-      sizePx: parameters.sizePx,
-      opacity: parameters.opacity,
-      flow: parameters.flow,
-      spacingRatio: this.#brushSpacingRatio,
-      minimumStampDistancePx: this.#brushMinimumStampDistancePx,
-      startTaperLengthPx: this.#brushStartTaperLengthPx,
-      endTaperLengthPx: this.#brushEndTaperLengthPx,
-      sizeTaperMinimumRatio: this.#brushSizeTaperMinimumRatio,
-      opacityTaperMinimumRatio: this.#brushOpacityTaperMinimumRatio,
-      forceStartTaper: this.#brushForceStartTaper,
-      forceEndTaper: this.#brushForceEndTaper,
-      hardness: this.#brushHardness,
-      tipAngleDegrees: this.#brushTipAngleDegrees,
-      tipDirectionDegrees: this.#brushTipDirectionDegrees,
-      followStrokeRotation: this.#brushFollowStrokeRotation,
-      tipDensity: this.#brushTipDensity,
-      tipShape: this.#brushTipShape,
-      tipSelectionMode: this.#brushTipSelectionMode,
-      tipSelectionStartIndex: this.#brushTipSelectionStartIndex,
-      tipSelectionSeed: randomSeed ?? 0,
-      ...(this.#brushSampledTipAlpha === null
-        ? {}
-        : { sampledTipAlpha: this.#brushSampledTipAlpha }),
-      ...(this.#brushSampledTipAlphas.length === 0
-        ? {}
-        : { sampledTipAlphas: this.#brushSampledTipAlphas }),
-    });
+    const createBrush = (): CanonicalRasterBrushStrokeV1 =>
+      new CanonicalRasterBrushStrokeV1({
+        color: this.#paintColor,
+        mode: this.#brushMode,
+        sizePx: parameters.sizePx,
+        opacity: parameters.opacity,
+        flow: parameters.flow,
+        spacingRatio: this.#brushSpacingRatio,
+        minimumStampDistancePx: this.#brushMinimumStampDistancePx,
+        startTaperLengthPx: this.#brushStartTaperLengthPx,
+        endTaperLengthPx: this.#brushEndTaperLengthPx,
+        sizeTaperMinimumRatio: this.#brushSizeTaperMinimumRatio,
+        opacityTaperMinimumRatio: this.#brushOpacityTaperMinimumRatio,
+        forceStartTaper: this.#brushForceStartTaper,
+        forceEndTaper: this.#brushForceEndTaper,
+        hardness: this.#brushHardness,
+        tipAngleDegrees: this.#brushTipAngleDegrees,
+        tipDirectionDegrees: this.#brushTipDirectionDegrees,
+        followStrokeRotation: this.#brushFollowStrokeRotation,
+        tipDensity: this.#brushTipDensity,
+        tipShape: this.#brushTipShape,
+        tipSelectionMode: this.#brushTipSelectionMode,
+        tipSelectionStartIndex: this.#brushTipSelectionStartIndex,
+        tipSelectionSeed: randomSeed ?? 0,
+        ...(this.#brushSampledTipAlpha === null
+          ? {}
+          : { sampledTipAlpha: this.#brushSampledTipAlpha }),
+        ...(this.#brushSampledTipAlphas.length === 0
+          ? {}
+          : { sampledTipAlphas: this.#brushSampledTipAlphas }),
+      });
+    const builder = createBrush();
+    this.#activeBrushFactory = createBrush;
     this.#queueActiveDabDelta(builder.beginConfirmed(firstStabilizedSample));
     this.#queueActiveDabDelta(builder.appendConfirmed(stabilizedSamples.slice(1)));
     this.#activeBrushStroke = builder;
@@ -1758,6 +1809,7 @@ export class PaintSessionControllerV1 {
     this.#activeStroke = null;
     this.#activeSamples.length = 0;
     this.#activeBrushStroke = null;
+    this.#activeBrushFactory = null;
     this.#activeRealtimeStabilizer = null;
     this.#activeDabDelta = Object.freeze([]);
   }

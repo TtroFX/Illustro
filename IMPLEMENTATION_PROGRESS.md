@@ -451,7 +451,8 @@ M6A-032 forced taper:完了
 再開メモ: M6A-032 forced taperはstroke.forceStartTaper / stroke.forceEndTaperを独立booleanとして保持する。通常のM6A-030/031ではsizeTaperMinimumRatio / opacityTaperMinimumRatioが各端の最小値を決めるが、Force In側ではstart envelopeそのものをsize/deposit scaleとして使い始点を0へ、Force Out側ではend envelopeそのものを使い終点を0へ強制する。片側だけ有効化可能で、start/end windowが重なる場合は各sideから得たscaleのminを採用して両zero-endpoint契約を保つ。既定false/falseなので既存presetは変更されない。whole-stroke strokeOpacity capは一定、primitive dabには解決済みradius/flowのみ保存する。将来のpressure/velocity dynamicsはforced taperのzero endpointを打ち消してはならない。次はM6A-033 real-time stabilizationから再開する。
 M6A-033 real-time stabilization:完了
 再開メモ: M6A-033 real-time stabilizationは既存presetのstabilization.amountを0..1 canonical値として接続し、amount=0を完全identity pathとする。描画geometryには独自実装のOne-Euro-style速度適応ローパスを因果的に適用し、低速時はjitterを強く抑え、高速時はfiltered velocityに応じてcutoffを上げ追従性を確保する。状態量と処理量はstroke長に依存せず1 sampleあたりO(1)。PaintStrokeSampleV1のraw confirmed samplesは履歴/保存正本として一切書き換えず、filter出力だけをCanonical Raster Brush builderへ渡すためstable prefixを再計算しない。pointerup時は最後のconfirmed raw座標へ追加segmentで1回だけ収束し、通常入力中の過去dabを巻き戻さない。predicted samplesは引き続きcanonical stateへ混入させない。次はM6A-034 post-stroke correctionから再開する。
-M6A-034 post-stroke correction:未完了
+M6A-034 post-stroke correction:完了
+再開メモ: M6A-034 post-stroke correctionはpreset.stabilization.postStrokeAmountを0..1で保持し、0を完全identity/defaultとする。補正ON時だけpointerup後にraw confirmed samplesからM6A-033の因果filter geometryを決定的に再現し、そのgeometryへ距離比を使う対称neighbor-chord補正を最大4passで適用する。始点/終点は固定し、特に終点はconfirmed raw release位置を維持する。raw PaintStrokeSampleV1は変更せず、補正済みgeometryから同じstroke-start時brush config/random seedで最終dab列だけを1回再構築し、既存renderer.finalizeBaselineStrokeのrelease reconciliationへ渡す。通常入力中のincremental hot pathにはpost correctionのO(n)処理を入れない。M6A-033 real-time stabilizationとM6A-034 post correctionは独立設定で、後者は明示的に有効なstrokeだけrelease時O(n)、pass数は定数上限4。次はM6A-035 grain selectionから再開する。
 M6A-035 grain selection:未完了
 M6A-036 paper texture selection:未完了
 M6A-037 texture strength:未完了

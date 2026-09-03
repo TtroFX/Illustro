@@ -5707,3 +5707,13 @@ Verification must cover at minimum:
 - Pointer release may append one final geometry segment to the last confirmed raw endpoint so the committed stroke terminates exactly where the user released. This is not permission to re-filter/replay the full stroke.
 - Predicted input remains provisional and is not persisted as confirmed stabilizer input. M6A-034 post-stroke correction is a separate release-time operation and must not silently redefine this causal hot path.
 - The parameter is exposed in Brush Properties and captured at stroke start. Changing it cannot mutate an already-active stroke.
+
+#### M6A post-stroke correction boundary — 2026-09-03
+
+- M6A-034 defines `stabilization.postStrokeAmount` as a separate normalized 0..1 **release-time correction strength**. It does not alias or replace M6A-033 real-time stabilization; both default to zero.
+- Post-stroke correction runs only after confirmed pointer release and only when explicitly enabled. It is therefore outside the ordinary per-input hot path.
+- The correction input is a deterministic reconstruction of the live M6A-033 causal geometry from canonical raw confirmed samples, including exact release-endpoint convergence. The correction then moves interior points toward the distance-proportional chord between their immediate neighbors while preserving the first and last coordinates exactly.
+- Work is O(n) in stroke sample count with a hard maximum of four smoothing passes. No iterative convergence loop or unbounded release-time refinement is allowed.
+- Canonical raw `PaintStrokeSampleV1` history remains untouched. The final primitive dabs are regenerated once from the corrected geometry using the brush configuration and random seed captured at stroke start, then passed through the existing release reconciliation/finalization path.
+- This explicit opt-in release rebuild does not authorize whole-stroke replay during normal active presentation. M6A-PERF retained-tile/incremental rules remain authoritative for the hot path.
+- The parameter is independently exposed in Brush Properties as post-stroke correction strength.

@@ -16,6 +16,7 @@ import {
   brushOpacityTaperMinimumRatioV1,
   brushForcedTaperV1,
   brushRealtimeStabilizationAmountV1,
+  brushPostStrokeCorrectionAmountV1,
   brushStrokeSpacingV1,
   brushTipAssetsV1,
   brushTipShapeV1,
@@ -58,6 +59,7 @@ import {
   updateBrushPresetOpacityTaperV1,
   updateBrushPresetForcedTaperV1,
   updateBrushPresetRealtimeStabilizationV1,
+  updateBrushPresetPostStrokeCorrectionV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -144,6 +146,8 @@ export function installBrushPresetControllerV1(input: {
   const forceEndTaperButton = requireElement('#brush-force-end-taper', HTMLButtonElement);
   const stabilizationRange = requireElement('#brush-stabilization-range', HTMLInputElement);
   const stabilizationNumber = requireElement('#brush-stabilization-number', HTMLInputElement);
+  const postCorrectionRange = requireElement('#brush-post-correction-range', HTMLInputElement);
+  const postCorrectionNumber = requireElement('#brush-post-correction-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -200,6 +204,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushForcedTaper(forcedTaper.start, forcedTaper.end);
     const stabilizationAmount = brushRealtimeStabilizationAmountV1(item.preset);
     input.paintSession.setBrushRealtimeStabilizationAmount(stabilizationAmount);
+    const postCorrectionAmount = brushPostStrokeCorrectionAmountV1(item.preset);
+    input.paintSession.setBrushPostStrokeCorrectionAmount(postCorrectionAmount);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -240,6 +246,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushForceStartTaper = String(forcedTaper.start);
     input.root.dataset.illustroBrushForceEndTaper = String(forcedTaper.end);
     input.root.dataset.illustroBrushStabilizationAmount = String(stabilizationAmount);
+    input.root.dataset.illustroBrushPostCorrectionAmount = String(postCorrectionAmount);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -362,6 +369,8 @@ export function installBrushPresetControllerV1(input: {
     forceEndTaperButton.setAttribute('aria-pressed', String(forcedTaper.end));
     const stabilizationAmount = brushRealtimeStabilizationAmountV1(selected.preset);
     configurePair(stabilizationRange, stabilizationNumber, 0, 100, 1, stabilizationAmount * 100);
+    const postCorrectionAmount = brushPostStrokeCorrectionAmountV1(selected.preset);
+    configurePair(postCorrectionRange, postCorrectionNumber, 0, 100, 1, postCorrectionAmount * 100);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -409,7 +418,9 @@ export function installBrushPresetControllerV1(input: {
     const forcedTaperLabel = `${forcedTaper.start ? ' · ForceIn' : ''}${forcedTaper.end ? ' · ForceOut' : ''}`;
     const stabilizationLabel =
       stabilizationAmount > 0 ? ` · Stab${Math.round(stabilizationAmount * 100)}%` : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}`;
+    const postCorrectionLabel =
+      postCorrectionAmount > 0 ? ` · Post${Math.round(postCorrectionAmount * 100)}%` : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -443,6 +454,8 @@ export function installBrushPresetControllerV1(input: {
       forceEndTaperButton,
       stabilizationRange,
       stabilizationNumber,
+      postCorrectionRange,
+      postCorrectionNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -574,6 +587,13 @@ export function installBrushPresetControllerV1(input: {
     );
   const onStabilizationRange = (): void => updateStabilization(Number(stabilizationRange.value));
   const onStabilizationNumber = (): void => updateStabilization(Number(stabilizationNumber.value));
+  const updatePostCorrection = (percent: number): void =>
+    mutate(() =>
+      updateBrushPresetPostStrokeCorrectionV1(state, state.selectedPresetId, percent / 100),
+    );
+  const onPostCorrectionRange = (): void => updatePostCorrection(Number(postCorrectionRange.value));
+  const onPostCorrectionNumber = (): void =>
+    updatePostCorrection(Number(postCorrectionNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -674,6 +694,8 @@ export function installBrushPresetControllerV1(input: {
   forceEndTaperButton.addEventListener('click', onForceEndTaper);
   stabilizationRange.addEventListener('input', onStabilizationRange);
   stabilizationNumber.addEventListener('change', onStabilizationNumber);
+  postCorrectionRange.addEventListener('input', onPostCorrectionRange);
+  postCorrectionNumber.addEventListener('change', onPostCorrectionNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -727,6 +749,8 @@ export function installBrushPresetControllerV1(input: {
       forceEndTaperButton.removeEventListener('click', onForceEndTaper);
       stabilizationRange.removeEventListener('input', onStabilizationRange);
       stabilizationNumber.removeEventListener('change', onStabilizationNumber);
+      postCorrectionRange.removeEventListener('input', onPostCorrectionRange);
+      postCorrectionNumber.removeEventListener('change', onPostCorrectionNumber);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
