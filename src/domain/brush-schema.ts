@@ -711,6 +711,30 @@ export function withBrushPressureSizeEnabledV1(
   });
 }
 
+export const DEFAULT_BRUSH_PRESSURE_OPACITY_ENABLED_V1 = false as const;
+
+export function brushPressureOpacityEnabledV1(preset: BrushPresetV1): boolean {
+  const value = preset.dynamics.pressureOpacityEnabled;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_PRESSURE_OPACITY_ENABLED_V1;
+}
+
+export function withBrushPressureOpacityEnabledV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') {
+    throw new TypeError('brush pressure opacity flag must be boolean');
+  }
+  if (enabled === DEFAULT_BRUSH_PRESSURE_OPACITY_ENABLED_V1) {
+    const { pressureOpacityEnabled: _pressureOpacityEnabled, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, pressureOpacityEnabled: enabled },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

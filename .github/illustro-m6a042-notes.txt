@@ -1,1 +1,0 @@
-M6A-042 pressure→opacity continuation checkpoint. No production source changes yet.

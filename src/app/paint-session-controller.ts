@@ -231,6 +231,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTextureRotationDegrees: number;
   readonly brushTextureBlendMode: BrushTextureBlendModeV1;
   readonly brushPressureSizeEnabled: boolean;
+  readonly brushPressureOpacityEnabled: boolean;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -683,6 +684,7 @@ export class PaintSessionControllerV1 {
   #brushTextureRotationDegrees = 0;
   #brushTextureBlendMode: BrushTextureBlendModeV1 = 'multiply';
   #brushPressureSizeEnabled = false;
+  #brushPressureOpacityEnabled = false;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -730,6 +732,7 @@ export class PaintSessionControllerV1 {
       brushTextureRotationDegrees: this.#brushTextureRotationDegrees,
       brushTextureBlendMode: this.#brushTextureBlendMode,
       brushPressureSizeEnabled: this.#brushPressureSizeEnabled,
+      brushPressureOpacityEnabled: this.#brushPressureOpacityEnabled,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1066,6 +1069,17 @@ export class PaintSessionControllerV1 {
 
   brushPressureSizeEnabled(): boolean {
     return this.#brushPressureSizeEnabled;
+  }
+
+  setBrushPressureOpacityEnabled(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime pressure-opacity flag');
+    if (enabled !== this.#brushPressureOpacityEnabled) this.#clearActiveStroke();
+    this.#brushPressureOpacityEnabled = enabled;
+    return this.#brushPressureOpacityEnabled;
+  }
+
+  brushPressureOpacityEnabled(): boolean {
+    return this.#brushPressureOpacityEnabled;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1928,6 +1942,7 @@ export class PaintSessionControllerV1 {
         forceStartTaper: this.#brushForceStartTaper,
         forceEndTaper: this.#brushForceEndTaper,
         pressureSizeEnabled: this.#brushPressureSizeEnabled,
+        pressureOpacityEnabled: this.#brushPressureOpacityEnabled,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,

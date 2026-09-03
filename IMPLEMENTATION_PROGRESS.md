@@ -467,7 +467,8 @@ M6A-040 texture blend behavior:完了
 再開メモ: M6A-040 texture blend behaviorはBrushPresetV1.texture.blendModeをmultiply/subtract/addの3種coverage-domain modeとして定義し、multiplyをdefault/field省略値にした。layer RGB Blend Modeとは別系統で、pure helper combineBrushTextureCoverageV1がbrush coverage・sampled texture scalar・strengthだけを0..1で決定論的に合成し、RGB/色空間へ触れない。preset persistence・PaintSession snapshot・Brush Properties chooserへ接続済み。M6A-071/073で実sampled payloadが解決されるまではこのhelperをcanonical raster hot pathへ接続せず、既存stroke pixelsを変更しない。次はM6A-041 pressure→sizeから再開する。
 M6A-041 pressure→size:完了
 再開メモ: M6A-041 pressure→sizeはBrushPresetV1.dynamics.pressureSizeEnabledをopt-in booleanとして追加し、既定falseで既存strokeを完全互換にした。有効時はPenの保存済みraw pressure 0..1をstabilized geometryへ対応付け、logical stamp位置で距離比例補間してbase radius × taper size scale × pressureへ解決する。Mouseはpressure対応入力ではないためsize mapping上は1.0扱い。primitive dabには解決済みradiusだけを保存し、新しいdab/history schemaは増やさない。post-stroke correction再構築でも補正前geometry indexに対応するpressureを維持する。M6A-044 curveとM6A-049/050 min/maxはこのlinear 0..1基礎経路を後から拡張し、M6A-032 forced taperのzero endpointを打ち消してはならない。次はM6A-042 pressure→opacityから再開する。
-M6A-042 pressure→opacity:未完了
+M6A-042 pressure→opacity:完了
+再開メモ: M6A-042 pressure→opacityはBrushPresetV1.dynamics.pressureOpacityEnabledをopt-in booleanとして追加し、既定falseで既存strokeを互換維持する。有効時はM6A-041と同じPen raw pressure 0..1をlogical stamp位置へ距離比例補間し、base strokeOpacity cap × pressureへ解決する一方、per-dab flow/depositは変更しない。Raster paintのcoverage累積は固定opacityで従来式と代数的に等価なeffectiveNext = effectivePrev + max(0, opacityCap-effectivePrev) × depositへ整理し、pressure低下で既描画alphaを巻き戻さず、pressure上昇時はflowで新しいcapへ収束する。追加per-tile bufferは不要。Mouseはpressure mapping上1.0、primitive dabは既存strokeOpacityへ解決済み値を保存するためdab/history schema追加はない。次はM6A-043 pressure→flowから再開する。
 M6A-043 pressure→flow:未完了
 M6A-044 pressure response curve:未完了
 M6A-045 tilt mapping:未完了

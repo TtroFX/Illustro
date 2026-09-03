@@ -887,6 +887,38 @@ requireText(
   'pressure-size interpolation regression missing',
 );
 
+requireText(progress, 'M6A-042 pressure→opacity:完了', 'M6A-042 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPressureOpacityEnabledV1',
+  'pressure-opacity preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#strokeOpacity * pressureOpacityScale',
+  'pressure is not resolved into the opacity cap',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'const availableOpacity = Math.max(0, strokeOpacity - previousEffective);',
+  'variable opacity cap is not monotonic in canonical raster coverage',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushPressureOpacityEnabled',
+  'pressure-opacity mapping is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-pressure-opacity"',
+  'reachable pressure-opacity control missing',
+);
+requireText(
+  read('tests/unit/brush-pressure-opacity.test.ts'),
+  'keeps opacity as a monotonic cap while flow controls convergence rate',
+  'pressure-opacity raster regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

@@ -5769,3 +5769,12 @@ Verification must cover at minimum:
 - Pressure is linearly interpolated by path distance at logical stamp positions. When enabled, resolved radius is `base radius × taper size scale × pressure`; when disabled pressure is ignored. Primitive dabs persist only the resolved radius, so Worker/history/persistence do not gain a competing pressure schema.
 - Post-stroke correction keeps pressure associated by sample index while correcting only geometry, then rebuilds final dabs from corrected coordinates plus the same pressure sequence.
 - M6A-044 owns pressure response curves and M6A-049/050 own later response bounds. They must extend this pressure resolver rather than duplicate the stamp path. Forced taper zero endpoints remain authoritative and cannot be raised by pressure dynamics.
+
+## M6A pressure-to-opacity boundary — 2026-09-03
+
+- `dynamics.pressureOpacityEnabled` is opt-in and defaults to false; legacy presets therefore retain the previous fixed opacity-cap behavior.
+- Pressure-to-opacity changes the resolved per-stamp **opacity cap**, not flow. Flow/deposit remains the convergence rate toward that cap and is reserved for M6A-043 pressure→flow.
+- Pen raw pressure is associated with stabilized geometry and distance-interpolated at logical stamp positions by the same M6A-041 pressure path. Mouse contributes a neutral pressure factor of 1.0.
+- Canonical Raster paint stores effective stroke coverage per pixel. For fixed opacity the recurrence `E_next = E_prev + (O - E_prev) * deposit` is algebraically identical to the previous raw-coverage-times-opacity result. With a varying cap it uses `max(0, O - E_prev)` so lowering pressure never erases or rolls back already committed alpha.
+- No second per-tile pressure buffer is allocated. Primitive dabs retain only the already-existing resolved `strokeOpacity`, preserving Worker/history/recovery schema compactness.
+- M6A-044 pressure response curve and M6A-049/050 response bounds extend the shared pressure scalar later; they must not make M6A-032 forced zero endpoints non-zero.

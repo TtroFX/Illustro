@@ -85,7 +85,6 @@ interface ActiveTileTransactionV1 {
   readonly before: Map<string, BaselineRasterTileImageV1 | null>;
   readonly affected: Map<string, TileCoordinateV1>;
   readonly paintCoverage: Map<string, Float32Array>;
-  paintStrokeOpacity: number | null;
   lastSmudgeDab: BaselineBrushDabV1 | null;
 }
 
@@ -311,11 +310,10 @@ function rasterizeColorDab(
   const sourceAlphaForPixel = (pixel: number, coverage: number): number => {
     if (!semanticFlowOpacity || strokeCoverage === null) return clamp01(opacity * coverage);
     const deposit = clamp01(flow * coverage);
-    const previousCoverage = strokeCoverage[pixel] ?? 0;
-    const nextCoverage = previousCoverage + (1 - previousCoverage) * deposit;
-    strokeCoverage[pixel] = nextCoverage;
-    const previousEffective = clamp01(previousCoverage * strokeOpacity);
-    const nextEffective = clamp01(nextCoverage * strokeOpacity);
+    const previousEffective = strokeCoverage[pixel] ?? 0;
+    const availableOpacity = Math.max(0, strokeOpacity - previousEffective);
+    const nextEffective = clamp01(previousEffective + availableOpacity * deposit);
+    strokeCoverage[pixel] = nextEffective;
     if (nextEffective <= previousEffective || previousEffective >= 1) return 0;
     return clamp01((nextEffective - previousEffective) / (1 - previousEffective));
   };
@@ -861,7 +859,6 @@ export class BaselineRasterTileStoreV1 {
         before: new Map(),
         affected: new Map(),
         paintCoverage: new Map(),
-        paintStrokeOpacity: null,
         lastSmudgeDab: null,
       };
     }
@@ -905,12 +902,6 @@ export class BaselineRasterTileStoreV1 {
       );
       let coverage: Float32Array | null = null;
       if (operation === 'paint' && plan.dabs.some(baselineDabUsesFlowOpacityV1)) {
-        const strokeOpacity = baselineDabStrokeOpacityV1(plan.dabs[0] ?? dabs[0]!);
-        if (this.#active.paintStrokeOpacity === null) {
-          this.#active.paintStrokeOpacity = strokeOpacity;
-        } else if (Math.abs(this.#active.paintStrokeOpacity - strokeOpacity) > 1e-9) {
-          throw new Error('active paint stroke changed opacity cap');
-        }
         coverage =
           this.#active.paintCoverage.get(key) ?? new Float32Array(tile.width * tile.height);
         this.#active.paintCoverage.set(key, coverage);

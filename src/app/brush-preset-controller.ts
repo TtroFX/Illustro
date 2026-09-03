@@ -24,6 +24,7 @@ import {
   brushTextureRotationDegreesV1,
   brushTextureBlendModeV1,
   brushPressureSizeEnabledV1,
+  brushPressureOpacityEnabledV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -77,6 +78,7 @@ import {
   updateBrushPresetTextureRotationV1,
   updateBrushPresetTextureBlendModeV1,
   updateBrushPresetPressureSizeV1,
+  updateBrushPresetPressureOpacityV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -175,6 +177,7 @@ export function installBrushPresetControllerV1(input: {
   const textureRotationNumber = requireElement('#brush-texture-rotation-number', HTMLInputElement);
   const textureBlendMode = requireElement('#brush-texture-blend-mode', HTMLSelectElement);
   const pressureSizeButton = requireElement('#brush-pressure-size', HTMLButtonElement);
+  const pressureOpacityButton = requireElement('#brush-pressure-opacity', HTMLButtonElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -250,6 +253,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushTextureBlendMode(textureBlend);
     const pressureSizeEnabled = brushPressureSizeEnabledV1(item.preset);
     input.paintSession.setBrushPressureSizeEnabled(pressureSizeEnabled);
+    const pressureOpacityEnabled = brushPressureOpacityEnabledV1(item.preset);
+    input.paintSession.setBrushPressureOpacityEnabled(pressureOpacityEnabled);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -298,6 +303,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushTextureRotationDegrees = String(textureRotationDegrees);
     input.root.dataset.illustroBrushTextureBlendMode = textureBlend;
     input.root.dataset.illustroBrushPressureSize = String(pressureSizeEnabled);
+    input.root.dataset.illustroBrushPressureOpacity = String(pressureOpacityEnabled);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -477,6 +483,9 @@ export function installBrushPresetControllerV1(input: {
     const pressureSizeEnabled = brushPressureSizeEnabledV1(selected.preset);
     pressureSizeButton.textContent = pressureSizeEnabled ? 'ON' : 'OFF';
     pressureSizeButton.setAttribute('aria-pressed', String(pressureSizeEnabled));
+    const pressureOpacityEnabled = brushPressureOpacityEnabledV1(selected.preset);
+    pressureOpacityButton.textContent = pressureOpacityEnabled ? 'ON' : 'OFF';
+    pressureOpacityButton.setAttribute('aria-pressed', String(pressureOpacityEnabled));
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -540,7 +549,8 @@ export function installBrushPresetControllerV1(input: {
       textureRotationDegrees !== 0 ? ` · TexRot${Math.round(textureRotationDegrees)}°` : '';
     const textureBlendLabel = textureBlend === 'multiply' ? '' : ` · TexBlend:${textureBlend}`;
     const pressureSizeLabel = pressureSizeEnabled ? ' · P→Size' : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}`;
+    const pressureOpacityLabel = pressureOpacityEnabled ? ' · P→Opacity' : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -586,6 +596,7 @@ export function installBrushPresetControllerV1(input: {
       textureRotationNumber,
       textureBlendMode,
       pressureSizeButton,
+      pressureOpacityButton,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -775,6 +786,14 @@ export function installBrushPresetControllerV1(input: {
         !brushPressureSizeEnabledV1(selectedBrushPresetItemV1(state).preset),
       ),
     );
+  const onPressureOpacity = (): void =>
+    mutate(() =>
+      updateBrushPresetPressureOpacityV1(
+        state,
+        state.selectedPresetId,
+        !brushPressureOpacityEnabledV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -887,6 +906,7 @@ export function installBrushPresetControllerV1(input: {
   textureRotationNumber.addEventListener('change', onTextureRotationNumber);
   textureBlendMode.addEventListener('change', onTextureBlendMode);
   pressureSizeButton.addEventListener('click', onPressureSize);
+  pressureOpacityButton.addEventListener('click', onPressureOpacity);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -952,6 +972,7 @@ export function installBrushPresetControllerV1(input: {
       textureRotationNumber.removeEventListener('change', onTextureRotationNumber);
       textureBlendMode.removeEventListener('change', onTextureBlendMode);
       pressureSizeButton.removeEventListener('click', onPressureSize);
+      pressureOpacityButton.removeEventListener('click', onPressureOpacity);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
