@@ -712,6 +712,33 @@ requireText(
   'post-stroke raw-sample regression coverage missing',
 );
 
+requireText(progress, 'M6A-035 grain selection:完了', 'M6A-035 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'BUILTIN_BRUSH_GRAIN_RESOURCES_V1',
+  'built-in grain selection catalog missing',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushGrainResourceIdV1',
+  'grain selection preset helper missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushGrainResourceId',
+  'grain selection is not connected to runtime brush state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-grain-resource"',
+  'reachable grain resource chooser missing',
+);
+requireText(
+  read('tests/unit/brush-grain-selection.test.ts'),
+  'final non-paper grain inventory shape',
+  'grain inventory regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

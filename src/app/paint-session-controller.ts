@@ -222,6 +222,8 @@ export interface PaintSessionSnapshotV1 {
   readonly brushForceEndTaper: boolean;
   readonly brushRealtimeStabilizationAmount: number;
   readonly brushPostStrokeCorrectionAmount: number;
+  readonly brushTextureResourceKind: 'grain' | null;
+  readonly brushTextureResourceId: string | null;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -666,6 +668,8 @@ export class PaintSessionControllerV1 {
   #brushForceEndTaper = false;
   #brushRealtimeStabilizationAmount = 0;
   #brushPostStrokeCorrectionAmount = 0;
+  #brushTextureResourceKind: 'grain' | null = null;
+  #brushTextureResourceId: string | null = null;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -705,6 +709,8 @@ export class PaintSessionControllerV1 {
       brushForceEndTaper: this.#brushForceEndTaper,
       brushRealtimeStabilizationAmount: this.#brushRealtimeStabilizationAmount,
       brushPostStrokeCorrectionAmount: this.#brushPostStrokeCorrectionAmount,
+      brushTextureResourceKind: this.#brushTextureResourceKind,
+      brushTextureResourceId: this.#brushTextureResourceId,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -910,6 +916,34 @@ export class PaintSessionControllerV1 {
 
   brushPostStrokeCorrectionAmount(): number {
     return this.#brushPostStrokeCorrectionAmount;
+  }
+
+  setBrushGrainResourceId(resourceId: string | null): string | null {
+    const normalized =
+      resourceId === null
+        ? null
+        : (() => {
+            if (typeof resourceId !== 'string')
+              throw new TypeError('runtime grain resource id must be text');
+            const value = resourceId.trim();
+            if (value.length < 1 || value.length > 160) {
+              throw new RangeError('runtime grain resource id must be 1..160 characters');
+            }
+            return value;
+          })();
+    if (
+      this.#brushTextureResourceKind !== (normalized === null ? null : 'grain') ||
+      this.#brushTextureResourceId !== normalized
+    ) {
+      this.#clearActiveStroke();
+    }
+    this.#brushTextureResourceKind = normalized === null ? null : 'grain';
+    this.#brushTextureResourceId = normalized;
+    return this.#brushTextureResourceId;
+  }
+
+  brushGrainResourceId(): string | null {
+    return this.#brushTextureResourceKind === 'grain' ? this.#brushTextureResourceId : null;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {

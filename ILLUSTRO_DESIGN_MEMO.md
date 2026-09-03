@@ -5717,3 +5717,11 @@ Verification must cover at minimum:
 - Canonical raw `PaintStrokeSampleV1` history remains untouched. The final primitive dabs are regenerated once from the corrected geometry using the brush configuration and random seed captured at stroke start, then passed through the existing release reconciliation/finalization path.
 - This explicit opt-in release rebuild does not authorize whole-stroke replay during normal active presentation. M6A-PERF retained-tile/incremental rules remain authoritative for the hot path.
 - The parameter is independently exposed in Brush Properties as post-stroke correction strength.
+
+#### M6A grain-selection boundary — 2026-09-03
+
+- M6A-035 establishes brush texture resource selection without pre-empting later texture strength/rendering or sampled-resource loading items. `BrushPresetV1.texture` stores `resourceKind: 'grain'` and a stable `resourceId`; no selection is represented by the absence of those fields.
+- The final I inventory's 20 non-paper grains are assigned stable built-in aliases: `builtin.grain.fine.01..06`, `builtin.grain.rough.01..06`, `builtin.grain.fiber.01..05`, and `builtin.grain.canvas.01..03`. M6A-071/M6A-073 bind these identities to accepted sampled payloads; the identity contract does not depend on a public filename.
+- Imported/user resources remain legal: the canonical helper accepts a normalized 1..160-character resource ID rather than restricting persisted presets to built-ins.
+- The selection is connected through preset persistence, runtime PaintSession state and the reachable Brush Properties chooser. M6A-035 deliberately does not alter dab coverage while texture strength remains unimplemented/default-zero; M6A-037 owns that rendering effect.
+- M6A-036 will extend the same single texture-resource selection contract to the I inventory's paper subtype rather than inventing a second simultaneous texture stack.

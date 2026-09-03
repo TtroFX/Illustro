@@ -452,6 +452,71 @@ export function withBrushPostStrokeCorrectionAmountV1(
   });
 }
 
+export type BrushBuiltinGrainFamilyV1 = 'fine' | 'rough' | 'fiber' | 'canvas';
+
+export interface BrushBuiltinGrainResourceV1 {
+  readonly id: string;
+  readonly name: string;
+  readonly family: BrushBuiltinGrainFamilyV1;
+}
+
+function builtinGrainFamilyV1(
+  family: BrushBuiltinGrainFamilyV1,
+  count: number,
+): readonly BrushBuiltinGrainResourceV1[] {
+  return Object.freeze(
+    Array.from({ length: count }, (_, index) => {
+      const number = String(index + 1).padStart(2, '0');
+      return Object.freeze({
+        id: `builtin.grain.${family}.${number}`,
+        name: `${family[0]?.toUpperCase() ?? ''}${family.slice(1)} ${number}`,
+        family,
+      });
+    }),
+  );
+}
+
+export const BUILTIN_BRUSH_GRAIN_RESOURCES_V1: readonly BrushBuiltinGrainResourceV1[] =
+  Object.freeze([
+    ...builtinGrainFamilyV1('fine', 6),
+    ...builtinGrainFamilyV1('rough', 6),
+    ...builtinGrainFamilyV1('fiber', 5),
+    ...builtinGrainFamilyV1('canvas', 3),
+  ]);
+
+function normalizedBrushTextureResourceIdV1(value: unknown): string {
+  if (typeof value !== 'string') throw new TypeError('brush texture resource id must be text');
+  const normalized = value.trim();
+  if (normalized.length < 1 || normalized.length > 160) {
+    throw new RangeError('brush texture resource id must be 1..160 characters');
+  }
+  return normalized;
+}
+
+export function brushGrainResourceIdV1(preset: BrushPresetV1): string | null {
+  const kind = preset.texture.resourceKind;
+  const resourceId = preset.texture.resourceId;
+  if (kind === undefined && resourceId === undefined) return null;
+  if (kind !== 'grain') return null;
+  return normalizedBrushTextureResourceIdV1(resourceId);
+}
+
+export function withBrushGrainResourceIdV1(
+  preset: BrushPresetV1,
+  resourceId: string | null,
+): BrushPresetV1 {
+  if (resourceId === null) {
+    if (preset.texture.resourceKind !== 'grain') return preset;
+    const { resourceId: _resourceId, resourceKind: _resourceKind, ...rest } = preset.texture;
+    return normalizeBrushPresetV1({ ...preset, texture: rest });
+  }
+  const normalized = normalizedBrushTextureResourceIdV1(resourceId);
+  return normalizeBrushPresetV1({
+    ...preset,
+    texture: { ...preset.texture, resourceKind: 'grain', resourceId: normalized },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

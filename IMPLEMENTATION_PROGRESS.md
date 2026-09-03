@@ -453,7 +453,8 @@ M6A-033 real-time stabilization:完了
 再開メモ: M6A-033 real-time stabilizationは既存presetのstabilization.amountを0..1 canonical値として接続し、amount=0を完全identity pathとする。描画geometryには独自実装のOne-Euro-style速度適応ローパスを因果的に適用し、低速時はjitterを強く抑え、高速時はfiltered velocityに応じてcutoffを上げ追従性を確保する。状態量と処理量はstroke長に依存せず1 sampleあたりO(1)。PaintStrokeSampleV1のraw confirmed samplesは履歴/保存正本として一切書き換えず、filter出力だけをCanonical Raster Brush builderへ渡すためstable prefixを再計算しない。pointerup時は最後のconfirmed raw座標へ追加segmentで1回だけ収束し、通常入力中の過去dabを巻き戻さない。predicted samplesは引き続きcanonical stateへ混入させない。次はM6A-034 post-stroke correctionから再開する。
 M6A-034 post-stroke correction:完了
 再開メモ: M6A-034 post-stroke correctionはpreset.stabilization.postStrokeAmountを0..1で保持し、0を完全identity/defaultとする。補正ON時だけpointerup後にraw confirmed samplesからM6A-033の因果filter geometryを決定的に再現し、そのgeometryへ距離比を使う対称neighbor-chord補正を最大4passで適用する。始点/終点は固定し、特に終点はconfirmed raw release位置を維持する。raw PaintStrokeSampleV1は変更せず、補正済みgeometryから同じstroke-start時brush config/random seedで最終dab列だけを1回再構築し、既存renderer.finalizeBaselineStrokeのrelease reconciliationへ渡す。通常入力中のincremental hot pathにはpost correctionのO(n)処理を入れない。M6A-033 real-time stabilizationとM6A-034 post correctionは独立設定で、後者は明示的に有効なstrokeだけrelease時O(n)、pass数は定数上限4。次はM6A-035 grain selectionから再開する。
-M6A-035 grain selection:未完了
+M6A-035 grain selection:完了
+再開メモ: M6A-035 grain selectionはBrushPresetV1.textureのresourceKind='grain' + resourceIdをcanonical選択契約とし、未選択は両fieldなし/nullで表現する。I-FINALの非paper grain 20件（fine 6 / rough 6 / fiber 5 / canvas 3）にはbuiltin.grain.<family>.<NN>の安定alias IDを確定した。これらはM6A-071/073で実payloadへmapするresource identityであり、schema helperはimport済みuser resource IDも保持できる。選択はpreset library永続化・PaintSession runtime snapshot・Brush Properties UIまで接続済み。M6A-037 strengthが0の間は選択だけで描画結果を変えず、M6A-036では同じtexture resource契約をpaper subtypeへ拡張する。次はM6A-036 paper texture selectionから再開する。
 M6A-036 paper texture selection:未完了
 M6A-037 texture strength:未完了
 M6A-038 texture scale:未完了
