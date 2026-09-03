@@ -36,6 +36,18 @@ jobs:
           PY
       - name: Apply M6A-046 orientation patch
         run: python3 .github/illustro-m6a046-patch.py
+      - name: Align legacy follow-rotation verifier with source selection
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/verify-m6a-brush.mjs')
+          text = path.read_text()
+          old = "  'followAngle + this.#tipAngleDegrees - this.#tipDirectionDegrees',"
+          new = "  'this.#followStrokeRotation && strokeDirectionDegrees !== undefined',"
+          if old not in text:
+              raise SystemExit('legacy M6A-026 verifier anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Format changed TypeScript and verifier
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts tests/unit/brush-orientation-mapping.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
