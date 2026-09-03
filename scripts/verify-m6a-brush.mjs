@@ -353,6 +353,33 @@ requireText(
   'brush tip-density regression coverage missing',
 );
 
+requireText(progress, 'M6A-023 spacing/gap:完了', 'M6A-023 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushStrokeSpacingV1',
+  'brush spacing preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'Math.max(minimumStampDistancePx, sizePx * spacingRatio)',
+  'brush spacing is not connected to deterministic dab placement',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSpacing',
+  'brush spacing is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-spacing-range"',
+  'reachable brush spacing control missing',
+);
+requireText(
+  read('tests/unit/brush-spacing.test.ts'),
+  'changes deterministic logical stamp gap while retaining the stroke endpoint',
+  'brush spacing regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

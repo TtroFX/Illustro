@@ -87,6 +87,8 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
+      readonly spacingRatio?: number;
+      readonly minimumStampDistancePx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
@@ -99,6 +101,10 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.sizePx === undefined ? {} : { sizePx: options.sizePx }),
       ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
       ...(options.flow === undefined ? {} : { flow: options.flow }),
+      ...(options.spacingRatio === undefined ? {} : { spacingRatio: options.spacingRatio }),
+      ...(options.minimumStampDistancePx === undefined
+        ? {}
+        : { minimumStampDistancePx: options.minimumStampDistancePx }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipShape === undefined ? {} : { tipShape: options.tipShape }),

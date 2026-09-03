@@ -8,6 +8,8 @@ import {
 
 export const BASELINE_BRUSH_RADIUS_PX = 8 as const;
 export const BASELINE_BRUSH_SPACING_PX = 4 as const;
+export const BASELINE_BRUSH_SPACING_RATIO = 0.25 as const;
+export const BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX = 1 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
 export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
@@ -216,6 +218,8 @@ export class BaselineBrushDabBuilderV1 {
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
+      readonly spacingRatio?: number;
+      readonly minimumStampDistancePx?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
@@ -229,6 +233,9 @@ export class BaselineBrushDabBuilderV1 {
     const sizePx = options.sizePx ?? BASELINE_BRUSH_RADIUS_PX * 2;
     const opacity = options.opacity ?? BASELINE_BRUSH_OPACITY;
     const flow = options.flow ?? 1;
+    const spacingRatio = options.spacingRatio ?? BASELINE_BRUSH_SPACING_RATIO;
+    const minimumStampDistancePx =
+      options.minimumStampDistancePx ?? BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     if (!Number.isFinite(sizePx) || sizePx <= 0 || sizePx > 4096) {
@@ -240,6 +247,16 @@ export class BaselineBrushDabBuilderV1 {
     if (!Number.isFinite(flow) || flow < 0 || flow > 1) {
       throw new RangeError('baseline brush flow must be within 0..1');
     }
+    if (!Number.isFinite(spacingRatio) || spacingRatio < 0.01 || spacingRatio > 4) {
+      throw new RangeError('baseline brush spacing ratio must be within 0.01..4');
+    }
+    if (
+      !Number.isFinite(minimumStampDistancePx) ||
+      minimumStampDistancePx <= 0 ||
+      minimumStampDistancePx > 4096
+    ) {
+      throw new RangeError('baseline brush minimum stamp distance must be within 0..4096 px');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -247,7 +264,7 @@ export class BaselineBrushDabBuilderV1 {
       throw new RangeError('baseline brush tip density must be within 0..1');
     }
     this.#radius = sizePx / 2;
-    this.#spacing = Math.max(0.25, sizePx * 0.25);
+    this.#spacing = Math.max(minimumStampDistancePx, sizePx * spacingRatio);
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;

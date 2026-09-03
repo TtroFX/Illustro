@@ -431,7 +431,7 @@ M6A-020 multiple tip assets without Dual Brush semantics:完了
 M6A-021 hardness:完了
 再開メモ: M6A-021 hardnessはtip.hardnessの0..1静的値をpreset正本として扱い、stroke開始時にcaptureして全primitive dabへ保存する。旧strokeでhardness未保存の場合は0.85へfallbackする。Canonical Raster Tileのedge coverageがhardness正本で、既存WebGPU shaderが持つ0.85 fast pathはdefault値だけ維持し、非default hardnessはcanonical previewへ切替えて表示と保存結果の不一致を避ける。sampled/custom tipのmicro dabにも同じhardnessを伝播する。次はM6A-022 tip densityから再開する。
 M6A-022 tip density:完了
-M6A-023 spacing/gap:未完了
+M6A-023 spacing/gap:完了
 M6A-024 tip angle:未完了
 M6A-025 tip direction:未完了
 M6A-026 follow stroke rotation:未完了
@@ -1309,3 +1309,11 @@ MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完�
 - Shared canonical tip coverage applies density to paint/erase/smudge/blur paths. Default density `1.0` keeps the existing direct WebGPU fast path; non-default density uses canonical tile preview.
 - Worker dab parsing now preserves both M6A-021 `hardness` and M6A-022 `tipDensity`, closing the Worker/Main semantic mismatch discovered during M6A-022 inspection.
 - M6A-023 spacing / gap remains intentionally separate and is the next incomplete item.
+
+### M6A-023 spacing/gap resume memo — 2026-09-03
+
+- `stroke.spacingRatio` is the user-facing logical stamp interval relative to current brush size; factory/default value remains `0.25` (25%).
+- `stroke.minimumStampDistancePx` is the safety/performance floor; the existing canonical preset value `1px` is now honored by the kernel instead of the old hard-coded `0.25px` floor.
+- Spacing is captured when the stroke kernel is created. It is not redundantly serialized onto each dab because the resolved dab coordinates are already the exact history/save/recovery representation.
+- The UI exposes 1..400% spacing while the schema stores 0.01..4. Endpoint retention and incremental confirmed-sample processing remain unchanged.
+- Next incomplete item is M6A-024 tip angle.

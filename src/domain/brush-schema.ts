@@ -145,6 +145,58 @@ export function withBrushTipDensityV1(preset: BrushPresetV1, density: number): B
   });
 }
 
+export const DEFAULT_BRUSH_SPACING_RATIO_V1 = 0.25 as const;
+export const MIN_BRUSH_SPACING_RATIO_V1 = 0.01 as const;
+export const MAX_BRUSH_SPACING_RATIO_V1 = 4 as const;
+export const DEFAULT_BRUSH_MINIMUM_STAMP_DISTANCE_PX_V1 = 1 as const;
+
+export interface BrushStrokeSpacingV1 {
+  readonly spacingRatio: number;
+  readonly minimumStampDistancePx: number;
+}
+
+export function brushStrokeSpacingV1(preset: BrushPresetV1): BrushStrokeSpacingV1 {
+  const rawRatio = preset.stroke.spacingRatio;
+  const rawMinimum = preset.stroke.minimumStampDistancePx;
+  const spacingRatio =
+    typeof rawRatio === 'number' &&
+    Number.isFinite(rawRatio) &&
+    rawRatio >= MIN_BRUSH_SPACING_RATIO_V1 &&
+    rawRatio <= MAX_BRUSH_SPACING_RATIO_V1
+      ? rawRatio
+      : DEFAULT_BRUSH_SPACING_RATIO_V1;
+  const minimumStampDistancePx =
+    typeof rawMinimum === 'number' &&
+    Number.isFinite(rawMinimum) &&
+    rawMinimum > 0 &&
+    rawMinimum <= 4096
+      ? rawMinimum
+      : DEFAULT_BRUSH_MINIMUM_STAMP_DISTANCE_PX_V1;
+  return Object.freeze({ spacingRatio, minimumStampDistancePx });
+}
+
+export function withBrushStrokeSpacingV1(
+  preset: BrushPresetV1,
+  spacingRatio: number,
+): BrushPresetV1 {
+  if (
+    !Number.isFinite(spacingRatio) ||
+    spacingRatio < MIN_BRUSH_SPACING_RATIO_V1 ||
+    spacingRatio > MAX_BRUSH_SPACING_RATIO_V1
+  ) {
+    throw new RangeError('brush spacing ratio must be within 0.01..4');
+  }
+  const current = brushStrokeSpacingV1(preset);
+  return normalizeBrushPresetV1({
+    ...preset,
+    stroke: {
+      ...preset.stroke,
+      spacingRatio,
+      minimumStampDistancePx: current.minimumStampDistancePx,
+    },
+  });
+}
+
 export function withBrushParameterValuesV1(
   preset: BrushPresetV1,
   patch: Partial<BrushParameterValuesV1>,

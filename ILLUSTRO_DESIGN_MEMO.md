@@ -5600,3 +5600,11 @@ Verification must cover at minimum:
 - The canonical raster tip-coverage function is the semantic owner for density across paint, erase, smudge, and blur. Density `1.0` preserves the existing direct WebGPU fast path; non-default values route through canonical tile preview until a later optimized shader path is justified.
 - Worker message parsing must preserve static dab semantics such as hardness and tip density rather than silently reverting to defaults.
 - Spacing/gap remains a separate M6A-023 stroke-placement parameter.
+
+#### M6A spacing/gap boundary — 2026-09-03
+
+- Brush spacing is defined as logical stamp distance `max(minimumStampDistancePx, brushSizePx × spacingRatio)`. The canonical defaults are `spacingRatio=0.25` and `minimumStampDistancePx=1`.
+- Spacing is a stroke-placement parameter, distinct from tip density and flow. Density changes per-stamp mask coverage; flow changes ink deposit; spacing changes where logical stamps are emitted.
+- The preset stores spacing in the `stroke` section. Runtime captures it when a stroke begins; deterministic resolved dab coordinates are the history/persistence truth, so spacing is not duplicated onto each primitive dab.
+- The user-facing Tool Properties control is percentage-based (1..400%) while the canonical ratio remains 0.01..4.
+- Endpoint retention and incremental stable-prefix generation remain mandatory when spacing changes.

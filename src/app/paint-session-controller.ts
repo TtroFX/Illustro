@@ -24,6 +24,8 @@ import {
 } from '../domain/layers.js';
 import {
   BASELINE_BRUSH_HARDNESS,
+  BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX,
+  BASELINE_BRUSH_SPACING_RATIO,
   BASELINE_BRUSH_TIP_DENSITY,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
@@ -197,6 +199,8 @@ export interface PaintSessionSnapshotV1 {
   readonly brushParameters: BrushParameterValuesV1;
   readonly brushHardness: number;
   readonly brushTipDensity: number;
+  readonly brushSpacingRatio: number;
+  readonly brushMinimumStampDistancePx: number;
   readonly brushTipShape: BaselineBrushTipShapeV1;
   readonly brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
@@ -587,6 +591,8 @@ export class PaintSessionControllerV1 {
   #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
   #brushHardness: number = BASELINE_BRUSH_HARDNESS;
   #brushTipDensity: number = BASELINE_BRUSH_TIP_DENSITY;
+  #brushSpacingRatio: number = BASELINE_BRUSH_SPACING_RATIO;
+  #brushMinimumStampDistancePx: number = BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
   #brushTipShape: BaselineBrushTipShapeV1 = 'round';
   #brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null = null;
   #disposed = false;
@@ -610,6 +616,8 @@ export class PaintSessionControllerV1 {
       brushParameters: this.#brushParameters,
       brushHardness: this.#brushHardness,
       brushTipDensity: this.#brushTipDensity,
+      brushSpacingRatio: this.#brushSpacingRatio,
+      brushMinimumStampDistancePx: this.#brushMinimumStampDistancePx,
       brushTipShape: this.#brushTipShape,
       brushSampledTipAlpha: this.#brushSampledTipAlpha,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
@@ -687,6 +695,32 @@ export class PaintSessionControllerV1 {
 
   brushTipDensity(): number {
     return this.#brushTipDensity;
+  }
+
+  setBrushSpacing(spacingRatio: number, minimumStampDistancePx: number): number {
+    if (!Number.isFinite(spacingRatio) || spacingRatio < 0.01 || spacingRatio > 4) {
+      throw new RangeError('invalid runtime brush spacing ratio');
+    }
+    if (
+      !Number.isFinite(minimumStampDistancePx) ||
+      minimumStampDistancePx <= 0 ||
+      minimumStampDistancePx > 4096
+    ) {
+      throw new RangeError('invalid runtime minimum stamp distance');
+    }
+    if (
+      spacingRatio !== this.#brushSpacingRatio ||
+      minimumStampDistancePx !== this.#brushMinimumStampDistancePx
+    ) {
+      this.#clearActiveStroke();
+    }
+    this.#brushSpacingRatio = spacingRatio;
+    this.#brushMinimumStampDistancePx = minimumStampDistancePx;
+    return this.#brushSpacingRatio;
+  }
+
+  brushSpacingRatio(): number {
+    return this.#brushSpacingRatio;
   }
 
   setBrushTipShape(
@@ -1406,6 +1440,8 @@ export class PaintSessionControllerV1 {
       sizePx: parameters.sizePx,
       opacity: parameters.opacity,
       flow: parameters.flow,
+      spacingRatio: this.#brushSpacingRatio,
+      minimumStampDistancePx: this.#brushMinimumStampDistancePx,
       hardness: this.#brushHardness,
       tipDensity: this.#brushTipDensity,
       tipShape: this.#brushTipShape,
