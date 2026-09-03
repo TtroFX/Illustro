@@ -43,11 +43,25 @@ jobs:
           from pathlib import Path
           path = Path('scripts/verify-m6a-brush.mjs')
           text = path.read_text()
-          old = "  'this.#radius * sizeScale * pressureSizeScale',\n  'pressure is not resolved into dab radius',"
-          new = "  'const pressureSizeScale = this.#pressureSizeEnabled ? pressureResponse : 1;',\n  'pressure-size response is not resolved for logical stamps',"
-          if old not in text:
-              raise SystemExit('legacy pressure verifier anchor not found')
-          path.write_text(text.replace(old, new, 1))
+          replacements = [
+              (
+                  "  'this.#radius * sizeScale * pressureSizeScale',\n  'pressure is not resolved into dab radius',",
+                  "  'const pressureSizeScale = this.#pressureSizeEnabled ? pressureResponse : 1;',\n  'pressure-size response is not resolved for logical stamps',",
+              ),
+              (
+                  "  'this.#strokeOpacity * pressureOpacityScale',\n  'pressure is not resolved into the opacity cap',",
+                  "  'const pressureOpacityScale = this.#pressureOpacityEnabled ? pressureResponse : 1;',\n  'pressure-opacity response is not resolved for logical stamps',",
+              ),
+              (
+                  "  'this.#flow * opacityScale * pressureFlowScale',\n  'pressure is not resolved into per-dab flow',",
+                  "  'const pressureFlowScale = this.#pressureFlowEnabled ? pressureResponse : 1;',\n  'pressure-flow response is not resolved for logical stamps',",
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'legacy pressure verifier anchor not found: {old[:70]}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
           PY
       - name: Format changed TypeScript and verifier
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts tests/unit/brush-random-dynamics.test.ts scripts/verify-m6a-brush.mjs
