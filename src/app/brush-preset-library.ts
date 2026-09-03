@@ -9,6 +9,7 @@ import {
   withBrushTipDensityV1,
   withBrushTipAngleDegreesV1,
   withBrushTipDirectionDegreesV1,
+  withBrushFollowStrokeRotationV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -421,6 +422,25 @@ export function updateBrushPresetTipDirectionV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushTipDirectionDegreesV1(item.preset, directionDegrees);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetFollowRotationV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  enabled: boolean,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushFollowStrokeRotationV1(item.preset, enabled);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

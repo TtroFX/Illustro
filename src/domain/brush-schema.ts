@@ -249,6 +249,26 @@ export function withBrushTipDirectionDegreesV1(
   });
 }
 
+export const DEFAULT_BRUSH_FOLLOW_STROKE_ROTATION_V1 = false as const;
+
+export function brushFollowStrokeRotationV1(preset: BrushPresetV1): boolean {
+  const value = preset.stroke.followRotation;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_FOLLOW_STROKE_ROTATION_V1;
+}
+
+export function withBrushFollowStrokeRotationV1(
+  preset: BrushPresetV1,
+  followRotation: boolean,
+): BrushPresetV1 {
+  if (typeof followRotation !== 'boolean') {
+    throw new TypeError('brush follow rotation must be boolean');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    stroke: { ...preset.stroke, followRotation },
+  });
+}
+
 export function withBrushParameterValuesV1(
   preset: BrushPresetV1,
   patch: Partial<BrushParameterValuesV1>,

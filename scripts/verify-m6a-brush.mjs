@@ -439,6 +439,33 @@ requireText(
   'brush tip direction regression coverage missing',
 );
 
+requireText(progress, 'M6A-026 follow stroke rotation:完了', 'M6A-026 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushFollowStrokeRotationV1',
+  'follow-stroke rotation preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'followAngle + this.#tipAngleDegrees - this.#tipDirectionDegrees',
+  'local stroke tangent is not composed into resolved tip orientation',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushFollowStrokeRotation',
+  'follow-stroke rotation is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-follow-rotation"',
+  'reachable follow-stroke rotation control missing',
+);
+requireText(
+  read('tests/unit/brush-follow-rotation.test.ts'),
+  'without rewriting the stable prefix',
+  'follow-stroke rotation regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

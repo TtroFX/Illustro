@@ -206,6 +206,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushMinimumStampDistancePx: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
+  readonly brushFollowStrokeRotation: boolean;
   readonly brushTipShape: BaselineBrushTipShapeV1;
   readonly brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
@@ -607,6 +608,7 @@ export class PaintSessionControllerV1 {
   #brushMinimumStampDistancePx: number = BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
+  #brushFollowStrokeRotation = false;
   #brushTipShape: BaselineBrushTipShapeV1 = 'round';
   #brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null = null;
   #disposed = false;
@@ -634,6 +636,7 @@ export class PaintSessionControllerV1 {
       brushMinimumStampDistancePx: this.#brushMinimumStampDistancePx,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
+      brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
       brushTipShape: this.#brushTipShape,
       brushSampledTipAlpha: this.#brushSampledTipAlpha,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
@@ -759,6 +762,17 @@ export class PaintSessionControllerV1 {
 
   brushTipDirectionDegrees(): number {
     return this.#brushTipDirectionDegrees;
+  }
+
+  setBrushFollowStrokeRotation(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') throw new TypeError('invalid runtime follow rotation');
+    if (enabled !== this.#brushFollowStrokeRotation) this.#clearActiveStroke();
+    this.#brushFollowStrokeRotation = enabled;
+    return this.#brushFollowStrokeRotation;
+  }
+
+  brushFollowStrokeRotation(): boolean {
+    return this.#brushFollowStrokeRotation;
   }
 
   setBrushTipShape(
@@ -1483,6 +1497,7 @@ export class PaintSessionControllerV1 {
       hardness: this.#brushHardness,
       tipAngleDegrees: this.#brushTipAngleDegrees,
       tipDirectionDegrees: this.#brushTipDirectionDegrees,
+      followStrokeRotation: this.#brushFollowStrokeRotation,
       tipDensity: this.#brushTipDensity,
       tipShape: this.#brushTipShape,
       ...(this.#brushSampledTipAlpha === null

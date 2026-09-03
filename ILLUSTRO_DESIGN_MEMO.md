@@ -5624,3 +5624,12 @@ Verification must cover at minimum:
 - Direction is preset/session configuration, not a second per-dab orientation field. Primitive dabs store the resolved `tipAngleDegrees`, preserving the existing Worker/history/recovery contract and deterministic replay.
 - Procedural, sampled and custom tips share the same resolved-angle path. No separate rendering branch is introduced for direction.
 - M6A-026 follow-stroke rotation must compose stroke tangent with this calibration (`stroke tangent + static angle - tip direction`) rather than replacing either M6A-024 or M6A-025 semantics.
+
+#### M6A follow-stroke-rotation boundary — 2026-09-03
+
+- `stroke.followRotation` is a preset-local boolean and defaults to `false` for legacy presets.
+- When disabled, resolved orientation remains the M6A-025 fixed formula `tip.angleDegrees - tip.directionDegrees`. When enabled, each newly emitted logical stamp resolves `local stroke tangent + tip.angleDegrees - tip.directionDegrees`.
+- The first stamp has no confirmed movement tangent and therefore commits with the fixed orientation. It is never retroactively rotated after later samples arrive; this preserves the incremental stable-prefix invariant.
+- Each non-zero confirmed pointer segment updates the local tangent. Stamps emitted on that segment use that tangent, and a short retained endpoint uses the last confirmed non-zero movement direction.
+- Primitive dabs continue to store only their resolved `tipAngleDegrees`. Follow mode is stroke-generation configuration, so Worker/history/recovery rendering requires no parallel follow-rotation field.
+- This stage does not add rotation jitter, pen orientation mapping, stabilization look-ahead or post-stroke correction; those remain their later M6A items.

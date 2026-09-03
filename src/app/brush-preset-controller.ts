@@ -8,6 +8,7 @@ import {
   brushTipDensityV1,
   brushTipAngleDegreesV1,
   brushTipDirectionDegreesV1,
+  brushFollowStrokeRotationV1,
   brushStrokeSpacingV1,
   brushTipAssetsV1,
   brushTipShapeV1,
@@ -41,6 +42,7 @@ import {
   updateBrushPresetTipDensityV1,
   updateBrushPresetTipAngleV1,
   updateBrushPresetTipDirectionV1,
+  updateBrushPresetFollowRotationV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -113,6 +115,7 @@ export function installBrushPresetControllerV1(input: {
   const tipAngleNumber = requireElement('#brush-tip-angle-number', HTMLInputElement);
   const tipDirectionRange = requireElement('#brush-tip-direction-range', HTMLInputElement);
   const tipDirectionNumber = requireElement('#brush-tip-direction-number', HTMLInputElement);
+  const followRotationButton = requireElement('#brush-follow-rotation', HTMLButtonElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -156,6 +159,7 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushSpacing(spacing.spacingRatio, spacing.minimumStampDistancePx);
     input.paintSession.setBrushTipAngleDegrees(brushTipAngleDegreesV1(item.preset));
     input.paintSession.setBrushTipDirectionDegrees(brushTipDirectionDegreesV1(item.preset));
+    input.paintSession.setBrushFollowStrokeRotation(brushFollowStrokeRotationV1(item.preset));
     input.paintSession.setBrushTipShape(
       brushTipShapeV1(item.preset),
       brushSampledTipAlphaV1(item.preset) ?? undefined,
@@ -173,6 +177,9 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushTipAngleDegrees = String(brushTipAngleDegreesV1(item.preset));
     input.root.dataset.illustroBrushTipDirectionDegrees = String(
       brushTipDirectionDegreesV1(item.preset),
+    );
+    input.root.dataset.illustroBrushFollowRotation = String(
+      brushFollowStrokeRotationV1(item.preset),
     );
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
@@ -276,6 +283,9 @@ export function installBrushPresetControllerV1(input: {
     configurePair(tipAngleRange, tipAngleNumber, 0, 359, 1, tipAngleDegrees);
     const tipDirectionDegrees = brushTipDirectionDegreesV1(selected.preset);
     configurePair(tipDirectionRange, tipDirectionNumber, 0, 359, 1, tipDirectionDegrees);
+    const followRotation = brushFollowStrokeRotationV1(selected.preset);
+    followRotationButton.textContent = followRotation ? 'ON' : 'OFF';
+    followRotationButton.setAttribute('aria-pressed', String(followRotation));
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -306,7 +316,7 @@ export function installBrushPresetControllerV1(input: {
       tipAssetSelect.value = selectedTipAssetId ?? tipAssets[0]?.id ?? '';
     }
     tipAssetStatus.textContent = tipAssets.length + '/' + BRUSH_TIP_ASSET_LIMIT_V1;
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -326,6 +336,7 @@ export function installBrushPresetControllerV1(input: {
       tipAngleNumber,
       tipDirectionRange,
       tipDirectionNumber,
+      followRotationButton,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -406,6 +417,14 @@ export function installBrushPresetControllerV1(input: {
     mutate(() => updateBrushPresetTipDirectionV1(state, state.selectedPresetId, directionDegrees));
   const onTipDirectionRange = (): void => updateTipDirection(Number(tipDirectionRange.value));
   const onTipDirectionNumber = (): void => updateTipDirection(Number(tipDirectionNumber.value));
+  const onFollowRotation = (): void =>
+    mutate(() =>
+      updateBrushPresetFollowRotationV1(
+        state,
+        state.selectedPresetId,
+        !brushFollowStrokeRotationV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -492,6 +511,7 @@ export function installBrushPresetControllerV1(input: {
   tipAngleNumber.addEventListener('change', onTipAngleNumber);
   tipDirectionRange.addEventListener('input', onTipDirectionRange);
   tipDirectionNumber.addEventListener('change', onTipDirectionNumber);
+  followRotationButton.addEventListener('click', onFollowRotation);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -531,6 +551,7 @@ export function installBrushPresetControllerV1(input: {
       tipAngleNumber.removeEventListener('change', onTipAngleNumber);
       tipDirectionRange.removeEventListener('input', onTipDirectionRange);
       tipDirectionNumber.removeEventListener('change', onTipDirectionNumber);
+      followRotationButton.removeEventListener('click', onFollowRotation);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
