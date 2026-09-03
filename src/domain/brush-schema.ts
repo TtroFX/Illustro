@@ -408,6 +408,28 @@ export function withBrushForcedTaperV1(
   });
 }
 
+export const DEFAULT_BRUSH_REALTIME_STABILIZATION_AMOUNT_V1 = 0 as const;
+
+export function brushRealtimeStabilizationAmountV1(preset: BrushPresetV1): number {
+  const value = preset.stabilization.amount;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_REALTIME_STABILIZATION_AMOUNT_V1;
+}
+
+export function withBrushRealtimeStabilizationAmountV1(
+  preset: BrushPresetV1,
+  amount: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+    throw new RangeError('brush real-time stabilization amount must be within 0..1');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    stabilization: { ...preset.stabilization, amount },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

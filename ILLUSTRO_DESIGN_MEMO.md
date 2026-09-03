@@ -5697,3 +5697,13 @@ Verification must cover at minimum:
 - Force flags are captured when the stroke begins. Later pressure/tilt/velocity mappings may multiply or otherwise compose with the brush response, but they must not raise a forced exact start/end endpoint above zero.
 - Forced taper reuses the M6A-028/M6A-029 distance windows and bounded end tail. It adds no second path-distance tracker, no new renderer path and no new primitive-dab field.
 - UI exposes Force In and Force Out separately; neither is hidden inside the stabilizer implementation. M6A-033/M6A-034 may use the same stroke geometry but must not redefine this taper contract.
+
+#### M6A real-time stabilization boundary — 2026-09-03
+
+- M6A-033 adopts the already-existing `stabilization.amount` preset field as a normalized 0..1 **real-time stabilization strength**. `0` is an exact compatibility/identity path.
+- Real-time stabilization is a causal, independently implemented **One-Euro-style adaptive low-pass filter** on document-space stroke geometry. Slow motion receives stronger smoothing; filtered velocity raises the cutoff during fast motion so intentional motion remains responsive.
+- The filter owns O(1) state and O(1) work per confirmed sample. It never scans or rewrites the confirmed stroke prefix, so it is compatible with the M6A incremental stable-prefix invariant.
+- `PaintStrokeSampleV1` remains the canonical raw confirmed input record for history, recovery and later post-stroke correction. Stabilized coordinates are presentation/brush-generation geometry only; the low-level primitive dab schema does not gain a stabilizer field.
+- Pointer release may append one final geometry segment to the last confirmed raw endpoint so the committed stroke terminates exactly where the user released. This is not permission to re-filter/replay the full stroke.
+- Predicted input remains provisional and is not persisted as confirmed stabilizer input. M6A-034 post-stroke correction is a separate release-time operation and must not silently redefine this causal hot path.
+- The parameter is exposed in Brush Properties and captured at stroke start. Changing it cannot mutate an already-active stroke.

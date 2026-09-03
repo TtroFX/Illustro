@@ -221,6 +221,11 @@
                 <button id="brush-force-end-taper" type="button" aria-pressed="false" title="抜き長さの終点をサイズ・不透明度とも0へ強制">OFF</button>
                 <span class="shell-brush-tip-kind">抜き</span>
               </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-stabilization-range">リアルタイム補正</label>
+                <input id="brush-stabilization-range" type="range" min="0" max="100" step="1" value="0" />
+                <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-stabilization-number" type="number" inputmode="numeric" min="0" max="100" step="1" value="0" aria-label="リアルタイム手ブレ補正" /><span>%</span></span>
+              </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tip-shape">ブラシ形状</label>
                 <select id="brush-tip-shape" aria-label="ブラシ先端形状">

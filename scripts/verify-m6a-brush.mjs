@@ -49,7 +49,7 @@ requireText(
 );
 requireText(
   session,
-  'builder.appendConfirmed(additions)',
+  'builder.appendConfirmed(stabilizedAdditions)',
   'confirmed batches do not use canonical incremental append',
 );
 requireText(main, 'illustroBrushMode', 'runtime Raster Brush diagnostics are not published');
@@ -641,6 +641,43 @@ requireText(
   read('tests/unit/brush-forced-taper.test.ts'),
   'forces the stroke start from zero size and deposit',
   'forced-taper regression coverage missing',
+);
+
+requireText(progress, 'M6A-033 real-time stabilization:完了', 'M6A-033 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushRealtimeStabilizationAmountV1',
+  'real-time stabilization preset helper missing',
+);
+requireText(
+  read('src/app/realtime-brush-stabilizer.ts'),
+  'class RealtimeBrushStabilizerV1',
+  'causal real-time stabilizer missing',
+);
+requireText(
+  read('src/app/realtime-brush-stabilizer.ts'),
+  'speedPxPerSecond',
+  'velocity-adaptive cutoff missing from real-time stabilizer',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'const stabilizedAdditions = additions.map((sample) => stabilizer.push(sample));',
+  'paint session does not stabilize render geometry incrementally',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'const releasePoint = stabilizer.release(rawEndpoint);',
+  'paint session does not converge release to confirmed raw endpoint',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-stabilization-range"',
+  'reachable real-time stabilization control missing',
+);
+requireText(
+  read('tests/unit/brush-realtime-stabilizer.test.ts'),
+  'keeps raw stroke samples canonical',
+  'real-time stabilization raw/canonical regression coverage missing',
 );
 
 requireText(

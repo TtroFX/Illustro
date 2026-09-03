@@ -64,6 +64,8 @@ import type {
   PointerInputSampleV1,
   PointerInputSourceV1,
 } from '../input/pointer-input.js';
+import { RealtimeBrushStabilizerV1 } from './realtime-brush-stabilizer.js';
+
 import {
   hydratePaintRasterLayerDescriptorsV1,
   type RasterMaskTileLoaderV1,
@@ -216,6 +218,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushOpacityTaperMinimumRatio: number;
   readonly brushForceStartTaper: boolean;
   readonly brushForceEndTaper: boolean;
+  readonly brushRealtimeStabilizationAmount: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -632,6 +635,7 @@ export class PaintSessionControllerV1 {
   #activeStroke: PaintStrokeV1 | null = null;
   readonly #activeSamples: PaintStrokeSampleV1[] = [];
   #activeBrushStroke: CanonicalRasterBrushStrokeV1 | null = null;
+  #activeRealtimeStabilizer: RealtimeBrushStabilizerV1 | null = null;
   #activeDabDelta: readonly BaselineBrushDabV1[] = Object.freeze([]);
   readonly #completedStrokes: CompletedPaintStrokeV1[] = [];
   readonly #committedStrokes: CompletedPaintStrokeV1[] = [];
@@ -656,6 +660,7 @@ export class PaintSessionControllerV1 {
   #brushOpacityTaperMinimumRatio: number = BASELINE_BRUSH_OPACITY_TAPER_MINIMUM_RATIO;
   #brushForceStartTaper = false;
   #brushForceEndTaper = false;
+  #brushRealtimeStabilizationAmount = 0;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -693,6 +698,7 @@ export class PaintSessionControllerV1 {
       brushOpacityTaperMinimumRatio: this.#brushOpacityTaperMinimumRatio,
       brushForceStartTaper: this.#brushForceStartTaper,
       brushForceEndTaper: this.#brushForceEndTaper,
+      brushRealtimeStabilizationAmount: this.#brushRealtimeStabilizationAmount,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -872,6 +878,19 @@ export class PaintSessionControllerV1 {
 
   brushForcedTaper(): Readonly<{ start: boolean; end: boolean }> {
     return Object.freeze({ start: this.#brushForceStartTaper, end: this.#brushForceEndTaper });
+  }
+
+  setBrushRealtimeStabilizationAmount(amount: number): number {
+    if (!Number.isFinite(amount) || amount < 0 || amount > 1) {
+      throw new RangeError('invalid runtime real-time stabilization amount');
+    }
+    if (amount !== this.#brushRealtimeStabilizationAmount) this.#clearActiveStroke();
+    this.#brushRealtimeStabilizationAmount = amount;
+    return this.#brushRealtimeStabilizationAmount;
+  }
+
+  brushRealtimeStabilizationAmount(): number {
+    return this.#brushRealtimeStabilizationAmount;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1486,7 +1505,7 @@ export class PaintSessionControllerV1 {
       batch.eventType === 'pointerrawupdate' ||
       batch.eventType === 'pointerup'
     ) {
-      this.#appendConfirmedSamples(batch);
+      this.#appendConfirmedSamples(batch, batch.eventType === 'pointerup');
     }
 
     if (batch.eventType === 'pointerup') {
@@ -1661,6 +1680,11 @@ export class PaintSessionControllerV1 {
       ...(randomSeed === undefined ? {} : { randomSeed }),
       samples: Object.freeze([]),
     });
+    const stabilizer = new RealtimeBrushStabilizerV1(this.#brushRealtimeStabilizationAmount);
+    const stabilizedSamples = samples.map((sample) => stabilizer.push(sample));
+    const firstStabilizedSample = stabilizedSamples[0];
+    if (firstStabilizedSample === undefined) return;
+    this.#activeRealtimeStabilizer = stabilizer;
     const parameters = this.#brushParameters;
     const builder = new CanonicalRasterBrushStrokeV1({
       color: this.#paintColor,
@@ -1692,22 +1716,33 @@ export class PaintSessionControllerV1 {
         ? {}
         : { sampledTipAlphas: this.#brushSampledTipAlphas }),
     });
-    this.#queueActiveDabDelta(builder.beginConfirmed(firstSample));
-    this.#queueActiveDabDelta(builder.appendConfirmed(samples.slice(1)));
+    this.#queueActiveDabDelta(builder.beginConfirmed(firstStabilizedSample));
+    this.#queueActiveDabDelta(builder.appendConfirmed(stabilizedSamples.slice(1)));
     this.#activeBrushStroke = builder;
   }
 
-  #appendConfirmedSamples(batch: PointerInputBatchV1): void {
+  #appendConfirmedSamples(batch: PointerInputBatchV1, release: boolean): void {
     const active = this.#activeStroke;
     const document = this.#document;
     const builder = this.#activeBrushStroke;
-    if (active === null || document === null || builder === null) return;
+    const stabilizer = this.#activeRealtimeStabilizer;
+    if (active === null || document === null || builder === null || stabilizer === null) return;
     const additions = batch.confirmed
       .filter((sample) => sample.pointerId === active.pointerId && sample.source === active.source)
       .map((sample) => toStrokeSample(sample, document, this.#mapPointerToDocument));
     if (additions.length === 0) return;
     this.#activeSamples.push(...additions);
-    this.#queueActiveDabDelta(builder.appendConfirmed(additions));
+    const stabilizedAdditions = additions.map((sample) => stabilizer.push(sample));
+    this.#queueActiveDabDelta(builder.appendConfirmed(stabilizedAdditions));
+    if (release) {
+      const rawEndpoint = additions.at(-1);
+      if (rawEndpoint !== undefined) {
+        const releasePoint = stabilizer.release(rawEndpoint);
+        if (releasePoint !== null) {
+          this.#queueActiveDabDelta(builder.appendConfirmed([releasePoint]));
+        }
+      }
+    }
   }
 
   #queueActiveDabDelta(delta: readonly BaselineBrushDabV1[]): void {
@@ -1723,6 +1758,7 @@ export class PaintSessionControllerV1 {
     this.#activeStroke = null;
     this.#activeSamples.length = 0;
     this.#activeBrushStroke = null;
+    this.#activeRealtimeStabilizer = null;
     this.#activeDabDelta = Object.freeze([]);
   }
 }
