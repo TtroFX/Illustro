@@ -24,6 +24,18 @@ jobs:
       - run: npm ci
       - name: Apply M6A-047 velocity patch
         run: python3 .github/illustro-m6a047-patch.py
+      - name: Widen runtime velocity maximum type
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/paint-session-controller.ts')
+          text = path.read_text()
+          old = '  #brushVelocityMaximumPxPerSecond = DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1;'
+          new = '  #brushVelocityMaximumPxPerSecond: number = DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1;'
+          if old not in text:
+              raise SystemExit('M6A-047 velocity maximum field anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Format changed TypeScript and verifier
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts tests/unit/brush-velocity-mapping.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
