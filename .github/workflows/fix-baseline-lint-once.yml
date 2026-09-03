@@ -18,18 +18,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-          package-manager-cache: false
-
-      - name: Pin npm toolchain
-        run: npm install --global npm@11.19.1
-
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
-
       - name: Remove four pre-existing non-null assertions
         shell: bash
         run: |
@@ -42,57 +30,42 @@ jobs:
 
           replacements = [
               (
-                  """    moveUpButton.disabled =
-                  selectedRoots.length === 0 ||
-                  !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, 1);
-                moveDownButton.disabled =
-                  selectedRoots.length === 0 ||
-                  !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, -1);
-          """,
-                  """    moveUpButton.disabled =
-                  projectSnapshot === null ||
-                  selectedRoots.length === 0 ||
-                  !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, 1);
-                moveDownButton.disabled =
-                  projectSnapshot === null ||
-                  selectedRoots.length === 0 ||
-                  !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, -1);
-          """,
+                  '!canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, 1)',
+                  'projectSnapshot === null || !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, 1)',
               ),
               (
-                  """      const target = options.maskPaint.snapshot();
-                if (target.layerId === null || target.maskId === null) return;
-          """,
-                  """      const target = options.maskPaint.snapshot();
-                const layerId = target.layerId;
-                const maskId = target.maskId;
-                if (layerId === null || maskId === null) return;
-          """,
+                  '!canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, -1)',
+                  'projectSnapshot === null || !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, -1)',
               ),
               (
-                  """            target.layerId!,
-                    target.maskId!,
-          """,
-                  """            layerId,
-                    maskId,
-          """,
+                  'if (target.layerId === null || target.maskId === null) return;',
+                  'const layerId = target.layerId;\n      const maskId = target.maskId;\n      if (layerId === null || maskId === null) return;',
               ),
-              (
-                  """        () => target.layerId,
-          """,
-                  """        () => layerId,
-          """,
-              ),
+              ('target.layerId!', 'layerId'),
+              ('target.maskId!', 'maskId'),
+              ('() => target.layerId,', '() => layerId,'),
           ]
 
           for old, new in replacements:
               count = text.count(old)
               if count != 1:
-                  raise SystemExit(f'expected one lint-repair anchor, found {count}: {old[:120]!r}')
+                  raise SystemExit(f'expected one lint-repair anchor, found {count}: {old!r}')
               text = text.replace(old, new, 1)
 
           path.write_text(text, encoding='utf-8')
           PY
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
 
       - name: Format repaired file
         run: npx biome format --write src/app/layer-workflow-controller.ts
