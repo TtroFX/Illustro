@@ -71,7 +71,7 @@ jobs:
         run: npx biome format --write src/app/layer-workflow-controller.ts
 
       - name: Lint
-        run: npm run lint
+        run: npx biome lint --max-diagnostics=200 src tests scripts bench vitest.config.ts
 
       - name: Typecheck
         run: npm run typecheck
