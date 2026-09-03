@@ -1,3 +1,4 @@
+import type { ResponseCurvePointV1 } from '../domain/response-curve.js';
 import {
   BaselineBrushDabBuilderV1,
   type BaselineBrushColorV1,
@@ -100,6 +101,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly pressureSizeEnabled?: boolean;
       readonly pressureOpacityEnabled?: boolean;
       readonly pressureFlowEnabled?: boolean;
+      readonly pressureResponseCurve?: readonly ResponseCurvePointV1[];
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -148,6 +150,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.pressureFlowEnabled === undefined
         ? {}
         : { pressureFlowEnabled: options.pressureFlowEnabled }),
+      ...(options.pressureResponseCurve === undefined
+        ? {}
+        : { pressureResponseCurve: options.pressureResponseCurve }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined

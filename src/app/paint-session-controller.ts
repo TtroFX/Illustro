@@ -10,6 +10,12 @@ import {
   type BrushTextureBlendModeV1,
 } from '../domain/brush-schema.js';
 import {
+  LINEAR_RESPONSE_CURVE_V1,
+  normalizeResponseCurveV1,
+  responseCurveEqualsV1,
+  type ResponseCurvePointV1,
+} from '../domain/response-curve.js';
+import {
   isUuid,
   parseDocumentId,
   parseLayerId,
@@ -233,6 +239,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushPressureSizeEnabled: boolean;
   readonly brushPressureOpacityEnabled: boolean;
   readonly brushPressureFlowEnabled: boolean;
+  readonly brushPressureResponseCurve: readonly ResponseCurvePointV1[];
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -687,6 +694,7 @@ export class PaintSessionControllerV1 {
   #brushPressureSizeEnabled = false;
   #brushPressureOpacityEnabled = false;
   #brushPressureFlowEnabled = false;
+  #brushPressureResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -736,6 +744,7 @@ export class PaintSessionControllerV1 {
       brushPressureSizeEnabled: this.#brushPressureSizeEnabled,
       brushPressureOpacityEnabled: this.#brushPressureOpacityEnabled,
       brushPressureFlowEnabled: this.#brushPressureFlowEnabled,
+      brushPressureResponseCurve: this.#brushPressureResponseCurve,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1094,6 +1103,20 @@ export class PaintSessionControllerV1 {
 
   brushPressureFlowEnabled(): boolean {
     return this.#brushPressureFlowEnabled;
+  }
+
+  setBrushPressureResponseCurve(
+    curve: readonly ResponseCurvePointV1[],
+  ): readonly ResponseCurvePointV1[] {
+    const normalized = normalizeResponseCurveV1(curve);
+    if (!responseCurveEqualsV1(normalized, this.#brushPressureResponseCurve))
+      this.#clearActiveStroke();
+    this.#brushPressureResponseCurve = normalized;
+    return this.#brushPressureResponseCurve;
+  }
+
+  brushPressureResponseCurve(): readonly ResponseCurvePointV1[] {
+    return this.#brushPressureResponseCurve;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1958,6 +1981,7 @@ export class PaintSessionControllerV1 {
         pressureSizeEnabled: this.#brushPressureSizeEnabled,
         pressureOpacityEnabled: this.#brushPressureOpacityEnabled,
         pressureFlowEnabled: this.#brushPressureFlowEnabled,
+        pressureResponseCurve: this.#brushPressureResponseCurve,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
         tipDirectionDegrees: this.#brushTipDirectionDegrees,

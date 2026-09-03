@@ -471,7 +471,8 @@ M6A-042 pressure→opacity:完了
 再開メモ: M6A-042 pressure→opacityはBrushPresetV1.dynamics.pressureOpacityEnabledをopt-in booleanとして追加し、既定falseで既存strokeを互換維持する。有効時はM6A-041と同じPen raw pressure 0..1をlogical stamp位置へ距離比例補間し、base strokeOpacity cap × pressureへ解決する一方、per-dab flow/depositは変更しない。Raster paintのcoverage累積は固定opacityで従来式と代数的に等価なeffectiveNext = effectivePrev + max(0, opacityCap-effectivePrev) × depositへ整理し、pressure低下で既描画alphaを巻き戻さず、pressure上昇時はflowで新しいcapへ収束する。追加per-tile bufferは不要。Mouseはpressure mapping上1.0、primitive dabは既存strokeOpacityへ解決済み値を保存するためdab/history schema追加はない。次はM6A-043 pressure→flowから再開する。
 M6A-043 pressure→flow:完了
 再開メモ: M6A-043 pressure→flowはBrushPresetV1.dynamics.pressureFlowEnabledをopt-in booleanとして追加し、既定falseで既存strokeを互換維持する。有効時はM6A-041/042と同じPen raw pressureをlogical stamp位置へ距離比例補間し、base flow × taper deposit scale × pressureへ解決する。strokeOpacity capは変更しないためM6A-042とは独立し、Raster paintではflowが現在のeffective coverageからopacity capへ近づく速度だけを制御する。Mouseはneutral 1.0、primitive dabには既存flowへ解決済み値だけを保存するためrenderer/history schema追加は不要。pressure→size/opacity/flowを同時に有効化しても同一pressure scalarから各軸を独立解決する。次はM6A-044 pressure response curveから再開する。
-M6A-044 pressure response curve:未完了
+M6A-044 pressure response curve:完了
+再開メモ: M6A-044 pressure response curveはIP-12 Shared Curve Editor契約に従い、0→0 / 1→1固定・input昇順・output単調の2..16 node canonical curveを追加した。runtime評価はmonotone PCHIP/Fritsch-Carlson-style補間をstroke開始時にcompileし、logical stampごとに補間済みraw pressureをcurveへ1回だけ通して、その同一responseをM6A-041 size / 042 opacity / 043 flowの各opt-in mappingへ配る。linearはexact identity/defaultでpreset fieldを省略する。Tool Propertiesには共有Curve Editorを接続し、canvas上tapでnode追加、drag編集、選択nodeの正確な入出力%、Delete、Reset、Linear/Soft/Hard/S presetsを提供する。Mouseはneutral 1.0のまま。M6A-049/050のminimum/maximum responseは未適用で、forced taper zero endpointは引き続き優先する。次はM6A-045 tilt mappingから再開する。
 M6A-045 tilt mapping:未完了
 M6A-046 orientation mapping:未完了
 M6A-047 velocity mapping:未完了

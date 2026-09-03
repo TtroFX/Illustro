@@ -1,3 +1,9 @@
+import {
+  LINEAR_RESPONSE_CURVE_V1,
+  normalizeResponseCurveV1,
+  responseCurveIsLinearV1,
+  type ResponseCurvePointV1,
+} from './response-curve.js';
 import { toJsonValue, type JsonValue } from './serialization.js';
 
 export const BRUSH_V1_SCHEMA = 'illustro.brush/1' as const;
@@ -754,6 +760,36 @@ export function withBrushPressureFlowEnabledV1(
   return normalizeBrushPresetV1({
     ...preset,
     dynamics: { ...preset.dynamics, pressureFlowEnabled: enabled },
+  });
+}
+
+export function brushPressureResponseCurveV1(
+  preset: BrushPresetV1,
+): readonly ResponseCurvePointV1[] {
+  const value = preset.dynamics.pressureResponseCurve;
+  if (value === undefined) return LINEAR_RESPONSE_CURVE_V1;
+  try {
+    return normalizeResponseCurveV1(value);
+  } catch {
+    return LINEAR_RESPONSE_CURVE_V1;
+  }
+}
+
+export function withBrushPressureResponseCurveV1(
+  preset: BrushPresetV1,
+  curve: readonly ResponseCurvePointV1[],
+): BrushPresetV1 {
+  const normalized = normalizeResponseCurveV1(curve);
+  if (responseCurveIsLinearV1(normalized)) {
+    const { pressureResponseCurve: _pressureResponseCurve, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  const stored = toJsonValue(
+    normalized.map((pointValue) => ({ input: pointValue.input, output: pointValue.output })),
+  );
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, pressureResponseCurve: stored },
   });
 }
 

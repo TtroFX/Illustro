@@ -1,4 +1,9 @@
 import {
+  compileResponseCurveV1,
+  type CompiledResponseCurveV1,
+  type ResponseCurvePointV1,
+} from '../domain/response-curve.js';
+import {
   CANONICAL_TILE_SIZE_PX,
   tileBoundsForDocumentV1,
   tileKeyV1,
@@ -304,6 +309,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #pressureSizeEnabled: boolean;
   readonly #pressureOpacityEnabled: boolean;
   readonly #pressureFlowEnabled: boolean;
+  readonly #pressureResponseCurve: CompiledResponseCurveV1;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -342,6 +348,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly pressureSizeEnabled?: boolean;
       readonly pressureOpacityEnabled?: boolean;
       readonly pressureFlowEnabled?: boolean;
+      readonly pressureResponseCurve?: readonly ResponseCurvePointV1[];
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -460,6 +467,12 @@ export class BaselineBrushDabBuilderV1 {
     this.#pressureSizeEnabled = pressureSizeEnabled;
     this.#pressureOpacityEnabled = pressureOpacityEnabled;
     this.#pressureFlowEnabled = pressureFlowEnabled;
+    this.#pressureResponseCurve = compileResponseCurveV1(
+      options.pressureResponseCurve ?? [
+        { input: 0, output: 0 },
+        { input: 1, output: 1 },
+      ],
+    );
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -673,9 +686,12 @@ export class BaselineBrushDabBuilderV1 {
       this.#opacityTaperScale(startEnvelope, this.#forceStartTaper),
       this.#opacityTaperScale(endEnvelope, this.#forceEndTaper),
     );
-    const pressureSizeScale = this.#pressureSizeEnabled ? stamp.pressure : 1;
-    const pressureOpacityScale = this.#pressureOpacityEnabled ? stamp.pressure : 1;
-    const pressureFlowScale = this.#pressureFlowEnabled ? stamp.pressure : 1;
+    const usesPressure =
+      this.#pressureSizeEnabled || this.#pressureOpacityEnabled || this.#pressureFlowEnabled;
+    const pressureResponse = usesPressure ? this.#pressureResponseCurve.sample(stamp.pressure) : 1;
+    const pressureSizeScale = this.#pressureSizeEnabled ? pressureResponse : 1;
+    const pressureOpacityScale = this.#pressureOpacityEnabled ? pressureResponse : 1;
+    const pressureFlowScale = this.#pressureFlowEnabled ? pressureResponse : 1;
     if (
       sizeScale <= 0 ||
       opacityScale <= 0 ||

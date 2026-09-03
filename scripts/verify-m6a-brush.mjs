@@ -946,6 +946,48 @@ requireText(
   'pressure-flow independence regression missing',
 );
 
+requireText(progress, 'M6A-044 pressure response curve:完了', 'M6A-044 progress is not complete');
+requireText(
+  read('src/domain/response-curve.ts'),
+  'compileResponseCurveV1',
+  'shared response-curve evaluator missing',
+);
+requireText(
+  read('src/domain/response-curve.ts'),
+  'response curve endpoints must be exactly 0→0 and 1→1',
+  'pressure curve endpoint contract missing',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPressureResponseCurveV1',
+  'pressure response curve is not persisted in brush presets',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'const pressureResponse = usesPressure ? this.#pressureResponseCurve.sample(stamp.pressure) : 1;',
+  'shared pressure response is not resolved once before mappings',
+);
+requireText(
+  read('src/app/shared-curve-editor.ts'),
+  'installSharedCurveEditorV1',
+  'shared Curve Editor implementation missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-pressure-curve"',
+  'reachable pressure Curve Editor canvas missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-pressure-curve-input"',
+  'exact selected pressure-curve input control missing',
+);
+requireText(
+  read('tests/unit/brush-pressure-response-curve.test.ts'),
+  'resolves one shared curve output before independent size, opacity and flow mappings',
+  'pressure response mapping regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

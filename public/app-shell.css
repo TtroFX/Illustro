@@ -2041,3 +2041,83 @@ body {
   grid-column: 1 / -1;
   text-align: right;
 }
+
+/* M6A shared pressure response Curve Editor */
+.shell-brush-pressure-curve-editor {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid #e2e7ef;
+  border-radius: 9px;
+  background: #fbfcff;
+}
+
+.shell-brush-pressure-curve-header {
+  display: grid;
+  grid-template-columns: minmax(72px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: #1f2e46;
+  font-size: 11px;
+}
+
+.shell-brush-pressure-curve-header select,
+.shell-brush-pressure-curve-values input,
+.shell-brush-pressure-curve-values button {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #38445d;
+  font: inherit;
+  font-size: 10px;
+}
+
+#brush-pressure-curve {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 15 / 8;
+  border: 1px solid #dfe5ef;
+  border-radius: 8px;
+  background: #fff;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+#brush-pressure-curve:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+.shell-brush-pressure-curve-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.shell-brush-pressure-curve-values label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  color: #718096;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.shell-brush-pressure-curve-values input {
+  width: 100%;
+  padding: 0 5px;
+}
+
+.shell-brush-pressure-curve-values button {
+  padding: 0 7px;
+  cursor: pointer;
+}
+
+.shell-brush-pressure-curve-editor :disabled {
+  cursor: default;
+  opacity: 0.46;
+}

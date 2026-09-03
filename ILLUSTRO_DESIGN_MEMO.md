@@ -5786,3 +5786,11 @@ Verification must cover at minimum:
 - The same distance-interpolated Pen pressure scalar is reused for size, opacity and flow so the three mappings stay deterministic and aligned at logical stamp positions. Mouse uses neutral pressure 1.0.
 - Raster paint semantics remain: flow controls convergence speed toward the current effective opacity cap; opacity controls the cap. No new renderer state, primitive-dab field, Worker ABI or history schema is required.
 - M6A-044 supplies a shared response curve before these independent mappings, while M6A-049/050 later bound the response. M6A-032 forced taper zero endpoints remain authoritative.
+
+## M6A pressure-response-curve boundary — 2026-09-03
+
+- M6A-044 implements pressure response through the IP-12 Shared Curve Editor contract rather than inventing a pressure-only nonlinear slider. The reusable canonical curve uses 2..16 direct-edit nodes, fixed `0→0` / `1→1` endpoints, strictly increasing input and monotonic output.
+- The canonical default is exact linear identity and is omitted from stored brush preset JSON. Useful Linear / Soft / Hard / S Curve families are available as editor presets; direct canvas tap adds a node, drag edits it, selected-node input/output percentages provide the exact numeric path, Delete removes eligible interior nodes and Reset restores linear.
+- Runtime evaluation uses a monotone PCHIP/Fritsch-Carlson-style cubic compiled once at stroke construction. The interpolated raw Pen pressure is evaluated once per logical stamp and the same resolved response is then supplied independently to size, opacity-cap and flow mappings. Curves therefore do not fork the stamp path or add renderer/history schema.
+- If no pressure mapping is enabled, a non-linear stored curve has no raster effect. Mouse remains neutral response `1.0` because it has no stylus-pressure semantics.
+- M6A-049/050 still own minimum/maximum response bounds and are not encoded into the curve here. Later bounds must compose with this shared response rather than rewriting curve nodes. M6A-032 forced taper zero endpoints remain authoritative.

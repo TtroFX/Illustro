@@ -26,6 +26,7 @@ import {
   brushPressureSizeEnabledV1,
   brushPressureOpacityEnabledV1,
   brushPressureFlowEnabledV1,
+  brushPressureResponseCurveV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -37,8 +38,10 @@ import {
   type BrushTipShapeV1,
   type BrushTextureBlendModeV1,
 } from '../domain/brush-schema.js';
+import { responseCurveIsLinearV1 } from '../domain/response-curve.js';
 import { customBrushTipAlphaFromFileV1, drawCustomBrushTipPreviewV1 } from './custom-brush-tip.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
+import { installSharedCurveEditorV1, type SharedCurveEditorV1 } from './shared-curve-editor.js';
 import {
   addBrushPresetTipAssetV1,
   brushPresetCategoriesV1,
@@ -81,6 +84,7 @@ import {
   updateBrushPresetPressureSizeV1,
   updateBrushPresetPressureOpacityV1,
   updateBrushPresetPressureFlowV1,
+  updateBrushPresetPressureResponseCurveV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -181,6 +185,12 @@ export function installBrushPresetControllerV1(input: {
   const pressureSizeButton = requireElement('#brush-pressure-size', HTMLButtonElement);
   const pressureOpacityButton = requireElement('#brush-pressure-opacity', HTMLButtonElement);
   const pressureFlowButton = requireElement('#brush-pressure-flow', HTMLButtonElement);
+  const pressureCurveCanvas = requireElement('#brush-pressure-curve', HTMLCanvasElement);
+  const pressureCurvePreset = requireElement('#brush-pressure-curve-preset', HTMLSelectElement);
+  const pressureCurveInput = requireElement('#brush-pressure-curve-input', HTMLInputElement);
+  const pressureCurveOutput = requireElement('#brush-pressure-curve-output', HTMLInputElement);
+  const pressureCurveDelete = requireElement('#brush-pressure-curve-delete', HTMLButtonElement);
+  const pressureCurveReset = requireElement('#brush-pressure-curve-reset', HTMLButtonElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -192,6 +202,7 @@ export function installBrushPresetControllerV1(input: {
   const tipAssetFile = requireElement('#brush-tip-asset-file', HTMLInputElement);
   const tipAssetStatus = requireElement('#brush-tip-asset-status', HTMLOutputElement);
   let state = loadState(storage);
+  let pressureCurveEditor: SharedCurveEditorV1 | null = null;
   let idCounter = 0;
 
   const nextId = (): string => {
@@ -260,6 +271,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushPressureOpacityEnabled(pressureOpacityEnabled);
     const pressureFlowEnabled = brushPressureFlowEnabledV1(item.preset);
     input.paintSession.setBrushPressureFlowEnabled(pressureFlowEnabled);
+    const pressureResponseCurve = brushPressureResponseCurveV1(item.preset);
+    input.paintSession.setBrushPressureResponseCurve(pressureResponseCurve);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -310,6 +323,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushPressureSize = String(pressureSizeEnabled);
     input.root.dataset.illustroBrushPressureOpacity = String(pressureOpacityEnabled);
     input.root.dataset.illustroBrushPressureFlow = String(pressureFlowEnabled);
+    input.root.dataset.illustroBrushPressureCurvePoints = String(pressureResponseCurve.length);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -495,6 +509,8 @@ export function installBrushPresetControllerV1(input: {
     const pressureFlowEnabled = brushPressureFlowEnabledV1(selected.preset);
     pressureFlowButton.textContent = pressureFlowEnabled ? 'ON' : 'OFF';
     pressureFlowButton.setAttribute('aria-pressed', String(pressureFlowEnabled));
+    const pressureResponseCurve = brushPressureResponseCurveV1(selected.preset);
+    pressureCurveEditor?.setCurve(pressureResponseCurve);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -560,7 +576,8 @@ export function installBrushPresetControllerV1(input: {
     const pressureSizeLabel = pressureSizeEnabled ? ' · P→Size' : '';
     const pressureOpacityLabel = pressureOpacityEnabled ? ' · P→Opacity' : '';
     const pressureFlowLabel = pressureFlowEnabled ? ' · P→Flow' : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}`;
+    const pressureCurveLabel = responseCurveIsLinearV1(pressureResponseCurve) ? '' : ' · P-Curve';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -614,6 +631,7 @@ export function installBrushPresetControllerV1(input: {
     ]) {
       control.disabled = locked;
     }
+    pressureCurveEditor?.setDisabled(locked);
     tipAssetSelect.disabled = locked || tipAssets.length === 0;
     tipAssetAdd.disabled = locked || tipAssets.length >= BRUSH_TIP_ASSET_LIMIT_V1;
     tipAssetDelete.disabled = locked || tipAssets.length <= 1;
@@ -639,6 +657,20 @@ export function installBrushPresetControllerV1(input: {
       status.textContent = error instanceof Error ? error.message : '操作に失敗しました';
     }
   };
+
+  pressureCurveEditor = installSharedCurveEditorV1({
+    elements: {
+      canvas: pressureCurveCanvas,
+      preset: pressureCurvePreset,
+      inputNumber: pressureCurveInput,
+      outputNumber: pressureCurveOutput,
+      deleteButton: pressureCurveDelete,
+      resetButton: pressureCurveReset,
+    },
+    initialCurve: brushPressureResponseCurveV1(selectedBrushPresetItemV1(state).preset),
+    onChange: (curve) =>
+      mutate(() => updateBrushPresetPressureResponseCurveV1(state, state.selectedPresetId, curve)),
+  });
 
   const onSearch = (): void => {
     state = setBrushPresetSearchV1(state, search.value);
@@ -994,6 +1026,8 @@ export function installBrushPresetControllerV1(input: {
       pressureSizeButton.removeEventListener('click', onPressureSize);
       pressureOpacityButton.removeEventListener('click', onPressureOpacity);
       pressureFlowButton.removeEventListener('click', onPressureFlow);
+      pressureCurveEditor?.dispose();
+      pressureCurveEditor = null;
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);
