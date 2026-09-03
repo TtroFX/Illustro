@@ -445,7 +445,8 @@ M6A-029 stroke-end behavior:完了
 再開メモ: M6A-029 stroke-end behaviorはstroke.endLengthPxを0..4096 document pxで保持し、0は従来の即時終了を維持する。endLengthPx>0ではactive中に現在末尾からendLengthPx内のlogical stampsだけをmutable tailとして識別し、pointerupで総path lengthが確定した時にそのtailだけをstart/end envelopeのminで再生成する。stable prefixはkernel上で再生成しない。whole-stroke opacity capは一定のままradiusとper-dab flow/depositを減衰し、終端0% stampは最終dab列から除外する。現rendererのactive Raster transactionはtail置換APIをまだ持たないため、final dabsがprovisional prefixと一致しない場合だけrelease時に一度cancel→最終dab列再適用で整合する。毎入力のwhole-stroke replayは行わず、tail-only raster reconciliationへの最適化はM6A-PERF-001/002に残す。次はM6A-030 size taperから再開する。
 M6A-030 size taper:完了
 再開メモ: M6A-030 size taperはstartLengthPx/endLengthPxが定義する共通0..1距離envelopeとは独立に、stroke.sizeTaperMinimumRatioを0..1で保持する。size scaleはminimumRatio + (1-minimumRatio)*envelopeで解決し、既定0はM6A-028/029の従来テーパーを保持、1はサイズ縮小だけを無効化する。per-dab flow/depositはまだ共通envelopeをそのまま使いwhole-stroke opacity capは一定なので、サイズとopacity/depositの責務を分離した。sampled/custom tipもmicro-dab展開前のlogical radiusへ同じsize scaleを適用する。primitive dabへ解決済みradiusを保存するためWorker/history schema追加は不要。次はM6A-031 opacity taperから再開する。
-M6A-031 opacity taper:未完了
+M6A-031 opacity taper:完了
+再開メモ: M6A-031 opacity taperはstroke.opacityTaperMinimumRatioを0..1で保持し、M6A-028/029の共通start/end envelopeからper-dab deposit scale = minimumRatio + (1-minimumRatio)*envelopeを解決する。既定0は従来どおり0までフェードし、1はopacity/deposit fadeだけを無効化する。whole-stroke strokeOpacity capは一定のまま、base flowへdeposit scaleを掛けるためM6A-030 size taperとは独立する。size minimumとopacity minimumの双方が非0ならraw envelope=0の開始/終端stampも可視になり得るため、その場合だけ通常のlogical stampとして保持・tip selectionを消費する。primitive dabには解決済みflow/opacityのみ保存しWorker/history schema追加は不要。次はM6A-032 forced taperから再開する。
 M6A-032 forced taper:未完了
 M6A-033 real-time stabilization:未完了
 M6A-034 post-stroke correction:未完了

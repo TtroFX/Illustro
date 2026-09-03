@@ -5678,3 +5678,12 @@ Verification must cover at minimum:
 - Persistence/history/Worker continue to store only resolved primitive dabs; no new dab field is introduced for size taper. The preset retains the editable semantic parameter.
 - The endpoint remains omitted while the current deposit envelope is zero even if the minimum size ratio is nonzero, because it is invisible until M6A-031 defines any nonzero opacity/deposit minimum.
 - M6A-029 stable-prefix and bounded-mutable-tail rules are unchanged. Size taper must not cause stable-prefix regeneration or per-input whole-stroke replay.
+
+#### M6A opacity-taper boundary — 2026-09-03
+
+- M6A-031 stores `stroke.opacityTaperMinimumRatio` in `0..1` and reuses the same M6A-028/M6A-029 start/end distance envelope as size taper. It does not create a second distance/timing system.
+- The per-dab deposit scale is `minimumRatio + (1 - minimumRatio) * envelope`. `0` preserves the previous fade-to-zero behavior; `1` disables deposit fading while size taper can remain active.
+- The canonical whole-stroke `strokeOpacity` cap remains invariant for the stroke. Opacity taper is resolved by scaling per-dab flow/deposit before primitive-dab persistence, preventing the Raster Tile transaction from observing a changing stroke opacity cap.
+- Size and opacity/deposit minima are independent. A zero-envelope stamp is omitted when either resolved size or resolved deposit is zero; if both minima are positive, that stamp is visible and is retained as a normal logical stamp, including deterministic tip-selection consumption.
+- Sampled/custom tip alpha multiplication occurs after the resolved base flow scale, so opacity taper naturally applies to every emitted micro-dab without a new renderer or Worker field.
+- The M6A-029 stable-prefix/bounded-tail boundary remains authoritative. End-side opacity changes are reconciled only inside the bounded logical tail, with the existing release-time Raster correctness bridge until the M6A-PERF tail-only raster optimization is implemented.

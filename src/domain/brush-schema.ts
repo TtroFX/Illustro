@@ -347,6 +347,28 @@ export function withBrushSizeTaperMinimumRatioV1(
   });
 }
 
+export const DEFAULT_BRUSH_OPACITY_TAPER_MINIMUM_RATIO_V1 = 0 as const;
+
+export function brushOpacityTaperMinimumRatioV1(preset: BrushPresetV1): number {
+  const value = preset.stroke.opacityTaperMinimumRatio;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_OPACITY_TAPER_MINIMUM_RATIO_V1;
+}
+
+export function withBrushOpacityTaperMinimumRatioV1(
+  preset: BrushPresetV1,
+  minimumRatio: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(minimumRatio) || minimumRatio < 0 || minimumRatio > 1) {
+    throw new RangeError('brush opacity taper minimum ratio must be within 0..1');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    stroke: { ...preset.stroke, opacityTaperMinimumRatio: minimumRatio },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

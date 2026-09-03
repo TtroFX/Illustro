@@ -29,6 +29,7 @@ import {
   BASELINE_BRUSH_START_TAPER_LENGTH_PX,
   BASELINE_BRUSH_END_TAPER_LENGTH_PX,
   BASELINE_BRUSH_SIZE_TAPER_MINIMUM_RATIO,
+  BASELINE_BRUSH_OPACITY_TAPER_MINIMUM_RATIO,
   BASELINE_BRUSH_TIP_DENSITY,
   BASELINE_BRUSH_TIP_ANGLE_DEGREES,
   BASELINE_BRUSH_TIP_DIRECTION_DEGREES,
@@ -212,6 +213,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushStartTaperLengthPx: number;
   readonly brushEndTaperLengthPx: number;
   readonly brushSizeTaperMinimumRatio: number;
+  readonly brushOpacityTaperMinimumRatio: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -649,6 +651,7 @@ export class PaintSessionControllerV1 {
   #brushStartTaperLengthPx: number = BASELINE_BRUSH_START_TAPER_LENGTH_PX;
   #brushEndTaperLengthPx: number = BASELINE_BRUSH_END_TAPER_LENGTH_PX;
   #brushSizeTaperMinimumRatio: number = BASELINE_BRUSH_SIZE_TAPER_MINIMUM_RATIO;
+  #brushOpacityTaperMinimumRatio: number = BASELINE_BRUSH_OPACITY_TAPER_MINIMUM_RATIO;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -683,6 +686,7 @@ export class PaintSessionControllerV1 {
       brushStartTaperLengthPx: this.#brushStartTaperLengthPx,
       brushEndTaperLengthPx: this.#brushEndTaperLengthPx,
       brushSizeTaperMinimumRatio: this.#brushSizeTaperMinimumRatio,
+      brushOpacityTaperMinimumRatio: this.#brushOpacityTaperMinimumRatio,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -830,6 +834,19 @@ export class PaintSessionControllerV1 {
 
   brushSizeTaperMinimumRatio(): number {
     return this.#brushSizeTaperMinimumRatio;
+  }
+
+  setBrushOpacityTaperMinimumRatio(minimumRatio: number): number {
+    if (!Number.isFinite(minimumRatio) || minimumRatio < 0 || minimumRatio > 1) {
+      throw new RangeError('invalid runtime brush opacity taper minimum ratio');
+    }
+    if (minimumRatio !== this.#brushOpacityTaperMinimumRatio) this.#clearActiveStroke();
+    this.#brushOpacityTaperMinimumRatio = minimumRatio;
+    return this.#brushOpacityTaperMinimumRatio;
+  }
+
+  brushOpacityTaperMinimumRatio(): number {
+    return this.#brushOpacityTaperMinimumRatio;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -1631,6 +1648,7 @@ export class PaintSessionControllerV1 {
       startTaperLengthPx: this.#brushStartTaperLengthPx,
       endTaperLengthPx: this.#brushEndTaperLengthPx,
       sizeTaperMinimumRatio: this.#brushSizeTaperMinimumRatio,
+      opacityTaperMinimumRatio: this.#brushOpacityTaperMinimumRatio,
       hardness: this.#brushHardness,
       tipAngleDegrees: this.#brushTipAngleDegrees,
       tipDirectionDegrees: this.#brushTipDirectionDegrees,

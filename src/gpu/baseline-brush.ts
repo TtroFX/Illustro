@@ -13,6 +13,7 @@ export const BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX = 1 as const;
 export const BASELINE_BRUSH_START_TAPER_LENGTH_PX = 0 as const;
 export const BASELINE_BRUSH_END_TAPER_LENGTH_PX = 0 as const;
 export const BASELINE_BRUSH_SIZE_TAPER_MINIMUM_RATIO = 0 as const;
+export const BASELINE_BRUSH_OPACITY_TAPER_MINIMUM_RATIO = 0 as const;
 export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
 export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
@@ -286,6 +287,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #startTaperLengthPx: number;
   readonly #endTaperLengthPx: number;
   readonly #sizeTaperMinimumRatio: number;
+  readonly #opacityTaperMinimumRatio: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -318,6 +320,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly startTaperLengthPx?: number;
       readonly endTaperLengthPx?: number;
       readonly sizeTaperMinimumRatio?: number;
+      readonly opacityTaperMinimumRatio?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -345,6 +348,8 @@ export class BaselineBrushDabBuilderV1 {
     const endTaperLengthPx = options.endTaperLengthPx ?? BASELINE_BRUSH_END_TAPER_LENGTH_PX;
     const sizeTaperMinimumRatio =
       options.sizeTaperMinimumRatio ?? BASELINE_BRUSH_SIZE_TAPER_MINIMUM_RATIO;
+    const opacityTaperMinimumRatio =
+      options.opacityTaperMinimumRatio ?? BASELINE_BRUSH_OPACITY_TAPER_MINIMUM_RATIO;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -393,6 +398,13 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new RangeError('baseline brush size taper minimum ratio must be within 0..1');
     }
+    if (
+      !Number.isFinite(opacityTaperMinimumRatio) ||
+      opacityTaperMinimumRatio < 0 ||
+      opacityTaperMinimumRatio > 1
+    ) {
+      throw new RangeError('baseline brush opacity taper minimum ratio must be within 0..1');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -404,6 +416,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#startTaperLengthPx = startTaperLengthPx;
     this.#endTaperLengthPx = endTaperLengthPx;
     this.#sizeTaperMinimumRatio = sizeTaperMinimumRatio;
+    this.#opacityTaperMinimumRatio = opacityTaperMinimumRatio;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -580,19 +593,24 @@ export class BaselineBrushDabBuilderV1 {
     return this.#sizeTaperMinimumRatio + (1 - this.#sizeTaperMinimumRatio) * envelope;
   }
 
+  #opacityTaperScale(envelope: number): number {
+    return this.#opacityTaperMinimumRatio + (1 - this.#opacityTaperMinimumRatio) * envelope;
+  }
+
   #emitLogicalStamp(
     target: BaselineBrushDabV1[],
     stamp: Pick<BaselineLogicalStampRecordV1, 'x' | 'y' | 'tipAngleDegrees' | 'sampledTipAlpha'>,
     envelope: number,
   ): void {
-    if (envelope <= 0) return;
     const sizeScale = this.#sizeTaperScale(envelope);
+    const opacityScale = this.#opacityTaperScale(envelope);
+    if (sizeScale <= 0 || opacityScale <= 0) return;
     pushBaselineBrushStampV1(
       target,
       stamp.x,
       stamp.y,
       this.#radius * sizeScale,
-      this.#flow * envelope,
+      this.#flow * opacityScale,
       this.#strokeOpacity,
       this.#hardness,
       this.#tipDensity,
@@ -605,7 +623,6 @@ export class BaselineBrushDabBuilderV1 {
 
   #pushLogicalStamp(x: number, y: number, tipAngleDegrees: number, pathDistancePx: number): void {
     const startEnvelope = this.#startEnvelopeAtDistance(pathDistancePx);
-    if (startEnvelope <= 0) return;
     const sampledTipAlpha = this.#sampledTipAlphaForLogicalStamp();
     const record: BaselineLogicalStampRecordV1 = {
       x,
