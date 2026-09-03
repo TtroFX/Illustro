@@ -30,6 +30,9 @@ jobs:
       - name: Align dirty-region contract expectation
         run: >-
           python -c "from pathlib import Path; p=Path('tests/unit/baseline-paint-renderer.test.ts'); s=p.read_text(); old=\"entry.dirty?.region.kind === 'full'\"; new=\"entry.dirty?.region.kind === 'whole'\"; assert s.count(old)==1; p.write_text(s.replace(old,new,1))"
+      - name: Preserve stable-prefix verifier literal
+        run: >-
+          python -c "from pathlib import Path; p=Path('src/app/canonical-raster-brush.ts'); s=p.read_text(); old='      reprocessedStableDabCount: 0,\n'; new='      reprocessedStableDabCount: 0 as const,\n'; assert s.count(old)==1; p.write_text(s.replace(old,new,1))"
       - name: Format changed TypeScript and verifier
         run: >-
           npx biome format --write
