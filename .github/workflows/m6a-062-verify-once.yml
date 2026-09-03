@@ -1,0 +1,89 @@
+name: Verify M6A-062 once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m6a-062-verify-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-m6a-062:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Apply M6A-062 patch
+        run: python3 .github/m6a-062-apply-once.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --prefer-offline
+
+      - name: Format changed TypeScript
+        run: >-
+          npx biome format --write
+          src/domain/brush-schema.ts
+          src/gpu/baseline-brush.ts
+          src/app/paint-session-controller.ts
+          src/gpu/baseline-raster-tile-store.ts
+          src/gpu/baseline-paint-renderer.ts
+          src/workers/render.worker.ts
+          src/app/brush-preset-library.ts
+          src/app/brush-preset-controller.ts
+          tests/unit/baseline-raster-tile-store.test.ts
+
+      - name: Lint
+        run: npx biome lint --max-diagnostics=200 src tests scripts bench vitest.config.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Verify M6A contracts
+        run: npm run verify:m6a
+
+      - name: Production build
+        run: npm run build
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Commit verified M6A-062
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ILLUSTRO_DESIGN_MEMO.md \
+            IMPLEMENTATION_PROGRESS.md \
+            src/domain/brush-schema.ts \
+            src/gpu/baseline-brush.ts \
+            src/app/paint-session-controller.ts \
+            src/gpu/baseline-raster-tile-store.ts \
+            src/gpu/baseline-paint-renderer.ts \
+            src/workers/render.worker.ts \
+            src/app/brush-preset-library.ts \
+            src/app/brush-preset-controller.ts \
+            src/index.html \
+            tests/unit/baseline-raster-tile-store.test.ts
+          git diff --cached --check
+          git commit -m 'feat: implement ordinary raster color mixing'
+          git push origin HEAD:main
