@@ -22,20 +22,38 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Normalize M6A-049 UI anchor for patch
+      - name: Normalize M6A-049 UI anchors for patch
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
           path = Path('src/app/brush-preset-controller.ts')
           text = path.read_text()
-          pattern = re.compile(
+
+          declaration_pattern = re.compile(
               r"  const flowMinimumResponseRange = requireElement\([\s\S]*?  const tipShape = requireElement\('#brush-tip-shape', HTMLSelectElement\);"
           )
-          replacement = "  const flowMinimumResponseRange = requireElement('#brush-flow-minimum-response-range', HTMLInputElement);\n  const flowMinimumResponseNumber = requireElement('#brush-flow-minimum-response-number', HTMLInputElement);\n  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);"
-          text, count = pattern.subn(replacement, text, count=1)
-          if count != 1:
-              raise SystemExit(f'M6A-049 UI anchor normalization matched {count} blocks')
+          declaration_replacement = "  const flowMinimumResponseRange = requireElement('#brush-flow-minimum-response-range', HTMLInputElement);\n  const flowMinimumResponseNumber = requireElement('#brush-flow-minimum-response-number', HTMLInputElement);\n  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);"
+          text, declaration_count = declaration_pattern.subn(declaration_replacement, text, count=1)
+          if declaration_count != 1:
+              raise SystemExit(f'M6A-049 declaration anchor normalization matched {declaration_count} blocks')
+
+          render_pattern = re.compile(
+              r"    const flowMinimumResponse = brushFlowMinimumResponseV1\(selected\.preset\);[\s\S]*?    tipShape\.value = brushTipShapeV1\(selected\.preset\);"
+          )
+          render_replacement = "    const flowMinimumResponse = brushFlowMinimumResponseV1(selected.preset);\n    configurePair(flowMinimumResponseRange, flowMinimumResponseNumber, 0, 100, 1, flowMinimumResponse * 100);\n    tipShape.value = brushTipShapeV1(selected.preset);"
+          text, render_count = render_pattern.subn(render_replacement, text, count=1)
+          if render_count != 1:
+              raise SystemExit(f'M6A-049 render anchor normalization matched {render_count} blocks')
+
+          label_pattern = re.compile(
+              r"    const minimumResponseLabel = `\$\{[\s\S]*?\$\{flowMinimumResponse > 0 \? ` · DynFlowMin\$\{Math\.round\(flowMinimumResponse \* 100\)\}%` : ''\}`;\n    propertyStatus\.textContent ="
+          )
+          label_replacement = "    const minimumResponseLabel = `${\n      sizeMinimumResponse > 0 ? ` · DynSizeMin${Math.round(sizeMinimumResponse * 100)}%` : ''\n    }${\n      opacityMinimumResponse > 0 ? ` · DynOpacityMin${Math.round(opacityMinimumResponse * 100)}%` : ''\n    }${flowMinimumResponse > 0 ? ` · DynFlowMin${Math.round(flowMinimumResponse * 100)}%` : ''}`;\n    propertyStatus.textContent ="
+          text, label_count = label_pattern.subn(label_replacement, text, count=1)
+          if label_count != 1:
+              raise SystemExit(f'M6A-049 label anchor normalization matched {label_count} blocks')
+
           path.write_text(text)
           PY
       - name: Apply M6A-050 maximum-response patch
