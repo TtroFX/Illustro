@@ -34,6 +34,8 @@ export const BASELINE_BRUSH_SATURATION_JITTER = 0 as const;
 export const BASELINE_BRUSH_VALUE_JITTER = 0 as const;
 export const BASELINE_BRUSH_SPRAY_ENABLED = false as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1 = 4 as const;
+export const BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_MIN_V1 = 1 as const;
+export const BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_MAX_V1 = 32 as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1 = 0.35 as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MIN_V1 = 0.01 as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MAX_V1 = 4 as const;
@@ -785,6 +787,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #valueJitter: number;
   readonly #sprayEnabled: boolean;
   readonly #sprayParticleSizeRatio: number;
+  readonly #sprayParticleDensity: number;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -869,6 +872,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly valueJitter?: number;
       readonly sprayEnabled?: boolean;
       readonly sprayParticleSizeRatio?: number;
+      readonly sprayParticleDensity?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -931,6 +935,8 @@ export class BaselineBrushDabBuilderV1 {
     const sprayEnabled = options.sprayEnabled ?? BASELINE_BRUSH_SPRAY_ENABLED;
     const sprayParticleSizeRatio =
       options.sprayParticleSizeRatio ?? BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1;
+    const sprayParticleDensity =
+      options.sprayParticleDensity ?? BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -1091,6 +1097,13 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new RangeError('baseline brush spray particle size ratio must be within 0.01..4');
     }
+    if (
+      !Number.isSafeInteger(sprayParticleDensity) ||
+      sprayParticleDensity < BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_MIN_V1 ||
+      sprayParticleDensity > BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_MAX_V1
+    ) {
+      throw new RangeError('baseline brush spray particle density must be an integer within 1..32');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -1160,6 +1173,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#valueJitter = valueJitter;
     this.#sprayEnabled = sprayEnabled;
     this.#sprayParticleSizeRatio = sprayParticleSizeRatio;
+    this.#sprayParticleDensity = sprayParticleDensity;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -1604,7 +1618,7 @@ export class BaselineBrushDabBuilderV1 {
           );
     const sprayParticles = this.#sprayEnabled
       ? Object.freeze(
-          Array.from({ length: BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1 }, (_, particleIndex) => {
+          Array.from({ length: this.#sprayParticleDensity }, (_, particleIndex) => {
             const unit = deterministicBaselineBrushSprayParticleV1(
               this.#randomSeed,
               this.#sprayStampIndex,

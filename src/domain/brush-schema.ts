@@ -1513,6 +1513,41 @@ export function withBrushSprayParticleSizeRatioV1(
   });
 }
 
+export const DEFAULT_BRUSH_SPRAY_PARTICLE_DENSITY_V1 = 4 as const;
+export const MIN_BRUSH_SPRAY_PARTICLE_DENSITY_V1 = 1 as const;
+export const MAX_BRUSH_SPRAY_PARTICLE_DENSITY_V1 = 32 as const;
+
+export function brushSprayParticleDensityV1(preset: BrushPresetV1): number {
+  const value = preset.spray.particleDensity;
+  return typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= MIN_BRUSH_SPRAY_PARTICLE_DENSITY_V1 &&
+    value <= MAX_BRUSH_SPRAY_PARTICLE_DENSITY_V1
+    ? value
+    : DEFAULT_BRUSH_SPRAY_PARTICLE_DENSITY_V1;
+}
+
+export function withBrushSprayParticleDensityV1(
+  preset: BrushPresetV1,
+  particleDensity: number,
+): BrushPresetV1 {
+  if (
+    !Number.isSafeInteger(particleDensity) ||
+    particleDensity < MIN_BRUSH_SPRAY_PARTICLE_DENSITY_V1 ||
+    particleDensity > MAX_BRUSH_SPRAY_PARTICLE_DENSITY_V1
+  ) {
+    throw new RangeError('brush spray particle density must be an integer within 1..32');
+  }
+  if (particleDensity === DEFAULT_BRUSH_SPRAY_PARTICLE_DENSITY_V1) {
+    const { particleDensity: _particleDensity, ...spray } = preset.spray;
+    return normalizeBrushPresetV1({ ...preset, spray });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    spray: { ...preset.spray, particleDensity },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

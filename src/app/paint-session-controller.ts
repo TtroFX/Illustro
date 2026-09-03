@@ -53,6 +53,7 @@ import {
   BASELINE_BRUSH_VALUE_JITTER,
   BASELINE_BRUSH_SPRAY_ENABLED,
   BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1,
+  BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -282,6 +283,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushValueJitter: number;
   readonly brushSprayEnabled: boolean;
   readonly brushSprayParticleSizeRatio: number;
+  readonly brushSprayParticleDensity: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -822,6 +824,7 @@ export class PaintSessionControllerV1 {
   #brushValueJitter: number = BASELINE_BRUSH_VALUE_JITTER;
   #brushSprayEnabled: boolean = BASELINE_BRUSH_SPRAY_ENABLED;
   #brushSprayParticleSizeRatio: number = BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1;
+  #brushSprayParticleDensity: number = BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -902,6 +905,7 @@ export class PaintSessionControllerV1 {
       brushValueJitter: this.#brushValueJitter,
       brushSprayEnabled: this.#brushSprayEnabled,
       brushSprayParticleSizeRatio: this.#brushSprayParticleSizeRatio,
+      brushSprayParticleDensity: this.#brushSprayParticleDensity,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1694,6 +1698,19 @@ export class PaintSessionControllerV1 {
 
   brushSprayParticleSizeRatio(): number {
     return this.#brushSprayParticleSizeRatio;
+  }
+
+  setBrushSprayParticleDensity(particleDensity: number): number {
+    if (!Number.isSafeInteger(particleDensity) || particleDensity < 1 || particleDensity > 32) {
+      throw new RangeError('invalid runtime brush spray particle density');
+    }
+    if (particleDensity !== this.#brushSprayParticleDensity) this.#clearActiveStroke();
+    this.#brushSprayParticleDensity = particleDensity;
+    return this.#brushSprayParticleDensity;
+  }
+
+  brushSprayParticleDensity(): number {
+    return this.#brushSprayParticleDensity;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2652,6 +2669,7 @@ export class PaintSessionControllerV1 {
         valueJitter: this.#brushValueJitter,
         sprayEnabled: this.#brushSprayEnabled,
         sprayParticleSizeRatio: this.#brushSprayParticleSizeRatio,
+        sprayParticleDensity: this.#brushSprayParticleDensity,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,

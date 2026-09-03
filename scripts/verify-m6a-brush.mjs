@@ -1606,3 +1606,30 @@ requireText(
   'without changing the deterministic particle centers or burst count',
   'spray particle-size regression coverage missing',
 );
+
+requireText(progress, 'M6A-059 particle density:完了', 'M6A-059 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSprayParticleDensityV1',
+  'spray particle-density preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'Array.from({ length: this.#sprayParticleDensity }',
+  'spray particle density is not connected to canonical burst fanout',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSprayParticleDensity',
+  'spray particle density is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-spray-particle-density-range"',
+  'reachable spray particle-density control missing',
+);
+requireText(
+  read('tests/unit/brush-particle-density.test.ts'),
+  'preserving the deterministic prefix of particle centers',
+  'spray particle-density regression coverage missing',
+);
