@@ -412,6 +412,33 @@ requireText(
   'brush tip angle regression coverage missing',
 );
 
+requireText(progress, 'M6A-025 tip direction:完了', 'M6A-025 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTipDirectionDegreesV1',
+  'brush tip direction preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#tipAngleDegrees - this.#tipDirectionDegrees',
+  'brush tip direction is not composed into resolved stamp orientation',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushTipDirectionDegrees',
+  'brush tip direction is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-tip-direction-range"',
+  'reachable brush tip direction control missing',
+);
+requireText(
+  read('tests/unit/brush-tip-direction.test.ts'),
+  'calibrates an asset-local forward direction before sampled-tip expansion',
+  'brush tip direction regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

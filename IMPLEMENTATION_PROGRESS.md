@@ -433,7 +433,8 @@ M6A-021 hardness:完了
 M6A-022 tip density:完了
 M6A-023 spacing/gap:完了
 M6A-024 tip angle:完了
-M6A-025 tip direction:未完了
+M6A-025 tip direction:完了
+再開メモ: M6A-025 tip directionはtip.directionDegreesを先端アセット固有の前方向として0..360°に正規化し、固定モードの実効角をtip.angleDegrees - tip.directionDegreesとしてstroke開始時に解決する。primitive dabには既存tipAngleDegreesへ解決済み角度だけを保存し、directionをdab schemaへ重複保存しない。procedural/sampled/custom tipはM6A-024の同一回転経路を共有する。次はM6A-026 follow stroke rotationから再開し、stroke tangentをこの固定角へ合成する。
 M6A-026 follow stroke rotation:未完了
 M6A-027 stroke repetition:未完了
 M6A-028 stroke-start behavior:未完了

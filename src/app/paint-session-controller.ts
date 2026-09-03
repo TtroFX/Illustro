@@ -28,6 +28,7 @@ import {
   BASELINE_BRUSH_SPACING_RATIO,
   BASELINE_BRUSH_TIP_DENSITY,
   BASELINE_BRUSH_TIP_ANGLE_DEGREES,
+  BASELINE_BRUSH_TIP_DIRECTION_DEGREES,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -204,6 +205,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushSpacingRatio: number;
   readonly brushMinimumStampDistancePx: number;
   readonly brushTipAngleDegrees: number;
+  readonly brushTipDirectionDegrees: number;
   readonly brushTipShape: BaselineBrushTipShapeV1;
   readonly brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null;
   readonly brushWork: CanonicalRasterBrushWorkSnapshotV1 | null;
@@ -604,6 +606,7 @@ export class PaintSessionControllerV1 {
   #brushSpacingRatio: number = BASELINE_BRUSH_SPACING_RATIO;
   #brushMinimumStampDistancePx: number = BASELINE_BRUSH_MINIMUM_STAMP_DISTANCE_PX;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
+  #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushTipShape: BaselineBrushTipShapeV1 = 'round';
   #brushSampledTipAlpha: BaselineBrushSampledTipAlphaV1 | null = null;
   #disposed = false;
@@ -630,6 +633,7 @@ export class PaintSessionControllerV1 {
       brushSpacingRatio: this.#brushSpacingRatio,
       brushMinimumStampDistancePx: this.#brushMinimumStampDistancePx,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
+      brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushTipShape: this.#brushTipShape,
       brushSampledTipAlpha: this.#brushSampledTipAlpha,
       brushWork: this.#activeBrushStroke?.snapshot() ?? null,
@@ -744,6 +748,17 @@ export class PaintSessionControllerV1 {
 
   brushTipAngleDegrees(): number {
     return this.#brushTipAngleDegrees;
+  }
+
+  setBrushTipDirectionDegrees(directionDegrees: number): number {
+    const normalized = normalizeBaselineBrushTipAngleDegreesV1(directionDegrees);
+    if (normalized !== this.#brushTipDirectionDegrees) this.#clearActiveStroke();
+    this.#brushTipDirectionDegrees = normalized;
+    return this.#brushTipDirectionDegrees;
+  }
+
+  brushTipDirectionDegrees(): number {
+    return this.#brushTipDirectionDegrees;
   }
 
   setBrushTipShape(
@@ -1467,6 +1482,7 @@ export class PaintSessionControllerV1 {
       minimumStampDistancePx: this.#brushMinimumStampDistancePx,
       hardness: this.#brushHardness,
       tipAngleDegrees: this.#brushTipAngleDegrees,
+      tipDirectionDegrees: this.#brushTipDirectionDegrees,
       tipDensity: this.#brushTipDensity,
       tipShape: this.#brushTipShape,
       ...(this.#brushSampledTipAlpha === null

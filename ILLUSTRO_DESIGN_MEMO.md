@@ -5616,3 +5616,11 @@ Verification must cover at minimum:
 - Sampled/custom mask assets rotate their logical micro-dab offsets before expansion; downstream rendering continues to consume ordinary primitive dabs.
 - Static angle is captured at stroke start and preserved on primitive dabs for deterministic Main/Worker/history/recovery behavior.
 - Tip direction and stroke-follow rotation remain separate subsequent parameters and must compose with, not silently replace, this static angle.
+
+#### M6A tip-direction boundary — 2026-09-03
+
+- `tip.directionDegrees` defines the intrinsic forward axis of a brush-tip resource/preset. It is normalized to `[0, 360)` and defaults to `0°` for legacy presets.
+- `tip.angleDegrees` remains the user/static rotation from M6A-024. In non-follow mode the resolved orientation is `tip.angleDegrees - tip.directionDegrees`, normalized to `[0, 360)`.
+- Direction is preset/session configuration, not a second per-dab orientation field. Primitive dabs store the resolved `tipAngleDegrees`, preserving the existing Worker/history/recovery contract and deterministic replay.
+- Procedural, sampled and custom tips share the same resolved-angle path. No separate rendering branch is introduced for direction.
+- M6A-026 follow-stroke rotation must compose stroke tangent with this calibration (`stroke tangent + static angle - tip direction`) rather than replacing either M6A-024 or M6A-025 semantics.

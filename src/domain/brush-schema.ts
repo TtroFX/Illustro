@@ -223,6 +223,32 @@ export function withBrushTipAngleDegreesV1(
   });
 }
 
+export const DEFAULT_BRUSH_TIP_DIRECTION_DEGREES_V1 = 0 as const;
+
+function normalizeBrushTipDirectionDegreesV1(directionDegrees: number): number {
+  if (!Number.isFinite(directionDegrees)) throw new TypeError('brush tip direction must be finite');
+  const normalized = ((directionDegrees % 360) + 360) % 360;
+  return Object.is(normalized, -0) ? 0 : normalized;
+}
+
+export function brushTipDirectionDegreesV1(preset: BrushPresetV1): number {
+  const value = preset.tip.directionDegrees;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? normalizeBrushTipDirectionDegreesV1(value)
+    : DEFAULT_BRUSH_TIP_DIRECTION_DEGREES_V1;
+}
+
+export function withBrushTipDirectionDegreesV1(
+  preset: BrushPresetV1,
+  directionDegrees: number,
+): BrushPresetV1 {
+  const normalized = normalizeBrushTipDirectionDegreesV1(directionDegrees);
+  return normalizeBrushPresetV1({
+    ...preset,
+    tip: { ...preset.tip, directionDegrees: normalized },
+  });
+}
+
 export function withBrushParameterValuesV1(
   preset: BrushPresetV1,
   patch: Partial<BrushParameterValuesV1>,

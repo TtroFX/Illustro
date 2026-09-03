@@ -92,6 +92,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
+      readonly tipDirectionDegrees?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: BaselineBrushSampledTipAlphaV1;
     } = {},
@@ -111,6 +112,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.tipAngleDegrees === undefined
         ? {}
         : { tipAngleDegrees: options.tipAngleDegrees }),
+      ...(options.tipDirectionDegrees === undefined
+        ? {}
+        : { tipDirectionDegrees: options.tipDirectionDegrees }),
       ...(options.tipShape === undefined ? {} : { tipShape: options.tipShape }),
       ...(options.sampledTipAlpha === undefined
         ? {}

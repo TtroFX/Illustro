@@ -14,6 +14,7 @@ export const BASELINE_BRUSH_OPACITY = 1 as const;
 export const BASELINE_BRUSH_HARDNESS = 0.85 as const;
 export const BASELINE_BRUSH_TIP_DENSITY = 1 as const;
 export const BASELINE_BRUSH_TIP_ANGLE_DEGREES = 0 as const;
+export const BASELINE_BRUSH_TIP_DIRECTION_DEGREES = 0 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 
@@ -263,6 +264,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #hardness: number;
   readonly #tipDensity: number;
   readonly #tipAngleDegrees: number;
+  readonly #tipDirectionDegrees: number;
   readonly #tipShape: BaselineBrushTipShapeV1;
   readonly #sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
   #lastPoint: { x: number; y: number } | null = null;
@@ -281,6 +283,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
+      readonly tipDirectionDegrees?: number;
       readonly tipShape?: BaselineBrushTipShapeV1;
       readonly sampledTipAlpha?: readonly number[];
     } = {},
@@ -299,6 +302,9 @@ export class BaselineBrushDabBuilderV1 {
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
       options.tipAngleDegrees ?? BASELINE_BRUSH_TIP_ANGLE_DEGREES,
+    );
+    const tipDirectionDegrees = normalizeBaselineBrushTipAngleDegreesV1(
+      options.tipDirectionDegrees ?? BASELINE_BRUSH_TIP_DIRECTION_DEGREES,
     );
     if (!Number.isFinite(sizePx) || sizePx <= 0 || sizePx > 4096) {
       throw new RangeError('baseline brush size must be finite and within 0..4096 px');
@@ -332,6 +338,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#hardness = hardness;
     this.#tipDensity = tipDensity;
     this.#tipAngleDegrees = tipAngleDegrees;
+    this.#tipDirectionDegrees = tipDirectionDegrees;
     this.#tipShape = options.tipShape ?? 'round';
     if (
       this.#tipShape !== 'round' &&
@@ -366,7 +373,7 @@ export class BaselineBrushDabBuilderV1 {
       this.#strokeOpacity,
       this.#hardness,
       this.#tipDensity,
-      this.#tipAngleDegrees,
+      this.#resolvedTipAngleDegrees(),
       this.#color,
       this.#tipShape,
       this.#sampledTipAlpha,
@@ -425,7 +432,7 @@ export class BaselineBrushDabBuilderV1 {
           this.#strokeOpacity,
           this.#hardness,
           this.#tipDensity,
-          this.#tipAngleDegrees,
+          this.#resolvedTipAngleDegrees(),
           this.#color,
           this.#tipShape,
           this.#sampledTipAlpha,
@@ -445,6 +452,12 @@ export class BaselineBrushDabBuilderV1 {
 
   #deltaFrom(start: number): readonly BaselineBrushDabV1[] {
     return Object.freeze(this.#dabs.slice(start));
+  }
+
+  #resolvedTipAngleDegrees(): number {
+    return normalizeBaselineBrushTipAngleDegreesV1(
+      this.#tipAngleDegrees - this.#tipDirectionDegrees,
+    );
   }
 
   #appendPoint(x: number, y: number): void {
@@ -468,7 +481,7 @@ export class BaselineBrushDabBuilderV1 {
         this.#strokeOpacity,
         this.#hardness,
         this.#tipDensity,
-        this.#tipAngleDegrees,
+        this.#resolvedTipAngleDegrees(),
         this.#color,
         this.#tipShape,
         this.#sampledTipAlpha,
