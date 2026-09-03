@@ -94,6 +94,8 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly endTaperLengthPx?: number;
       readonly sizeTaperMinimumRatio?: number;
       readonly opacityTaperMinimumRatio?: number;
+      readonly forceStartTaper?: boolean;
+      readonly forceEndTaper?: boolean;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -129,6 +131,10 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.opacityTaperMinimumRatio === undefined
         ? {}
         : { opacityTaperMinimumRatio: options.opacityTaperMinimumRatio }),
+      ...(options.forceStartTaper === undefined
+        ? {}
+        : { forceStartTaper: options.forceStartTaper }),
+      ...(options.forceEndTaper === undefined ? {} : { forceEndTaper: options.forceEndTaper }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
       ...(options.tipAngleDegrees === undefined

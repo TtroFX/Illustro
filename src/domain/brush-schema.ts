@@ -369,6 +369,45 @@ export function withBrushOpacityTaperMinimumRatioV1(
   });
 }
 
+export interface BrushForcedTaperV1 {
+  readonly start: boolean;
+  readonly end: boolean;
+}
+
+export const DEFAULT_BRUSH_FORCE_TAPER_START_V1 = false as const;
+export const DEFAULT_BRUSH_FORCE_TAPER_END_V1 = false as const;
+
+export function brushForcedTaperV1(preset: BrushPresetV1): BrushForcedTaperV1 {
+  return Object.freeze({
+    start:
+      typeof preset.stroke.forceStartTaper === 'boolean'
+        ? preset.stroke.forceStartTaper
+        : DEFAULT_BRUSH_FORCE_TAPER_START_V1,
+    end:
+      typeof preset.stroke.forceEndTaper === 'boolean'
+        ? preset.stroke.forceEndTaper
+        : DEFAULT_BRUSH_FORCE_TAPER_END_V1,
+  });
+}
+
+export function withBrushForcedTaperV1(
+  preset: BrushPresetV1,
+  forceStart: boolean,
+  forceEnd: boolean,
+): BrushPresetV1 {
+  if (typeof forceStart !== 'boolean' || typeof forceEnd !== 'boolean') {
+    throw new TypeError('brush forced taper flags must be boolean');
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    stroke: {
+      ...preset.stroke,
+      forceStartTaper: forceStart,
+      forceEndTaper: forceEnd,
+    },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

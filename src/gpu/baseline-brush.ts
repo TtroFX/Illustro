@@ -288,6 +288,8 @@ export class BaselineBrushDabBuilderV1 {
   readonly #endTaperLengthPx: number;
   readonly #sizeTaperMinimumRatio: number;
   readonly #opacityTaperMinimumRatio: number;
+  readonly #forceStartTaper: boolean;
+  readonly #forceEndTaper: boolean;
   readonly #flow: number;
   readonly #strokeOpacity: number;
   readonly #hardness: number;
@@ -321,6 +323,8 @@ export class BaselineBrushDabBuilderV1 {
       readonly endTaperLengthPx?: number;
       readonly sizeTaperMinimumRatio?: number;
       readonly opacityTaperMinimumRatio?: number;
+      readonly forceStartTaper?: boolean;
+      readonly forceEndTaper?: boolean;
       readonly hardness?: number;
       readonly tipDensity?: number;
       readonly tipAngleDegrees?: number;
@@ -350,6 +354,8 @@ export class BaselineBrushDabBuilderV1 {
       options.sizeTaperMinimumRatio ?? BASELINE_BRUSH_SIZE_TAPER_MINIMUM_RATIO;
     const opacityTaperMinimumRatio =
       options.opacityTaperMinimumRatio ?? BASELINE_BRUSH_OPACITY_TAPER_MINIMUM_RATIO;
+    const forceStartTaper = options.forceStartTaper ?? false;
+    const forceEndTaper = options.forceEndTaper ?? false;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
     const tipAngleDegrees = normalizeBaselineBrushTipAngleDegreesV1(
@@ -405,6 +411,9 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new RangeError('baseline brush opacity taper minimum ratio must be within 0..1');
     }
+    if (typeof forceStartTaper !== 'boolean' || typeof forceEndTaper !== 'boolean') {
+      throw new TypeError('baseline brush forced taper flags must be boolean');
+    }
     if (!Number.isFinite(hardness) || hardness < 0 || hardness > 1) {
       throw new RangeError('baseline brush hardness must be within 0..1');
     }
@@ -417,6 +426,8 @@ export class BaselineBrushDabBuilderV1 {
     this.#endTaperLengthPx = endTaperLengthPx;
     this.#sizeTaperMinimumRatio = sizeTaperMinimumRatio;
     this.#opacityTaperMinimumRatio = opacityTaperMinimumRatio;
+    this.#forceStartTaper = forceStartTaper;
+    this.#forceEndTaper = forceEndTaper;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
     this.#hardness = hardness;
@@ -589,21 +600,32 @@ export class BaselineBrushDabBuilderV1 {
     return Math.max(0, Math.min(1, (totalDistancePx - pathDistancePx) / this.#endTaperLengthPx));
   }
 
-  #sizeTaperScale(envelope: number): number {
-    return this.#sizeTaperMinimumRatio + (1 - this.#sizeTaperMinimumRatio) * envelope;
+  #sizeTaperScale(envelope: number, forced: boolean): number {
+    return forced
+      ? envelope
+      : this.#sizeTaperMinimumRatio + (1 - this.#sizeTaperMinimumRatio) * envelope;
   }
 
-  #opacityTaperScale(envelope: number): number {
-    return this.#opacityTaperMinimumRatio + (1 - this.#opacityTaperMinimumRatio) * envelope;
+  #opacityTaperScale(envelope: number, forced: boolean): number {
+    return forced
+      ? envelope
+      : this.#opacityTaperMinimumRatio + (1 - this.#opacityTaperMinimumRatio) * envelope;
   }
 
   #emitLogicalStamp(
     target: BaselineBrushDabV1[],
     stamp: Pick<BaselineLogicalStampRecordV1, 'x' | 'y' | 'tipAngleDegrees' | 'sampledTipAlpha'>,
-    envelope: number,
+    startEnvelope: number,
+    endEnvelope = 1,
   ): void {
-    const sizeScale = this.#sizeTaperScale(envelope);
-    const opacityScale = this.#opacityTaperScale(envelope);
+    const sizeScale = Math.min(
+      this.#sizeTaperScale(startEnvelope, this.#forceStartTaper),
+      this.#sizeTaperScale(endEnvelope, this.#forceEndTaper),
+    );
+    const opacityScale = Math.min(
+      this.#opacityTaperScale(startEnvelope, this.#forceStartTaper),
+      this.#opacityTaperScale(endEnvelope, this.#forceEndTaper),
+    );
     if (sizeScale <= 0 || opacityScale <= 0) return;
     pushBaselineBrushStampV1(
       target,
@@ -633,7 +655,7 @@ export class BaselineBrushDabBuilderV1 {
       primitiveStart: this.#dabs.length,
       primitiveEnd: this.#dabs.length,
     };
-    this.#emitLogicalStamp(this.#dabs, record, startEnvelope);
+    this.#emitLogicalStamp(this.#dabs, record, startEnvelope, 1);
     record.primitiveEnd = this.#dabs.length;
     if (record.primitiveEnd === record.primitiveStart) return;
     this.#logicalStamps.push(record);
@@ -654,11 +676,9 @@ export class BaselineBrushDabBuilderV1 {
       const stamp = this.#logicalStamps[index];
       if (stamp === undefined) continue;
       stamp.primitiveStart = this.#dabs.length;
-      const envelope = Math.min(
-        this.#startEnvelopeAtDistance(stamp.pathDistancePx),
-        this.#endEnvelopeAtDistance(stamp.pathDistancePx, totalDistancePx),
-      );
-      this.#emitLogicalStamp(this.#dabs, stamp, envelope);
+      const startEnvelope = this.#startEnvelopeAtDistance(stamp.pathDistancePx);
+      const endEnvelope = this.#endEnvelopeAtDistance(stamp.pathDistancePx, totalDistancePx);
+      this.#emitLogicalStamp(this.#dabs, stamp, startEnvelope, endEnvelope);
       stamp.primitiveEnd = this.#dabs.length;
     }
   }

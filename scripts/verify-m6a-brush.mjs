@@ -606,6 +606,43 @@ requireText(
   'opacity-taper regression coverage missing',
 );
 
+requireText(progress, 'M6A-032 forced taper:完了', 'M6A-032 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushForcedTaperV1',
+  'forced-taper preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#sizeTaperScale(startEnvelope, this.#forceStartTaper)',
+  'forced start taper is not composed into size scaling',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#opacityTaperScale(endEnvelope, this.#forceEndTaper)',
+  'forced end taper is not composed into deposit scaling',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushForcedTaper',
+  'forced taper is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-force-start-taper"',
+  'reachable Force In control missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-force-end-taper"',
+  'reachable Force Out control missing',
+);
+requireText(
+  read('tests/unit/brush-forced-taper.test.ts'),
+  'forces the stroke start from zero size and deposit',
+  'forced-taper regression coverage missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

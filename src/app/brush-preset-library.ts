@@ -15,6 +15,7 @@ import {
   withBrushStrokeEndLengthPxV1,
   withBrushSizeTaperMinimumRatioV1,
   withBrushOpacityTaperMinimumRatioV1,
+  withBrushForcedTaperV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -542,6 +543,26 @@ export function updateBrushPresetOpacityTaperV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushOpacityTaperMinimumRatioV1(item.preset, minimumRatio);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetForcedTaperV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  forceStart: boolean,
+  forceEnd: boolean,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushForcedTaperV1(item.preset, forceStart, forceEnd);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

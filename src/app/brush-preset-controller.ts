@@ -14,6 +14,7 @@ import {
   brushStrokeEndLengthPxV1,
   brushSizeTaperMinimumRatioV1,
   brushOpacityTaperMinimumRatioV1,
+  brushForcedTaperV1,
   brushStrokeSpacingV1,
   brushTipAssetsV1,
   brushTipShapeV1,
@@ -54,6 +55,7 @@ import {
   updateBrushPresetEndLengthV1,
   updateBrushPresetSizeTaperV1,
   updateBrushPresetOpacityTaperV1,
+  updateBrushPresetForcedTaperV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -136,6 +138,8 @@ export function installBrushPresetControllerV1(input: {
   const sizeTaperNumber = requireElement('#brush-size-taper-number', HTMLInputElement);
   const opacityTaperRange = requireElement('#brush-opacity-taper-range', HTMLInputElement);
   const opacityTaperNumber = requireElement('#brush-opacity-taper-number', HTMLInputElement);
+  const forceStartTaperButton = requireElement('#brush-force-start-taper', HTMLButtonElement);
+  const forceEndTaperButton = requireElement('#brush-force-end-taper', HTMLButtonElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -188,6 +192,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushSizeTaperMinimumRatio(sizeTaperMinimumRatio);
     const opacityTaperMinimumRatio = brushOpacityTaperMinimumRatioV1(item.preset);
     input.paintSession.setBrushOpacityTaperMinimumRatio(opacityTaperMinimumRatio);
+    const forcedTaper = brushForcedTaperV1(item.preset);
+    input.paintSession.setBrushForcedTaper(forcedTaper.start, forcedTaper.end);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -225,6 +231,8 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushEndLengthPx = String(endLengthPx);
     input.root.dataset.illustroBrushSizeTaperMinimumRatio = String(sizeTaperMinimumRatio);
     input.root.dataset.illustroBrushOpacityTaperMinimumRatio = String(opacityTaperMinimumRatio);
+    input.root.dataset.illustroBrushForceStartTaper = String(forcedTaper.start);
+    input.root.dataset.illustroBrushForceEndTaper = String(forcedTaper.end);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -340,6 +348,11 @@ export function installBrushPresetControllerV1(input: {
     configurePair(sizeTaperRange, sizeTaperNumber, 0, 100, 1, sizeTaperMinimumRatio * 100);
     const opacityTaperMinimumRatio = brushOpacityTaperMinimumRatioV1(selected.preset);
     configurePair(opacityTaperRange, opacityTaperNumber, 0, 100, 1, opacityTaperMinimumRatio * 100);
+    const forcedTaper = brushForcedTaperV1(selected.preset);
+    forceStartTaperButton.textContent = forcedTaper.start ? 'ON' : 'OFF';
+    forceStartTaperButton.setAttribute('aria-pressed', String(forcedTaper.start));
+    forceEndTaperButton.textContent = forcedTaper.end ? 'ON' : 'OFF';
+    forceEndTaperButton.setAttribute('aria-pressed', String(forcedTaper.end));
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -384,7 +397,8 @@ export function installBrushPresetControllerV1(input: {
       opacityTaperMinimumRatio > 0
         ? ` · OpacityMin${Math.round(opacityTaperMinimumRatio * 100)}%`
         : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}`;
+    const forcedTaperLabel = `${forcedTaper.start ? ' · ForceIn' : ''}${forcedTaper.end ? ' · ForceOut' : ''}`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -414,6 +428,8 @@ export function installBrushPresetControllerV1(input: {
       sizeTaperNumber,
       opacityTaperRange,
       opacityTaperNumber,
+      forceStartTaperButton,
+      forceEndTaperButton,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -527,6 +543,18 @@ export function installBrushPresetControllerV1(input: {
     mutate(() => updateBrushPresetOpacityTaperV1(state, state.selectedPresetId, percent / 100));
   const onOpacityTaperRange = (): void => updateOpacityTaper(Number(opacityTaperRange.value));
   const onOpacityTaperNumber = (): void => updateOpacityTaper(Number(opacityTaperNumber.value));
+  const onForceStartTaper = (): void => {
+    const current = brushForcedTaperV1(selectedBrushPresetItemV1(state).preset);
+    mutate(() =>
+      updateBrushPresetForcedTaperV1(state, state.selectedPresetId, !current.start, current.end),
+    );
+  };
+  const onForceEndTaper = (): void => {
+    const current = brushForcedTaperV1(selectedBrushPresetItemV1(state).preset);
+    mutate(() =>
+      updateBrushPresetForcedTaperV1(state, state.selectedPresetId, current.start, !current.end),
+    );
+  };
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -623,6 +651,8 @@ export function installBrushPresetControllerV1(input: {
   sizeTaperNumber.addEventListener('change', onSizeTaperNumber);
   opacityTaperRange.addEventListener('input', onOpacityTaperRange);
   opacityTaperNumber.addEventListener('change', onOpacityTaperNumber);
+  forceStartTaperButton.addEventListener('click', onForceStartTaper);
+  forceEndTaperButton.addEventListener('click', onForceEndTaper);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -672,6 +702,8 @@ export function installBrushPresetControllerV1(input: {
       sizeTaperNumber.removeEventListener('change', onSizeTaperNumber);
       opacityTaperRange.removeEventListener('input', onOpacityTaperRange);
       opacityTaperNumber.removeEventListener('change', onOpacityTaperNumber);
+      forceStartTaperButton.removeEventListener('click', onForceStartTaper);
+      forceEndTaperButton.removeEventListener('click', onForceEndTaper);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);

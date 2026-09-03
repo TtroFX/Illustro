@@ -5687,3 +5687,13 @@ Verification must cover at minimum:
 - Size and opacity/deposit minima are independent. A zero-envelope stamp is omitted when either resolved size or resolved deposit is zero; if both minima are positive, that stamp is visible and is retained as a normal logical stamp, including deterministic tip-selection consumption.
 - Sampled/custom tip alpha multiplication occurs after the resolved base flow scale, so opacity taper naturally applies to every emitted micro-dab without a new renderer or Worker field.
 - The M6A-029 stable-prefix/bounded-tail boundary remains authoritative. End-side opacity changes are reconciled only inside the bounded logical tail, with the existing release-time Raster correctness bridge until the M6A-PERF tail-only raster optimization is implemented.
+
+#### M6A forced-taper boundary — 2026-09-03
+
+- M6A-032 implements independent **Force In** and **Force Out** flags. This follows the previously confirmed Illustro behavior: forced entry begins at zero size/deposit and rises to the configured brush state; forced exit falls to zero size/deposit at release.
+- `stroke.forceStartTaper` and `stroke.forceEndTaper` default to `false` so M6A-030/M6A-031 minimum size/deposit ratios remain authoritative for existing presets until a force flag is explicitly enabled.
+- On an unforced side, resolved scale remains `minimum + (1-minimum)*sideEnvelope`. On a forced side, resolved scale is the raw side envelope. When start/end windows overlap, the final size and deposit scale are each the minimum of the independently resolved start-side and end-side scales.
+- Force In/Out never varies the whole-stroke `strokeOpacity` cap. The forced deposit result is resolved into per-dab flow before persistence, preserving the existing Canonical Raster Tile transaction contract.
+- Force flags are captured when the stroke begins. Later pressure/tilt/velocity mappings may multiply or otherwise compose with the brush response, but they must not raise a forced exact start/end endpoint above zero.
+- Forced taper reuses the M6A-028/M6A-029 distance windows and bounded end tail. It adds no second path-distance tracker, no new renderer path and no new primitive-dab field.
+- UI exposes Force In and Force Out separately; neither is hidden inside the stabilizer implementation. M6A-033/M6A-034 may use the same stroke geometry but must not redefine this taper contract.

@@ -447,7 +447,8 @@ M6A-030 size taper:完了
 再開メモ: M6A-030 size taperはstartLengthPx/endLengthPxが定義する共通0..1距離envelopeとは独立に、stroke.sizeTaperMinimumRatioを0..1で保持する。size scaleはminimumRatio + (1-minimumRatio)*envelopeで解決し、既定0はM6A-028/029の従来テーパーを保持、1はサイズ縮小だけを無効化する。per-dab flow/depositはまだ共通envelopeをそのまま使いwhole-stroke opacity capは一定なので、サイズとopacity/depositの責務を分離した。sampled/custom tipもmicro-dab展開前のlogical radiusへ同じsize scaleを適用する。primitive dabへ解決済みradiusを保存するためWorker/history schema追加は不要。次はM6A-031 opacity taperから再開する。
 M6A-031 opacity taper:完了
 再開メモ: M6A-031 opacity taperはstroke.opacityTaperMinimumRatioを0..1で保持し、M6A-028/029の共通start/end envelopeからper-dab deposit scale = minimumRatio + (1-minimumRatio)*envelopeを解決する。既定0は従来どおり0までフェードし、1はopacity/deposit fadeだけを無効化する。whole-stroke strokeOpacity capは一定のまま、base flowへdeposit scaleを掛けるためM6A-030 size taperとは独立する。size minimumとopacity minimumの双方が非0ならraw envelope=0の開始/終端stampも可視になり得るため、その場合だけ通常のlogical stampとして保持・tip selectionを消費する。primitive dabには解決済みflow/opacityのみ保存しWorker/history schema追加は不要。次はM6A-032 forced taperから再開する。
-M6A-032 forced taper:未完了
+M6A-032 forced taper:完了
+再開メモ: M6A-032 forced taperはstroke.forceStartTaper / stroke.forceEndTaperを独立booleanとして保持する。通常のM6A-030/031ではsizeTaperMinimumRatio / opacityTaperMinimumRatioが各端の最小値を決めるが、Force In側ではstart envelopeそのものをsize/deposit scaleとして使い始点を0へ、Force Out側ではend envelopeそのものを使い終点を0へ強制する。片側だけ有効化可能で、start/end windowが重なる場合は各sideから得たscaleのminを採用して両zero-endpoint契約を保つ。既定false/falseなので既存presetは変更されない。whole-stroke strokeOpacity capは一定、primitive dabには解決済みradius/flowのみ保存する。将来のpressure/velocity dynamicsはforced taperのzero endpointを打ち消してはならない。次はM6A-033 real-time stabilizationから再開する。
 M6A-033 real-time stabilization:未完了
 M6A-034 post-stroke correction:未完了
 M6A-035 grain selection:未完了
