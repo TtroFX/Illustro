@@ -1124,7 +1124,7 @@ requireText(
 );
 requireText(
   read('src/app/paint-session-controller.ts'),
-  "this.#brushTipSelectionMode === 'random-per-stamp' || randomDynamicsEnabled",
+  'randomDynamicsEnabled ||',
   'random dynamics does not capture a persistent deterministic stroke seed',
 );
 requireText(
@@ -1230,6 +1230,53 @@ requireText(
   read('tests/unit/brush-maximum-response.test.ts'),
   'enforces minimum less than or equal to maximum in preset helpers',
   'minimum/maximum bound-order regression missing',
+);
+
+requireText(progress, 'M6A-051 size jitter:完了', 'M6A-051 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSizeJitterV1',
+  'size-jitter preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'deterministicBaselineBrushSizeJitterV1',
+  'deterministic size-jitter channel missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'stamp.sizeJitterScale',
+  'resolved size jitter is not applied to logical-stamp radius',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSizeJitter',
+  'size jitter is not connected to runtime brush state',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'const sizeJitterEnabled = this.#brushSizeJitter > 0;',
+  'size jitter does not capture a deterministic persistent stroke seed',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-size-jitter-range"',
+  'reachable size-jitter control missing',
+);
+requireText(
+  read('tests/unit/brush-size-jitter.test.ts'),
+  'advances the size-jitter attempt index even when taper suppresses a logical stamp',
+  'size-jitter attempt-index regression missing',
+);
+requireText(
+  read('tests/unit/brush-size-jitter.test.ts'),
+  'uses a random channel independent from generalized random dynamics',
+  'size-jitter channel-independence regression missing',
+);
+requireText(
+  read('tests/unit/brush-size-jitter.test.ts'),
+  'reuses the stored jitter scale when reconciling the mutable end tail',
+  'size-jitter tail reconciliation regression missing',
 );
 
 requireText(

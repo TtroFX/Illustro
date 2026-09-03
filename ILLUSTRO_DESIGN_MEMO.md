@@ -5855,3 +5855,13 @@ Verification must cover at minimum:
 - Preset and runtime APIs enforce `0 <= minimum <= maximum <= 1`. Preset switching captures the three target bound pairs atomically so transient invalid bounds are impossible.
 - Start/end taper remains outside the dynamics clamp and therefore retains authority over forced zero endpoints.
 - Primitive dabs continue to carry only resolved radius, stroke opacity, and flow. No response-bound fields are added to renderer, Worker, or history payloads.
+
+## M6A size-jitter boundary — 2026-09-03
+
+- `jitter.size` is a normalized `0..1` direct per-logical-stamp size-variation amount. `0` is exact identity and may be omitted from serialized presets.
+- The resolved scale is `1 - amount * random`, so M6A-051 varies from `(1-amount) * base` through `base` and does not enlarge above the captured base size. Expansion-style size variance is not introduced implicitly.
+- Size jitter is distinct from generalized `dynamics.random*`: it owns a separate deterministic salt/channel and attempt index. Enabling/disabling random dynamics or random tip selection must not reorder size-jitter values.
+- A logical-stamp attempt consumes one size-jitter value even when taper or another response suppresses visible primitive output. Visible logical records retain the resolved scale so bounded end-tail reconciliation never re-rolls randomness.
+- The jitter scale multiplies resolved radius outside dynamic target min/max clamping and alongside the taper result. Therefore forced-taper zero endpoints remain authoritative.
+- When size jitter is active, the committed stroke stores the existing deterministic uint32 `randomSeed` even if no other random brush feature is active. Primitive dabs keep only resolved radius; no jitter-only renderer/history schema is added.
+- Tool Properties exposes a compact Size Jitter percentage control. M6A-052+ extend the same `jitter` section for other independent variation targets.

@@ -48,6 +48,7 @@ import {
   withBrushSizeMaximumResponseV1,
   withBrushOpacityMaximumResponseV1,
   withBrushFlowMaximumResponseV1,
+  withBrushSizeJitterV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -406,6 +407,25 @@ export function updateBrushPresetTipDensityV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushTipDensityV1(item.preset, density);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetSizeJitterV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  amount: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushSizeJitterV1(item.preset, amount);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({
