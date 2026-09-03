@@ -1,0 +1,81 @@
+name: Apply M6A-061 particle orientation once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-m6a061-particle-orientation-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-m6a061:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply staged M6A-061 patch
+        run: python3 scripts/patch-m6a061-particle-orientation.py
+
+      - name: Format changed source and tests
+        run: >-
+          npx biome format --write
+          src/domain/brush-schema.ts
+          src/gpu/baseline-brush.ts
+          src/app/canonical-raster-brush.ts
+          src/app/paint-session-controller.ts
+          src/app/brush-preset-library.ts
+          src/app/brush-preset-controller.ts
+          src/index.html
+          tests/unit/brush-particle-orientation.test.ts
+          scripts/verify-m6a-brush.mjs
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Particle-orientation regression tests
+        run: npx vitest run tests/unit/brush-particle-orientation.test.ts
+
+      - name: Verify canonical M6A contracts
+        run: npm run verify:m6a
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm scripts/patch-m6a061-particle-orientation.py
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            ILLUSTRO_DESIGN_MEMO.md \
+            IMPLEMENTATION_PROGRESS.md \
+            src/domain/brush-schema.ts \
+            src/gpu/baseline-brush.ts \
+            src/app/canonical-raster-brush.ts \
+            src/app/paint-session-controller.ts \
+            src/app/brush-preset-library.ts \
+            src/app/brush-preset-controller.ts \
+            src/index.html \
+            tests/unit/brush-particle-orientation.test.ts \
+            scripts/verify-m6a-brush.mjs \
+            scripts/patch-m6a061-particle-orientation.py
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'feat: implement M6A-061 spray particle orientation'
+          git push origin HEAD:main
