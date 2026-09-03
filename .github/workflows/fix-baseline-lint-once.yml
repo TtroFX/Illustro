@@ -1,0 +1,127 @@
+name: Fix baseline lint once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-baseline-lint-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Remove four pre-existing non-null assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/app/layer-workflow-controller.ts')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  """    moveUpButton.disabled =
+                  selectedRoots.length === 0 ||
+                  !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, 1);
+                moveDownButton.disabled =
+                  selectedRoots.length === 0 ||
+                  !canMoveRootLayerSelectionStepV1(projectSnapshot!, selectedRoots, -1);
+          """,
+                  """    moveUpButton.disabled =
+                  projectSnapshot === null ||
+                  selectedRoots.length === 0 ||
+                  !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, 1);
+                moveDownButton.disabled =
+                  projectSnapshot === null ||
+                  selectedRoots.length === 0 ||
+                  !canMoveRootLayerSelectionStepV1(projectSnapshot, selectedRoots, -1);
+          """,
+              ),
+              (
+                  """      const target = options.maskPaint.snapshot();
+                if (target.layerId === null || target.maskId === null) return;
+          """,
+                  """      const target = options.maskPaint.snapshot();
+                const layerId = target.layerId;
+                const maskId = target.maskId;
+                if (layerId === null || maskId === null) return;
+          """,
+              ),
+              (
+                  """            target.layerId!,
+                    target.maskId!,
+          """,
+                  """            layerId,
+                    maskId,
+          """,
+              ),
+              (
+                  """        () => target.layerId,
+          """,
+                  """        () => layerId,
+          """,
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected one lint-repair anchor, found {count}: {old[:120]!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Format repaired file
+        run: npx biome format --write src/app/layer-workflow-controller.ts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Verify M6A contracts
+        run: npm run verify:m6a
+
+      - name: Production build
+        run: npm run build
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Commit verified lint repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/layer-workflow-controller.ts
+          git diff --cached --check
+          git commit -m 'fix: clear pre-existing lint errors'
+          git push origin HEAD:main
