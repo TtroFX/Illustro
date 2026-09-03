@@ -18,12 +18,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fix curve-editor ARIA roles
+      - name: Use semantic curve-editor fieldsets
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('src/index.html')
           text = path.read_text(encoding='utf-8')
@@ -33,11 +34,34 @@ jobs:
               '<div class="shell-brush-pressure-curve-editor shell-brush-velocity-curve-editor" aria-label="速度レスポンスカーブ">',
               '<div class="shell-brush-pressure-curve-editor shell-brush-random-curve-editor" aria-label="ランダムレスポンスカーブ">',
           ]
+
+          edits = []
           for old in anchors:
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'expected one curve-editor ARIA anchor, found {count}: {old!r}')
-              text = text.replace(old, old.replace(' aria-label=', ' role="group" aria-label='), 1)
+              start = text.find(old)
+              if start < 0 or text.find(old, start + 1) >= 0:
+                  raise SystemExit(f'expected one curve-editor container: {old!r}')
+              depth = 0
+              closing_start = None
+              closing_end = None
+              for match in re.finditer(r'<div\b[^>]*>|</div>', text[start:]):
+                  token = match.group(0)
+                  if token.startswith('<div'):
+                      depth += 1
+                  else:
+                      depth -= 1
+                      if depth == 0:
+                          closing_start = start + match.start()
+                          closing_end = start + match.end()
+                          break
+              if closing_start is None or closing_end is None:
+                  raise SystemExit(f'unmatched curve-editor container: {old!r}')
+              new_open = old.replace('<div ', '<fieldset ', 1)
+              edits.append((start, start + len(old), new_open))
+              edits.append((closing_start, closing_end, '</fieldset>'))
+
+          for start, end, replacement in sorted(edits, reverse=True):
+              text = text[:start] + replacement + text[end:]
+
           path.write_text(text, encoding='utf-8')
           PY
 
@@ -80,5 +104,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/index.html
           git diff --cached --check
-          git commit -m 'fix: repair brush curve editor ARIA roles'
+          git commit -m 'fix: use semantic brush curve editor fieldsets'
           git push origin HEAD:main
