@@ -32,9 +32,7 @@ jobs:
           pattern = re.compile(
               r"  const flowMinimumResponseRange = requireElement\([\s\S]*?  const tipShape = requireElement\('#brush-tip-shape', HTMLSelectElement\);"
           )
-          replacement = """  const flowMinimumResponseRange = requireElement('#brush-flow-minimum-response-range', HTMLInputElement);
-          const flowMinimumResponseNumber = requireElement('#brush-flow-minimum-response-number', HTMLInputElement);
-          const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);"""
+          replacement = "  const flowMinimumResponseRange = requireElement('#brush-flow-minimum-response-range', HTMLInputElement);\n  const flowMinimumResponseNumber = requireElement('#brush-flow-minimum-response-number', HTMLInputElement);\n  const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);"
           text, count = pattern.subn(replacement, text, count=1)
           if count != 1:
               raise SystemExit(f'M6A-049 UI anchor normalization matched {count} blocks')
