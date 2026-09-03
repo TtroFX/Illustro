@@ -59,6 +59,8 @@ import {
   withBrushSprayEnabledV1,
   withBrushSprayParticleSizeRatioV1,
   withBrushSprayParticleDensityV1,
+  withBrushSpraySpreadRadiusRatioV1,
+  withBrushSprayDeviationV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -1676,6 +1678,27 @@ export function updateBrushPresetSprayParticleDensityV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushSprayParticleDensityV1(item.preset, particleDensity);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetSpraySpreadV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  spreadRadiusRatio: number,
+  deviation: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const withRadius = withBrushSpraySpreadRadiusRatioV1(item.preset, spreadRadiusRatio);
+    const current = withBrushSprayDeviationV1(withRadius, deviation);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

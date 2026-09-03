@@ -40,6 +40,9 @@ export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1 = 0.35 as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MIN_V1 = 0.01 as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_MAX_V1 = 4 as const;
 export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 = 1 as const;
+export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_MIN_V1 = 0 as const;
+export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_MAX_V1 = 4 as const;
+export const BASELINE_BRUSH_SPRAY_DEVIATION_V1 = 0 as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 export type BaselineBrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
@@ -705,6 +708,22 @@ export function deterministicBaselineBrushSprayParticleV1(
   return Object.freeze({ x: Math.cos(angle) * radius, y: Math.sin(angle) * radius });
 }
 
+export function applyBaselineBrushSprayDeviationV1(
+  unit: Readonly<{ x: number; y: number }>,
+  deviation: number,
+): Readonly<{ x: number; y: number }> {
+  if (!Number.isFinite(deviation) || deviation < -1 || deviation > 1) {
+    throw new RangeError('baseline brush spray deviation must be within -1..1');
+  }
+  if (deviation === 0) return unit;
+  const radius = Math.hypot(unit.x, unit.y);
+  if (radius <= 1e-12) return Object.freeze({ x: 0, y: 0 });
+  const adjustedRadius =
+    deviation > 0 ? radius * (1 - deviation) : radius + -deviation * (1 - radius);
+  const scale = adjustedRadius / radius;
+  return Object.freeze({ x: unit.x * scale, y: unit.y * scale });
+}
+
 export function deterministicBaselineBrushRandomV1(seed: number, stampIndex: number): number {
   if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff) {
     throw new RangeError('baseline brush random seed must be uint32');
@@ -788,6 +807,8 @@ export class BaselineBrushDabBuilderV1 {
   readonly #sprayEnabled: boolean;
   readonly #sprayParticleSizeRatio: number;
   readonly #sprayParticleDensity: number;
+  readonly #spraySpreadRadiusRatio: number;
+  readonly #sprayDeviation: number;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -873,6 +894,8 @@ export class BaselineBrushDabBuilderV1 {
       readonly sprayEnabled?: boolean;
       readonly sprayParticleSizeRatio?: number;
       readonly sprayParticleDensity?: number;
+      readonly spraySpreadRadiusRatio?: number;
+      readonly sprayDeviation?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -937,6 +960,9 @@ export class BaselineBrushDabBuilderV1 {
       options.sprayParticleSizeRatio ?? BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1;
     const sprayParticleDensity =
       options.sprayParticleDensity ?? BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1;
+    const spraySpreadRadiusRatio =
+      options.spraySpreadRadiusRatio ?? BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1;
+    const sprayDeviation = options.sprayDeviation ?? BASELINE_BRUSH_SPRAY_DEVIATION_V1;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -1104,6 +1130,16 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new RangeError('baseline brush spray particle density must be an integer within 1..32');
     }
+    if (
+      !Number.isFinite(spraySpreadRadiusRatio) ||
+      spraySpreadRadiusRatio < BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_MIN_V1 ||
+      spraySpreadRadiusRatio > BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_MAX_V1
+    ) {
+      throw new RangeError('baseline brush spray spread radius ratio must be within 0..4');
+    }
+    if (!Number.isFinite(sprayDeviation) || sprayDeviation < -1 || sprayDeviation > 1) {
+      throw new RangeError('baseline brush spray deviation must be within -1..1');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -1174,6 +1210,8 @@ export class BaselineBrushDabBuilderV1 {
     this.#sprayEnabled = sprayEnabled;
     this.#sprayParticleSizeRatio = sprayParticleSizeRatio;
     this.#sprayParticleDensity = sprayParticleDensity;
+    this.#spraySpreadRadiusRatio = spraySpreadRadiusRatio;
+    this.#sprayDeviation = sprayDeviation;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -1619,12 +1657,13 @@ export class BaselineBrushDabBuilderV1 {
     const sprayParticles = this.#sprayEnabled
       ? Object.freeze(
           Array.from({ length: this.#sprayParticleDensity }, (_, particleIndex) => {
-            const unit = deterministicBaselineBrushSprayParticleV1(
+            const baseUnit = deterministicBaselineBrushSprayParticleV1(
               this.#randomSeed,
               this.#sprayStampIndex,
               particleIndex,
             );
-            const spreadRadiusPx = this.#radius * BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1;
+            const unit = applyBaselineBrushSprayDeviationV1(baseUnit, this.#sprayDeviation);
+            const spreadRadiusPx = this.#radius * this.#spraySpreadRadiusRatio;
             return Object.freeze({
               x: jitteredX + unit.x * spreadRadiusPx,
               y: jitteredY + unit.y * spreadRadiusPx,

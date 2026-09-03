@@ -1548,6 +1548,63 @@ export function withBrushSprayParticleDensityV1(
   });
 }
 
+export const DEFAULT_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 = 1 as const;
+export const MIN_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 = 0 as const;
+export const MAX_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 = 4 as const;
+export const DEFAULT_BRUSH_SPRAY_DEVIATION_V1 = 0 as const;
+
+export function brushSpraySpreadRadiusRatioV1(preset: BrushPresetV1): number {
+  const value = preset.spray.spreadRadiusRatio;
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= MIN_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 &&
+    value <= MAX_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1
+    ? value
+    : DEFAULT_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1;
+}
+
+export function withBrushSpraySpreadRadiusRatioV1(
+  preset: BrushPresetV1,
+  spreadRadiusRatio: number,
+): BrushPresetV1 {
+  if (
+    !Number.isFinite(spreadRadiusRatio) ||
+    spreadRadiusRatio < MIN_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 ||
+    spreadRadiusRatio > MAX_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1
+  ) {
+    throw new RangeError('brush spray spread radius ratio must be within 0..4');
+  }
+  if (spreadRadiusRatio === DEFAULT_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1) {
+    const { spreadRadiusRatio: _spreadRadiusRatio, ...spray } = preset.spray;
+    return normalizeBrushPresetV1({ ...preset, spray });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    spray: { ...preset.spray, spreadRadiusRatio },
+  });
+}
+
+export function brushSprayDeviationV1(preset: BrushPresetV1): number {
+  const value = preset.spray.deviation;
+  return typeof value === 'number' && Number.isFinite(value) && value >= -1 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_SPRAY_DEVIATION_V1;
+}
+
+export function withBrushSprayDeviationV1(preset: BrushPresetV1, deviation: number): BrushPresetV1 {
+  if (!Number.isFinite(deviation) || deviation < -1 || deviation > 1) {
+    throw new RangeError('brush spray deviation must be within -1..1');
+  }
+  if (deviation === DEFAULT_BRUSH_SPRAY_DEVIATION_V1) {
+    const { deviation: _deviation, ...spray } = preset.spray;
+    return normalizeBrushPresetV1({ ...preset, spray });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    spray: { ...preset.spray, deviation },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

@@ -496,6 +496,16 @@
                 <input id="brush-spray-particle-density-range" type="range" min="1" max="32" step="1" value="4" disabled />
                 <span class="shell-brush-property-number"><input id="brush-spray-particle-density-number" type="number" inputmode="numeric" min="1" max="32" step="1" value="4" aria-label="散布粒子密度" disabled /><span>粒/stamp</span></span>
               </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-spray-spread-radius-range">散布範囲</label>
+                <input id="brush-spray-spread-radius-range" type="range" min="0" max="400" step="1" value="100" disabled />
+                <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-spray-spread-radius-number" type="number" inputmode="decimal" min="0" max="400" step="1" value="100" aria-label="散布範囲" disabled /><span>%</span></span>
+              </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-spray-deviation-range">分布偏り</label>
+                <input id="brush-spray-deviation-range" type="range" min="-100" max="100" step="1" value="0" disabled />
+                <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-spray-deviation-number" type="number" inputmode="decimal" min="-100" max="100" step="1" value="0" aria-label="散布分布偏り。負は外周寄り、正は中心寄り" disabled /><span>%</span></span>
+              </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-tip-shape">ブラシ形状</label>
                 <select id="brush-tip-shape" aria-label="ブラシ先端形状">

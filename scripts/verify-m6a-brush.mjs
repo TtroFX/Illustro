@@ -1633,3 +1633,40 @@ requireText(
   'preserving the deterministic prefix of particle centers',
   'spray particle-density regression coverage missing',
 );
+
+requireText(progress, 'M6A-060 particle spread:完了', 'M6A-060 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSpraySpreadRadiusRatioV1',
+  'spray spread-radius preset helper missing',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSprayDeviationV1',
+  'spray radial-deviation preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'applyBaselineBrushSprayDeviationV1',
+  'spray radial distribution transform missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'this.#radius * this.#spraySpreadRadiusRatio',
+  'spray spread radius is not connected to canonical particle centers',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-spray-spread-radius-range"',
+  'reachable spray spread-radius control missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-spray-deviation-range"',
+  'reachable spray distribution-deviation control missing',
+);
+requireText(
+  read('tests/unit/brush-particle-spread.test.ts'),
+  'positive deviation for center bias and negative deviation for edge bias',
+  'spray particle-spread regression coverage missing',
+);

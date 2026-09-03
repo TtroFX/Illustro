@@ -54,6 +54,8 @@ import {
   BASELINE_BRUSH_SPRAY_ENABLED,
   BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1,
   BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1,
+  BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1,
+  BASELINE_BRUSH_SPRAY_DEVIATION_V1,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -284,6 +286,8 @@ export interface PaintSessionSnapshotV1 {
   readonly brushSprayEnabled: boolean;
   readonly brushSprayParticleSizeRatio: number;
   readonly brushSprayParticleDensity: number;
+  readonly brushSpraySpreadRadiusRatio: number;
+  readonly brushSprayDeviation: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -825,6 +829,8 @@ export class PaintSessionControllerV1 {
   #brushSprayEnabled: boolean = BASELINE_BRUSH_SPRAY_ENABLED;
   #brushSprayParticleSizeRatio: number = BASELINE_BRUSH_SPRAY_PARTICLE_SCALE_V1;
   #brushSprayParticleDensity: number = BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1;
+  #brushSpraySpreadRadiusRatio: number = BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1;
+  #brushSprayDeviation: number = BASELINE_BRUSH_SPRAY_DEVIATION_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -906,6 +912,8 @@ export class PaintSessionControllerV1 {
       brushSprayEnabled: this.#brushSprayEnabled,
       brushSprayParticleSizeRatio: this.#brushSprayParticleSizeRatio,
       brushSprayParticleDensity: this.#brushSprayParticleDensity,
+      brushSpraySpreadRadiusRatio: this.#brushSpraySpreadRadiusRatio,
+      brushSprayDeviation: this.#brushSprayDeviation,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1711,6 +1719,34 @@ export class PaintSessionControllerV1 {
 
   brushSprayParticleDensity(): number {
     return this.#brushSprayParticleDensity;
+  }
+
+  setBrushSpraySpread(
+    spreadRadiusRatio: number,
+    deviation: number,
+  ): Readonly<{ spreadRadiusRatio: number; deviation: number }> {
+    if (!Number.isFinite(spreadRadiusRatio) || spreadRadiusRatio < 0 || spreadRadiusRatio > 4) {
+      throw new RangeError('invalid runtime brush spray spread radius ratio');
+    }
+    if (!Number.isFinite(deviation) || deviation < -1 || deviation > 1) {
+      throw new RangeError('invalid runtime brush spray deviation');
+    }
+    if (
+      spreadRadiusRatio !== this.#brushSpraySpreadRadiusRatio ||
+      deviation !== this.#brushSprayDeviation
+    ) {
+      this.#clearActiveStroke();
+    }
+    this.#brushSpraySpreadRadiusRatio = spreadRadiusRatio;
+    this.#brushSprayDeviation = deviation;
+    return Object.freeze({ spreadRadiusRatio, deviation });
+  }
+
+  brushSpraySpread(): Readonly<{ spreadRadiusRatio: number; deviation: number }> {
+    return Object.freeze({
+      spreadRadiusRatio: this.#brushSpraySpreadRadiusRatio,
+      deviation: this.#brushSprayDeviation,
+    });
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2670,6 +2706,8 @@ export class PaintSessionControllerV1 {
         sprayEnabled: this.#brushSprayEnabled,
         sprayParticleSizeRatio: this.#brushSprayParticleSizeRatio,
         sprayParticleDensity: this.#brushSprayParticleDensity,
+        spraySpreadRadiusRatio: this.#brushSpraySpreadRadiusRatio,
+        sprayDeviation: this.#brushSprayDeviation,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,
