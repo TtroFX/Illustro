@@ -1153,6 +1153,48 @@ requireText(
   'random/tip-selection channel independence coverage missing',
 );
 
+requireText(progress, 'M6A-049 minimum response:完了', 'M6A-049 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSizeMinimumResponseV1',
+  'minimum-response preset helpers missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'const sizeResponse = Math.max(',
+  'size minimum response is not applied after source composition',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'const opacityResponse = Math.max(',
+  'opacity minimum response is not applied after source composition',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'const flowResponse = Math.max(',
+  'flow minimum response is not applied after source composition',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSizeMinimumResponse',
+  'minimum response is not connected to runtime brush state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-size-minimum-response-range"',
+  'reachable minimum-response control missing',
+);
+requireText(
+  read('tests/unit/brush-minimum-response.test.ts'),
+  'keeps forced taper zero authoritative outside the dynamic minimum clamp',
+  'minimum-response taper-priority regression missing',
+);
+requireText(
+  read('tests/unit/brush-minimum-response.test.ts'),
+  'applies the minimum after multiplying independent enabled sources',
+  'minimum-response source-composition regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

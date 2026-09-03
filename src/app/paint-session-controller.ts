@@ -256,6 +256,9 @@ export interface PaintSessionSnapshotV1 {
   readonly brushRandomOpacityEnabled: boolean;
   readonly brushRandomFlowEnabled: boolean;
   readonly brushRandomResponseCurve: readonly ResponseCurvePointV1[];
+  readonly brushSizeMinimumResponse: number;
+  readonly brushOpacityMinimumResponse: number;
+  readonly brushFlowMinimumResponse: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -780,6 +783,9 @@ export class PaintSessionControllerV1 {
   #brushRandomOpacityEnabled = false;
   #brushRandomFlowEnabled = false;
   #brushRandomResponseCurve: readonly ResponseCurvePointV1[] = LINEAR_RESPONSE_CURVE_V1;
+  #brushSizeMinimumResponse = 0;
+  #brushOpacityMinimumResponse = 0;
+  #brushFlowMinimumResponse = 0;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -844,6 +850,9 @@ export class PaintSessionControllerV1 {
       brushRandomOpacityEnabled: this.#brushRandomOpacityEnabled,
       brushRandomFlowEnabled: this.#brushRandomFlowEnabled,
       brushRandomResponseCurve: this.#brushRandomResponseCurve,
+      brushSizeMinimumResponse: this.#brushSizeMinimumResponse,
+      brushOpacityMinimumResponse: this.#brushOpacityMinimumResponse,
+      brushFlowMinimumResponse: this.#brushFlowMinimumResponse,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1374,6 +1383,45 @@ export class PaintSessionControllerV1 {
 
   brushRandomResponseCurve(): readonly ResponseCurvePointV1[] {
     return this.#brushRandomResponseCurve;
+  }
+
+  setBrushSizeMinimumResponse(minimumResponse: number): number {
+    if (!Number.isFinite(minimumResponse) || minimumResponse < 0 || minimumResponse > 1) {
+      throw new RangeError('invalid runtime size minimum response');
+    }
+    if (minimumResponse !== this.#brushSizeMinimumResponse) this.#clearActiveStroke();
+    this.#brushSizeMinimumResponse = minimumResponse;
+    return this.#brushSizeMinimumResponse;
+  }
+
+  brushSizeMinimumResponse(): number {
+    return this.#brushSizeMinimumResponse;
+  }
+
+  setBrushOpacityMinimumResponse(minimumResponse: number): number {
+    if (!Number.isFinite(minimumResponse) || minimumResponse < 0 || minimumResponse > 1) {
+      throw new RangeError('invalid runtime opacity minimum response');
+    }
+    if (minimumResponse !== this.#brushOpacityMinimumResponse) this.#clearActiveStroke();
+    this.#brushOpacityMinimumResponse = minimumResponse;
+    return this.#brushOpacityMinimumResponse;
+  }
+
+  brushOpacityMinimumResponse(): number {
+    return this.#brushOpacityMinimumResponse;
+  }
+
+  setBrushFlowMinimumResponse(minimumResponse: number): number {
+    if (!Number.isFinite(minimumResponse) || minimumResponse < 0 || minimumResponse > 1) {
+      throw new RangeError('invalid runtime flow minimum response');
+    }
+    if (minimumResponse !== this.#brushFlowMinimumResponse) this.#clearActiveStroke();
+    this.#brushFlowMinimumResponse = minimumResponse;
+    return this.#brushFlowMinimumResponse;
+  }
+
+  brushFlowMinimumResponse(): number {
+    return this.#brushFlowMinimumResponse;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2300,6 +2348,9 @@ export class PaintSessionControllerV1 {
         randomOpacityEnabled: this.#brushRandomOpacityEnabled,
         randomFlowEnabled: this.#brushRandomFlowEnabled,
         randomResponseCurve: this.#brushRandomResponseCurve,
+        sizeMinimumResponse: this.#brushSizeMinimumResponse,
+        opacityMinimumResponse: this.#brushOpacityMinimumResponse,
+        flowMinimumResponse: this.#brushFlowMinimumResponse,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,

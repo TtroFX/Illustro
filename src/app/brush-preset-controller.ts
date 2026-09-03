@@ -41,6 +41,9 @@ import {
   brushRandomOpacityEnabledV1,
   brushRandomFlowEnabledV1,
   brushRandomResponseCurveV1,
+  brushSizeMinimumResponseV1,
+  brushOpacityMinimumResponseV1,
+  brushFlowMinimumResponseV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -112,6 +115,9 @@ import {
   updateBrushPresetRandomOpacityV1,
   updateBrushPresetRandomFlowV1,
   updateBrushPresetRandomResponseCurveV1,
+  updateBrushPresetSizeMinimumResponseV1,
+  updateBrushPresetOpacityMinimumResponseV1,
+  updateBrushPresetFlowMinimumResponseV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -248,6 +254,30 @@ export function installBrushPresetControllerV1(input: {
   const randomCurveOutput = requireElement('#brush-random-curve-output', HTMLInputElement);
   const randomCurveDelete = requireElement('#brush-random-curve-delete', HTMLButtonElement);
   const randomCurveReset = requireElement('#brush-random-curve-reset', HTMLButtonElement);
+  const sizeMinimumResponseRange = requireElement(
+    '#brush-size-minimum-response-range',
+    HTMLInputElement,
+  );
+  const sizeMinimumResponseNumber = requireElement(
+    '#brush-size-minimum-response-number',
+    HTMLInputElement,
+  );
+  const opacityMinimumResponseRange = requireElement(
+    '#brush-opacity-minimum-response-range',
+    HTMLInputElement,
+  );
+  const opacityMinimumResponseNumber = requireElement(
+    '#brush-opacity-minimum-response-number',
+    HTMLInputElement,
+  );
+  const flowMinimumResponseRange = requireElement(
+    '#brush-flow-minimum-response-range',
+    HTMLInputElement,
+  );
+  const flowMinimumResponseNumber = requireElement(
+    '#brush-flow-minimum-response-number',
+    HTMLInputElement,
+  );
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -363,6 +393,12 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushRandomFlowEnabled(randomFlowEnabled);
     const randomResponseCurve = brushRandomResponseCurveV1(item.preset);
     input.paintSession.setBrushRandomResponseCurve(randomResponseCurve);
+    const sizeMinimumResponse = brushSizeMinimumResponseV1(item.preset);
+    input.paintSession.setBrushSizeMinimumResponse(sizeMinimumResponse);
+    const opacityMinimumResponse = brushOpacityMinimumResponseV1(item.preset);
+    input.paintSession.setBrushOpacityMinimumResponse(opacityMinimumResponse);
+    const flowMinimumResponse = brushFlowMinimumResponseV1(item.preset);
+    input.paintSession.setBrushFlowMinimumResponse(flowMinimumResponse);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -428,6 +464,9 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushRandomOpacity = String(randomOpacityEnabled);
     input.root.dataset.illustroBrushRandomFlow = String(randomFlowEnabled);
     input.root.dataset.illustroBrushRandomCurvePoints = String(randomResponseCurve.length);
+    input.root.dataset.illustroBrushSizeMinimumResponse = String(sizeMinimumResponse);
+    input.root.dataset.illustroBrushOpacityMinimumResponse = String(opacityMinimumResponse);
+    input.root.dataset.illustroBrushFlowMinimumResponse = String(flowMinimumResponse);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -653,6 +692,33 @@ export function installBrushPresetControllerV1(input: {
     randomFlowButton.setAttribute('aria-pressed', String(randomFlowEnabled));
     const randomResponseCurve = brushRandomResponseCurveV1(selected.preset);
     randomCurveEditor?.setCurve(randomResponseCurve);
+    const sizeMinimumResponse = brushSizeMinimumResponseV1(selected.preset);
+    configurePair(
+      sizeMinimumResponseRange,
+      sizeMinimumResponseNumber,
+      0,
+      100,
+      1,
+      sizeMinimumResponse * 100,
+    );
+    const opacityMinimumResponse = brushOpacityMinimumResponseV1(selected.preset);
+    configurePair(
+      opacityMinimumResponseRange,
+      opacityMinimumResponseNumber,
+      0,
+      100,
+      1,
+      opacityMinimumResponse * 100,
+    );
+    const flowMinimumResponse = brushFlowMinimumResponseV1(selected.preset);
+    configurePair(
+      flowMinimumResponseRange,
+      flowMinimumResponseNumber,
+      0,
+      100,
+      1,
+      flowMinimumResponse * 100,
+    );
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -735,7 +801,14 @@ export function installBrushPresetControllerV1(input: {
     const randomOpacityLabel = randomOpacityEnabled ? ' · R→Opacity' : '';
     const randomFlowLabel = randomFlowEnabled ? ' · R→Flow' : '';
     const randomCurveLabel = responseCurveIsLinearV1(randomResponseCurve) ? '' : ' · R-Curve';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}`;
+    const minimumResponseLabel = `${
+      sizeMinimumResponse > 0 ? ` · DynSizeMin${Math.round(sizeMinimumResponse * 100)}%` : ''
+    }${
+      opacityMinimumResponse > 0
+        ? ` · DynOpacityMin${Math.round(opacityMinimumResponse * 100)}%`
+        : ''
+    }${flowMinimumResponse > 0 ? ` · DynFlowMin${Math.round(flowMinimumResponse * 100)}%` : ''}`;
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -795,6 +868,12 @@ export function installBrushPresetControllerV1(input: {
       randomSizeButton,
       randomOpacityButton,
       randomFlowButton,
+      sizeMinimumResponseRange,
+      sizeMinimumResponseNumber,
+      opacityMinimumResponseRange,
+      opacityMinimumResponseNumber,
+      flowMinimumResponseRange,
+      flowMinimumResponseNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -1148,6 +1227,30 @@ export function installBrushPresetControllerV1(input: {
         !brushRandomFlowEnabledV1(selectedBrushPresetItemV1(state).preset),
       ),
     );
+  const updateSizeMinimumResponse = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetSizeMinimumResponseV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const updateOpacityMinimumResponse = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetOpacityMinimumResponseV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const updateFlowMinimumResponse = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetFlowMinimumResponseV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const onSizeMinimumResponseRange = (): void =>
+    updateSizeMinimumResponse(Number(sizeMinimumResponseRange.value));
+  const onSizeMinimumResponseNumber = (): void =>
+    updateSizeMinimumResponse(Number(sizeMinimumResponseNumber.value));
+  const onOpacityMinimumResponseRange = (): void =>
+    updateOpacityMinimumResponse(Number(opacityMinimumResponseRange.value));
+  const onOpacityMinimumResponseNumber = (): void =>
+    updateOpacityMinimumResponse(Number(opacityMinimumResponseNumber.value));
+  const onFlowMinimumResponseRange = (): void =>
+    updateFlowMinimumResponse(Number(flowMinimumResponseRange.value));
+  const onFlowMinimumResponseNumber = (): void =>
+    updateFlowMinimumResponse(Number(flowMinimumResponseNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -1274,6 +1377,12 @@ export function installBrushPresetControllerV1(input: {
   randomSizeButton.addEventListener('click', onRandomSize);
   randomOpacityButton.addEventListener('click', onRandomOpacity);
   randomFlowButton.addEventListener('click', onRandomFlow);
+  sizeMinimumResponseRange.addEventListener('input', onSizeMinimumResponseRange);
+  sizeMinimumResponseNumber.addEventListener('change', onSizeMinimumResponseNumber);
+  opacityMinimumResponseRange.addEventListener('input', onOpacityMinimumResponseRange);
+  opacityMinimumResponseNumber.addEventListener('change', onOpacityMinimumResponseNumber);
+  flowMinimumResponseRange.addEventListener('input', onFlowMinimumResponseRange);
+  flowMinimumResponseNumber.addEventListener('change', onFlowMinimumResponseNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -1353,6 +1462,12 @@ export function installBrushPresetControllerV1(input: {
       randomSizeButton.removeEventListener('click', onRandomSize);
       randomOpacityButton.removeEventListener('click', onRandomOpacity);
       randomFlowButton.removeEventListener('click', onRandomFlow);
+      sizeMinimumResponseRange.removeEventListener('input', onSizeMinimumResponseRange);
+      sizeMinimumResponseNumber.removeEventListener('change', onSizeMinimumResponseNumber);
+      opacityMinimumResponseRange.removeEventListener('input', onOpacityMinimumResponseRange);
+      opacityMinimumResponseNumber.removeEventListener('change', onOpacityMinimumResponseNumber);
+      flowMinimumResponseRange.removeEventListener('input', onFlowMinimumResponseRange);
+      flowMinimumResponseNumber.removeEventListener('change', onFlowMinimumResponseNumber);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();

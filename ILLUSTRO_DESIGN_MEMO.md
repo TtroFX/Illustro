@@ -5834,3 +5834,14 @@ Verification must cover at minimum:
 - One shared Random response may multiply resolved size, the per-dab stroke-opacity cap, and/or flow. It composes independently with Pressure, Tilt, Velocity and taper; M6A-032 forced zero endpoints remain authoritative because random can only multiply the existing result.
 - Primitive dabs persist only resolved `radius`, `strokeOpacity`, and `flow`; Random adds no renderer, Worker, history, or recovery field. Post-stroke correction rebuilds from the same captured seed and therefore reproduces the same random stream.
 - M6A-049/M6A-050 own minimum/maximum response remapping. M6A-048 deliberately does not pre-implement either clamp.
+
+
+### M6A dynamic minimum-response clamp boundary — 2026-09-03
+
+- `DynamicMappingV1.clamp.min` is implemented at the mapped **target** boundary, not independently per input source.
+- The current scalar targets expose independent `sizeMinimumResponse`, `opacityMinimumResponse`, and `flowMinimumResponse` values in normalized `0..1`; all default to `0` for backward-compatible behavior.
+- Enabled pressure, tilt, velocity, and random responses compose first using the current multiply semantics. The target minimum is applied to that composed response before multiplying the base size, opacity cap, or flow.
+- A target with no enabled dynamic source retains neutral response `1`; setting a minimum therefore cannot reduce an otherwise static brush parameter.
+- Start/end taper remains outside the dynamic clamp. In particular, forced taper zero endpoints stay zero and cannot be revived by minimum response.
+- Primitive dabs continue to store only resolved radius, stroke opacity, and flow; no minimum-response field is added to Worker/history payloads.
+- M6A-050 owns the complementary target-level maximum-response clamp and remains separate from this stage.

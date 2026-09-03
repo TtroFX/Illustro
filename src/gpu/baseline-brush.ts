@@ -439,6 +439,9 @@ export class BaselineBrushDabBuilderV1 {
   readonly #randomOpacityEnabled: boolean;
   readonly #randomFlowEnabled: boolean;
   readonly #randomResponseCurve: CompiledResponseCurveV1;
+  readonly #sizeMinimumResponse: number;
+  readonly #opacityMinimumResponse: number;
+  readonly #flowMinimumResponse: number;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -500,6 +503,9 @@ export class BaselineBrushDabBuilderV1 {
       readonly randomOpacityEnabled?: boolean;
       readonly randomFlowEnabled?: boolean;
       readonly randomResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly sizeMinimumResponse?: number;
+      readonly opacityMinimumResponse?: number;
+      readonly flowMinimumResponse?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -545,6 +551,9 @@ export class BaselineBrushDabBuilderV1 {
     const randomSizeEnabled = options.randomSizeEnabled ?? false;
     const randomOpacityEnabled = options.randomOpacityEnabled ?? false;
     const randomFlowEnabled = options.randomFlowEnabled ?? false;
+    const sizeMinimumResponse = options.sizeMinimumResponse ?? 0;
+    const opacityMinimumResponse = options.opacityMinimumResponse ?? 0;
+    const flowMinimumResponse = options.flowMinimumResponse ?? 0;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -638,6 +647,19 @@ export class BaselineBrushDabBuilderV1 {
     ) {
       throw new TypeError('baseline brush random mapping flags must be boolean');
     }
+    if (
+      !Number.isFinite(sizeMinimumResponse) ||
+      sizeMinimumResponse < 0 ||
+      sizeMinimumResponse > 1 ||
+      !Number.isFinite(opacityMinimumResponse) ||
+      opacityMinimumResponse < 0 ||
+      opacityMinimumResponse > 1 ||
+      !Number.isFinite(flowMinimumResponse) ||
+      flowMinimumResponse < 0 ||
+      flowMinimumResponse > 1
+    ) {
+      throw new RangeError('baseline brush minimum responses must be within 0..1');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -691,6 +713,9 @@ export class BaselineBrushDabBuilderV1 {
         { input: 1, output: 1 },
       ],
     );
+    this.#sizeMinimumResponse = sizeMinimumResponse;
+    this.#opacityMinimumResponse = opacityMinimumResponse;
+    this.#flowMinimumResponse = flowMinimumResponse;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -963,21 +988,24 @@ export class BaselineBrushDabBuilderV1 {
     const randomSizeScale = this.#randomSizeEnabled ? randomResponse : 1;
     const randomOpacityScale = this.#randomOpacityEnabled ? randomResponse : 1;
     const randomFlowScale = this.#randomFlowEnabled ? randomResponse : 1;
+    const sizeResponse = Math.max(
+      this.#sizeMinimumResponse,
+      pressureSizeScale * tiltSizeScale * velocitySizeScale * randomSizeScale,
+    );
+    const opacityResponse = Math.max(
+      this.#opacityMinimumResponse,
+      pressureOpacityScale * tiltOpacityScale * velocityOpacityScale * randomOpacityScale,
+    );
+    const flowResponse = Math.max(
+      this.#flowMinimumResponse,
+      pressureFlowScale * tiltFlowScale * velocityFlowScale * randomFlowScale,
+    );
     if (
       sizeScale <= 0 ||
       opacityScale <= 0 ||
-      pressureSizeScale <= 0 ||
-      pressureOpacityScale <= 0 ||
-      pressureFlowScale <= 0 ||
-      tiltSizeScale <= 0 ||
-      tiltOpacityScale <= 0 ||
-      tiltFlowScale <= 0 ||
-      velocitySizeScale <= 0 ||
-      velocityOpacityScale <= 0 ||
-      velocityFlowScale <= 0 ||
-      randomSizeScale <= 0 ||
-      randomOpacityScale <= 0 ||
-      randomFlowScale <= 0
+      sizeResponse <= 0 ||
+      opacityResponse <= 0 ||
+      flowResponse <= 0
     ) {
       return;
     }
@@ -985,23 +1013,9 @@ export class BaselineBrushDabBuilderV1 {
       target,
       stamp.x,
       stamp.y,
-      this.#radius *
-        sizeScale *
-        pressureSizeScale *
-        tiltSizeScale *
-        velocitySizeScale *
-        randomSizeScale,
-      this.#flow *
-        opacityScale *
-        pressureFlowScale *
-        tiltFlowScale *
-        velocityFlowScale *
-        randomFlowScale,
-      this.#strokeOpacity *
-        pressureOpacityScale *
-        tiltOpacityScale *
-        velocityOpacityScale *
-        randomOpacityScale,
+      this.#radius * sizeScale * sizeResponse,
+      this.#flow * opacityScale * flowResponse,
+      this.#strokeOpacity * opacityResponse,
       this.#hardness,
       this.#tipDensity,
       stamp.tipAngleDegrees,

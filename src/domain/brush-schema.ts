@@ -1128,6 +1128,80 @@ export function withBrushRandomResponseCurveV1(
   });
 }
 
+export const DEFAULT_BRUSH_SIZE_MINIMUM_RESPONSE_V1 = 0 as const;
+export const DEFAULT_BRUSH_OPACITY_MINIMUM_RESPONSE_V1 = 0 as const;
+export const DEFAULT_BRUSH_FLOW_MINIMUM_RESPONSE_V1 = 0 as const;
+
+function brushMinimumResponseValueV1(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : 0;
+}
+
+function requireBrushMinimumResponseV1(value: number, label: string): number {
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new RangeError(`brush ${label} minimum response must be within 0..1`);
+  }
+  return Object.is(value, -0) ? 0 : value;
+}
+
+export function brushSizeMinimumResponseV1(preset: BrushPresetV1): number {
+  return brushMinimumResponseValueV1(preset.dynamics.sizeMinimumResponse);
+}
+
+export function withBrushSizeMinimumResponseV1(
+  preset: BrushPresetV1,
+  minimumResponse: number,
+): BrushPresetV1 {
+  const normalized = requireBrushMinimumResponseV1(minimumResponse, 'size');
+  if (normalized === DEFAULT_BRUSH_SIZE_MINIMUM_RESPONSE_V1) {
+    const { sizeMinimumResponse: _sizeMinimumResponse, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, sizeMinimumResponse: normalized },
+  });
+}
+
+export function brushOpacityMinimumResponseV1(preset: BrushPresetV1): number {
+  return brushMinimumResponseValueV1(preset.dynamics.opacityMinimumResponse);
+}
+
+export function withBrushOpacityMinimumResponseV1(
+  preset: BrushPresetV1,
+  minimumResponse: number,
+): BrushPresetV1 {
+  const normalized = requireBrushMinimumResponseV1(minimumResponse, 'opacity');
+  if (normalized === DEFAULT_BRUSH_OPACITY_MINIMUM_RESPONSE_V1) {
+    const { opacityMinimumResponse: _opacityMinimumResponse, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, opacityMinimumResponse: normalized },
+  });
+}
+
+export function brushFlowMinimumResponseV1(preset: BrushPresetV1): number {
+  return brushMinimumResponseValueV1(preset.dynamics.flowMinimumResponse);
+}
+
+export function withBrushFlowMinimumResponseV1(
+  preset: BrushPresetV1,
+  minimumResponse: number,
+): BrushPresetV1 {
+  const normalized = requireBrushMinimumResponseV1(minimumResponse, 'flow');
+  if (normalized === DEFAULT_BRUSH_FLOW_MINIMUM_RESPONSE_V1) {
+    const { flowMinimumResponse: _flowMinimumResponse, ...dynamics } = preset.dynamics;
+    return normalizeBrushPresetV1({ ...preset, dynamics });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    dynamics: { ...preset.dynamics, flowMinimumResponse: normalized },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

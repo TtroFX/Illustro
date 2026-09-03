@@ -120,6 +120,9 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly randomOpacityEnabled?: boolean;
       readonly randomFlowEnabled?: boolean;
       readonly randomResponseCurve?: readonly ResponseCurvePointV1[];
+      readonly sizeMinimumResponse?: number;
+      readonly opacityMinimumResponse?: number;
+      readonly flowMinimumResponse?: number;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -209,6 +212,15 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.randomResponseCurve === undefined
         ? {}
         : { randomResponseCurve: options.randomResponseCurve }),
+      ...(options.sizeMinimumResponse === undefined
+        ? {}
+        : { sizeMinimumResponse: options.sizeMinimumResponse }),
+      ...(options.opacityMinimumResponse === undefined
+        ? {}
+        : { opacityMinimumResponse: options.opacityMinimumResponse }),
+      ...(options.flowMinimumResponse === undefined
+        ? {}
+        : { flowMinimumResponse: options.flowMinimumResponse }),
       ...(options.randomSeed === undefined ? {} : { randomSeed: options.randomSeed }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),
