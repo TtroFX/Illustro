@@ -21,6 +21,32 @@ jobs:
           cache: npm
       - name: Restore dependencies
         run: npm ci
+      - name: Align M6A-058 disposal patch anchor
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/patch-m6a058-particle-size.py')
+          s = p.read_text(encoding='utf-8')
+          old_anchor = "      sprayEnabledButton.removeEventListener('click', onSprayEnabled);\\n      tipShape.removeEventListener('change', onTipShape);\\n"
+          new_anchor = "      sprayEnabledButton.removeEventListener('click', onSprayEnabled);\\n      pressureCurveEditor?.dispose();\\n"
+          if s.count(old_anchor) != 1:
+              raise SystemExit(f'expected one old disposal anchor, found {s.count(old_anchor)}')
+          s = s.replace(old_anchor, new_anchor, 1)
+          old_replacement = """      sprayEnabledButton.removeEventListener('click', onSprayEnabled);
+      sprayParticleSizeRange.removeEventListener('input', onSprayParticleSizeRange);
+      sprayParticleSizeNumber.removeEventListener('change', onSprayParticleSizeNumber);
+      tipShape.removeEventListener('change', onTipShape);
+"""
+          new_replacement = """      sprayEnabledButton.removeEventListener('click', onSprayEnabled);
+      sprayParticleSizeRange.removeEventListener('input', onSprayParticleSizeRange);
+      sprayParticleSizeNumber.removeEventListener('change', onSprayParticleSizeNumber);
+      pressureCurveEditor?.dispose();
+"""
+          if s.count(old_replacement) != 1:
+              raise SystemExit(f'expected one old disposal replacement, found {s.count(old_replacement)}')
+          p.write_text(s.replace(old_replacement, new_replacement, 1), encoding='utf-8')
+          PY
       - name: Apply M6A-058 particle-size patch
         run: python3 scripts/patch-m6a058-particle-size.py
       - name: Format changed TypeScript and verifier
