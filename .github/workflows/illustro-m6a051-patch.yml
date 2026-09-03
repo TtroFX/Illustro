@@ -24,6 +24,18 @@ jobs:
       - run: npm ci
       - name: Apply M6A-051 size-jitter patch
         run: python3 .github/illustro-m6a051-patch.py
+      - name: Complete M6A-051 preset test fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/unit/brush-size-jitter.test.ts')
+          text = path.read_text()
+          old = "createBaselineBrushPresetV1({ id: 'test.size-jitter', name: 'Size Jitter' })"
+          new = "createBaselineBrushPresetV1({ id: 'test.size-jitter', name: 'Size Jitter', category: 'Test', behavior: 'paint' })"
+          if old not in text:
+              raise SystemExit('M6A-051 preset fixture anchor missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
       - name: Format changed sources
         run: npx biome format --write src/domain/brush-schema.ts src/gpu/baseline-brush.ts src/app/canonical-raster-brush.ts src/app/paint-session-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts src/index.html tests/unit/brush-size-jitter.test.ts scripts/verify-m6a-brush.mjs
       - name: Typecheck
