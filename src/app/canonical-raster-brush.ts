@@ -139,6 +139,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly sprayParticleDensity?: number;
       readonly spraySpreadRadiusRatio?: number;
       readonly sprayDeviation?: number;
+      readonly sprayAngleBasedOnCenter?: boolean;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -267,6 +268,9 @@ export class CanonicalRasterBrushStrokeV1 {
         ? {}
         : { spraySpreadRadiusRatio: options.spraySpreadRadiusRatio }),
       ...(options.sprayDeviation === undefined ? {} : { sprayDeviation: options.sprayDeviation }),
+      ...(options.sprayAngleBasedOnCenter === undefined
+        ? {}
+        : { sprayAngleBasedOnCenter: options.sprayAngleBasedOnCenter }),
       ...(options.randomSeed === undefined ? {} : { randomSeed: options.randomSeed }),
       ...(options.hardness === undefined ? {} : { hardness: options.hardness }),
       ...(options.tipDensity === undefined ? {} : { tipDensity: options.tipDensity }),

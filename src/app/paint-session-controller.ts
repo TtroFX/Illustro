@@ -56,6 +56,7 @@ import {
   BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1,
   BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1,
   BASELINE_BRUSH_SPRAY_DEVIATION_V1,
+  BASELINE_BRUSH_SPRAY_ANGLE_BASED_ON_CENTER_V1,
   DEFAULT_BASELINE_BRUSH_COLOR_V1,
   freezeBaselineBrushColorV1,
   freezeBaselineBrushSampledTipAlphaV1,
@@ -288,6 +289,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushSprayParticleDensity: number;
   readonly brushSpraySpreadRadiusRatio: number;
   readonly brushSprayDeviation: number;
+  readonly brushSprayAngleBasedOnCenter: boolean;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -831,6 +833,7 @@ export class PaintSessionControllerV1 {
   #brushSprayParticleDensity: number = BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1;
   #brushSpraySpreadRadiusRatio: number = BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1;
   #brushSprayDeviation: number = BASELINE_BRUSH_SPRAY_DEVIATION_V1;
+  #brushSprayAngleBasedOnCenter: boolean = BASELINE_BRUSH_SPRAY_ANGLE_BASED_ON_CENTER_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -914,6 +917,7 @@ export class PaintSessionControllerV1 {
       brushSprayParticleDensity: this.#brushSprayParticleDensity,
       brushSpraySpreadRadiusRatio: this.#brushSpraySpreadRadiusRatio,
       brushSprayDeviation: this.#brushSprayDeviation,
+      brushSprayAngleBasedOnCenter: this.#brushSprayAngleBasedOnCenter,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1747,6 +1751,19 @@ export class PaintSessionControllerV1 {
       spreadRadiusRatio: this.#brushSpraySpreadRadiusRatio,
       deviation: this.#brushSprayDeviation,
     });
+  }
+
+  setBrushSprayAngleBasedOnCenter(enabled: boolean): boolean {
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('invalid runtime brush spray angle-based-on-center flag');
+    }
+    if (enabled !== this.#brushSprayAngleBasedOnCenter) this.#clearActiveStroke();
+    this.#brushSprayAngleBasedOnCenter = enabled;
+    return this.#brushSprayAngleBasedOnCenter;
+  }
+
+  brushSprayAngleBasedOnCenter(): boolean {
+    return this.#brushSprayAngleBasedOnCenter;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
@@ -2708,6 +2725,7 @@ export class PaintSessionControllerV1 {
         sprayParticleDensity: this.#brushSprayParticleDensity,
         spraySpreadRadiusRatio: this.#brushSpraySpreadRadiusRatio,
         sprayDeviation: this.#brushSprayDeviation,
+        sprayAngleBasedOnCenter: this.#brushSprayAngleBasedOnCenter,
         randomSeed: randomSeed ?? 0,
         hardness: this.#brushHardness,
         tipAngleDegrees: this.#brushTipAngleDegrees,

@@ -43,6 +43,7 @@ export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1 = 1 as const;
 export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_MIN_V1 = 0 as const;
 export const BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_MAX_V1 = 4 as const;
 export const BASELINE_BRUSH_SPRAY_DEVIATION_V1 = 0 as const;
+export const BASELINE_BRUSH_SPRAY_ANGLE_BASED_ON_CENTER_V1 = false as const;
 export type BaselineBrushColorV1 = readonly [number, number, number];
 export type BaselineBrushTipShapeV1 = 'round' | 'square' | 'sampled-image';
 export type BaselineBrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
@@ -758,7 +759,13 @@ interface BaselineLogicalStampRecordV1 {
   readonly tipAngleDegrees: number;
   readonly pathDistancePx: number;
   readonly sampledTipAlpha: BaselineBrushSampledTipAlphaV1;
-  readonly sprayParticles: readonly Readonly<{ x: number; y: number }>[] | null;
+  readonly sprayParticles:
+    | readonly Readonly<{
+        x: number;
+        y: number;
+        tipAngleDegrees: number;
+      }>[]
+    | null;
   primitiveStart: number;
   primitiveEnd: number;
 }
@@ -809,6 +816,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #sprayParticleDensity: number;
   readonly #spraySpreadRadiusRatio: number;
   readonly #sprayDeviation: number;
+  readonly #sprayAngleBasedOnCenter: boolean;
   readonly #randomSeed: number;
   readonly #flow: number;
   readonly #strokeOpacity: number;
@@ -896,6 +904,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly sprayParticleDensity?: number;
       readonly spraySpreadRadiusRatio?: number;
       readonly sprayDeviation?: number;
+      readonly sprayAngleBasedOnCenter?: boolean;
       readonly randomSeed?: number;
       readonly hardness?: number;
       readonly tipDensity?: number;
@@ -963,6 +972,8 @@ export class BaselineBrushDabBuilderV1 {
     const spraySpreadRadiusRatio =
       options.spraySpreadRadiusRatio ?? BASELINE_BRUSH_SPRAY_SPREAD_RADIUS_RATIO_V1;
     const sprayDeviation = options.sprayDeviation ?? BASELINE_BRUSH_SPRAY_DEVIATION_V1;
+    const sprayAngleBasedOnCenter =
+      options.sprayAngleBasedOnCenter ?? BASELINE_BRUSH_SPRAY_ANGLE_BASED_ON_CENTER_V1;
     const randomSeed = options.randomSeed ?? 0;
     const hardness = options.hardness ?? BASELINE_BRUSH_HARDNESS;
     const tipDensity = options.tipDensity ?? BASELINE_BRUSH_TIP_DENSITY;
@@ -1140,6 +1151,9 @@ export class BaselineBrushDabBuilderV1 {
     if (!Number.isFinite(sprayDeviation) || sprayDeviation < -1 || sprayDeviation > 1) {
       throw new RangeError('baseline brush spray deviation must be within -1..1');
     }
+    if (typeof sprayAngleBasedOnCenter !== 'boolean') {
+      throw new TypeError('baseline brush spray angle-based-on-center flag must be boolean');
+    }
     if (!Number.isSafeInteger(randomSeed) || randomSeed < 0 || randomSeed > 0xffffffff) {
       throw new RangeError('baseline brush random seed must be uint32');
     }
@@ -1212,6 +1226,7 @@ export class BaselineBrushDabBuilderV1 {
     this.#sprayParticleDensity = sprayParticleDensity;
     this.#spraySpreadRadiusRatio = spraySpreadRadiusRatio;
     this.#sprayDeviation = sprayDeviation;
+    this.#sprayAngleBasedOnCenter = sprayAngleBasedOnCenter;
     this.#randomSeed = randomSeed >>> 0;
     this.#flow = flow;
     this.#strokeOpacity = opacity;
@@ -1544,7 +1559,12 @@ export class BaselineBrushDabBuilderV1 {
     const resolvedFlow = this.#flow * opacityScale * flowResponse;
     const resolvedStrokeOpacity = this.#strokeOpacity * opacityResponse * stamp.opacityJitterScale;
     const resolvedDensity = this.#tipDensity * stamp.densityJitterScale;
-    const emitParticle = (particleX: number, particleY: number, radiusScale: number): void =>
+    const emitParticle = (
+      particleX: number,
+      particleY: number,
+      radiusScale: number,
+      tipAngleDegrees: number,
+    ): void =>
       pushBaselineBrushStampV1(
         target,
         particleX,
@@ -1554,17 +1574,17 @@ export class BaselineBrushDabBuilderV1 {
         resolvedStrokeOpacity,
         this.#hardness,
         resolvedDensity,
-        stamp.tipAngleDegrees,
+        tipAngleDegrees,
         stamp.color,
         this.#tipShape,
         stamp.sampledTipAlpha,
       );
     if (stamp.sprayParticles === null) {
-      emitParticle(stamp.x, stamp.y, 1);
+      emitParticle(stamp.x, stamp.y, 1, stamp.tipAngleDegrees);
       return;
     }
     for (const particle of stamp.sprayParticles) {
-      emitParticle(particle.x, particle.y, this.#sprayParticleSizeRatio);
+      emitParticle(particle.x, particle.y, this.#sprayParticleSizeRatio, particle.tipAngleDegrees);
     }
   }
 
@@ -1664,9 +1684,20 @@ export class BaselineBrushDabBuilderV1 {
             );
             const unit = applyBaselineBrushSprayDeviationV1(baseUnit, this.#sprayDeviation);
             const spreadRadiusPx = this.#radius * this.#spraySpreadRadiusRatio;
+            const particleX = jitteredX + unit.x * spreadRadiusPx;
+            const particleY = jitteredY + unit.y * spreadRadiusPx;
+            const radialLength = Math.hypot(particleX - jitteredX, particleY - jitteredY);
+            const particleTipAngleDegrees =
+              this.#sprayAngleBasedOnCenter && radialLength > 1e-12
+                ? normalizeBaselineBrushTipAngleDegreesV1(
+                    jitteredTipAngleDegrees +
+                      (Math.atan2(particleY - jitteredY, particleX - jitteredX) * 180) / Math.PI,
+                  )
+                : jitteredTipAngleDegrees;
             return Object.freeze({
-              x: jitteredX + unit.x * spreadRadiusPx,
-              y: jitteredY + unit.y * spreadRadiusPx,
+              x: particleX,
+              y: particleY,
+              tipAngleDegrees: particleTipAngleDegrees,
             });
           }),
         )

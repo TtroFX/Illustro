@@ -1670,3 +1670,30 @@ requireText(
   'positive deviation for center bias and negative deviation for edge bias',
   'spray particle-spread regression coverage missing',
 );
+
+requireText(progress, 'M6A-061 particle orientation:完了', 'M6A-061 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSprayAngleBasedOnCenterV1',
+  'spray center-based orientation preset helper missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'particle.tipAngleDegrees',
+  'spray particle-specific orientation is not connected to canonical emission',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushSprayAngleBasedOnCenter',
+  'spray particle orientation is not captured by the paint session',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-spray-angle-based-on-center"',
+  'reachable spray orientation control missing',
+);
+requireText(
+  read('tests/unit/brush-particle-orientation.test.ts'),
+  'adds each particle radial angle to the already resolved parent tip angle',
+  'spray particle-orientation regression coverage missing',
+);

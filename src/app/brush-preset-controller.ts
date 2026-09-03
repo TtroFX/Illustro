@@ -60,6 +60,7 @@ import {
   brushSprayParticleDensityV1,
   brushSpraySpreadRadiusRatioV1,
   brushSprayDeviationV1,
+  brushSprayAngleBasedOnCenterV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -149,6 +150,7 @@ import {
   updateBrushPresetSprayParticleSizeRatioV1,
   updateBrushPresetSprayParticleDensityV1,
   updateBrushPresetSpraySpreadV1,
+  updateBrushPresetSprayAngleBasedOnCenterV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -379,6 +381,10 @@ export function installBrushPresetControllerV1(input: {
   );
   const sprayDeviationRange = requireElement('#brush-spray-deviation-range', HTMLInputElement);
   const sprayDeviationNumber = requireElement('#brush-spray-deviation-number', HTMLInputElement);
+  const sprayAngleBasedOnCenterButton = requireElement(
+    '#brush-spray-angle-based-on-center',
+    HTMLButtonElement,
+  );
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -528,6 +534,8 @@ export function installBrushPresetControllerV1(input: {
     const spraySpreadRadiusRatio = brushSpraySpreadRadiusRatioV1(item.preset);
     const sprayDeviation = brushSprayDeviationV1(item.preset);
     input.paintSession.setBrushSpraySpread(spraySpreadRadiusRatio, sprayDeviation);
+    const sprayAngleBasedOnCenter = brushSprayAngleBasedOnCenterV1(item.preset);
+    input.paintSession.setBrushSprayAngleBasedOnCenter(sprayAngleBasedOnCenter);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -612,6 +620,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushSprayParticleDensity = String(sprayParticleDensity);
     input.root.dataset.illustroBrushSpraySpreadRadiusRatio = String(spraySpreadRadiusRatio);
     input.root.dataset.illustroBrushSprayDeviation = String(sprayDeviation);
+    input.root.dataset.illustroBrushSprayAngleBasedOnCenter = String(sprayAngleBasedOnCenter);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -951,6 +960,9 @@ export function installBrushPresetControllerV1(input: {
       spraySpreadRadiusRatio * 100,
     );
     configurePair(sprayDeviationRange, sprayDeviationNumber, -100, 100, 1, sprayDeviation * 100);
+    const sprayAngleBasedOnCenter = brushSprayAngleBasedOnCenterV1(selected.preset);
+    sprayAngleBasedOnCenterButton.textContent = sprayAngleBasedOnCenter ? 'ON' : 'OFF';
+    sprayAngleBasedOnCenterButton.setAttribute('aria-pressed', String(sprayAngleBasedOnCenter));
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -1065,7 +1077,8 @@ export function installBrushPresetControllerV1(input: {
     const spraySpreadLabel = sprayEnabled
       ? ` · Spread${Math.round(spraySpreadRadiusRatio * 100)}%${sprayDeviation === 0 ? '' : `/Dev${Math.round(sprayDeviation * 100)}%`}`
       : '';
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}${maximumResponseLabel}${sizeJitterLabel}${opacityJitterLabel}${rotationJitterLabel}${positionJitterLabel}${densityJitterLabel}${colorJitterLabel}${sprayLabel}${sprayParticleSizeLabel}${sprayParticleDensityLabel}${spraySpreadLabel}`;
+    const sprayOrientationLabel = sprayEnabled && sprayAngleBasedOnCenter ? ' · CenterAngle' : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${penOrientationEnabled ? ' · PenDir' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}${textureScaleLabel}${textureRotationLabel}${textureBlendLabel}${pressureSizeLabel}${pressureOpacityLabel}${pressureFlowLabel}${pressureCurveLabel}${tiltSizeLabel}${tiltOpacityLabel}${tiltFlowLabel}${tiltCurveLabel}${velocitySizeLabel}${velocityOpacityLabel}${velocityFlowLabel}${velocityCurveLabel}${velocityMaximumLabel}${randomSizeLabel}${randomOpacityLabel}${randomFlowLabel}${randomCurveLabel}${minimumResponseLabel}${maximumResponseLabel}${sizeJitterLabel}${opacityJitterLabel}${rotationJitterLabel}${positionJitterLabel}${densityJitterLabel}${colorJitterLabel}${sprayLabel}${sprayParticleSizeLabel}${sprayParticleDensityLabel}${spraySpreadLabel}${sprayOrientationLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -1162,6 +1175,7 @@ export function installBrushPresetControllerV1(input: {
       spraySpreadRadiusNumber,
       sprayDeviationRange,
       sprayDeviationNumber,
+      sprayAngleBasedOnCenterButton,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -1176,6 +1190,7 @@ export function installBrushPresetControllerV1(input: {
     spraySpreadRadiusNumber.disabled = locked || !sprayEnabled;
     sprayDeviationRange.disabled = locked || !sprayEnabled;
     sprayDeviationNumber.disabled = locked || !sprayEnabled;
+    sprayAngleBasedOnCenterButton.disabled = locked || !sprayEnabled;
     pressureCurveEditor?.setDisabled(locked);
     tiltCurveEditor?.setDisabled(locked);
     velocityCurveEditor?.setDisabled(locked);
@@ -1656,6 +1671,14 @@ export function installBrushPresetControllerV1(input: {
     updateSpraySpread(Number(spraySpreadRadiusRange.value), Number(sprayDeviationRange.value));
   const onSprayDeviationNumber = (): void =>
     updateSpraySpread(Number(spraySpreadRadiusNumber.value), Number(sprayDeviationNumber.value));
+  const onSprayAngleBasedOnCenter = (): void =>
+    mutate(() =>
+      updateBrushPresetSprayAngleBasedOnCenterV1(
+        state,
+        state.selectedPresetId,
+        !brushSprayAngleBasedOnCenterV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -1819,6 +1842,7 @@ export function installBrushPresetControllerV1(input: {
   spraySpreadRadiusNumber.addEventListener('change', onSpraySpreadRadiusNumber);
   sprayDeviationRange.addEventListener('input', onSprayDeviationRange);
   sprayDeviationNumber.addEventListener('change', onSprayDeviationNumber);
+  sprayAngleBasedOnCenterButton.addEventListener('click', onSprayAngleBasedOnCenter);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -1935,6 +1959,7 @@ export function installBrushPresetControllerV1(input: {
       spraySpreadRadiusNumber.removeEventListener('change', onSpraySpreadRadiusNumber);
       sprayDeviationRange.removeEventListener('input', onSprayDeviationRange);
       sprayDeviationNumber.removeEventListener('change', onSprayDeviationNumber);
+      sprayAngleBasedOnCenterButton.removeEventListener('click', onSprayAngleBasedOnCenter);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();
