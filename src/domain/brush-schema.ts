@@ -578,6 +578,29 @@ export function withBrushPaperTextureResourceIdV1(
   });
 }
 
+export const DEFAULT_BRUSH_TEXTURE_STRENGTH_V1 = 0 as const;
+
+export function brushTextureStrengthV1(preset: BrushPresetV1): number {
+  const value = preset.texture.strength;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_TEXTURE_STRENGTH_V1;
+}
+
+export function withBrushTextureStrengthV1(preset: BrushPresetV1, strength: number): BrushPresetV1 {
+  if (!Number.isFinite(strength) || strength < 0 || strength > 1) {
+    throw new RangeError('brush texture strength must be within 0..1');
+  }
+  if (strength === DEFAULT_BRUSH_TEXTURE_STRENGTH_V1) {
+    const { strength: _strength, ...texture } = preset.texture;
+    return normalizeBrushPresetV1({ ...preset, texture });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    texture: { ...preset.texture, strength },
+  });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

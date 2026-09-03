@@ -457,7 +457,8 @@ M6A-035 grain selection:完了
 再開メモ: M6A-035 grain selectionはBrushPresetV1.textureのresourceKind='grain' + resourceIdをcanonical選択契約とし、未選択は両fieldなし/nullで表現する。I-FINALの非paper grain 20件（fine 6 / rough 6 / fiber 5 / canvas 3）にはbuiltin.grain.<family>.<NN>の安定alias IDを確定した。これらはM6A-071/073で実payloadへmapするresource identityであり、schema helperはimport済みuser resource IDも保持できる。選択はpreset library永続化・PaintSession runtime snapshot・Brush Properties UIまで接続済み。M6A-037 strengthが0の間は選択だけで描画結果を変えず、M6A-036では同じtexture resource契約をpaper subtypeへ拡張する。次はM6A-036 paper texture selectionから再開する。
 M6A-036 paper texture selection:完了
 再開メモ: M6A-036 paper texture selectionはI-FINALの12 paper resourcesにbuiltin.grain.paper.01..12の安定aliasを割当て、ResourceV1.kindはgrainのままBrushPresetV1.texture.resourceSubtype='paper'で識別する。通常grainはresourceSubtype='grain'へ正規化し、grain/paperは同一texture resource slotを排他的に使用するため二重適用スタックにはしない。preset helper・library永続化・PaintSessionのkind/subtype/id snapshot・Brush Properties paper chooserまで接続済み。imported paper IDもcanonical resource identityとして保持可能。次はM6A-037 texture strengthから再開する。
-M6A-037 texture strength:未完了
+M6A-037 texture strength:完了
+再開メモ: M6A-037 texture strengthはBrushPresetV1.texture.strengthを0..1で保持し、0をexact identity/defaultとしてfield自体を省略可能にした。grain/paperのsingle texture resource slotとは独立parameterとしてpreset persistence・PaintSession snapshot・Brush Propertiesへ接続し、resource subtypeを切替えてもstrengthを保持する。I-FINAL sampled grain/paper payloadはM6A-071/073でロードされるため、この段階では仮procedural textureをcanonical Rasterへ焼き込まず、strength>0でもpayload未解決なら描画結果を変えない。実payload接続後は同じstrengthをcoverage modulationの正本として使う。次はM6A-038 texture scaleから再開する。
 M6A-038 texture scale:未完了
 M6A-039 texture rotation:未完了
 M6A-040 texture blend behavior:未完了

@@ -762,6 +762,28 @@ requireText(
   'paper/grain exclusivity regression missing',
 );
 
+requireText(progress, 'M6A-037 texture strength:完了', 'M6A-037 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushTextureStrengthV1',
+  'texture-strength preset helper missing',
+);
+requireText(
+  read('src/app/paint-session-controller.ts'),
+  'setBrushTextureStrength',
+  'texture strength is not connected to runtime state',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-texture-strength-range"',
+  'reachable texture-strength control missing',
+);
+requireText(
+  read('tests/unit/brush-texture-strength.test.ts'),
+  'preserves strength while the single texture slot switches between grain and paper',
+  'texture strength/resource-identity regression missing',
+);
+
 requireText(
   progress,
   'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',

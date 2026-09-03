@@ -5732,3 +5732,10 @@ Verification must cover at minimum:
 - Stable built-in aliases are `builtin.grain.paper.01..12`. Ordinary non-paper grain is normalized to subtype `grain`. Selecting one replaces the other; M6A does not silently introduce a dual grain+paper texture stack.
 - Preset persistence and runtime state retain resource kind, subtype and ID independently from the later sampled payload. Imported paper resource IDs remain representable.
 - UI exposes separate Grain and Paper chooser rows for recognition, but they map to the same mutually exclusive canonical texture slot. M6A-037 applies the shared strength semantics to whichever resource is selected.
+
+#### M6A texture-strength boundary — 2026-09-03
+
+- M6A-037 defines `BrushPresetV1.texture.strength` as a canonical finite `0..1` amount shared by the single active grain/paper texture slot. `0` is the exact identity/default and may be omitted from serialized preset data.
+- Strength is independent from texture resource identity and subtype. Switching between ordinary grain and paper preserves the amount; selecting no resource may also retain it for later reuse.
+- M6A-037 does **not** synthesize a surrogate procedural texture. Until M6A-071/073 resolves the accepted sampled grain/paper payload, nonzero strength is stored/runtime-visible but must not alter canonical raster pixels. This prevents saved strokes from changing meaning when the real resource loader arrives.
+- Once a texture payload is resolved, this same strength value is the modulation-depth authority. M6A-038, M6A-039 and M6A-040 own scale, rotation and combination/blend behavior respectively and must remain orthogonal to strength.

@@ -19,6 +19,7 @@ import {
   brushPostStrokeCorrectionAmountV1,
   brushGrainResourceIdV1,
   brushPaperTextureResourceIdV1,
+  brushTextureStrengthV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -66,6 +67,7 @@ import {
   updateBrushPresetPostStrokeCorrectionV1,
   updateBrushPresetGrainResourceV1,
   updateBrushPresetPaperTextureResourceV1,
+  updateBrushPresetTextureStrengthV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -156,6 +158,8 @@ export function installBrushPresetControllerV1(input: {
   const postCorrectionNumber = requireElement('#brush-post-correction-number', HTMLInputElement);
   const grainResource = requireElement('#brush-grain-resource', HTMLSelectElement);
   const paperResource = requireElement('#brush-paper-resource', HTMLSelectElement);
+  const textureStrengthRange = requireElement('#brush-texture-strength-range', HTMLInputElement);
+  const textureStrengthNumber = requireElement('#brush-texture-strength-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -221,6 +225,8 @@ export function installBrushPresetControllerV1(input: {
     } else {
       input.paintSession.setBrushGrainResourceId(grainResourceId);
     }
+    const textureStrength = brushTextureStrengthV1(item.preset);
+    input.paintSession.setBrushTextureStrength(textureStrength);
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
     const tipSelectionStartIndex = Math.max(
@@ -264,6 +270,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushPostCorrectionAmount = String(postCorrectionAmount);
     input.root.dataset.illustroBrushGrainResource = grainResourceId ?? '';
     input.root.dataset.illustroBrushPaperResource = paperResourceId ?? '';
+    input.root.dataset.illustroBrushTextureStrength = String(textureStrength);
     input.root.dataset.illustroBrushTipShape = brushTipShapeV1(item.preset);
     input.onBrushModeChanged?.();
   };
@@ -432,6 +439,8 @@ export function installBrushPresetControllerV1(input: {
       paperResource.append(imported);
     }
     paperResource.value = paperResourceId ?? '';
+    const textureStrength = brushTextureStrengthV1(selected.preset);
+    configurePair(textureStrengthRange, textureStrengthNumber, 0, 100, 1, textureStrength * 100);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -487,7 +496,9 @@ export function installBrushPresetControllerV1(input: {
         : ` · Grain:${grainResourceId.split('.').at(-2) ?? 'custom'}-${grainResourceId.split('.').at(-1) ?? ''}`;
     const paperLabel =
       paperResourceId === null ? '' : ` · Paper:${paperResourceId.split('.').at(-1) ?? 'custom'}`;
-    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}`;
+    const textureStrengthLabel =
+      textureStrength > 0 ? ` · Tex${Math.round(textureStrength * 100)}%` : '';
+    propertyStatus.textContent = `${parameters.sizePx.toFixed(1)} px · ${Math.round(parameters.opacity * 100)}% · ${Math.round(parameters.flow * 100)}% · H${Math.round(hardness * 100)}% · D${Math.round(tipDensity * 100)}% · S${Math.round(spacing.spacingRatio * 100)}% · A${Math.round(tipAngleDegrees)}° · F${Math.round(tipDirectionDegrees)}°${followRotation ? ' · Follow' : ''}${repeatLabel}${startLabel}${endLabel}${sizeTaperLabel}${opacityTaperLabel}${forcedTaperLabel}${stabilizationLabel}${postCorrectionLabel}${grainLabel}${paperLabel}${textureStrengthLabel}`;
 
     const locked = selected.locked;
     for (const control of [
@@ -525,6 +536,8 @@ export function installBrushPresetControllerV1(input: {
       postCorrectionNumber,
       grainResource,
       paperResource,
+      textureStrengthRange,
+      textureStrengthNumber,
       tipShape,
       customTipCreate,
       customTipFile,
@@ -679,6 +692,12 @@ export function installBrushPresetControllerV1(input: {
         paperResource.value.length === 0 ? null : paperResource.value,
       ),
     );
+  const updateTextureStrength = (percent: number): void =>
+    mutate(() => updateBrushPresetTextureStrengthV1(state, state.selectedPresetId, percent / 100));
+  const onTextureStrengthRange = (): void =>
+    updateTextureStrength(Number(textureStrengthRange.value));
+  const onTextureStrengthNumber = (): void =>
+    updateTextureStrength(Number(textureStrengthNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -783,6 +802,8 @@ export function installBrushPresetControllerV1(input: {
   postCorrectionNumber.addEventListener('change', onPostCorrectionNumber);
   grainResource.addEventListener('change', onGrainResource);
   paperResource.addEventListener('change', onPaperResource);
+  textureStrengthRange.addEventListener('input', onTextureStrengthRange);
+  textureStrengthNumber.addEventListener('change', onTextureStrengthNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -840,6 +861,8 @@ export function installBrushPresetControllerV1(input: {
       postCorrectionNumber.removeEventListener('change', onPostCorrectionNumber);
       grainResource.removeEventListener('change', onGrainResource);
       paperResource.removeEventListener('change', onPaperResource);
+      textureStrengthRange.removeEventListener('input', onTextureStrengthRange);
+      textureStrengthNumber.removeEventListener('change', onTextureStrengthNumber);
       tipShape.removeEventListener('change', onTipShape);
       customTipCreate.removeEventListener('click', onCustomTipCreate);
       customTipFile.removeEventListener('change', onCustomTipFile);

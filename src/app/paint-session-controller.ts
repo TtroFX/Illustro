@@ -225,6 +225,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushTextureResourceKind: 'grain' | null;
   readonly brushTextureResourceSubtype: 'grain' | 'paper' | null;
   readonly brushTextureResourceId: string | null;
+  readonly brushTextureStrength: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -672,6 +673,7 @@ export class PaintSessionControllerV1 {
   #brushTextureResourceKind: 'grain' | null = null;
   #brushTextureResourceSubtype: 'grain' | 'paper' | null = null;
   #brushTextureResourceId: string | null = null;
+  #brushTextureStrength = 0;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -714,6 +716,7 @@ export class PaintSessionControllerV1 {
       brushTextureResourceKind: this.#brushTextureResourceKind,
       brushTextureResourceSubtype: this.#brushTextureResourceSubtype,
       brushTextureResourceId: this.#brushTextureResourceId,
+      brushTextureStrength: this.#brushTextureStrength,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -985,6 +988,19 @@ export class PaintSessionControllerV1 {
       this.#brushTextureResourceSubtype === 'paper'
       ? this.#brushTextureResourceId
       : null;
+  }
+
+  setBrushTextureStrength(strength: number): number {
+    if (!Number.isFinite(strength) || strength < 0 || strength > 1) {
+      throw new RangeError('invalid runtime brush texture strength');
+    }
+    if (strength !== this.#brushTextureStrength) this.#clearActiveStroke();
+    this.#brushTextureStrength = strength;
+    return this.#brushTextureStrength;
+  }
+
+  brushTextureStrength(): number {
+    return this.#brushTextureStrength;
   }
 
   setBrushTipAngleDegrees(angleDegrees: number): number {
