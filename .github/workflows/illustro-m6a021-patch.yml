@@ -22,8 +22,44 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Fix patch stamp matching
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('.github/illustro-m6a021-patch.py')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('if count != 3:', 'if count != 1:')
+          p.write_text(s, encoding='utf-8')
+          PY
       - name: Apply M6A-021 hardness patch
         run: python .github/illustro-m6a021-patch.py
+      - name: Patch remaining stamp calls
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/gpu/baseline-brush.ts')
+          s = p.read_text(encoding='utf-8')
+          for indent in ('          ', '        '):
+              before = (
+                  indent + 'this.#strokeOpacity,\n' +
+                  indent + 'this.#color,\n' +
+                  indent + 'this.#tipShape,\n' +
+                  indent + 'this.#sampledTipAlpha,'
+              )
+              after = (
+                  indent + 'this.#strokeOpacity,\n' +
+                  indent + 'this.#hardness,\n' +
+                  indent + 'this.#color,\n' +
+                  indent + 'this.#tipShape,\n' +
+                  indent + 'this.#sampledTipAlpha,'
+              )
+              if s.count(before) != 1:
+                  raise RuntimeError('expected one remaining stamp call for indent ' + repr(indent))
+              s = s.replace(before, after, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
       - name: Format changed TypeScript
         run: >-
           npx biome format --write
