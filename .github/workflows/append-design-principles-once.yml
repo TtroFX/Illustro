@@ -33,6 +33,8 @@ jobs:
                   'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
               'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
                   'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
+              'M6A-072 brush-tip resource manager:未完了':
+                  'M6A-072 brush-tip resource manager:完了',
           }
           changed = False
           for before, after in replacements.items():
@@ -50,8 +52,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add IMPLEMENTATION_PROGRESS.md
           if git diff --cached --quiet; then
-            echo 'Phone UX implementation progress already complete.'
+            echo 'Implementation progress already complete.'
             exit 0
           fi
-          git commit -m 'chore: mark phone drawing UX remediation complete'
+          git commit -m 'docs: close M6A-072 brush-tip manager'
           git push origin HEAD:main
