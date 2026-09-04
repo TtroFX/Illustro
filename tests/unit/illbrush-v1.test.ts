@@ -123,8 +123,8 @@ describe('M6B-001/M6B-002 native .illbrush package', () => {
     ]);
     await expect(parseIllbrushPackageV1(archive)).rejects.toThrow();
 
-    expect(() =>
-      writeStoredZipV1([{ path: '../brush.json', bytes: new Uint8Array([1]) }]),
-    ).toThrow('unsafe');
+    expect(() => writeStoredZipV1([{ path: '../brush.json', bytes: new Uint8Array([1]) }])).toThrow(
+      'unsafe',
+    );
   });
 });

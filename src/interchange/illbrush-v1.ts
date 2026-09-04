@@ -163,7 +163,8 @@ function parseResourceDescriptor(value: unknown): ResourceV1 {
       (size.width as number) < 1 ||
       !Number.isSafeInteger(size.height) ||
       (size.height as number) < 1 ||
-      (size.channels !== null && (!Number.isSafeInteger(size.channels) || (size.channels as number) < 1))
+      (size.channels !== null &&
+        (!Number.isSafeInteger(size.channels) || (size.channels as number) < 1))
     ) {
       throw new RangeError('invalid illbrush resource dimensions');
     }
@@ -219,9 +220,11 @@ function parseJsonBytes(bytes: Uint8Array, label: string): unknown {
 function parseManifestEntry(value: unknown): IllbrushManifestEntryV1 {
   const payload = record(value, 'illbrush manifest entry');
   const path = assertSafeArchivePathV1(
-    typeof payload.path === 'string' ? payload.path : (() => {
-      throw new TypeError('invalid illbrush entry path');
-    })(),
+    typeof payload.path === 'string'
+      ? payload.path
+      : (() => {
+          throw new TypeError('invalid illbrush entry path');
+        })(),
   );
   if (payload.role !== 'brush' && payload.role !== 'resource' && payload.role !== 'preview') {
     throw new TypeError('invalid illbrush entry role');
@@ -233,7 +236,8 @@ function parseManifestEntry(value: unknown): IllbrushManifestEntryV1 {
   if (typeof payload.mimeType !== 'string' || payload.mimeType.length < 1) {
     throw new TypeError('invalid illbrush entry MIME type');
   }
-  const resource = payload.resource === undefined ? undefined : parseResourceDescriptor(payload.resource);
+  const resource =
+    payload.resource === undefined ? undefined : parseResourceDescriptor(payload.resource);
   if (payload.role === 'resource' && resource === undefined) {
     throw new TypeError('illbrush resource entry is missing its ResourceV1 descriptor');
   }
@@ -252,20 +256,27 @@ function parseManifestEntry(value: unknown): IllbrushManifestEntryV1 {
 
 function parseManifest(value: unknown): IllbrushManifestV1 {
   const payload = record(value, 'illbrush manifest');
-  if (payload.schema !== ILLBRUSH_MANIFEST_SCHEMA_V1) throw new TypeError('unsupported illbrush manifest schema');
-  if (payload.packageVersion !== ILLBRUSH_PACKAGE_VERSION) throw new TypeError('unsupported illbrush package version');
-  if (payload.mimeType !== ILLBRUSH_MIME_TYPE) throw new TypeError('invalid illbrush MIME identity');
-  if (payload.brushPath !== ILLBRUSH_BRUSH_PATH_V1) throw new TypeError('invalid illbrush brush path');
+  if (payload.schema !== ILLBRUSH_MANIFEST_SCHEMA_V1)
+    throw new TypeError('unsupported illbrush manifest schema');
+  if (payload.packageVersion !== ILLBRUSH_PACKAGE_VERSION)
+    throw new TypeError('unsupported illbrush package version');
+  if (payload.mimeType !== ILLBRUSH_MIME_TYPE)
+    throw new TypeError('invalid illbrush MIME identity');
+  if (payload.brushPath !== ILLBRUSH_BRUSH_PATH_V1)
+    throw new TypeError('invalid illbrush brush path');
   if (!Array.isArray(payload.entries)) throw new TypeError('invalid illbrush manifest entry list');
   const entries = payload.entries.map(parseManifestEntry);
-  if (entries.length < 1 || entries.length > 255) throw new RangeError('invalid illbrush manifest entry count');
+  if (entries.length < 1 || entries.length > 255)
+    throw new RangeError('invalid illbrush manifest entry count');
   const paths = new Set<string>();
   let brushCount = 0;
   let previewCount = 0;
   const resourceIds = new Set<string>();
   for (const entry of entries) {
-    if (entry.path === ILLBRUSH_MANIFEST_PATH_V1) throw new TypeError('manifest must not self-list');
-    if (paths.has(entry.path)) throw new TypeError(`duplicate illbrush manifest path: ${entry.path}`);
+    if (entry.path === ILLBRUSH_MANIFEST_PATH_V1)
+      throw new TypeError('manifest must not self-list');
+    if (paths.has(entry.path))
+      throw new TypeError(`duplicate illbrush manifest path: ${entry.path}`);
     paths.add(entry.path);
     if (entry.role === 'brush') {
       brushCount += 1;
@@ -275,7 +286,8 @@ function parseManifest(value: unknown): IllbrushManifestV1 {
     }
     if (entry.role === 'preview') {
       previewCount += 1;
-      if (!entry.mimeType.startsWith('image/')) throw new TypeError('illbrush preview must be an image');
+      if (!entry.mimeType.startsWith('image/'))
+        throw new TypeError('illbrush preview must be an image');
     }
     if (entry.role === 'resource') {
       const descriptor = entry.resource;
@@ -290,11 +302,13 @@ function parseManifest(value: unknown): IllbrushManifestV1 {
       ) {
         throw new TypeError('illbrush resource manifest metadata mismatch');
       }
-      if (resourceIds.has(descriptor.resourceId)) throw new TypeError('duplicate illbrush resource ID');
+      if (resourceIds.has(descriptor.resourceId))
+        throw new TypeError('duplicate illbrush resource ID');
       resourceIds.add(descriptor.resourceId);
     }
   }
-  if (brushCount !== 1) throw new TypeError('illbrush package must contain exactly one brush entry');
+  if (brushCount !== 1)
+    throw new TypeError('illbrush package must contain exactly one brush entry');
   if (previewCount > 1) throw new TypeError('illbrush package may contain at most one preview');
   return Object.freeze({
     schema: ILLBRUSH_MANIFEST_SCHEMA_V1,
@@ -311,16 +325,24 @@ export async function parseIllbrushPackageV1(source: Uint8Array): Promise<Illbru
   const manifestBytes = files.get(ILLBRUSH_MANIFEST_PATH_V1);
   if (manifestBytes === undefined) throw new TypeError('illbrush manifest.json is missing');
   const manifest = parseManifest(parseJsonBytes(manifestBytes, 'illbrush manifest'));
-  const expectedPaths = new Set([ILLBRUSH_MANIFEST_PATH_V1, ...manifest.entries.map((entry) => entry.path)]);
-  if (files.size !== expectedPaths.size || [...files.keys()].some((path) => !expectedPaths.has(path))) {
+  const expectedPaths = new Set([
+    ILLBRUSH_MANIFEST_PATH_V1,
+    ...manifest.entries.map((entry) => entry.path),
+  ]);
+  if (
+    files.size !== expectedPaths.size ||
+    [...files.keys()].some((path) => !expectedPaths.has(path))
+  ) {
     throw new TypeError('illbrush package contains an undeclared entry');
   }
 
   for (const entry of manifest.entries) {
     const bytes = files.get(entry.path);
     if (bytes === undefined) throw new TypeError(`illbrush entry is missing: ${entry.path}`);
-    if (bytes.byteLength !== entry.byteLength) throw new RangeError(`illbrush entry size mismatch: ${entry.path}`);
-    if ((await sha256Hex(bytes)) !== entry.sha256) throw new TypeError(`illbrush entry hash mismatch: ${entry.path}`);
+    if (bytes.byteLength !== entry.byteLength)
+      throw new RangeError(`illbrush entry size mismatch: ${entry.path}`);
+    if ((await sha256Hex(bytes)) !== entry.sha256)
+      throw new TypeError(`illbrush entry hash mismatch: ${entry.path}`);
   }
 
   const brushBytes = files.get(ILLBRUSH_BRUSH_PATH_V1);
@@ -333,7 +355,8 @@ export async function parseIllbrushPackageV1(source: Uint8Array): Promise<Illbru
     const bytes = files.get(entry.path);
     if (bytes === undefined) throw new TypeError(`illbrush entry is missing: ${entry.path}`);
     if (entry.role === 'resource') {
-      if (entry.resource === undefined) throw new TypeError('illbrush resource descriptor is missing');
+      if (entry.resource === undefined)
+        throw new TypeError('illbrush resource descriptor is missing');
       resources.push(Object.freeze({ descriptor: entry.resource, bytes: bytes.slice() }));
     } else if (entry.role === 'preview') {
       preview = Object.freeze({ path: entry.path, mimeType: entry.mimeType, bytes: bytes.slice() });
@@ -354,10 +377,13 @@ function previewPathForMimeType(mimeType: string): string {
   return 'preview.image';
 }
 
-export async function writeIllbrushPackageV1(input: WriteIllbrushPackageInputV1): Promise<Uint8Array> {
+export async function writeIllbrushPackageV1(
+  input: WriteIllbrushPackageInputV1,
+): Promise<Uint8Array> {
   const brush = normalizeBrushPresetV1(input.brush);
   const brushBytes = encoder.encode(JSON.stringify(brush));
-  if (brushBytes.byteLength > ILLBRUSH_JSON_BYTE_LIMIT_V1) throw new RangeError('illbrush brush.json is too large');
+  if (brushBytes.byteLength > ILLBRUSH_JSON_BYTE_LIMIT_V1)
+    throw new RangeError('illbrush brush.json is too large');
   const manifestEntries: IllbrushManifestEntryV1[] = [
     Object.freeze({
       path: ILLBRUSH_BRUSH_PATH_V1,
@@ -375,12 +401,16 @@ export async function writeIllbrushPackageV1(input: WriteIllbrushPackageInputV1)
   for (const resourceInput of input.resources ?? []) {
     const descriptor = parseResourceDescriptor(resourceInput.descriptor);
     const bytes = resourceInput.bytes.slice();
-    if (resourceIds.has(descriptor.resourceId)) throw new TypeError('duplicate illbrush resource ID');
-    if (resourceHashes.has(descriptor.contentHash)) throw new TypeError('duplicate illbrush resource content hash');
+    if (resourceIds.has(descriptor.resourceId))
+      throw new TypeError('duplicate illbrush resource ID');
+    if (resourceHashes.has(descriptor.contentHash))
+      throw new TypeError('duplicate illbrush resource content hash');
     resourceIds.add(descriptor.resourceId);
     resourceHashes.add(descriptor.contentHash);
-    if (bytes.byteLength !== descriptor.byteLength) throw new RangeError('illbrush resource byte length mismatch');
-    if ((await sha256Hex(bytes)) !== descriptor.contentHash) throw new TypeError('illbrush resource SHA-256 mismatch');
+    if (bytes.byteLength !== descriptor.byteLength)
+      throw new RangeError('illbrush resource byte length mismatch');
+    if ((await sha256Hex(bytes)) !== descriptor.contentHash)
+      throw new TypeError('illbrush resource SHA-256 mismatch');
     const path = `resources/${descriptor.contentHash}`;
     manifestEntries.push(
       Object.freeze({
@@ -397,13 +427,18 @@ export async function writeIllbrushPackageV1(input: WriteIllbrushPackageInputV1)
 
   const previewInput = input.preview ?? null;
   if (previewInput !== null) {
-    if (!previewInput.mimeType.startsWith('image/')) throw new TypeError('illbrush preview must be an image');
+    if (!previewInput.mimeType.startsWith('image/'))
+      throw new TypeError('illbrush preview must be an image');
     const previewBytes = previewInput.bytes.slice();
     const requestedPath = previewInput.path.trim();
     const path = assertSafeArchivePathV1(
       requestedPath.length === 0 ? previewPathForMimeType(previewInput.mimeType) : requestedPath,
     );
-    if (path === ILLBRUSH_MANIFEST_PATH_V1 || path === ILLBRUSH_BRUSH_PATH_V1 || path.startsWith('resources/')) {
+    if (
+      path === ILLBRUSH_MANIFEST_PATH_V1 ||
+      path === ILLBRUSH_BRUSH_PATH_V1 ||
+      path.startsWith('resources/')
+    ) {
       throw new TypeError('illbrush preview path collides with a reserved package path');
     }
     manifestEntries.push(
@@ -426,7 +461,8 @@ export async function writeIllbrushPackageV1(input: WriteIllbrushPackageInputV1)
     entries: Object.freeze(manifestEntries),
   });
   const manifestBytes = encoder.encode(JSON.stringify(manifest));
-  if (manifestBytes.byteLength > ILLBRUSH_JSON_BYTE_LIMIT_V1) throw new RangeError('illbrush manifest.json is too large');
+  if (manifestBytes.byteLength > ILLBRUSH_JSON_BYTE_LIMIT_V1)
+    throw new RangeError('illbrush manifest.json is too large');
   return writeStoredZipV1([
     { path: ILLBRUSH_MANIFEST_PATH_V1, bytes: manifestBytes },
     ...zipEntries,

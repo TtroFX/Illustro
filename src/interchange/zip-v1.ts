@@ -62,7 +62,8 @@ function u64(bytes: Uint8Array, offset: number): bigint {
 }
 
 function safeNumber(value: bigint, label: string): number {
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError(`${label} exceeds safe integer range`);
+  if (value > BigInt(Number.MAX_SAFE_INTEGER))
+    throw new RangeError(`${label} exceeds safe integer range`);
   return Number(value);
 }
 
@@ -87,8 +88,10 @@ function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
 
 export function assertSafeArchivePathV1(path: string): string {
   if (path.length < 1 || path.length > 1024) throw new RangeError('archive path length is invalid');
-  if (path.includes('\0') || path.includes('\\')) throw new TypeError('archive path contains unsafe characters');
-  if (path.startsWith('/') || /^[a-zA-Z]:/.test(path)) throw new TypeError('archive path must be relative');
+  if (path.includes('\0') || path.includes('\\'))
+    throw new TypeError('archive path contains unsafe characters');
+  if (path.startsWith('/') || /^[a-zA-Z]:/.test(path))
+    throw new TypeError('archive path must be relative');
   const segments = path.split('/');
   if (segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')) {
     throw new TypeError('archive path contains an unsafe segment');
@@ -124,7 +127,10 @@ interface CentralDirectoryLocationV1 {
   readonly size: number;
 }
 
-function centralDirectoryLocation(bytes: Uint8Array, eocdOffset: number): CentralDirectoryLocationV1 {
+function centralDirectoryLocation(
+  bytes: Uint8Array,
+  eocdOffset: number,
+): CentralDirectoryLocationV1 {
   const diskNumber = u16(bytes, eocdOffset + 4);
   const centralDisk = u16(bytes, eocdOffset + 6);
   const diskEntries = u16(bytes, eocdOffset + 8);
@@ -162,7 +168,8 @@ function centralDirectoryLocation(bytes: Uint8Array, eocdOffset: number): Centra
   }
   const zip64DiskEntries = u64(bytes, zip64Offset + 24);
   const zip64TotalEntries = u64(bytes, zip64Offset + 32);
-  if (zip64DiskEntries !== zip64TotalEntries) throw new TypeError('split ZIP64 archive is unsupported');
+  if (zip64DiskEntries !== zip64TotalEntries)
+    throw new TypeError('split ZIP64 archive is unsupported');
   return Object.freeze({
     entryCount: safeNumber(zip64TotalEntries, 'ZIP64 entry count'),
     size: safeNumber(u64(bytes, zip64Offset + 40), 'ZIP64 central-directory size'),
@@ -238,7 +245,8 @@ export async function readZipEntriesV1(
   if (bytes.byteLength < EOCD_FIXED_BYTES) throw new TypeError('ZIP archive is truncated');
   const eocdOffset = findEndOfCentralDirectory(bytes);
   const central = centralDirectoryLocation(bytes, eocdOffset);
-  if (central.entryCount > limits.maxEntries) throw new RangeError('ZIP archive has too many entries');
+  if (central.entryCount > limits.maxEntries)
+    throw new RangeError('ZIP archive has too many entries');
   requireRange(bytes, central.offset, central.size, 'ZIP central directory');
 
   const entries: ZipEntryV1[] = [];
@@ -271,7 +279,8 @@ export async function readZipEntriesV1(
     const path = assertSafeArchivePathV1(decoder.decode(nameBytes));
     if (paths.has(path)) throw new TypeError(`duplicate ZIP entry path: ${path}`);
     paths.add(path);
-    if ((flags & ENCRYPTED_FLAG) !== 0) throw new TypeError('encrypted ZIP entries are unsupported');
+    if ((flags & ENCRYPTED_FLAG) !== 0)
+      throw new TypeError('encrypted ZIP entries are unsupported');
     if (method !== STORED_METHOD && method !== DEFLATE_METHOD) {
       throw new TypeError(`unsupported ZIP compression method: ${method}`);
     }
@@ -293,7 +302,8 @@ export async function readZipEntriesV1(
     const localHeaderOffset = zip64.localHeaderOffset ?? localOffset32;
     const diskStart = zip64.diskStart ?? diskStart32;
     if (diskStart !== 0) throw new TypeError('multi-disk ZIP entries are unsupported');
-    if (uncompressedSize > limits.maxEntryBytes) throw new RangeError(`ZIP entry is too large: ${path}`);
+    if (uncompressedSize > limits.maxEntryBytes)
+      throw new RangeError(`ZIP entry is too large: ${path}`);
     totalUncompressedBytes += uncompressedSize;
     if (totalUncompressedBytes > limits.maxTotalBytes) {
       throw new RangeError('ZIP archive expands beyond the configured byte limit');
@@ -317,7 +327,9 @@ export async function readZipEntriesV1(
       localNameLength + localExtraLength,
       'ZIP local-file variable data',
     );
-    if (decoder.decode(bytes.subarray(localNameOffset, localNameOffset + localNameLength)) !== path) {
+    if (
+      decoder.decode(bytes.subarray(localNameOffset, localNameOffset + localNameLength)) !== path
+    ) {
       throw new TypeError(`ZIP local/central path mismatch: ${path}`);
     }
     const dataOffset = localNameOffset + localNameLength + localExtraLength;
@@ -342,7 +354,8 @@ export async function readZipEntriesV1(
 }
 
 export function writeStoredZipV1(entriesInput: readonly ZipEntryV1[]): Uint8Array {
-  if (entriesInput.length > ZIP16_SENTINEL - 1) throw new RangeError('too many ZIP entries for ZIP32 writer');
+  if (entriesInput.length > ZIP16_SENTINEL - 1)
+    throw new RangeError('too many ZIP entries for ZIP32 writer');
   const seen = new Set<string>();
   const localParts: Uint8Array[] = [];
   const centralParts: Uint8Array[] = [];
