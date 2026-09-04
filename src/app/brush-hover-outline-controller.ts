@@ -81,10 +81,38 @@ export function resolveBrushHoverOutlinePresentationV1(input: {
   });
 }
 
+export interface BrushHoverDisplaySettingsSnapshotV1 {
+  readonly schema: 'illustro.brush-hover-display-settings/1';
+  readonly crosshairEnabled: boolean;
+}
+
+export class BrushHoverDisplaySettingsV1 {
+  #crosshairEnabled = false;
+
+  snapshot(): BrushHoverDisplaySettingsSnapshotV1 {
+    return Object.freeze({
+      schema: 'illustro.brush-hover-display-settings/1' as const,
+      crosshairEnabled: this.#crosshairEnabled,
+    });
+  }
+
+  setCrosshairEnabled(enabled: boolean): BrushHoverDisplaySettingsSnapshotV1 {
+    this.#crosshairEnabled = enabled;
+    return this.snapshot();
+  }
+
+  toggleCrosshair(): BrushHoverDisplaySettingsSnapshotV1 {
+    this.#crosshairEnabled = !this.#crosshairEnabled;
+    return this.snapshot();
+  }
+}
+
 export interface BrushHoverOutlineControllerV1 {
   readonly schema: 'illustro.brush-hover-outline-controller/1';
   updateHover(hover: PointerHoverSnapshotV1): void;
   refresh(): void;
+  crosshairEnabled(): boolean;
+  setCrosshairEnabled(enabled: boolean): void;
   dispose(): void;
 }
 
@@ -96,10 +124,14 @@ export function installBrushHoverOutlineControllerV1(input: {
 }): BrushHoverOutlineControllerV1 {
   const stage = input.root.querySelector<HTMLElement>('.shell-canvas-stage');
   const outline = input.root.querySelector<HTMLElement>('#brush-hover-outline');
-  if (stage === null || outline === null) {
-    throw new Error('brush hover outline requires canvas stage and overlay elements');
+  const crosshairButton = input.root.querySelector<HTMLButtonElement>(
+    '#view-brush-hover-crosshair',
+  );
+  if (stage === null || outline === null || crosshairButton === null) {
+    throw new Error('brush hover outline requires canvas stage, overlay, and display controls');
   }
 
+  const settings = new BrushHoverDisplaySettingsV1();
   let currentHover: PointerHoverSnapshotV1 | null = null;
   let disposed = false;
 
@@ -107,6 +139,14 @@ export function installBrushHoverOutlineControllerV1(input: {
     outline.hidden = true;
     input.root.dataset.illustroBrushHoverOutline = 'hidden';
     input.root.dataset.illustroBrushHoverDiameterCssPx = '';
+  };
+
+  const publishCrosshair = (): void => {
+    const enabled = settings.snapshot().crosshairEnabled;
+    outline.dataset.crosshair = String(enabled);
+    crosshairButton.setAttribute('aria-pressed', String(enabled));
+    crosshairButton.dataset.active = String(enabled);
+    input.root.dataset.illustroBrushHoverCrosshair = enabled ? 'enabled' : 'disabled';
   };
 
   const refresh = (): void => {
@@ -167,8 +207,15 @@ export function installBrushHoverOutlineControllerV1(input: {
     currentHover = null;
     hide();
   };
+  const onCrosshairToggle = (): void => {
+    settings.toggleCrosshair();
+    publishCrosshair();
+    crosshairButton.closest('details')?.removeAttribute('open');
+  };
   input.surface.addEventListener('pointerleave', onPointerLeave);
+  crosshairButton.addEventListener('click', onCrosshairToggle);
   const unsubscribeViewport = input.viewport.subscribe(() => refresh());
+  publishCrosshair();
   hide();
 
   return Object.freeze({
@@ -178,11 +225,19 @@ export function installBrushHoverOutlineControllerV1(input: {
       refresh();
     },
     refresh,
+    crosshairEnabled(): boolean {
+      return settings.snapshot().crosshairEnabled;
+    },
+    setCrosshairEnabled(enabled: boolean): void {
+      settings.setCrosshairEnabled(enabled);
+      publishCrosshair();
+    },
     dispose(): void {
       if (disposed) return;
       disposed = true;
       currentHover = null;
       input.surface.removeEventListener('pointerleave', onPointerLeave);
+      crosshairButton.removeEventListener('click', onCrosshairToggle);
       unsubscribeViewport();
       hide();
     },

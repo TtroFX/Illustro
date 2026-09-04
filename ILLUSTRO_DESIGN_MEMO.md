@@ -5991,3 +5991,9 @@ Connectivity is computed only inside the current logical-stamp primitive bounds 
 The M6A-066 outline is a circular nominal-size indicator. Its center is the actual hover position in canvas-stage CSS pixels and its diameter is the current Brush Parameters `sizePx` projected through the current fitted document scale and viewport zoom. Hover pressure is zero and does not collapse nominal diameter. The outline lives in screen space so its border thickness remains visually stable while zoom changes; viewport updates and brush preset/property updates refresh the geometry even when the pointer is stationary.
 
 The overlay has `pointer-events:none` and is not part of the Renderer, Raster Tile state, History, persistence, recovery, or export. M6A-067 owns the optional center crosshair and is intentionally not folded into this item. Detailed sampled-tip/square silhouettes are not required by M6A-066; the canonical nominal circular diameter is the common brush-size feedback boundary.
+
+## M6A hover crosshair option boundary — 2026-09-04
+
+**AUTHORITATIVE for M6A-067.** The brush-hover center crosshair is an optional presentation setting layered onto the M6A-066 screen-space outline. It defaults OFF and is a global display preference for the current workspace, not a Brush Preset property and not stroke data. The View menu exposes the reachable toggle. Toggling it changes only hover-overlay presentation and must not alter brush geometry, rasterization, input arbitration, History, persistence/recovery, or export.
+
+When enabled, the crosshair is centered on the existing hover outline and uses a small screen-space fixed-size mark so zoom does not make the precision cue unusably thick or large. It inherits the M6A-066 visibility boundary: no pen/mouse no-contact hover means no crosshair, and touch/contact/pointerleave/outside-document states remain hidden. The outline remains the nominal brush-size feedback; the crosshair is only a center-location aid.

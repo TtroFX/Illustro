@@ -1824,3 +1824,30 @@ requireText(
   'projects nominal brush diameter through viewport zoom in screen space',
   'hover brush outline regression coverage missing',
 );
+
+requireText(progress, 'M6A-067 hover crosshair option:完了', 'M6A-067 progress is not complete');
+requireText(
+  read('src/app/brush-hover-outline-controller.ts'),
+  'class BrushHoverDisplaySettingsV1',
+  'hover display settings state missing',
+);
+requireText(
+  read('src/app/brush-hover-outline-controller.ts'),
+  'outline.dataset.crosshair = String(enabled)',
+  'crosshair setting is not connected to hover overlay',
+);
+requireText(
+  read('src/index.html'),
+  'id="view-brush-hover-crosshair"',
+  'reachable hover crosshair display control missing',
+);
+requireText(
+  read('public/app-shell.css'),
+  ".shell-brush-hover-outline[data-crosshair='true']::before",
+  'hover crosshair presentation styling missing',
+);
+requireText(
+  read('tests/unit/brush-hover-outline.test.ts'),
+  'keeps hover crosshair optional and disabled by default',
+  'hover crosshair regression coverage missing',
+);

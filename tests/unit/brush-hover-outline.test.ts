@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveBrushHoverOutlinePresentationV1 } from '../../src/app/brush-hover-outline-controller.js';
+import {
+  BrushHoverDisplaySettingsV1,
+  resolveBrushHoverOutlinePresentationV1,
+} from '../../src/app/brush-hover-outline-controller.js';
 import type { PointerHoverSnapshotV1 } from '../../src/input/hover-state.js';
 
 function hover(overrides: Partial<PointerHoverSnapshotV1> = {}): PointerHoverSnapshotV1 {
@@ -32,6 +35,13 @@ const viewport = Object.freeze({
 });
 
 describe('M6A hover brush outline presentation', () => {
+  it('keeps hover crosshair optional and disabled by default', () => {
+    const settings = new BrushHoverDisplaySettingsV1();
+    expect(settings.snapshot().crosshairEnabled).toBe(false);
+    expect(settings.toggleCrosshair().crosshairEnabled).toBe(true);
+    expect(settings.setCrosshairEnabled(false).crosshairEnabled).toBe(false);
+  });
+
   it('projects nominal brush diameter through viewport zoom in screen space', () => {
     const presentation = resolveBrushHoverOutlinePresentationV1({
       hover: hover(),
