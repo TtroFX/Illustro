@@ -115,7 +115,9 @@ describe('M6A-075 pattern resource manager', () => {
       resources,
     );
     await expect(manager.load('builtin.grain.fine.01')).rejects.toThrow(/unknown built-in pattern/);
-    await expect(manager.load('builtin.grain.paper.01')).rejects.toThrow(/unknown built-in pattern/);
+    await expect(manager.load('builtin.grain.paper.01')).rejects.toThrow(
+      /unknown built-in pattern/,
+    );
     await expect(manager.load('builtin.tip.ink.06')).rejects.toThrow(/unknown built-in pattern/);
     expect(loadCount).toBe(0);
   });
