@@ -1,4 +1,4 @@
-name: Close M6A-075 once
+name: Mark phone UX remediation complete once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  close-m6a-075:
+  mark-phone-ux-remediation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,7 +18,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mark M6A-075 complete
+      - name: Mark implemented phone UX items complete
         shell: bash
         run: |
           set -euo pipefail
@@ -33,8 +33,6 @@ jobs:
                   'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
               'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
                   'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
-              'M6A-075 pattern resource manager:未完了':
-                  'M6A-075 pattern resource manager:完了',
           }
           changed = False
           for before, after in replacements.items():
@@ -52,8 +50,8 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add IMPLEMENTATION_PROGRESS.md
           if git diff --cached --quiet; then
-            echo 'M6A-075 progress already complete.'
+            echo 'Phone UX remediation progress already complete.'
             exit 0
           fi
-          git commit -m 'docs: close M6A-075 pattern manager'
+          git commit -m 'chore: close phone UX remediation'
           git push origin HEAD:main
