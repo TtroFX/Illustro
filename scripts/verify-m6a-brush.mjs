@@ -1572,11 +1572,15 @@ requireText(
   'spray tail-reconciliation regression missing',
 );
 
-requireText(
-  progress,
-  'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了',
-  'performance gate must remain separately incomplete',
-);
+for (const line of [
+  'M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:完了',
+  'M6A-PERF-002 retained tile/dirty-region presentation（normal hot pathでwhole-stroke/whole-history replay禁止）:完了',
+  'M6A-PERF-003 incremental GPU/transfer submission（累積stroke比例の毎回allocate/copy/destroy禁止）:完了',
+  'M6A-PERF-004 long-stroke scaling workload verification:完了',
+  'M6A-検査 M6A内部検査:完了',
+]) {
+  requireText(progress, line, `M6A completion marker missing: ${line}`);
+}
 
 console.log('M6A Raster Brush contract verification: PASS');
 
