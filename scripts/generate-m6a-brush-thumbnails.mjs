@@ -133,12 +133,16 @@ function representativeSvg(preset, mode) {
         )
         .join('')
     : '';
+  const blendPressure = pressure(0.5, mode);
+  const blendSizeScale = preset.flags.includes('S') ? 0.3 + blendPressure * 0.86 : 1;
+  const blendOpacityScale = preset.flags.includes('O') ? 0.2 + blendPressure * 0.8 : 1;
+  const blendFlowScale = preset.flags.includes('F') ? 0.35 + blendPressure * 0.65 : 1;
   const blend =
     preset.behavior === 'smudge' || preset.behavior === 'blur'
       ? Array.from(
           { length: 5 },
           (_, i) =>
-            `<path d="M30 ${82 + i * 23} C82 ${62 + i * 22},172 ${109 + i * 10},228 ${84 + i * 23}" fill="none" stroke="#53627c" stroke-width="${8 + i * 2}" stroke-linecap="round" opacity="${(0.12 + i * 0.055).toFixed(3)}"${preset.behavior === 'blur' ? ' filter="url(#soft)"' : ''}/>` ,
+            `<path d="M30 ${82 + i * 23} C82 ${62 + i * 22},172 ${109 + i * 10},228 ${84 + i * 23}" fill="none" stroke="#53627c" stroke-width="${((8 + i * 2) * blendSizeScale).toFixed(2)}" stroke-linecap="round" opacity="${((0.12 + i * 0.055) * blendOpacityScale * blendFlowScale).toFixed(3)}"${preset.behavior === 'blur' ? ' filter="url(#soft)"' : ''}/>` ,
         ).join('')
       : '';
   const body = blend || `${segments}${particles}`;
