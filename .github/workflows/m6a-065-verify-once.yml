@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply M6A-065 patch
-        run: python3 .github/m6a-065-apply-once.py
+        run: python3 .github/m6a-065-apply-wrapper.py
 
       - name: Setup Node
         uses: actions/setup-node@v5
