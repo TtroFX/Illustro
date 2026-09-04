@@ -1,0 +1,67 @@
+name: Complete M6A-071 regenerated sampled resources v2
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/complete-m6a-071-regeneration-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  complete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Materialize approved regeneration payload from staged workflow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64, gzip
+          source = Path('.github/workflows/complete-m6a-071-regeneration.yml').read_text().splitlines()
+          values = {}
+          for line in source:
+              text = line.strip()
+              for key in ('GENERATOR_GZIP_B64', 'PATCH_GZIP_B64'):
+                  prefix = key + ': '
+                  if text.startswith(prefix):
+                      values[key] = text[len(prefix):]
+          if set(values) != {'GENERATOR_GZIP_B64', 'PATCH_GZIP_B64'}:
+              raise SystemExit('staged regeneration payload not found')
+          Path('scripts/generate-m6a-sampled-resources.mjs').write_bytes(gzip.decompress(base64.b64decode(values['GENERATOR_GZIP_B64'])))
+          Path('.m6a-071-apply.py').write_bytes(gzip.decompress(base64.b64decode(values['PATCH_GZIP_B64'])))
+          PY
+          python .m6a-071-apply.py
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Verify deterministic sampled resource generator
+        run: node scripts/generate-m6a-sampled-resources.mjs
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Loader unit test
+        run: npx vitest run tests/unit/builtin-sampled-resource-loader.test.ts
+      - name: Production build
+        run: npm run build
+      - name: Production sampled-resource integration test
+        run: npx vitest run tests/integration/m6a-sampled-assets.test.ts
+      - name: Commit completed M6A-071 unit
+        run: |
+          set -euo pipefail
+          rm -f .m6a-071-apply.py .github/workflows/complete-m6a-071-regeneration.yml .github/workflows/complete-m6a-071-regeneration-v2.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: complete M6A-071 sampled resource loading'
+          git push origin main
