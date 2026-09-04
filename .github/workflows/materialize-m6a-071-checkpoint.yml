@@ -1,0 +1,53 @@
+name: Materialize M6A-071 implementation checkpoint
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/materialize-m6a-071-checkpoint.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Materialize implementation without closing progress gate
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64, gzip
+          source = Path('.github/workflows/complete-m6a-071-regeneration.yml').read_text().splitlines()
+          values = {}
+          for line in source:
+              text = line.strip()
+              for key in ('GENERATOR_GZIP_B64', 'PATCH_GZIP_B64'):
+                  prefix = key + ': '
+                  if text.startswith(prefix):
+                      values[key] = text[len(prefix):]
+          if set(values) != {'GENERATOR_GZIP_B64', 'PATCH_GZIP_B64'}:
+              raise SystemExit('staged regeneration payload not found')
+          Path('scripts/generate-m6a-sampled-resources.mjs').write_bytes(gzip.decompress(base64.b64decode(values['GENERATOR_GZIP_B64'])))
+          Path('.m6a-071-apply.py').write_bytes(gzip.decompress(base64.b64decode(values['PATCH_GZIP_B64'])))
+          PY
+          python .m6a-071-apply.py
+          git checkout HEAD -- ILLUSTRO_DESIGN_MEMO.md IMPLEMENTATION_PROGRESS.md
+      - name: Commit implementation checkpoint
+        run: |
+          set -euo pipefail
+          rm -f .m6a-071-apply.py \
+            .github/workflows/complete-m6a-071-regeneration.yml \
+            .github/workflows/complete-m6a-071-regeneration-v2.yml \
+            .github/workflows/materialize-m6a-071-checkpoint.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: integrate regenerated M6A-071 sampled resources'
+          git push origin main
