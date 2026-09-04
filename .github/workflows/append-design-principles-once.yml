@@ -25,13 +25,15 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import re
 
           build = Path('scripts/build.mjs')
           text = build.read_text()
           marker = "  'scripts/generate-m6a-sampled-resources.mjs',\n"
           addition = marker + "  'scripts/generate-m6a-brush-thumbnails.mjs',\n"
-          if "generate-m6a-brush-thumbnails.mjs" not in text:
-              if marker not in text: raise SystemExit('build generator marker missing')
+          if 'generate-m6a-brush-thumbnails.mjs' not in text:
+              if marker not in text:
+                  raise SystemExit('build generator marker missing')
               text = text.replace(marker, addition, 1)
               build.write_text(text)
 
@@ -40,17 +42,23 @@ jobs:
           import_marker = "import { customBrushTipAlphaFromFileV1, drawCustomBrushTipPreviewV1 } from './custom-brush-tip.js';\n"
           thumbnail_import = "import { defaultBrushThumbnailUrlV1 } from './default-brush-thumbnails.js';\n"
           if thumbnail_import not in text:
-              if import_marker not in text: raise SystemExit('controller import marker missing')
+              if import_marker not in text:
+                  raise SystemExit('controller import marker missing')
               text = text.replace(import_marker, import_marker + thumbnail_import, 1)
-          old = """      if (item.preset.id === state.selectedPresetId) button.classList.add('is-selected');
-              const title = document.createElement('span');
-              title.className = 'shell-brush-preset-name';
-              title.textContent = item.preset.name;
-              const meta = document.createElement('span');
-              meta.className = 'shell-brush-preset-meta';
-              meta.textContent = `${item.preset.category} · ${item.source === 'factory' ? '標準' : 'ユーザー'}${item.modified ? ' · Modified' : ''}${item.locked ? ' · Locked' : ''}`;
-              button.append(title, meta);"""
-          new = """      if (item.preset.id === state.selectedPresetId) button.classList.add('is-selected');
+
+          if 'shell-brush-preset-thumbnail' not in text:
+              pattern = re.compile(
+                  r"if \(item\.preset\.id === state\.selectedPresetId\) button\.classList\.add\('is-selected'\);\s*"
+                  r"const title = document\.createElement\('span'\);\s*"
+                  r"title\.className = 'shell-brush-preset-name';\s*"
+                  r"title\.textContent = item\.preset\.name;\s*"
+                  r"const meta = document\.createElement\('span'\);\s*"
+                  r"meta\.className = 'shell-brush-preset-meta';\s*"
+                  r"meta\.textContent = `\$\{item\.preset\.category\} · \$\{item\.source === 'factory' \? '標準' : 'ユーザー'\}"
+                  r"\$\{item\.modified \? ' · Modified' : ''\}\$\{item\.locked \? ' · Locked' : ''\}`;\s*"
+                  r"button\.append\(title, meta\);"
+              )
+              replacement = """if (item.preset.id === state.selectedPresetId) button.classList.add('is-selected');
               const thumbnailUrl = item.source === 'factory' ? defaultBrushThumbnailUrlV1(item.preset.id) : null;
               const title = document.createElement('span');
               title.className = 'shell-brush-preset-name';
@@ -71,9 +79,9 @@ jobs:
               } else {
                 button.append(title, meta);
               }"""
-          if 'shell-brush-preset-thumbnail' not in text:
-              if old not in text: raise SystemExit('controller render marker missing')
-              text = text.replace(old, new, 1)
+              text, count = pattern.subn(replacement, text, count=1)
+              if count != 1:
+                  raise SystemExit('controller render anchor missing')
           controller.write_text(text)
 
           css = Path('public/app-shell.css')
