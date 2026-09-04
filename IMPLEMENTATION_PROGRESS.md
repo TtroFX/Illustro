@@ -530,7 +530,7 @@ M6A-071 final 77 sampled resources loader:完了
 M6A-072 brush-tip resource manager:完了
 M6A-073 grain resource manager:完了
 M6A-074 paper resource manager:完了
-M6A-075 pattern resource manager:未完了
+M6A-075 pattern resource manager:完了
 M6A-076 48-preset Default Brush Pack integration:未完了
 M6A-077 deterministic brush thumbnails:未完了
 M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了
