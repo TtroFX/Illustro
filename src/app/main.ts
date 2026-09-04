@@ -21,6 +21,7 @@ import { installDocumentWorkflowControllerV1 } from './document-workflow-control
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
 import { installGridControllerV1 } from './grid-controller.js';
 import { installTouchInputPolicyControllerV1 } from './touch-input-policy-controller.js';
+import { installStylusButtonActionControllerV1 } from './stylus-button-action-controller.js';
 import { installGlobalPressureResponseControllerV1 } from './global-pressure-response-controller.js';
 import { installLayerWorkflowControllerV1 } from './layer-workflow-controller.js';
 import { installLayerCompsControllerV1 } from './layer-comps-controller.js';
@@ -272,8 +273,25 @@ const touchInputPolicy = installTouchInputPolicyControllerV1({
   arbitration: pointerArbitration,
   storage: globalThis.localStorage,
 });
+const stylusButtonActions = installStylusButtonActionControllerV1({
+  root,
+  storage: globalThis.localStorage,
+  onAction(invocation) {
+    if (invocation.binding.commandId === 'tool.eyedropper.temporary') {
+      colorWorkflow.setQuickEyedropperSourceEnabled(
+        `stylus-barrel-primary:${invocation.pointerId}`,
+        invocation.phase === 'pressed',
+      );
+      root.dataset.illustroStylusAction = `eyedropper-${invocation.phase}`;
+      incrementPerformanceCounter(`input.stylus.barrel.${invocation.phase}`);
+      return;
+    }
+    root.dataset.illustroStylusAction = `unhandled:${invocation.binding.commandId}`;
+  },
+});
 const pointerHover = new PointerHoverTrackerV1();
 const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
+  stylusButtonActions.ingest(batch);
   const latest = batch.confirmed.at(-1);
   const hover = pointerHover.ingest(batch);
   brushHoverOutline.updateHover(hover);
@@ -626,6 +644,7 @@ globalThis.addEventListener(
     documentWorkflow.dispose();
     grid.dispose();
     viewport.dispose();
+    stylusButtonActions.dispose();
     touchInputPolicy.dispose();
     pointerInput.dispose();
     pointerTransport.dispose();

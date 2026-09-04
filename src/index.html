@@ -70,6 +70,7 @@
               <button id="view-grid-toggle" type="button">グリッド表示</button>
               <button id="view-grid-settings" type="button">グリッド設定…</button>
               <button id="view-touch-input-settings" type="button">タッチ入力設定…</button>
+              <button id="view-stylus-button-settings" type="button">ペンボタン設定…</button>
               <button id="view-brush-hover-crosshair" type="button" aria-pressed="false">ブラシ中心十字</button>
               <button id="view-workspace" type="button">全画面ワークスペース</button>
             </div>
@@ -932,6 +933,26 @@
         <footer>
           <button id="canvas-geometry-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
           <button id="canvas-geometry-submit" type="submit" class="document-dialog-primary">適用</button>
+        </footer>
+      </form>
+    </dialog>
+    <dialog id="stylus-button-dialog" class="document-dialog" aria-labelledby="stylus-button-dialog-title">
+      <form id="stylus-button-form" method="dialog" class="document-dialog-form">
+        <header><h2 id="stylus-button-dialog-title">ペンボタン設定</h2></header>
+        <div class="document-dialog-grid">
+          <label>第1バレルボタン
+            <select id="stylus-primary-barrel-action" aria-label="第1スタイラスバレルボタンの操作">
+              <option value="tool.eyedropper.temporary">押している間だけスポイト</option>
+              <option value="">なし</option>
+            </select>
+          </label>
+        </div>
+        <p class="document-dialog-help">ブラウザーが標準Pointer Eventsとして公開するペンの第1バレルボタンだけを使用します。未公開の端末ボタンはアプリから検出できません。</p>
+        <output id="stylus-button-status" class="document-dialog-status" aria-live="polite"></output>
+        <footer>
+          <button id="stylus-button-reset" type="button" class="document-dialog-secondary">既定に戻す</button>
+          <button id="stylus-button-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+          <button type="submit" class="document-dialog-primary">適用</button>
         </footer>
       </form>
     </dialog>

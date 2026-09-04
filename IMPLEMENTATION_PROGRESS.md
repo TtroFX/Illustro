@@ -523,7 +523,8 @@ M6A-068 global/default pressure response controls:完了
 再開メモ: M6A-068はapplication-levelのglobal/default pressure response curve（既定linear、localStorage永続）をShared Curve Editorへ接続した。Brush presetに`dynamics.pressureResponseCurve`が無い場合だけglobalを継承し、明示curveはglobalをoverrideする。globalがnon-linearでもper-brush explicit Linearを表現できるようLinear選択でもoverride fieldを保持し、「既定に戻す」でのみfieldを削除する。global変更はinherit中の選択brushへ即時再解決するがpreset payload自体は書換えず、解決後curveは既存PaintSessionへ渡すためRenderer/Worker/History/Persistence ABIは不変。次はM6A-069 touch-position/input correction policyから再開する。
 M6A-069 touch-position/input correction policy:完了
 再開メモ: M6A-069は既存PointerInputArbitrationV1のpalm rejection/finger-drawing境界を維持し、application-level touch policyをlocalStorage永続UIへ接続した。指描画ON/OFFとX/Y補正（各±256 CSS px、既定0）を設定でき、補正はtouchが単指toolと判定された後のbridgeだけでconfirmed/predicted双方のclientX/clientYとsurfaceX/surfaceYへ適用する。raw batchはimmutable、pen/mouse・palm reject・multi-touch navigation/pinch/panは完全identity。OS/driver/browser内部の未公開palm rejectionやdigitizer calibrationは制御対象外。次はM6A-070 configurable stylus-button action plumbingから再開する。
-M6A-070 configurable stylus-button action plumbing:未完了
+M6A-070 configurable stylus-button action plumbing:完了
+再開メモ: M6A-070は標準Pointer Eventsで公開されるPen第1バレル（buttons bit 2）をconfirmed sampleの状態遷移で検出し、generic commandId binding + press/release invocationへ接続した。既定はtool.eyedropper.temporaryで、既存ColorSamplingOwnershipのquick pathを再利用する。keyboard Altとstylusは独立source ownershipなので片方のreleaseが他方を解除しない。設定はlocalStorage永続・View→ペンボタン設定から一時スポイト/なしを選択可能。predicted/mouseはactionを発火せず、blur/cancelでheld actionを解放する。完全なCommand Registry選択肢はM8Gへ接続するがbinding形式は同じcommandId境界を使用する。次はM6A-071 final 77 sampled resources loaderから再開する。
 M6A-071 final 77 sampled resources loader:未完了
 M6A-072 brush-tip resource manager:未完了
 M6A-073 grain resource manager:未完了

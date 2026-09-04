@@ -101,6 +101,7 @@ export interface ColorWorkflowControllerV1 {
   refresh(): void;
   dispose(): void;
   snapshot(): ColorWorkspaceStateV1;
+  setQuickEyedropperSourceEnabled(sourceId: string, enabled: boolean): void;
   ingestPointerBatch(batch: PointerInputBatchV1): boolean;
   applyExternalSample(color: RgbUnitColorV1, sourceLabel: string): void;
 }
@@ -768,21 +769,22 @@ export function installColorWorkflowControllerV1(input: {
     target instanceof HTMLSelectElement ||
     (target instanceof HTMLElement && target.isContentEditable);
 
+  const setQuickEyedropperSourceEnabled = (sourceId: string, enabled: boolean): void => {
+    samplingOwnership.setQuickSourceEnabled(sourceId, enabled);
+    publishSamplingState();
+  };
   const onQuickEyedropperKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Alt' || isTextEditingTarget(event.target)) return;
-    samplingOwnership.setQuickEnabled(true);
-    publishSamplingState();
+    setQuickEyedropperSourceEnabled('keyboard-alt', true);
     event.preventDefault();
   };
   const onQuickEyedropperKeyUp = (event: KeyboardEvent): void => {
     if (event.key !== 'Alt') return;
-    samplingOwnership.setQuickEnabled(false);
-    publishSamplingState();
+    setQuickEyedropperSourceEnabled('keyboard-alt', false);
     event.preventDefault();
   };
   const onWindowBlur = (): void => {
-    samplingOwnership.setQuickEnabled(false);
-    publishSamplingState();
+    setQuickEyedropperSourceEnabled('keyboard-alt', false);
   };
 
   const commitRgb = (): void => {
@@ -1238,6 +1240,10 @@ export function installColorWorkflowControllerV1(input: {
     },
     snapshot(): ColorWorkspaceStateV1 {
       return state;
+    },
+    setQuickEyedropperSourceEnabled(sourceId: string, enabled: boolean): void {
+      if (disposed) return;
+      setQuickEyedropperSourceEnabled(sourceId, enabled);
     },
     applyExternalSample(color: RgbUnitColorV1, sourceLabel: string): void {
       if (disposed) return;

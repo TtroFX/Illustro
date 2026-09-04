@@ -1928,3 +1928,39 @@ requireText(
   'offsets confirmed and predicted touch tool samples without mutating the raw batch',
   'touch tool correction regression coverage missing',
 );
+
+requireText(
+  progress,
+  'M6A-070 configurable stylus-button action plumbing:完了',
+  'M6A-070 progress is not complete',
+);
+requireText(
+  read('src/input/stylus-button-actions.ts'),
+  'PRIMARY_STYLUS_BARREL_BUTTONS_MASK_V1 = 2',
+  'primary stylus barrel Pointer Events mapping missing',
+);
+requireText(
+  read('src/app/stylus-button-action-controller.ts'),
+  'DEFAULT_PRIMARY_STYLUS_BARREL_BINDING_V1',
+  'persistent stylus binding controller missing',
+);
+requireText(
+  read('src/app/main.ts'),
+  'tool.eyedropper.temporary',
+  'default stylus temporary eyedropper action is not production-wired',
+);
+requireText(
+  read('src/app/color-sampling.ts'),
+  'setQuickSourceEnabled',
+  'independent quick-eyedropper source ownership missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="stylus-primary-barrel-action"',
+  'reachable stylus binding selector missing',
+);
+requireText(
+  read('tests/unit/stylus-button-actions.test.ts'),
+  'detects primary barrel state transitions from the Pointer Events buttons bitmask',
+  'stylus barrel transition regression coverage missing',
+);

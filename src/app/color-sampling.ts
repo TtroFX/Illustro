@@ -47,7 +47,7 @@ function samplingDecision(
 
 export class ColorSamplingOwnershipV1 {
   #explicitEnabled = false;
-  #quickEnabled = false;
+  readonly #quickSources = new Set<string>();
   readonly #ownedPointers = new Set<number>();
 
   setExplicitEnabled(enabled: boolean): ColorSamplingOwnershipSnapshotV1 {
@@ -56,16 +56,26 @@ export class ColorSamplingOwnershipV1 {
   }
 
   setQuickEnabled(enabled: boolean): ColorSamplingOwnershipSnapshotV1 {
-    this.#quickEnabled = enabled;
+    return this.setQuickSourceEnabled('legacy', enabled);
+  }
+
+  setQuickSourceEnabled(sourceId: string, enabled: boolean): ColorSamplingOwnershipSnapshotV1 {
+    const normalized = sourceId.trim();
+    if (normalized.length < 1 || normalized.length > 160) {
+      throw new RangeError('quick eyedropper source id must contain 1..160 characters');
+    }
+    if (enabled) this.#quickSources.add(normalized);
+    else this.#quickSources.delete(normalized);
     return this.snapshot();
   }
 
   snapshot(): ColorSamplingOwnershipSnapshotV1 {
+    const quickEnabled = this.#quickSources.size > 0;
     return Object.freeze({
       schema: 'illustro.color-sampling-ownership/1' as const,
       explicitEnabled: this.#explicitEnabled,
-      quickEnabled: this.#quickEnabled,
-      active: this.#explicitEnabled || this.#quickEnabled,
+      quickEnabled,
+      active: this.#explicitEnabled || quickEnabled,
       ownedPointerCount: this.#ownedPointers.size,
     });
   }

@@ -123,3 +123,15 @@ describe('M5D eyedropper sampling', () => {
     });
   });
 });
+
+describe('M6A-070 independent temporary eyedropper sources', () => {
+  it('does not clear stylus quick sampling when the keyboard source releases', () => {
+    const ownership = new ColorSamplingOwnershipV1();
+    ownership.setQuickSourceEnabled('keyboard-alt', true);
+    ownership.setQuickSourceEnabled('stylus-barrel-primary:4', true);
+    ownership.setQuickSourceEnabled('keyboard-alt', false);
+    expect(ownership.snapshot().quickEnabled).toBe(true);
+    ownership.setQuickSourceEnabled('stylus-barrel-primary:4', false);
+    expect(ownership.snapshot().quickEnabled).toBe(false);
+  });
+});
