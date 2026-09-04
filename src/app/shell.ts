@@ -1,3 +1,5 @@
+import { startProductionBrushTipResourceManagerV1 } from './brush-tip-resource-manager.js';
+
 export interface CanvasBackingSizeV1 {
   readonly width: number;
   readonly height: number;
@@ -25,6 +27,17 @@ export function installFoundationShell(): FoundationShell {
   const app = document.querySelector<HTMLElement>('[data-illustro-shell="foundation"]');
   const canvas = document.querySelector<HTMLCanvasElement>('#render-surface');
   if (!app || !canvas) throw new Error('Illustro foundation shell is missing required DOM nodes.');
+
+  app.dataset.brushTipResources = 'loading';
+  void startProductionBrushTipResourceManagerV1()
+    .then((manager) => {
+      app.dataset.brushTipResources = 'ready';
+      app.dataset.brushTipResourceCount = String(manager.snapshot().resourceCount);
+    })
+    .catch(() => {
+      app.dataset.brushTipResources = 'error';
+      app.dataset.brushTipResourceCount = '0';
+    });
 
   const listeners = new Set<(size: CanvasBackingSizeV1) => void>();
   let transferred = false;
