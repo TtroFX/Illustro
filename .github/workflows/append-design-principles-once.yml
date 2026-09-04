@@ -1,4 +1,4 @@
-name: Mark phone UX remediation complete once
+name: Integrate regenerated M6A-076 once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  mark-phone-ux-remediation:
+  integrate-m6a-076:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,40 +18,197 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mark implemented phone UX items complete
+      - name: Integrate regenerated 48-preset pack
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          path = Path('IMPLEMENTATION_PROGRESS.md')
-          text = path.read_text()
-          replacements = {
-              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
-                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
-              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
-                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
-              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
-                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
+          import json
+          import re
+
+          pack = Path('src/app/default-brush-pack.ts')
+          text = pack.read_text()
+          text = text.replace(
+              'createBaselineBrushPresetV1, normalizeBrushPresetV1, withBrushColorMixCanvasRatioV1,',
+              'createBaselineBrushPresetV1, normalizeBrushPresetV1, withBrushCustomSampledTipV1, withBrushColorMixCanvasRatioV1,',
+              1,
+          )
+          marker = "} from '../domain/brush-schema.js';\n\nexport const DEFAULT_BRUSH_PACK_SCHEMA_V1"
+          replacement = "} from '../domain/brush-schema.js';\nimport { defaultBrushTipProxyAlphaV1 } from './default-brush-tip-proxies.js';\n\nexport const DEFAULT_BRUSH_PACK_SCHEMA_V1"
+          if marker not in text:
+              raise SystemExit('default brush pack import marker missing')
+          text = text.replace(marker, replacement, 1)
+          text = text.replace("'Digital Watercolor':5", "'Digital Watercolor-style':5")
+          text = text.replace('|Digital Watercolor|', '|Digital Watercolor-style|')
+          old_tip = "if(tip!=='-'){if(!tipAliases.has(tip))throw new RangeError(`unknown tip: ${tip}`);p=normalizeBrushPresetV1({...p,extensions:{...p.extensions,[DEFAULT_BRUSH_TIP_RESOURCE_EXTENSION_KEY_V1]:tip}});}"
+          new_tip = """if(tip!=='-'){
+            if(!tipAliases.has(tip))throw new RangeError(`unknown tip: ${tip}`);
+            const alpha=defaultBrushTipProxyAlphaV1(tip);
+            if(alpha===null)throw new RangeError(`missing sampled-tip proxy: ${tip}`);
+            p=withBrushCustomSampledTipV1(p,alpha);
+            p=normalizeBrushPresetV1({...p,extensions:{...p.extensions,[DEFAULT_BRUSH_TIP_RESOURCE_EXTENSION_KEY_V1]:tip}});
+          }"""
+          if old_tip not in text:
+              raise SystemExit('default brush sampled-tip marker missing')
+          text = text.replace(old_tip, new_tip, 1)
+          pack.write_text(text)
+
+          library = Path('src/app/brush-preset-library.ts')
+          text = library.read_text()
+          response_import = "import type { ResponseCurvePointV1 } from '../domain/response-curve.js';\n"
+          if response_import not in text:
+              raise SystemExit('brush library response import missing')
+          text = text.replace(
+              response_import,
+              response_import + "import { createDefaultBrushPackV1 } from './default-brush-pack.js';\n",
+              1,
+          )
+          pattern = re.compile(
+              r"export function createRuntimeFactoryBrushPresetsV1\(\): readonly BrushPresetV1\[\] \{.*?\n\}\n\nexport function createBrushPresetLibraryStateV1",
+              re.S,
+          )
+          replacement = """export function createRuntimeFactoryBrushPresetsV1(): readonly BrushPresetV1[] {
+            return createDefaultBrushPackV1();
           }
-          changed = False
-          for before, after in replacements.items():
-              if before in text:
-                  if text.count(before) != 1:
-                      raise SystemExit(f'expected one progress line: {before}')
-                  text = text.replace(before, after, 1)
-                  changed = True
-              elif after not in text:
-                  raise SystemExit(f'progress line missing: {before}')
-          if changed:
-              path.write_text(text)
+
+          export function createBrushPresetLibraryStateV1"""
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit('expected one runtime factory preset function')
+          library.write_text(text)
+
+          test = Path('tests/unit/default-brush-pack.test.ts')
+          text = test.read_text()
+          text = text.replace(
+              '  brushPaperTextureResourceIdV1,\n',
+              '  brushPaperTextureResourceIdV1,\n  brushSampledTipAlphaV1,\n',
+              1,
+          )
+          text = text.replace("preset.category === 'Digital Watercolor'", "preset.category === 'Digital Watercolor-style'")
+          scatter_line = "    expect(sampled.filter((preset) => preset.category === 'Scatter / Special')).toHaveLength(5);\n"
+          extra = """    for (const preset of sampled) expect(brushSampledTipAlphaV1(preset), preset.name).toHaveLength(25);
+            expect(new Set(sampled.map((preset) => brushSampledTipAlphaV1(preset)!.join(','))).size).toBe(sampled.length);
+          """
+          if scatter_line not in text:
+              raise SystemExit('sampled-tip test marker missing')
+          text = text.replace(scatter_line, scatter_line + extra, 1)
+          test.write_text(text)
+
+          library_test = Path('tests/unit/brush-preset-library.test.ts')
+          text = library_test.read_text()
+          import_marker = "} from '../../src/app/brush-preset-library.js';\n"
+          if import_marker not in text:
+              raise SystemExit('brush library test import marker missing')
+          text = text.replace(
+              import_marker,
+              import_marker + "import { DEFAULT_BRUSH_PACK_CATEGORY_COUNTS_V1, DEFAULT_BRUSH_PACK_COUNT_V1 } from '../../src/app/default-brush-pack.js';\n",
+              1,
+          )
+          old = """    expect(state.items.map((item) => item.preset.behavior)).toEqual([
+                'paint',
+                'erase',
+                'smudge',
+                'blur',
+              ]);"""
+          new = """    expect(state.items).toHaveLength(DEFAULT_BRUSH_PACK_COUNT_V1);
+              expect(new Set(state.items.map((item) => item.preset.behavior))).toEqual(
+                new Set(['paint', 'erase', 'smudge', 'blur']),
+              );"""
+          if old not in text:
+              raise SystemExit('initial brush library assertion missing')
+          text = text.replace(old, new, 1)
+          text = text.replace('expect(original.items).toHaveLength(4);', 'expect(original.items).toHaveLength(DEFAULT_BRUSH_PACK_COUNT_V1);', 1)
+          text = text.replace('expect(state.items).toHaveLength(4);', 'expect(state.items).toHaveLength(DEFAULT_BRUSH_PACK_COUNT_V1);', 1)
+          old_filter = """    expect(brushPresetCategoriesV1(state)).toEqual(['ブレンド', '基本', '消去']);
+              state = setBrushPresetSearchV1(state, '指先');
+              expect(filteredBrushPresetItemsV1(state).map((item) => item.preset.id)).toEqual([
+                'builtin.runtime.smudge',
+              ]);
+              state = setBrushPresetSearchV1(state, '');
+              state = setBrushPresetCategoryV1(state, 'ブレンド');
+              expect(filteredBrushPresetItemsV1(state)).toHaveLength(2);"""
+          new_filter = """    expect(new Set(brushPresetCategoriesV1(state))).toEqual(
+                new Set(Object.keys(DEFAULT_BRUSH_PACK_CATEGORY_COUNTS_V1)),
+              );
+              state = setBrushPresetSearchV1(state, 'Smudge');
+              expect(filteredBrushPresetItemsV1(state).map((item) => item.preset.id)).toEqual([
+                'builtin.runtime.smudge',
+              ]);
+              state = setBrushPresetSearchV1(state, '');
+              state = setBrushPresetCategoryV1(state, 'Pencil');
+              expect(filteredBrushPresetItemsV1(state)).toHaveLength(6);"""
+          if old_filter not in text:
+              raise SystemExit('brush library filter assertion missing')
+          text = text.replace(old_filter, new_filter, 1)
+          text = text.replace("'丸ブラシ Modified'", "'Round Pen Modified'")
+          text = text.replace('expect(restored.items).toHaveLength(5);', 'expect(restored.items).toHaveLength(DEFAULT_BRUSH_PACK_COUNT_V1 + 1);', 1)
+          text = text.replace("expect(factory?.baseline.name).toBe('丸ブラシ');", "expect(factory?.baseline.name).toBe('Round Pen');", 1)
+          text = text.replace("expect(factory?.preset.name).toBe('丸ブラシ Modified');", "expect(factory?.preset.name).toBe('Round Pen Modified');", 1)
+          library_test.write_text(text)
+
+          provenance = Path('verification/m6a-default-brush-pack-regeneration.json')
+          payload = json.loads(provenance.read_text())
+          payload['categoryCounts']['Digital Watercolor-style'] = payload['categoryCounts'].pop('Digital Watercolor')
+          payload['sampledTipProxySource'] = 'src/app/default-brush-tip-proxies.ts'
+          payload['sampledTipProxyMethod'] = '12x12 stratified alpha sampling per 5x5 proxy cell from the frozen I-FINAL deterministic generator field'
+          payload['productionIntegrationStatus'] = 'connected-pending-standard-ci'
+          provenance.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n')
+
+          memo = Path('ILLUSTRO_DESIGN_MEMO.md')
+          memo_text = memo.read_text()
+          heading = '## J-8. Canonical preset-definition regeneration supersession — 2026-09-04'
+          if heading not in memo_text:
+              memo_text += """
+
+## J-8. Canonical preset-definition regeneration supersession — 2026-09-04
+
+**Status:** AUTHORITATIVE / CLOSED for the regenerated **48 default-preset definitions**. This entry supersedes the 2026-08-30 J package identity only where the missing historical package bytes were required to instantiate the frozen Default Brush Pack. J-1 through J-5 inventory/category/procedural-first/tuning/thumbnail semantics remain unchanged.
+
+The historical `ILLUSTRO_J_DEFAULT_BRUSH_PACK_FINAL_2026-08-30.zip` and its individual preset-definition bytes were no longer recoverable from Git, File Library, Google Drive, or GitHub Actions. On 2026-09-04 the user explicitly authorized deterministic regeneration rather than blocking implementation on the missing artifact.
+
+The regenerated preset-definition identity is `2026-09-04-user-authorized-v1`. Its canonical production source is `src/app/default-brush-pack.ts`, with provenance in `verification/m6a-default-brush-pack-regeneration.json`. The inventory remains exactly **48** presets with the frozen J-1 counts: Ink / Pen 8; Pencil 6; Marker 5; Paint 9; Airbrush 3; Digital Watercolor-style 5; Eraser 4; Blend / Smudge / Blur 3; Scatter / Special 5.
+
+J-2 remains binding: G Pen, Round Pen, Mapping Pen, Technical Pen, Brush Pen, ordinary Hard/Soft Airbrush, and ordinary Hard/Soft/Precision Eraser remain procedural-first and carry no sampled texture/tip dependency. Retained sampled aliases are restricted to the current I-FINAL inventory and are used only for material/stamp irregularity. The four pre-existing runtime factory IDs (`builtin.runtime.round`, `builtin.runtime.eraser`, `builtin.runtime.smudge`, `builtin.runtime.blur`) are retained inside the 48-pack solely to preserve persisted factory-override compatibility.
+
+For the current raster-brush sampled-tip ABI, retained I-FINAL tip aliases are connected through deterministic 5×5 alpha proxy data derived from the frozen I-FINAL generator field; the alias remains the sampled-resource identity and the proxy is an implementation adapter, not a replacement I asset. Randomized/spray presets continue to use the already closed per-stroke deterministic random-seed path.
+
+M6A-077 owns deterministic 256×256 representative thumbnails and will finalize the complete regenerated J presentation/package identity. The historical 2026-08-30 package SHA remains provenance only after this supersession.
+"""
+              memo.write_text(memo_text)
           PY
+
+      - name: Restore locked dependencies
+        run: npm ci
+
+      - name: Format regenerated integration
+        run: npm run format
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: M6A inspection
+        run: npm run verify:m6a
+
+      - name: Commit and push integrated pack
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add IMPLEMENTATION_PROGRESS.md
+          git add ILLUSTRO_DESIGN_MEMO.md verification/m6a-default-brush-pack-regeneration.json \
+            src/app/default-brush-pack.ts src/app/default-brush-tip-proxies.ts src/app/brush-preset-library.ts \
+            tests/unit/default-brush-pack.test.ts tests/unit/brush-preset-library.test.ts
+          git diff --cached --check
           if git diff --cached --quiet; then
-            echo 'Phone UX remediation progress already complete.'
+            echo 'M6A-076 integration already applied.'
             exit 0
           fi
-          git commit -m 'chore: close phone UX remediation'
+          git commit -m 'feat: integrate regenerated 48-preset default brush pack'
           git push origin HEAD:main
