@@ -135,6 +135,8 @@ jobs:
               state = setBrushPresetSearchV1(state, 'Smudge');
               expect(filteredBrushPresetItemsV1(state).map((item) => item.preset.id)).toEqual([
                 'builtin.runtime.smudge',
+                'builtin.blend.blender',
+                'builtin.runtime.blur',
               ]);
               state = setBrushPresetSearchV1(state, '');
               state = setBrushPresetCategoryV1(state, 'Pencil');
