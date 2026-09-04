@@ -526,6 +526,7 @@ M6A-069 touch-position/input correction policy:完了
 M6A-070 configurable stylus-button action plumbing:完了
 再開メモ: M6A-070は標準Pointer Eventsで公開されるPen第1バレル（buttons bit 2）をconfirmed sampleの状態遷移で検出し、generic commandId binding + press/release invocationへ接続した。既定はtool.eyedropper.temporaryで、既存ColorSamplingOwnershipのquick pathを再利用する。keyboard Altとstylusは独立source ownershipなので片方のreleaseが他方を解除しない。設定はlocalStorage永続・View→ペンボタン設定から一時スポイト/なしを選択可能。predicted/mouseはactionを発火せず、blur/cancelでheld actionを解放する。完全なCommand Registry選択肢はM8Gへ接続するがbinding形式は同じcommandId境界を使用する。次はM6A-071 final 77 sampled resources loaderから再開する。
 M6A-071 final 77 sampled resources loader:未完了
+再開メモ: M6A-071 checkpointとしてI-FINAL正本package名・ZIP SHA-256・source manifest SHA-256・33 brush-tip / 32 grain（うちpaper 12）/ 12 patternの77件inventoryを固定し、stable grain/paper alias整合・重複hash/path拒否・safe relative payload path・lazy fetch・byteLength/SHA-256検証・verified-only cacheを行うfail-closed loader coreを追加した。accepted本体 `ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-08-30.zip` は設計時sandbox生成物で、現在のGit/File Library/Driveにはclosure report/summaryのみ残りpayload bytesが無いため、凍結hashと異なる代替assetは生成せず本項目は未完了を維持する。正本ZIP再投入後はoriginal manifest→normalized loader manifest adapterと実payload配置を接続してM6A-071を閉じる。M6A-072以降はM6A-071完了後に進める。
 M6A-072 brush-tip resource manager:未完了
 M6A-073 grain resource manager:未完了
 M6A-074 paper resource manager:未完了
