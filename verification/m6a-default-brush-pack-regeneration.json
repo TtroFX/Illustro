@@ -16,10 +16,10 @@
     "Marker": 5,
     "Paint": 9,
     "Airbrush": 3,
-    "Digital Watercolor": 5,
     "Eraser": 4,
     "Blend / Smudge / Blur": 3,
-    "Scatter / Special": 5
+    "Scatter / Special": 5,
+    "Digital Watercolor-style": 5
   },
   "compatibilityFactoryIds": [
     "builtin.runtime.round",
@@ -28,5 +28,8 @@
     "builtin.runtime.blur"
   ],
   "thumbnailStatus": "pending-M6A-077",
-  "fullReplacementPackageStatus": "pending-M6A-077"
+  "fullReplacementPackageStatus": "pending-M6A-077",
+  "sampledTipProxySource": "src/app/default-brush-tip-proxies.ts",
+  "sampledTipProxyMethod": "12x12 stratified alpha sampling per 5x5 proxy cell from the frozen I-FINAL deterministic generator field",
+  "productionIntegrationStatus": "connected-pending-standard-ci"
 }

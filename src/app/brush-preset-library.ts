@@ -90,6 +90,7 @@ import {
   type BrushPresetV1,
 } from '../domain/brush-schema.js';
 import type { ResponseCurvePointV1 } from '../domain/response-curve.js';
+import { createDefaultBrushPackV1 } from './default-brush-pack.js';
 
 export const BRUSH_PRESET_LIBRARY_SCHEMA_V1 = 'illustro.brush-preset-library/1' as const;
 export const BRUSH_PRESET_STORAGE_SCHEMA_V1 = 'illustro.brush-preset-library-storage/1' as const;
@@ -177,40 +178,7 @@ function stateV1(
 }
 
 export function createRuntimeFactoryBrushPresetsV1(): readonly BrushPresetV1[] {
-  return Object.freeze([
-    createBaselineBrushPresetV1({
-      id: 'builtin.runtime.round',
-      name: '丸ブラシ',
-      category: '基本',
-      behavior: 'paint',
-      defaultSizePx: 16,
-      tags: ['基本', 'ラスタ'],
-    }),
-    createBaselineBrushPresetV1({
-      id: 'builtin.runtime.eraser',
-      name: '消しゴム',
-      category: '消去',
-      behavior: 'erase',
-      defaultSizePx: 24,
-      tags: ['消去'],
-    }),
-    createBaselineBrushPresetV1({
-      id: 'builtin.runtime.smudge',
-      name: '指先',
-      category: 'ブレンド',
-      behavior: 'smudge',
-      defaultSizePx: 24,
-      tags: ['ブレンド', '指先'],
-    }),
-    createBaselineBrushPresetV1({
-      id: 'builtin.runtime.blur',
-      name: 'ぼかし',
-      category: 'ブレンド',
-      behavior: 'blur',
-      defaultSizePx: 24,
-      tags: ['ブレンド', 'ぼかし'],
-    }),
-  ]);
+  return createDefaultBrushPackV1();
 }
 
 export function createBrushPresetLibraryStateV1(

@@ -6,6 +6,7 @@ import {
   brushColorMixEnabledV1,
   brushGrainResourceIdV1,
   brushPaperTextureResourceIdV1,
+  brushSampledTipAlphaV1,
   brushPressureOpacityEnabledV1,
   brushPressureSizeEnabledV1,
   brushSprayEnabledV1,
@@ -34,7 +35,18 @@ describe('M6A-076 default brush pack', () => {
 
   it('keeps clean line-art, ordinary airbrush, and ordinary eraser defaults procedural-first', () => {
     const pack = createDefaultBrushPackV1();
-    for (const name of ['G Pen','Round Pen','Mapping Pen','Technical Pen','Brush Pen','Hard Airbrush','Soft Airbrush','Hard Eraser','Soft Eraser','Precision Eraser']) {
+    for (const name of [
+      'G Pen',
+      'Round Pen',
+      'Mapping Pen',
+      'Technical Pen',
+      'Brush Pen',
+      'Hard Airbrush',
+      'Soft Airbrush',
+      'Hard Eraser',
+      'Soft Eraser',
+      'Precision Eraser',
+    ]) {
       const preset = pack.find((candidate) => candidate.name === name);
       expect(preset, name).toBeDefined();
       expect(defaultBrushTipResourceAliasV1(preset!)).toBeNull();
@@ -55,20 +67,32 @@ describe('M6A-076 default brush pack', () => {
   });
 
   it('binds retained final-I sampled tips only where irregular material/stamp structure is intrinsic', () => {
-    const sampled = createDefaultBrushPackV1().filter((preset) => defaultBrushTipResourceAliasV1(preset) !== null);
+    const sampled = createDefaultBrushPackV1().filter(
+      (preset) => defaultBrushTipResourceAliasV1(preset) !== null,
+    );
     expect(sampled.length).toBeGreaterThanOrEqual(10);
     expect(sampled.some((preset) => preset.category === 'Ink / Pen')).toBe(true);
     expect(sampled.some((preset) => preset.category === 'Pencil')).toBe(true);
     expect(sampled.some((preset) => preset.category === 'Paint')).toBe(true);
     expect(sampled.filter((preset) => preset.category === 'Scatter / Special')).toHaveLength(5);
+    for (const preset of sampled)
+      expect(brushSampledTipAlphaV1(preset), preset.name).toHaveLength(25);
+    expect(new Set(sampled.map((preset) => brushSampledTipAlphaV1(preset)!.join(','))).size).toBe(
+      sampled.length,
+    );
   });
 
   it('uses digital mixing and sampled texture for all five digital-watercolor defaults', () => {
-    const watercolor = createDefaultBrushPackV1().filter((preset) => preset.category === 'Digital Watercolor');
+    const watercolor = createDefaultBrushPackV1().filter(
+      (preset) => preset.category === 'Digital Watercolor-style',
+    );
     expect(watercolor).toHaveLength(5);
     for (const preset of watercolor) {
       expect(brushColorMixEnabledV1(preset), preset.name).toBe(true);
-      expect(brushGrainResourceIdV1(preset) !== null || brushPaperTextureResourceIdV1(preset) !== null, preset.name).toBe(true);
+      expect(
+        brushGrainResourceIdV1(preset) !== null || brushPaperTextureResourceIdV1(preset) !== null,
+        preset.name,
+      ).toBe(true);
     }
   });
 
@@ -84,14 +108,21 @@ describe('M6A-076 default brush pack', () => {
     const pack = createDefaultBrushPackV1();
     const scatter = pack.filter((preset) => preset.category === 'Scatter / Special');
     expect(scatter.some((preset) => brushSprayEnabledV1(preset))).toBe(true);
-    expect(scatter.some((preset) => preset.jitter.rotation !== undefined || preset.jitter.position !== undefined || preset.jitter.size !== undefined)).toBe(true);
+    expect(
+      scatter.some(
+        (preset) =>
+          preset.jitter.rotation !== undefined ||
+          preset.jitter.position !== undefined ||
+          preset.jitter.size !== undefined,
+      ),
+    ).toBe(true);
     for (const preset of pack) expect(normalizeBrushPresetV1(preset)).toEqual(preset);
     expect(defaultBrushPackCanonicalJsonV1()).toContain(DEFAULT_BRUSH_PACK_REGENERATION_ID_V1);
   });
 
   it('keeps clean pens pressure-shaped while Technical Pen remains fixed', () => {
     const pack = createDefaultBrushPackV1();
-    for (const name of ['G Pen','Round Pen','Mapping Pen','Brush Pen']) {
+    for (const name of ['G Pen', 'Round Pen', 'Mapping Pen', 'Brush Pen']) {
       const preset = pack.find((candidate) => candidate.name === name)!;
       expect(brushPressureSizeEnabledV1(preset), name).toBe(true);
     }
