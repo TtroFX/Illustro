@@ -9,6 +9,9 @@ import {
   baselineDabColorMixCanvasRatioV1,
   baselineDabColorMixDepositAmountV1,
   baselineDabColorMixEnabledV1,
+  baselineDabColorMixSampleRadiusRatioV1,
+  baselineDabColorMixPickupAmountV1,
+  baselineDabColorMixCarryAmountV1,
   baselineDabFlowV1,
   baselineDabHardnessV1,
   baselineDabTipDensityV1,
@@ -93,6 +96,7 @@ interface ActiveTileTransactionV1 {
   readonly affected: Map<string, TileCoordinateV1>;
   readonly paintCoverage: Map<string, Float32Array>;
   lastSmudgeDab: BaselineBrushDabV1 | null;
+  colorMixReservoir: readonly [number, number, number, number] | null;
 }
 
 function clamp01(value: number): number {
@@ -332,6 +336,7 @@ function rasterizeColorDab(
   tileY: number,
   dab: BaselineBrushDabV1,
   strokeCoverage: Float32Array | null = null,
+  reservoir: readonly [number, number, number, number] | null = null,
 ): void {
   const radiusX = baselineDabRadiusXV1(dab);
   const radiusY = baselineDabRadiusYV1(dab);
@@ -382,11 +387,14 @@ function rasterizeColorDab(
         const destinationRed = (bytes[pixelOffset] ?? 0) / 255;
         const destinationGreen = (bytes[pixelOffset + 1] ?? 0) / 255;
         const destinationBlue = (bytes[pixelOffset + 2] ?? 0) / 255;
+        const mixSource =
+          reservoir ??
+          ([destinationRed, destinationGreen, destinationBlue, destinationAlpha] as const);
         const resolvedSourceColor = colorMixEnabled
           ? mixedDigitalBrushColorV1(
               sourceColor,
-              [destinationRed, destinationGreen, destinationBlue],
-              destinationAlpha,
+              [mixSource[0], mixSource[1], mixSource[2]],
+              mixSource[3],
               colorMixCanvasRatio,
             )
           : sourceColor;
@@ -427,11 +435,12 @@ function rasterizeColorDab(
       if (sourceAlpha <= 0) continue;
       const destination = readPixel(tile, pixel);
       const destinationAlpha = destination[3];
+      const mixSource = reservoir ?? destination;
       const resolvedSourceColor = colorMixEnabled
         ? mixedDigitalBrushColorV1(
             sourceColor,
-            [destination[0], destination[1], destination[2]],
-            destinationAlpha,
+            [mixSource[0], mixSource[1], mixSource[2]],
+            mixSource[3],
             colorMixCanvasRatio,
           )
         : sourceColor;
@@ -577,6 +586,80 @@ function mixPremultipliedRgba(
     clamp01(bluePremultiplied / alpha),
     clamp01(alpha),
   ];
+}
+
+const COLOR_MIX_SAMPLE_OFFSETS_V1 = Object.freeze([
+  [0, 0],
+  [-0.5, 0],
+  [0.5, 0],
+  [0, -0.5],
+  [0, 0.5],
+  [-0.3535533905932738, -0.3535533905932738],
+  [0.3535533905932738, -0.3535533905932738],
+  [-0.3535533905932738, 0.3535533905932738],
+  [0.3535533905932738, 0.3535533905932738],
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+] as const);
+
+function sampleColorMixReservoirV1(
+  snapshot: BaselineSmudgeSourceSnapshotV1,
+  documentWidth: number,
+  documentHeight: number,
+  dab: BaselineBrushDabV1,
+): readonly [number, number, number, number] {
+  const sampleRadius =
+    Math.max(baselineDabRadiusXV1(dab), baselineDabRadiusYV1(dab)) *
+    baselineDabColorMixSampleRadiusRatioV1(dab);
+  const offsets =
+    sampleRadius <= 1e-9 ? COLOR_MIX_SAMPLE_OFFSETS_V1.slice(0, 1) : COLOR_MIX_SAMPLE_OFFSETS_V1;
+  let alpha = 0;
+  let redPremultiplied = 0;
+  let greenPremultiplied = 0;
+  let bluePremultiplied = 0;
+  for (const [offsetX, offsetY] of offsets) {
+    const sample = sampleSmudgeSnapshot(
+      snapshot,
+      documentWidth,
+      documentHeight,
+      dab.x + offsetX * sampleRadius,
+      dab.y + offsetY * sampleRadius,
+    );
+    alpha += sample[3];
+    redPremultiplied += sample[0] * sample[3];
+    greenPremultiplied += sample[1] * sample[3];
+    bluePremultiplied += sample[2] * sample[3];
+  }
+  const count = offsets.length;
+  const averagedAlpha = clamp01(alpha / count);
+  if (alpha <= 1e-9) return [0, 0, 0, 0];
+  return Object.freeze([
+    clamp01(redPremultiplied / alpha),
+    clamp01(greenPremultiplied / alpha),
+    clamp01(bluePremultiplied / alpha),
+    averagedAlpha,
+  ]);
+}
+
+function updateColorMixReservoirV1(
+  previous: readonly [number, number, number, number] | null,
+  sampled: readonly [number, number, number, number],
+  pickupAmount: number,
+  carryAmount: number,
+): readonly [number, number, number, number] | null {
+  const retainedAlpha = (previous?.[3] ?? 0) * clamp01(carryAmount);
+  const pickupAlpha = sampled[3] * clamp01(pickupAmount);
+  const nextAlpha = clamp01(pickupAlpha + retainedAlpha * (1 - pickupAlpha));
+  if (nextAlpha <= 1e-9) return null;
+  const retainedWeight = retainedAlpha * (1 - pickupAlpha);
+  return Object.freeze([
+    clamp01((sampled[0] * pickupAlpha + (previous?.[0] ?? 0) * retainedWeight) / nextAlpha),
+    clamp01((sampled[1] * pickupAlpha + (previous?.[1] ?? 0) * retainedWeight) / nextAlpha),
+    clamp01((sampled[2] * pickupAlpha + (previous?.[2] ?? 0) * retainedWeight) / nextAlpha),
+    nextAlpha,
+  ]);
 }
 
 function rasterizeSmudgeDab(
@@ -927,6 +1010,7 @@ export class BaselineRasterTileStoreV1 {
         affected: new Map(),
         paintCoverage: new Map(),
         lastSmudgeDab: null,
+        colorMixReservoir: null,
       };
     }
     if (this.#active.layerId !== layerId) throw new Error('active stroke changed raster layer');
@@ -938,6 +1022,15 @@ export class BaselineRasterTileStoreV1 {
     }
     if (operation === 'blur') {
       this.#applyBlurDabs(layerId, dabs);
+      return;
+    }
+    if (
+      operation === 'paint' &&
+      dabs.some(
+        (dab) => baselineDabColorMixEnabledV1(dab) && baselineDabColorMixPickupAmountV1(dab) > 0,
+      )
+    ) {
+      this.#applyColorMixPickupDabs(layerId, dabs);
       return;
     }
 
@@ -978,6 +1071,92 @@ export class BaselineRasterTileStoreV1 {
         else rasterizeColorDab(tile, bounds.x, bounds.y, dab, coverage);
       }
     }
+  }
+
+  #applyColorMixPickupDabs(layerId: string, dabs: readonly BaselineBrushDabV1[]): void {
+    const active = this.#active;
+    if (active === null || active.operation !== 'paint') {
+      throw new Error('color pickup rasterization requires an active paint transaction');
+    }
+    for (const dab of dabs) {
+      const sampleRadius =
+        Math.max(baselineDabRadiusXV1(dab), baselineDabRadiusYV1(dab)) *
+        baselineDabColorMixSampleRadiusRatioV1(dab);
+      const snapshot = this.#snapshotColorMixSourceTiles(layerId, dab, sampleRadius);
+      const sampled = sampleColorMixReservoirV1(
+        snapshot,
+        this.#documentWidth,
+        this.#documentHeight,
+        dab,
+      );
+      active.colorMixReservoir = updateColorMixReservoirV1(
+        active.colorMixReservoir,
+        sampled,
+        baselineDabColorMixPickupAmountV1(dab),
+        baselineDabColorMixCarryAmountV1(dab),
+      );
+      for (const plan of planBaselineBrushTilesV1(
+        Object.freeze([dab]),
+        this.#documentWidth,
+        this.#documentHeight,
+      )) {
+        const coordinateKey = tileKeyV1(plan.coordinate);
+        this.#compositeCache.delete(coordinateKey);
+        const key = tileStateKey(layerId, plan.coordinate);
+        const current = this.#tiles.get(key);
+        if (!active.before.has(key)) {
+          active.before.set(key, current === undefined ? null : cloneTile(current));
+          active.affected.set(key, freezeCoordinate(plan.coordinate));
+        }
+        let tile = current;
+        if (tile === undefined) {
+          tile = createTransparentTile(
+            layerId,
+            plan.coordinate,
+            this.#documentWidth,
+            this.#documentHeight,
+            this.#pixelFormat,
+          );
+          this.#tiles.set(key, tile);
+        }
+        const bounds = tileBoundsForDocumentV1(
+          this.#documentWidth,
+          this.#documentHeight,
+          plan.coordinate,
+        );
+        let coverage: Float32Array | null = null;
+        if (baselineDabUsesFlowOpacityV1(dab)) {
+          coverage = active.paintCoverage.get(key) ?? new Float32Array(tile.width * tile.height);
+          active.paintCoverage.set(key, coverage);
+        }
+        rasterizeColorDab(tile, bounds.x, bounds.y, dab, coverage, active.colorMixReservoir);
+      }
+    }
+  }
+
+  #snapshotColorMixSourceTiles(
+    layerId: string,
+    dab: BaselineBrushDabV1,
+    sampleRadius: number,
+  ): BaselineSmudgeSourceSnapshotV1 {
+    const left = Math.max(0, Math.floor(dab.x - sampleRadius) - 1);
+    const top = Math.max(0, Math.floor(dab.y - sampleRadius) - 1);
+    const right = Math.min(this.#documentWidth - 1, Math.ceil(dab.x + sampleRadius) + 1);
+    const bottom = Math.min(this.#documentHeight - 1, Math.ceil(dab.y + sampleRadius) + 1);
+    const snapshot = new Map<string, BaselineRasterTileImageV1>();
+    if (right < left || bottom < top) return snapshot;
+    const minTx = Math.floor(left / CANONICAL_TILE_SIZE_PX);
+    const minTy = Math.floor(top / CANONICAL_TILE_SIZE_PX);
+    const maxTx = Math.floor(right / CANONICAL_TILE_SIZE_PX);
+    const maxTy = Math.floor(bottom / CANONICAL_TILE_SIZE_PX);
+    for (let ty = minTy; ty <= maxTy; ty += 1) {
+      for (let tx = minTx; tx <= maxTx; tx += 1) {
+        const coordinate = { tx, ty };
+        const source = this.#tiles.get(tileStateKey(layerId, coordinate));
+        if (source !== undefined) snapshot.set(tileKeyV1(coordinate), cloneTile(source));
+      }
+    }
+    return snapshot;
   }
 
   #applySmudgeDabs(layerId: string, dabs: readonly BaselineBrushDabV1[]): void {

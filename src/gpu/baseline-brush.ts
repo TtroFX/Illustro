@@ -206,6 +206,9 @@ export interface BaselineBrushDabV1 {
   readonly colorMixEnabled?: boolean;
   readonly colorMixCanvasRatio?: number;
   readonly colorMixDepositAmount?: number;
+  readonly colorMixSampleRadiusRatio?: number;
+  readonly colorMixPickupAmount?: number;
+  readonly colorMixCarryAmount?: number;
 }
 
 export const BASELINE_BRUSH_COLOR_MIX_CANVAS_RATIO_V1 = 0.5 as const;
@@ -227,6 +230,35 @@ export function baselineDabColorMixDepositAmountV1(dab: BaselineBrushDabV1): num
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
     ? value
     : BASELINE_BRUSH_COLOR_MIX_DEPOSIT_AMOUNT_V1;
+}
+
+export const BASELINE_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1 = 0.5 as const;
+export const BASELINE_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_MAX_V1 = 3 as const;
+export const BASELINE_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1 = 0 as const;
+export const BASELINE_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1 = 0.85 as const;
+
+export function baselineDabColorMixSampleRadiusRatioV1(dab: BaselineBrushDabV1): number {
+  const value = dab.colorMixSampleRadiusRatio;
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= BASELINE_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_MAX_V1
+    ? value
+    : BASELINE_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1;
+}
+
+export function baselineDabColorMixPickupAmountV1(dab: BaselineBrushDabV1): number {
+  const value = dab.colorMixPickupAmount;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : BASELINE_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1;
+}
+
+export function baselineDabColorMixCarryAmountV1(dab: BaselineBrushDabV1): number {
+  const value = dab.colorMixCarryAmount;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : BASELINE_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1;
 }
 
 export function baselineDabColorV1(dab: BaselineBrushDabV1): BaselineBrushColorV1 {

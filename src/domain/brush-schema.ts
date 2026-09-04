@@ -1696,6 +1696,81 @@ export function withBrushColorMixDepositAmountV1(
   return normalizeBrushPresetV1({ ...preset, colorMix: { ...preset.colorMix, depositAmount } });
 }
 
+export const DEFAULT_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1 = 0.5 as const;
+export const MAX_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1 = 3 as const;
+export const DEFAULT_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1 = 0 as const;
+export const DEFAULT_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1 = 0.85 as const;
+
+export function brushColorMixSampleRadiusRatioV1(preset: BrushPresetV1): number {
+  const value = preset.colorMix.sampleRadiusRatio;
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= MAX_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1
+    ? value
+    : DEFAULT_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1;
+}
+
+export function brushColorMixPickupAmountV1(preset: BrushPresetV1): number {
+  return brushColorMixUnitValueV1(
+    preset.colorMix.pickupAmount,
+    DEFAULT_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1,
+  );
+}
+
+export function brushColorMixCarryAmountV1(preset: BrushPresetV1): number {
+  return brushColorMixUnitValueV1(
+    preset.colorMix.carryAmount,
+    DEFAULT_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1,
+  );
+}
+
+export function withBrushColorMixSampleRadiusRatioV1(
+  preset: BrushPresetV1,
+  sampleRadiusRatio: number,
+): BrushPresetV1 {
+  if (
+    !Number.isFinite(sampleRadiusRatio) ||
+    sampleRadiusRatio < 0 ||
+    sampleRadiusRatio > MAX_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1
+  ) {
+    throw new RangeError('brush color mixing sample radius ratio must be within 0..3');
+  }
+  if (sampleRadiusRatio === DEFAULT_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1) {
+    const { sampleRadiusRatio: _sampleRadiusRatio, ...colorMix } = preset.colorMix;
+    return normalizeBrushPresetV1({ ...preset, colorMix });
+  }
+  return normalizeBrushPresetV1({ ...preset, colorMix: { ...preset.colorMix, sampleRadiusRatio } });
+}
+
+export function withBrushColorMixPickupAmountV1(
+  preset: BrushPresetV1,
+  pickupAmount: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(pickupAmount) || pickupAmount < 0 || pickupAmount > 1) {
+    throw new RangeError('brush color mixing pickup amount must be within 0..1');
+  }
+  if (pickupAmount === DEFAULT_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1) {
+    const { pickupAmount: _pickupAmount, ...colorMix } = preset.colorMix;
+    return normalizeBrushPresetV1({ ...preset, colorMix });
+  }
+  return normalizeBrushPresetV1({ ...preset, colorMix: { ...preset.colorMix, pickupAmount } });
+}
+
+export function withBrushColorMixCarryAmountV1(
+  preset: BrushPresetV1,
+  carryAmount: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(carryAmount) || carryAmount < 0 || carryAmount > 1) {
+    throw new RangeError('brush color mixing carry amount must be within 0..1');
+  }
+  if (carryAmount === DEFAULT_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1) {
+    const { carryAmount: _carryAmount, ...colorMix } = preset.colorMix;
+    return normalizeBrushPresetV1({ ...preset, colorMix });
+  }
+  return normalizeBrushPresetV1({ ...preset, colorMix: { ...preset.colorMix, carryAmount } });
+}
+
 export type BrushTipSelectionModeV1 = 'fixed' | 'sequence' | 'random-per-stamp';
 export const DEFAULT_BRUSH_TIP_SELECTION_MODE_V1: BrushTipSelectionModeV1 = 'fixed';
 

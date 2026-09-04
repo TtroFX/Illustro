@@ -495,6 +495,9 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     const colorMixEnabled = candidate.colorMixEnabled;
     const colorMixCanvasRatio = candidate.colorMixCanvasRatio;
     const colorMixDepositAmount = candidate.colorMixDepositAmount;
+    const colorMixSampleRadiusRatio = candidate.colorMixSampleRadiusRatio;
+    const colorMixPickupAmount = candidate.colorMixPickupAmount;
+    const colorMixCarryAmount = candidate.colorMixCarryAmount;
     if (
       (radiusX !== undefined &&
         (typeof radiusX !== 'number' || !Number.isFinite(radiusX) || radiusX <= 0)) ||
@@ -529,7 +532,22 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         (typeof colorMixDepositAmount !== 'number' ||
           !Number.isFinite(colorMixDepositAmount) ||
           colorMixDepositAmount < 0 ||
-          colorMixDepositAmount > 1))
+          colorMixDepositAmount > 1)) ||
+      (colorMixSampleRadiusRatio !== undefined &&
+        (typeof colorMixSampleRadiusRatio !== 'number' ||
+          !Number.isFinite(colorMixSampleRadiusRatio) ||
+          colorMixSampleRadiusRatio < 0 ||
+          colorMixSampleRadiusRatio > 3)) ||
+      (colorMixPickupAmount !== undefined &&
+        (typeof colorMixPickupAmount !== 'number' ||
+          !Number.isFinite(colorMixPickupAmount) ||
+          colorMixPickupAmount < 0 ||
+          colorMixPickupAmount > 1)) ||
+      (colorMixCarryAmount !== undefined &&
+        (typeof colorMixCarryAmount !== 'number' ||
+          !Number.isFinite(colorMixCarryAmount) ||
+          colorMixCarryAmount < 0 ||
+          colorMixCarryAmount > 1))
     ) {
       return null;
     }
@@ -563,6 +581,9 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         ...(colorMixEnabled === undefined ? {} : { colorMixEnabled }),
         ...(colorMixCanvasRatio === undefined ? {} : { colorMixCanvasRatio }),
         ...(colorMixDepositAmount === undefined ? {} : { colorMixDepositAmount }),
+        ...(colorMixSampleRadiusRatio === undefined ? {} : { colorMixSampleRadiusRatio }),
+        ...(colorMixPickupAmount === undefined ? {} : { colorMixPickupAmount }),
+        ...(colorMixCarryAmount === undefined ? {} : { colorMixCarryAmount }),
       }),
     );
   }

@@ -65,6 +65,9 @@ import {
   withBrushColorMixEnabledV1,
   withBrushColorMixCanvasRatioV1,
   withBrushColorMixDepositAmountV1,
+  withBrushColorMixSampleRadiusRatioV1,
+  withBrushColorMixPickupAmountV1,
+  withBrushColorMixCarryAmountV1,
   withBrushStrokeSpacingV1,
   withBrushTipAssetAddedV1,
   withBrushTipAssetDeletedV1,
@@ -1459,6 +1462,63 @@ export function updateBrushPresetColorMixDepositAmountV1(
       source: item.source,
       baseline: item.baseline,
       preset: normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 }),
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetColorMixSampleRadiusRatioV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  sampleRadiusRatio: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushColorMixSampleRadiusRatioV1(item.preset, sampleRadiusRatio);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetColorMixPickupAmountV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  pickupAmount: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushColorMixPickupAmountV1(item.preset, pickupAmount);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetColorMixCarryAmountV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  carryAmount: number,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushColorMixCarryAmountV1(item.preset, carryAmount);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
       locked: item.locked,
     });
   });

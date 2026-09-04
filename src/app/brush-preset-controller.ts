@@ -64,6 +64,9 @@ import {
   brushColorMixEnabledV1,
   brushColorMixCanvasRatioV1,
   brushColorMixDepositAmountV1,
+  brushColorMixSampleRadiusRatioV1,
+  brushColorMixPickupAmountV1,
+  brushColorMixCarryAmountV1,
   BUILTIN_BRUSH_GRAIN_RESOURCES_V1,
   BUILTIN_BRUSH_PAPER_RESOURCES_V1,
   brushStrokeSpacingV1,
@@ -157,6 +160,9 @@ import {
   updateBrushPresetColorMixEnabledV1,
   updateBrushPresetColorMixCanvasRatioV1,
   updateBrushPresetColorMixDepositAmountV1,
+  updateBrushPresetColorMixSampleRadiusRatioV1,
+  updateBrushPresetColorMixPickupAmountV1,
+  updateBrushPresetColorMixCarryAmountV1,
   updateBrushPresetSpacingV1,
   updateBrushPresetParametersV1,
   updateBrushPresetTipShapeV1,
@@ -402,6 +408,18 @@ export function installBrushPresetControllerV1(input: {
   );
   const colorMixDepositRange = requireElement('#brush-color-mix-deposit-range', HTMLInputElement);
   const colorMixDepositNumber = requireElement('#brush-color-mix-deposit-number', HTMLInputElement);
+  const colorMixSampleRadiusRange = requireElement(
+    '#brush-color-mix-sample-radius-range',
+    HTMLInputElement,
+  );
+  const colorMixSampleRadiusNumber = requireElement(
+    '#brush-color-mix-sample-radius-number',
+    HTMLInputElement,
+  );
+  const colorMixPickupRange = requireElement('#brush-color-mix-pickup-range', HTMLInputElement);
+  const colorMixPickupNumber = requireElement('#brush-color-mix-pickup-number', HTMLInputElement);
+  const colorMixCarryRange = requireElement('#brush-color-mix-carry-range', HTMLInputElement);
+  const colorMixCarryNumber = requireElement('#brush-color-mix-carry-number', HTMLInputElement);
   const tipShape = requireElement('#brush-tip-shape', HTMLSelectElement);
   const customTipCreate = requireElement('#brush-tip-custom-create', HTMLButtonElement);
   const customTipFile = requireElement('#brush-tip-custom-file', HTMLInputElement);
@@ -556,10 +574,16 @@ export function installBrushPresetControllerV1(input: {
     const colorMixEnabled = brushColorMixEnabledV1(item.preset);
     const colorMixCanvasRatio = brushColorMixCanvasRatioV1(item.preset);
     const colorMixDepositAmount = brushColorMixDepositAmountV1(item.preset);
+    const colorMixSampleRadiusRatio = brushColorMixSampleRadiusRatioV1(item.preset);
+    const colorMixPickupAmount = brushColorMixPickupAmountV1(item.preset);
+    const colorMixCarryAmount = brushColorMixCarryAmountV1(item.preset);
     input.paintSession.setBrushColorMix(
       colorMixEnabled,
       colorMixCanvasRatio,
       colorMixDepositAmount,
+      colorMixSampleRadiusRatio,
+      colorMixPickupAmount,
+      colorMixCarryAmount,
     );
     const tipAssets = brushTipAssetsV1(item.preset);
     const selectedTipAssetId = brushSelectedTipAssetIdV1(item.preset);
@@ -1012,6 +1036,19 @@ export function installBrushPresetControllerV1(input: {
       1,
       colorMixDepositAmount * 100,
     );
+    const colorMixSampleRadiusRatio = brushColorMixSampleRadiusRatioV1(selected.preset);
+    const colorMixPickupAmount = brushColorMixPickupAmountV1(selected.preset);
+    const colorMixCarryAmount = brushColorMixCarryAmountV1(selected.preset);
+    configurePair(
+      colorMixSampleRadiusRange,
+      colorMixSampleRadiusNumber,
+      0,
+      300,
+      1,
+      colorMixSampleRadiusRatio * 100,
+    );
+    configurePair(colorMixPickupRange, colorMixPickupNumber, 0, 100, 1, colorMixPickupAmount * 100);
+    configurePair(colorMixCarryRange, colorMixCarryNumber, 0, 100, 1, colorMixCarryAmount * 100);
     tipShape.value = brushTipShapeV1(selected.preset);
     const customTipAlpha = brushSampledTipAlphaV1(selected.preset);
     const tipAssets = brushTipAssetsV1(selected.preset);
@@ -1252,6 +1289,12 @@ export function installBrushPresetControllerV1(input: {
     colorMixCanvasRatioNumber.disabled = locked || !colorMixEnabled;
     colorMixDepositRange.disabled = locked || !colorMixEnabled;
     colorMixDepositNumber.disabled = locked || !colorMixEnabled;
+    colorMixSampleRadiusRange.disabled = locked || !colorMixEnabled;
+    colorMixSampleRadiusNumber.disabled = locked || !colorMixEnabled;
+    colorMixPickupRange.disabled = locked || !colorMixEnabled;
+    colorMixPickupNumber.disabled = locked || !colorMixEnabled;
+    colorMixCarryRange.disabled = locked || !colorMixEnabled;
+    colorMixCarryNumber.disabled = locked || !colorMixEnabled;
     pressureCurveEditor?.setDisabled(locked);
     tiltCurveEditor?.setDisabled(locked);
     velocityCurveEditor?.setDisabled(locked);
@@ -1756,6 +1799,22 @@ export function installBrushPresetControllerV1(input: {
     mutate(() =>
       updateBrushPresetColorMixDepositAmountV1(state, state.selectedPresetId, valuePercent / 100),
     );
+  const updateColorMixSampleRadiusRatio = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetColorMixSampleRadiusRatioV1(
+        state,
+        state.selectedPresetId,
+        valuePercent / 100,
+      ),
+    );
+  const updateColorMixPickupAmount = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetColorMixPickupAmountV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const updateColorMixCarryAmount = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetColorMixCarryAmountV1(state, state.selectedPresetId, valuePercent / 100),
+    );
   const onColorMixCanvasRatioRange = (): void =>
     updateColorMixCanvasRatio(Number(colorMixCanvasRatioRange.value));
   const onColorMixCanvasRatioNumber = (): void =>
@@ -1764,6 +1823,18 @@ export function installBrushPresetControllerV1(input: {
     updateColorMixDepositAmount(Number(colorMixDepositRange.value));
   const onColorMixDepositNumber = (): void =>
     updateColorMixDepositAmount(Number(colorMixDepositNumber.value));
+  const onColorMixSampleRadiusRange = (): void =>
+    updateColorMixSampleRadiusRatio(Number(colorMixSampleRadiusRange.value));
+  const onColorMixSampleRadiusNumber = (): void =>
+    updateColorMixSampleRadiusRatio(Number(colorMixSampleRadiusNumber.value));
+  const onColorMixPickupRange = (): void =>
+    updateColorMixPickupAmount(Number(colorMixPickupRange.value));
+  const onColorMixPickupNumber = (): void =>
+    updateColorMixPickupAmount(Number(colorMixPickupNumber.value));
+  const onColorMixCarryRange = (): void =>
+    updateColorMixCarryAmount(Number(colorMixCarryRange.value));
+  const onColorMixCarryNumber = (): void =>
+    updateColorMixCarryAmount(Number(colorMixCarryNumber.value));
   const onTipShape = (): void => {
     const shape: BrushTipShapeV1 =
       tipShape.value === 'sampled-image'
@@ -1933,6 +2004,12 @@ export function installBrushPresetControllerV1(input: {
   colorMixCanvasRatioNumber.addEventListener('change', onColorMixCanvasRatioNumber);
   colorMixDepositRange.addEventListener('input', onColorMixDepositRange);
   colorMixDepositNumber.addEventListener('change', onColorMixDepositNumber);
+  colorMixSampleRadiusRange.addEventListener('input', onColorMixSampleRadiusRange);
+  colorMixSampleRadiusNumber.addEventListener('change', onColorMixSampleRadiusNumber);
+  colorMixPickupRange.addEventListener('input', onColorMixPickupRange);
+  colorMixPickupNumber.addEventListener('change', onColorMixPickupNumber);
+  colorMixCarryRange.addEventListener('input', onColorMixCarryRange);
+  colorMixCarryNumber.addEventListener('change', onColorMixCarryNumber);
   tipShape.addEventListener('change', onTipShape);
   customTipCreate.addEventListener('click', onCustomTipCreate);
   customTipFile.addEventListener('change', onCustomTipFile);
@@ -2055,6 +2132,12 @@ export function installBrushPresetControllerV1(input: {
       colorMixCanvasRatioNumber.removeEventListener('change', onColorMixCanvasRatioNumber);
       colorMixDepositRange.removeEventListener('input', onColorMixDepositRange);
       colorMixDepositNumber.removeEventListener('change', onColorMixDepositNumber);
+      colorMixSampleRadiusRange.removeEventListener('input', onColorMixSampleRadiusRange);
+      colorMixSampleRadiusNumber.removeEventListener('change', onColorMixSampleRadiusNumber);
+      colorMixPickupRange.removeEventListener('input', onColorMixPickupRange);
+      colorMixPickupNumber.removeEventListener('change', onColorMixPickupNumber);
+      colorMixCarryRange.removeEventListener('input', onColorMixCarryRange);
+      colorMixCarryNumber.removeEventListener('change', onColorMixCarryNumber);
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();

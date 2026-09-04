@@ -6,6 +6,9 @@ import {
 } from '../domain/document.js';
 import {
   DEFAULT_BRUSH_PARAMETER_VALUES_V1,
+  DEFAULT_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1,
+  DEFAULT_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1,
+  DEFAULT_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1,
   DEFAULT_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1,
   MIN_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1,
   MAX_BRUSH_VELOCITY_MAXIMUM_PX_PER_SECOND_V1,
@@ -293,6 +296,9 @@ export interface PaintSessionSnapshotV1 {
   readonly brushColorMixEnabled: boolean;
   readonly brushColorMixCanvasRatio: number;
   readonly brushColorMixDepositAmount: number;
+  readonly brushColorMixSampleRadiusRatio: number;
+  readonly brushColorMixPickupAmount: number;
+  readonly brushColorMixCarryAmount: number;
   readonly brushTipAngleDegrees: number;
   readonly brushTipDirectionDegrees: number;
   readonly brushFollowStrokeRotation: boolean;
@@ -479,6 +485,18 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     value.colorMixDepositAmount === undefined
       ? undefined
       : finiteNumber(value.colorMixDepositAmount, 'baseline dab colorMixDepositAmount');
+  const colorMixSampleRadiusRatio =
+    value.colorMixSampleRadiusRatio === undefined
+      ? undefined
+      : finiteNumber(value.colorMixSampleRadiusRatio, 'baseline dab colorMixSampleRadiusRatio');
+  const colorMixPickupAmount =
+    value.colorMixPickupAmount === undefined
+      ? undefined
+      : finiteNumber(value.colorMixPickupAmount, 'baseline dab colorMixPickupAmount');
+  const colorMixCarryAmount =
+    value.colorMixCarryAmount === undefined
+      ? undefined
+      : finiteNumber(value.colorMixCarryAmount, 'baseline dab colorMixCarryAmount');
   if (colorMixEnabled !== undefined && typeof colorMixEnabled !== 'boolean') {
     throw new TypeError('invalid baseline dab color mixing enabled flag');
   }
@@ -488,6 +506,15 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
       (colorMixDepositAmount < 0 || colorMixDepositAmount > 1))
   ) {
     throw new RangeError('invalid baseline dab color mixing range');
+  }
+  if (
+    (colorMixSampleRadiusRatio !== undefined &&
+      (colorMixSampleRadiusRatio < 0 || colorMixSampleRadiusRatio > 3)) ||
+    (colorMixPickupAmount !== undefined &&
+      (colorMixPickupAmount < 0 || colorMixPickupAmount > 1)) ||
+    (colorMixCarryAmount !== undefined && (colorMixCarryAmount < 0 || colorMixCarryAmount > 1))
+  ) {
+    throw new RangeError('invalid baseline dab color pickup range');
   }
   if (
     radius <= 0 ||
@@ -520,6 +547,9 @@ function parseStoredDab(value: unknown): BaselineBrushDabV1 {
     ...(colorMixEnabled === undefined ? {} : { colorMixEnabled }),
     ...(colorMixCanvasRatio === undefined ? {} : { colorMixCanvasRatio }),
     ...(colorMixDepositAmount === undefined ? {} : { colorMixDepositAmount }),
+    ...(colorMixSampleRadiusRatio === undefined ? {} : { colorMixSampleRadiusRatio }),
+    ...(colorMixPickupAmount === undefined ? {} : { colorMixPickupAmount }),
+    ...(colorMixCarryAmount === undefined ? {} : { colorMixCarryAmount }),
   });
 }
 
@@ -862,6 +892,9 @@ export class PaintSessionControllerV1 {
   #brushColorMixEnabled = false;
   #brushColorMixCanvasRatio = 0.5;
   #brushColorMixDepositAmount = 1;
+  #brushColorMixSampleRadiusRatio: number = DEFAULT_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1;
+  #brushColorMixPickupAmount: number = DEFAULT_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1;
+  #brushColorMixCarryAmount: number = DEFAULT_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1;
   #brushTipAngleDegrees: number = BASELINE_BRUSH_TIP_ANGLE_DEGREES;
   #brushTipDirectionDegrees: number = BASELINE_BRUSH_TIP_DIRECTION_DEGREES;
   #brushFollowStrokeRotation = false;
@@ -949,6 +982,9 @@ export class PaintSessionControllerV1 {
       brushColorMixEnabled: this.#brushColorMixEnabled,
       brushColorMixCanvasRatio: this.#brushColorMixCanvasRatio,
       brushColorMixDepositAmount: this.#brushColorMixDepositAmount,
+      brushColorMixSampleRadiusRatio: this.#brushColorMixSampleRadiusRatio,
+      brushColorMixPickupAmount: this.#brushColorMixPickupAmount,
+      brushColorMixCarryAmount: this.#brushColorMixCarryAmount,
       brushTipAngleDegrees: this.#brushTipAngleDegrees,
       brushTipDirectionDegrees: this.#brushTipDirectionDegrees,
       brushFollowStrokeRotation: this.#brushFollowStrokeRotation,
@@ -1797,7 +1833,14 @@ export class PaintSessionControllerV1 {
     return this.#brushSprayAngleBasedOnCenter;
   }
 
-  setBrushColorMix(enabled: boolean, canvasRatio: number, depositAmount: number): void {
+  setBrushColorMix(
+    enabled: boolean,
+    canvasRatio: number,
+    depositAmount: number,
+    sampleRadiusRatio: number = this.#brushColorMixSampleRadiusRatio,
+    pickupAmount: number = this.#brushColorMixPickupAmount,
+    carryAmount: number = this.#brushColorMixCarryAmount,
+  ): void {
     if (typeof enabled !== 'boolean')
       throw new TypeError('invalid runtime color mixing enabled flag');
     if (!Number.isFinite(canvasRatio) || canvasRatio < 0 || canvasRatio > 1) {
@@ -1806,23 +1849,48 @@ export class PaintSessionControllerV1 {
     if (!Number.isFinite(depositAmount) || depositAmount < 0 || depositAmount > 1) {
       throw new RangeError('invalid runtime color mixing deposit amount');
     }
+    if (!Number.isFinite(sampleRadiusRatio) || sampleRadiusRatio < 0 || sampleRadiusRatio > 3) {
+      throw new RangeError('invalid runtime color mixing sample radius ratio');
+    }
+    if (!Number.isFinite(pickupAmount) || pickupAmount < 0 || pickupAmount > 1) {
+      throw new RangeError('invalid runtime color mixing pickup amount');
+    }
+    if (!Number.isFinite(carryAmount) || carryAmount < 0 || carryAmount > 1) {
+      throw new RangeError('invalid runtime color mixing carry amount');
+    }
     if (
       enabled !== this.#brushColorMixEnabled ||
       canvasRatio !== this.#brushColorMixCanvasRatio ||
-      depositAmount !== this.#brushColorMixDepositAmount
+      depositAmount !== this.#brushColorMixDepositAmount ||
+      sampleRadiusRatio !== this.#brushColorMixSampleRadiusRatio ||
+      pickupAmount !== this.#brushColorMixPickupAmount ||
+      carryAmount !== this.#brushColorMixCarryAmount
     ) {
       this.#clearActiveStroke();
     }
     this.#brushColorMixEnabled = enabled;
     this.#brushColorMixCanvasRatio = canvasRatio;
     this.#brushColorMixDepositAmount = depositAmount;
+    this.#brushColorMixSampleRadiusRatio = sampleRadiusRatio;
+    this.#brushColorMixPickupAmount = pickupAmount;
+    this.#brushColorMixCarryAmount = carryAmount;
   }
 
-  brushColorMix(): Readonly<{ enabled: boolean; canvasRatio: number; depositAmount: number }> {
+  brushColorMix(): Readonly<{
+    enabled: boolean;
+    canvasRatio: number;
+    depositAmount: number;
+    sampleRadiusRatio: number;
+    pickupAmount: number;
+    carryAmount: number;
+  }> {
     return Object.freeze({
       enabled: this.#brushColorMixEnabled,
       canvasRatio: this.#brushColorMixCanvasRatio,
       depositAmount: this.#brushColorMixDepositAmount,
+      sampleRadiusRatio: this.#brushColorMixSampleRadiusRatio,
+      pickupAmount: this.#brushColorMixPickupAmount,
+      carryAmount: this.#brushColorMixCarryAmount,
     });
   }
 
@@ -2881,6 +2949,9 @@ export class PaintSessionControllerV1 {
           colorMixEnabled: true,
           colorMixCanvasRatio: this.#brushColorMixCanvasRatio,
           colorMixDepositAmount: this.#brushColorMixDepositAmount,
+          colorMixSampleRadiusRatio: this.#brushColorMixSampleRadiusRatio,
+          colorMixPickupAmount: this.#brushColorMixPickupAmount,
+          colorMixCarryAmount: this.#brushColorMixCarryAmount,
         }),
       ),
     );

@@ -112,6 +112,79 @@ describe('baseline raster tile canonical state', () => {
     expect(pixel[3]).toBeCloseTo(0.25, 2);
   });
 
+  it('carries picked-up active-layer color across later paint dabs', () => {
+    const store = new BaselineRasterTileStoreV1(128, 128, 'rgba8-unorm', layers);
+    store.applyDabs('layer-a', 'underpaint-blue', [
+      Object.freeze({
+        schema: 'illustro.baseline-brush-dab/1' as const,
+        x: 24,
+        y: 32,
+        radius: 8,
+        opacity: 1,
+        color: Object.freeze([0, 0, 1] as const),
+      }),
+    ]);
+    store.finalize('underpaint-blue');
+
+    const wetDab = (x: number): BaselineBrushDabV1 =>
+      Object.freeze({
+        schema: 'illustro.baseline-brush-dab/1' as const,
+        x,
+        y: 32,
+        radius: 8,
+        opacity: 1,
+        color: Object.freeze([1, 0, 0] as const),
+        colorMixEnabled: true,
+        colorMixCanvasRatio: 1,
+        colorMixDepositAmount: 1,
+        colorMixSampleRadiusRatio: 0,
+        colorMixPickupAmount: 1,
+        colorMixCarryAmount: 1,
+      });
+    store.applyDabs('layer-a', 'wet-stroke', [wetDab(24), wetDab(64)]);
+    store.finalize('wet-stroke');
+
+    const tile = store.exportTiles()[0];
+    expect(tile).toBeDefined();
+    const carriedPixel = readBaselineRasterTilePixelV1(tile!, 32 * 128 + 64);
+    expect(carriedPixel[2]).toBeGreaterThan(carriedPixel[0]);
+    expect(carriedPixel[3]).toBeCloseTo(1, 2);
+  });
+
+  it('keeps pickup disabled output compatible with M6A-062 ordinary color mixing', () => {
+    const makeStore = (): BaselineRasterTileStoreV1 =>
+      new BaselineRasterTileStoreV1(128, 128, 'rgba8-unorm', layers);
+    const base = (store: BaselineRasterTileStoreV1): void => {
+      store.applyDabs('layer-a', 'base-blue', [
+        Object.freeze({ ...dab(32, 32), color: Object.freeze([0, 0, 1] as const) }),
+      ]);
+      store.finalize('base-blue');
+    };
+    const legacy = makeStore();
+    const extended = makeStore();
+    base(legacy);
+    base(extended);
+    const m6a062 = Object.freeze({
+      ...dab(32, 32),
+      color: Object.freeze([1, 0, 0] as const),
+      colorMixEnabled: true,
+      colorMixCanvasRatio: 0.5,
+      colorMixDepositAmount: 0.75,
+    });
+    legacy.applyDabs('layer-a', 'legacy-mix', [m6a062]);
+    extended.applyDabs('layer-a', 'extended-mix', [
+      Object.freeze({
+        ...m6a062,
+        colorMixSampleRadiusRatio: 3,
+        colorMixPickupAmount: 0,
+        colorMixCarryAmount: 0,
+      }),
+    ]);
+    legacy.finalize('legacy-mix');
+    extended.finalize('extended-mix');
+    expect(extended.exportTiles()[0]?.bytes).toEqual(legacy.exportTiles()[0]?.bytes);
+  });
+
   it('keeps 16-bit-float document tiles at eight bytes per pixel', () => {
     const store = new BaselineRasterTileStoreV1(128, 128, 'rgba16-float', layers);
     store.applyDabs('layer-a', 'stroke-hdr', [dab(32, 32)]);

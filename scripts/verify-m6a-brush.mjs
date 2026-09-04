@@ -1697,3 +1697,35 @@ requireText(
   'adds each particle radial angle to the already resolved parent tip angle',
   'spray particle-orientation regression coverage missing',
 );
+
+requireText(progress, 'M6A-063 wet/smudge-style pickup:完了', 'M6A-063 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushColorMixPickupAmountV1',
+  'wet color pickup preset contract missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'COLOR_MIX_SAMPLE_OFFSETS_V1',
+  'bounded deterministic color pickup sampling missing',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  'colorMixReservoir',
+  'stateful carried-color reservoir missing',
+);
+requireText(
+  read('src/workers/render.worker.ts'),
+  'colorMixCarryAmount',
+  'worker does not preserve wet color pickup settings',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-color-mix-pickup-range"',
+  'reachable wet color pickup control missing',
+);
+requireText(
+  read('tests/unit/baseline-raster-tile-store.test.ts'),
+  'carries picked-up active-layer color across later paint dabs',
+  'wet color pickup regression coverage missing',
+);

@@ -6,6 +6,9 @@ import {
   baselineDabColorV1,
   baselineDabColorMixCanvasRatioV1,
   baselineDabColorMixDepositAmountV1,
+  baselineDabColorMixSampleRadiusRatioV1,
+  baselineDabColorMixPickupAmountV1,
+  baselineDabColorMixCarryAmountV1,
   baselineDabColorMixEnabledV1,
   baselineDabFlowV1,
   baselineDabHardnessV1,
@@ -246,6 +249,15 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         ...(dab.colorMixDepositAmount === undefined
           ? {}
           : { colorMixDepositAmount: dab.colorMixDepositAmount }),
+        ...(dab.colorMixSampleRadiusRatio === undefined
+          ? {}
+          : { colorMixSampleRadiusRatio: dab.colorMixSampleRadiusRatio }),
+        ...(dab.colorMixPickupAmount === undefined
+          ? {}
+          : { colorMixPickupAmount: dab.colorMixPickupAmount }),
+        ...(dab.colorMixCarryAmount === undefined
+          ? {}
+          : { colorMixCarryAmount: dab.colorMixCarryAmount }),
       }),
     ),
   );
@@ -282,7 +294,19 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
     (dab.colorMixDepositAmount === undefined ||
       (Number.isFinite(dab.colorMixDepositAmount) &&
         dab.colorMixDepositAmount >= 0 &&
-        dab.colorMixDepositAmount <= 1))
+        dab.colorMixDepositAmount <= 1)) &&
+    (dab.colorMixSampleRadiusRatio === undefined ||
+      (Number.isFinite(dab.colorMixSampleRadiusRatio) &&
+        dab.colorMixSampleRadiusRatio >= 0 &&
+        dab.colorMixSampleRadiusRatio <= 3)) &&
+    (dab.colorMixPickupAmount === undefined ||
+      (Number.isFinite(dab.colorMixPickupAmount) &&
+        dab.colorMixPickupAmount >= 0 &&
+        dab.colorMixPickupAmount <= 1)) &&
+    (dab.colorMixCarryAmount === undefined ||
+      (Number.isFinite(dab.colorMixCarryAmount) &&
+        dab.colorMixCarryAmount >= 0 &&
+        dab.colorMixCarryAmount <= 1))
   );
 }
 
@@ -304,6 +328,10 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
     baselineDabColorMixEnabledV1(left) === baselineDabColorMixEnabledV1(right) &&
     baselineDabColorMixCanvasRatioV1(left) === baselineDabColorMixCanvasRatioV1(right) &&
     baselineDabColorMixDepositAmountV1(left) === baselineDabColorMixDepositAmountV1(right) &&
+    baselineDabColorMixSampleRadiusRatioV1(left) ===
+      baselineDabColorMixSampleRadiusRatioV1(right) &&
+    baselineDabColorMixPickupAmountV1(left) === baselineDabColorMixPickupAmountV1(right) &&
+    baselineDabColorMixCarryAmountV1(left) === baselineDabColorMixCarryAmountV1(right) &&
     baselineDabColorV1(left).every(
       (component, index) => component === baselineDabColorV1(right)[index],
     )
