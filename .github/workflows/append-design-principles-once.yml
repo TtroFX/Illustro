@@ -1,9 +1,8 @@
-name: Integrate M6A-077 deterministic thumbnails once
+name: Mark phone UX remediation complete once
 
-'on':
+on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - '.github/design-principles-trigger'
 
@@ -11,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  integrate-m6a-077:
+  mark-phone-ux-remediation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -19,187 +18,40 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Connect deterministic thumbnails to production
+      - name: Mark implemented phone UX items complete
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          import re
-
-          build = Path('scripts/build.mjs')
-          text = build.read_text()
-          marker = "  'scripts/generate-m6a-sampled-resources.mjs',\n"
-          addition = marker + "  'scripts/generate-m6a-brush-thumbnails.mjs',\n"
-          if 'generate-m6a-brush-thumbnails.mjs' not in text:
-              if marker not in text:
-                  raise SystemExit('build generator marker missing')
-              text = text.replace(marker, addition, 1)
-              build.write_text(text)
-
-          controller = Path('src/app/brush-preset-controller.ts')
-          text = controller.read_text()
-          import_marker = "import { customBrushTipAlphaFromFileV1, drawCustomBrushTipPreviewV1 } from './custom-brush-tip.js';\n"
-          thumbnail_import = "import { defaultBrushThumbnailUrlV1 } from './default-brush-thumbnails.js';\n"
-          if thumbnail_import not in text:
-              if import_marker not in text:
-                  raise SystemExit('controller import marker missing')
-              text = text.replace(import_marker, import_marker + thumbnail_import, 1)
-
-          if 'shell-brush-preset-thumbnail' not in text:
-              pattern = re.compile(
-                  r"if \(item\.preset\.id === state\.selectedPresetId\) button\.classList\.add\('is-selected'\);\s*"
-                  r"const title = document\.createElement\('span'\);\s*"
-                  r"title\.className = 'shell-brush-preset-name';\s*"
-                  r"title\.textContent = item\.preset\.name;\s*"
-                  r"const meta = document\.createElement\('span'\);\s*"
-                  r"meta\.className = 'shell-brush-preset-meta';\s*"
-                  r"meta\.textContent = `\$\{item\.preset\.category\} · \$\{item\.source === 'factory' \? '標準' : 'ユーザー'\}"
-                  r"\$\{item\.modified \? ' · Modified' : ''\}\$\{item\.locked \? ' · Locked' : ''\}`;\s*"
-                  r"button\.append\(title, meta\);"
-              )
-              replacement = """if (item.preset.id === state.selectedPresetId) button.classList.add('is-selected');
-              const thumbnailUrl = item.source === 'factory' ? defaultBrushThumbnailUrlV1(item.preset.id) : null;
-              const title = document.createElement('span');
-              title.className = 'shell-brush-preset-name';
-              title.textContent = item.preset.name;
-              const meta = document.createElement('span');
-              meta.className = 'shell-brush-preset-meta';
-              meta.textContent = `${item.preset.category} · ${item.source === 'factory' ? '標準' : 'ユーザー'}${item.modified ? ' · Modified' : ''}${item.locked ? ' · Locked' : ''}`;
-              if (thumbnailUrl !== null) {
-                const thumbnail = document.createElement('img');
-                thumbnail.className = 'shell-brush-preset-thumbnail';
-                thumbnail.src = thumbnailUrl;
-                thumbnail.alt = '';
-                thumbnail.loading = 'lazy';
-                thumbnail.decoding = 'async';
-                thumbnail.setAttribute('aria-hidden', 'true');
-                button.classList.add('has-thumbnail');
-                button.append(thumbnail, title, meta);
-              } else {
-                button.append(title, meta);
-              }"""
-              text, count = pattern.subn(replacement, text, count=1)
-              if count != 1:
-                  raise SystemExit('controller render anchor missing')
-          controller.write_text(text)
-
-          css = Path('public/app-shell.css')
-          text = css.read_text()
-          styles = """
-
-          .shell-brush-preset-row.has-thumbnail {
-            grid-template-columns: 44px minmax(0, 1fr);
-            grid-template-areas:
-              'thumbnail name'
-              'thumbnail meta';
-            column-gap: 8px;
-            align-items: center;
-            min-height: 58px;
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          replacements = {
+              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
+                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
+              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
+                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
+              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
+                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
           }
-
-          .shell-brush-preset-thumbnail {
-            grid-area: thumbnail;
-            width: 44px;
-            height: 44px;
-            border: 1px solid #e7ebf2;
-            border-radius: 8px;
-            background: #fbfcff;
-            object-fit: cover;
-          }
-
-          .shell-brush-preset-row.has-thumbnail .shell-brush-preset-name {
-            grid-area: name;
-            align-self: end;
-          }
-
-          .shell-brush-preset-row.has-thumbnail .shell-brush-preset-meta {
-            grid-area: meta;
-            align-self: start;
-          }
-          """
-          if '.shell-brush-preset-thumbnail {' not in text:
-              css.write_text(text.rstrip() + styles + '\n')
+          changed = False
+          for before, after in replacements.items():
+              if before in text:
+                  if text.count(before) != 1:
+                      raise SystemExit(f'expected one progress line: {before}')
+                  text = text.replace(before, after, 1)
+                  changed = True
+              elif after not in text:
+                  raise SystemExit(f'progress line missing: {before}')
+          if changed:
+              path.write_text(text)
           PY
-
-      - name: Restore locked dependencies
-        run: npm ci
-
-      - name: Format
-        run: npm run format
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Unit tests
-        run: npm run test:unit
-
-      - name: Production build with thumbnails
-        run: npm run build
-
-      - name: Verify thumbnail asset gate
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          root = Path('dist/assets/brush-thumbnails')
-          manifest = json.loads((root / 'manifest.json').read_text())
-          assert manifest['schema'] == 'illustro.default-brush-thumbnails/1'
-          assert manifest['dimensions'] == [256, 256]
-          assert manifest['presetCount'] == 48
-          assert len(manifest['entries']) == 48
-          assert len({entry['thumbnail']['sha256'] for entry in manifest['entries']}) == 48
-          for entry in manifest['entries']:
-              assert (Path('dist') / entry['thumbnail']['path']).is_file()
-              assert (Path('dist') / entry['pressureLow']['path']).is_file()
-              assert (Path('dist') / entry['pressureHigh']['path']).is_file()
-              if entry['pressureResponsive']:
-                  assert entry['pressureLow']['sha256'] != entry['pressureHigh']['sha256']
-              else:
-                  assert entry['pressureLow']['sha256'] == entry['pressureHigh']['sha256']
-          assert (root / 'contact-sheet.svg').is_file()
-          assert (root / 'category-pressure-qa.svg').is_file()
-          PY
-
-      - name: M6A inspection
-        run: npm run verify:m6a
-
-      - name: Record regenerated presentation identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp .build/meta/m6a-brush-thumbnails.json verification/m6a-brush-thumbnail-regeneration.json
-          python - <<'PY'
-          from pathlib import Path
-          import json
-          memo = Path('ILLUSTRO_DESIGN_MEMO.md')
-          text = memo.read_text()
-          heading = '## J-9. Deterministic thumbnail regeneration supersession — 2026-09-05'
-          if heading not in text:
-              q = json.loads(Path('verification/m6a-brush-thumbnail-regeneration.json').read_text())
-              text += f'''\n\n{heading}\n\n**Status:** AUTHORITATIVE / CLOSED for regenerated J presentation assets under M6A-077. The historical J thumbnail bytes are superseded by deterministic 256×256 representative-stroke assets derived from the canonical 48 preset semantics, while J-4/J-5 visual/pressure QA meaning remains unchanged.\n\n- generation identity: `{q['generationId']}`;\n- 48 main thumbnails: unique SHA-256 count `{q['mainThumbnailUniqueHashes']}/48`;\n- low/high-pressure reference pairs: `{q['pressureReferencePairs']}` total;\n- pressure-responsive pairs: `{q['pressureResponsiveDistinctPairs']}/{q['pressureResponsivePairCount']}` correctly differentiated;\n- non-pressure-responsive pairs: `{q['pressureNonResponsiveStablePairs']}/{q['pressureNonResponsivePairCount']}` correctly stable;\n- manifest SHA-256: `{q['manifestSHA256']}`;\n- contact-sheet SHA-256: `{q['contactSheetSHA256']}`;\n- category-pressure QA SHA-256: `{q['categoryPressureQaSHA256']}`;\n- failure count: `{q['failureCount']}`.\n\nThe renderer follows the accepted light Canvas-First Brush Presets presentation and representative asset-board convention: isolated material strokes/swatches, neutral high-contrast stroke presentation, pressure differentiation only where the canonical preset actually maps pressure, material breakup for sampled/texture presets, analytic clean strokes for procedural-first presets, and explicit erase/blend/blur visual semantics. These thumbnails are presentation-only assets and do not change brush behavior. Production build generation, service-worker precache inclusion and Brush Presets list display are connected to the application path.\n'''
-              memo.write_text(text)
-          PY
-
-      - name: Commit and push M6A-077 implementation
-        shell: bash
-        run: |
-          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add ILLUSTRO_DESIGN_MEMO.md public/app-shell.css scripts/build.mjs \
-            scripts/generate-m6a-brush-thumbnails.mjs src/app/brush-preset-controller.ts \
-            src/app/default-brush-thumbnails.ts tests/unit/default-brush-thumbnails.test.ts \
-            verification/m6a-brush-thumbnail-regeneration.json
-          git diff --cached --check
+          git add IMPLEMENTATION_PROGRESS.md
           if git diff --cached --quiet; then
-            echo 'M6A-077 already integrated.'
+            echo 'Phone UX remediation progress already complete.'
             exit 0
           fi
-          git commit -m 'feat: integrate deterministic default brush thumbnails'
+          git commit -m 'chore: close phone UX remediation'
           git push origin HEAD:main
