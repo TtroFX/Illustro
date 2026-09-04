@@ -69,10 +69,7 @@ function pointsFor(preset, mode) {
     const p = pressure(t, mode);
     const scatter = preset.category === 'Scatter / Special' || preset.name === 'Sponge';
     return {
-      x:
-        22 +
-        t * 212 +
-        (rnd(seed, i * 2) - 0.5) * (scatter ? 9 : preset.positionJitter * 8),
+      x: 22 + t * 212 + (rnd(seed, i * 2) - 0.5) * (scatter ? 9 : preset.positionJitter * 8),
       y:
         128 +
         Math.sin(t * Math.PI * 2.08 - 0.4) * 27 +
@@ -142,7 +139,7 @@ function representativeSvg(preset, mode) {
       ? Array.from(
           { length: 5 },
           (_, i) =>
-            `<path d="M30 ${82 + i * 23} C82 ${62 + i * 22},172 ${109 + i * 10},228 ${84 + i * 23}" fill="none" stroke="#53627c" stroke-width="${((8 + i * 2) * blendSizeScale).toFixed(2)}" stroke-linecap="round" opacity="${((0.12 + i * 0.055) * blendOpacityScale * blendFlowScale).toFixed(3)}"${preset.behavior === 'blur' ? ' filter="url(#soft)"' : ''}/>` ,
+            `<path d="M30 ${82 + i * 23} C82 ${62 + i * 22},172 ${109 + i * 10},228 ${84 + i * 23}" fill="none" stroke="#53627c" stroke-width="${((8 + i * 2) * blendSizeScale).toFixed(2)}" stroke-linecap="round" opacity="${((0.12 + i * 0.055) * blendOpacityScale * blendFlowScale).toFixed(3)}"${preset.behavior === 'blur' ? ' filter="url(#soft)"' : ''}/>`,
         ).join('')
       : '';
   const body = blend || `${segments}${particles}`;
@@ -218,7 +215,8 @@ const categories = [...new Set(entries.map((entry) => entry.category))];
 const categoryPressureQa = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="${categories.length * 256}" viewBox="0 0 512 ${categories.length * 256}">${categories
   .map((category, i) => {
     const categoryEntries = entries.filter((entry) => entry.category === category);
-    const entry = categoryEntries.find((candidate) => candidate.pressureResponsive) ?? categoryEntries[0];
+    const entry =
+      categoryEntries.find((candidate) => candidate.pressureResponsive) ?? categoryEntries[0];
     if (!entry) throw new Error(`missing category representative: ${category}`);
     return `<image href="${entry.id}.pressure-low.svg" x="0" y="${i * 256}" width="256" height="256"/><image href="${entry.id}.pressure-high.svg" x="256" y="${i * 256}" width="256" height="256"/>`;
   })

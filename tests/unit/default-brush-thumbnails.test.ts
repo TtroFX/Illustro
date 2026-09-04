@@ -23,7 +23,12 @@ describe('default brush thumbnail contract', () => {
   });
 
   it('fails closed for user IDs and path-like input', () => {
-    for (const id of ['user.brush.1', '../builtin.ink.g-pen', 'builtin/ink/g-pen', 'builtin.ink.g-pen?x=1']) {
+    for (const id of [
+      'user.brush.1',
+      '../builtin.ink.g-pen',
+      'builtin/ink/g-pen',
+      'builtin.ink.g-pen?x=1',
+    ]) {
       expect(defaultBrushThumbnailUrlV1(id)).toBeNull();
       expect(defaultBrushPressureReferenceUrlV1(id, 'low')).toBeNull();
     }
