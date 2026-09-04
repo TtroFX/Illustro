@@ -528,7 +528,7 @@ M6A-070 configurable stylus-button action plumbing:完了
 M6A-071 final 77 sampled resources loader:完了
 再開メモ: M6A-071はI-FINALの凍結済み77件inventory semanticsを維持しつつ、消失したaccepted ZIP bytesについてユーザー明示許可を得て決定論的再生成へ移行した。新canonical packageは`ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-09-04.zip`、SHA-256=`7ba886fd15e22fcce3d6b0ae0004c85eb8370626346a00cff3d40c0955ad2eec`、source manifest SHA-256=`97d44976ab0e87b8f3ae5538afa8f5c809b7497a6c060559d74902e0cfaa1355`。33 brush-tip / 32 grain（paper 12）/ 12 patternの77件、exact duplicate 0、maximum same-kind correlation 0.9694<=0.995、maximum seam score 0.0237<=0.12、再生成2回のZIP SHA一致を確認した。production buildはdeterministic generatorから`.build/generated-public/assets/sampled`を生成してdistへ統合し、manifest/payload loaderはsafe relative path・frozen grain/paper alias・byteLength/SHA-256・verified-only lazy cacheをfail-closedで検証する。標準CI run 33864874154 / commit cb6f53fc02414ac6cd1defb515a37c531a89a486でformat/lint/typecheck/unit/M1-M5D/build/integration/deployment/build identityが全PASS。設計正本には旧2026-08-30 hashを履歴として残し、I-FINAL-5で2026-09-04 identityへのsupersessionを明示した。次はM6A-072 brush-tip resource managerから再開する。
 M6A-072 brush-tip resource manager:完了
-M6A-073 grain resource manager:未完了
+M6A-073 grain resource manager:完了
 M6A-074 paper resource manager:未完了
 M6A-075 pattern resource manager:未完了
 M6A-076 48-preset Default Brush Pack integration:未完了
