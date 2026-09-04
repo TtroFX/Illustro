@@ -15,4 +15,12 @@ new_handler = "'  const onTipShape = (): void => {\\n',"
 if payload.count(old_handler) != 1:
     raise SystemExit(f'unexpected M6A-063 handler-anchor count: {payload.count(old_handler)}')
 payload = payload.replace(old_handler, new_handler, 1)
+for old_type, new_type in (
+    ('    sampleRadiusRatio = this.#brushColorMixSampleRadiusRatio,', '    sampleRadiusRatio: number = this.#brushColorMixSampleRadiusRatio,'),
+    ('    pickupAmount = this.#brushColorMixPickupAmount,', '    pickupAmount: number = this.#brushColorMixPickupAmount,'),
+    ('    carryAmount = this.#brushColorMixCarryAmount,', '    carryAmount: number = this.#brushColorMixCarryAmount,'),
+):
+    if payload.count(old_type) != 1:
+        raise SystemExit(f'unexpected M6A-063 runtime type anchor count: {payload.count(old_type)}: {old_type}')
+    payload = payload.replace(old_type, new_type, 1)
 exec(compile(payload, '<m6a063-fixed>', 'exec'))
