@@ -1,0 +1,39 @@
+name: Format M6A-071 sampled-resource files
+
+'on':
+  push:
+    branches:
+      - work/m6a-071-format-20260904
+    paths:
+      - '.github/workflows/m6a-071-format.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: work/m6a-071-format-20260904
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Install pinned Biome
+        run: npm install --global @biomejs/biome@2.5.11
+      - name: Format M6A-071 files
+        run: biome format --write scripts/generate-m6a-sampled-resources.mjs tests/integration/m6a-sampled-assets.test.ts
+      - name: Commit formatted files and remove temporary workflow
+        run: |
+          set -euo pipefail
+          rm .github/workflows/m6a-071-format.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/generate-m6a-sampled-resources.mjs tests/integration/m6a-sampled-assets.test.ts .github/workflows/m6a-071-format.yml
+          git diff --cached --check
+          git commit -m 'style: format M6A-071 sampled resources'
+          git push origin HEAD:work/m6a-071-format-20260904
