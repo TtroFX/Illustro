@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply M6A-064 patch
-        run: python3 .github/m6a-064-apply-once.py
+        run: python3 .github/m6a-064-run-fixed.py
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -87,3 +87,4 @@ jobs:
           git diff --cached --check
           git commit -m 'feat: implement main sub brush color contribution'
           git push origin HEAD:main
+# retry after color-workflow anchor hardening
