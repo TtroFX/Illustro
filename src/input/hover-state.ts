@@ -9,6 +9,8 @@ export interface PointerHoverSnapshotV1 {
   readonly active: boolean;
   readonly source: PointerInputSourceV1 | null;
   readonly pointerId: number | null;
+  readonly clientX: number | null;
+  readonly clientY: number | null;
   readonly surfaceX: number | null;
   readonly surfaceY: number | null;
   readonly pressure: number | null;
@@ -62,6 +64,8 @@ export class PointerHoverTrackerV1 {
         active: false,
         source: null,
         pointerId: null,
+        clientX: null,
+        clientY: null,
         surfaceX: null,
         surfaceY: null,
         pressure: null,
@@ -78,6 +82,8 @@ export class PointerHoverTrackerV1 {
       active: true,
       source: sample.source,
       pointerId: sample.pointerId,
+      clientX: sample.clientX,
+      clientY: sample.clientY,
       surfaceX: sample.surfaceX,
       surfaceY: sample.surfaceY,
       pressure: sample.pressure,

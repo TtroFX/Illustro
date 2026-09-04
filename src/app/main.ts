@@ -30,6 +30,7 @@ import { PaintPersistenceControllerV1 } from './paint-persistence-controller.js'
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { canonicalBrushCompositeOperationV1 } from './canonical-raster-brush.js';
 import { installBrushPresetControllerV1 } from './brush-preset-controller.js';
+import { installBrushHoverOutlineControllerV1 } from './brush-hover-outline-controller.js';
 import { SelectionCoverageControllerV1 } from './selection-coverage-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { installViewportControllerV1 } from './viewport-controller.js';
@@ -58,6 +59,12 @@ const renderer = startRendererController(shell, workers.render, root);
 const paintSession = new PaintSessionControllerV1(renderer, {
   mapPointerToDocument: (sample, documentValue) =>
     viewport.mapPointerToDocument(sample, documentValue),
+});
+const brushHoverOutline = installBrushHoverOutlineControllerV1({
+  root,
+  surface: shell.canvas,
+  paintSession,
+  viewport,
 });
 const brushRasterButton = document.querySelector<HTMLButtonElement>('#brush-mode-raster');
 const brushEraserButton = document.querySelector<HTMLButtonElement>('#brush-mode-eraser');
@@ -92,7 +99,10 @@ const brushPresets = installBrushPresetControllerV1({
   root,
   paintSession,
   storage: globalThis.localStorage,
-  onBrushModeChanged: publishBrushMode,
+  onBrushModeChanged: () => {
+    publishBrushMode();
+    brushHoverOutline.refresh();
+  },
 });
 const paintHistory = new PaintHistoryControllerV1(paintSession);
 const colorWorkflow = installColorWorkflowControllerV1({
@@ -254,6 +264,7 @@ const pointerHover = new PointerHoverTrackerV1();
 const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
   const latest = batch.confirmed.at(-1);
   const hover = pointerHover.ingest(batch);
+  brushHoverOutline.updateHover(hover);
   const arbitration = pointerArbitration.route(batch);
   root.dataset.illustroPointerEvent = batch.eventType;
   root.dataset.illustroPointerSource = latest?.source ?? 'unknown';
@@ -605,6 +616,7 @@ globalThis.addEventListener(
     pointerInput.dispose();
     pointerTransport.dispose();
     pointerHover.clear();
+    brushHoverOutline.dispose();
     root.dataset.illustroPointerInput = 'disposed';
     root.dataset.illustroPaintSession = 'closing';
     stopPerformanceInstrumentation();

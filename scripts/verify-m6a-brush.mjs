@@ -1792,3 +1792,35 @@ requireText(
   'clips brush-radius overflow to the connected side of a reference line',
   'reference anti-overflow regression coverage missing',
 );
+
+requireText(progress, 'M6A-066 hover brush outline:完了', 'M6A-066 progress is not complete');
+requireText(
+  read('src/input/hover-state.ts'),
+  'readonly clientX: number | null;',
+  'hover state does not retain client coordinates for transformed viewport mapping',
+);
+requireText(
+  read('src/app/brush-hover-outline-controller.ts'),
+  'resolveBrushHoverOutlinePresentationV1',
+  'hover brush outline presentation resolver missing',
+);
+requireText(
+  read('src/app/main.ts'),
+  'brushHoverOutline.updateHover(hover)',
+  'production pointer hover is not connected to brush outline',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-hover-outline"',
+  'brush hover outline overlay is not reachable in the canvas stage',
+);
+requireText(
+  read('public/app-shell.css'),
+  '.shell-brush-hover-outline',
+  'brush hover outline styling missing',
+);
+requireText(
+  read('tests/unit/brush-hover-outline.test.ts'),
+  'projects nominal brush diameter through viewport zoom in screen space',
+  'hover brush outline regression coverage missing',
+);

@@ -59,6 +59,8 @@ describe('M3 hover data foundation', () => {
       active: true,
       source: 'pen',
       pointerId: 1,
+      clientX: 40,
+      clientY: 50,
       surfaceX: 30,
       surfaceY: 35,
       pressure: 0,
