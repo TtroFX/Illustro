@@ -1,0 +1,67 @@
+name: Close M6A-071 canonical sampled resources
+
+'on':
+  push:
+    branches:
+      - work/m6a-071-close-20260904
+    paths:
+      - '.github/workflows/m6a-071-close.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: work/m6a-071-close-20260904
+          fetch-depth: 0
+      - name: Update canonical design and progress sources
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          design_path = Path('ILLUSTRO_DESIGN_MEMO.md')
+          design = design_path.read_text()
+          marker = '### I final change-log entry'
+          if design.count(marker) != 1:
+              raise SystemExit('unexpected I final change-log marker count')
+          supersession = '''## I-FINAL-5. Canonical regeneration supersession — 2026-09-04\n\n**Status:** AUTHORITATIVE / CLOSED. This entry supersedes the 2026-08-30 I-FINAL package/hash identity only; the frozen 77-resource inventory semantics and procedural-first pruning remain unchanged.\n\nThe previously accepted `ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-08-30.zip` bytes were no longer recoverable from Git, File Library, or Drive. The user explicitly authorized deterministic regeneration of the sampled assets and replacement of the canonical package/hash identity rather than blocking implementation on the missing historical ZIP.\n\nThe regenerated production identity is:\n\n- package: `ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-09-04.zip`;\n- package SHA-256: `7ba886fd15e22fcce3d6b0ae0004c85eb8370626346a00cff3d40c0955ad2eec`;\n- package-manifest SHA-256: `b7321b529e5fa281b82a435ec7bc5f81a10dafe057e530216bb7b49e973e4783`;\n- source-manifest SHA-256: `97d44976ab0e87b8f3ae5538afa8f5c809b7497a6c060559d74902e0cfaa1355`;\n- loader-manifest SHA-256: `964993be658aec8cf476b171d5b4905dd96f4c2c0230ed698966854987d8f138`;\n- payload bytes: `28,156,613`;\n- inventory: 33 brush tips + 32 grains (12 paper subtype) + 12 patterns = 77 resources.\n\nRegeneration QA is CLOSED/PASS: exact duplicate groups `0`; maximum same-kind correlation `0.9694` (gate `<= 0.995`); maximum seam score `0.0237` (gate `<= 0.12`); a second deterministic generation produced the identical package SHA-256. Production build generation, manifest/payload distribution, fail-closed byte-length/SHA validation and verified-only lazy caching are connected to the production path. Repository-standard CI run `33864874154` at `cb6f53fc02414ac6cd1defb515a37c531a89a486` passed formatting, lint, typecheck, all unit tests, M1–M5D inspections, production build, integration tests, deployment contract and build-identity verification.\n\nThe 2026-08-30 hashes remain historical provenance only and are not the current production package identity.\n\n'''
+          if '## I-FINAL-5. Canonical regeneration supersession — 2026-09-04' in design:
+              raise SystemExit('I-FINAL-5 already present')
+          design = design.replace(marker, supersession + marker)
+          design_path.write_text(design)
+
+          progress_path = Path('IMPLEMENTATION_PROGRESS.md')
+          progress = progress_path.read_text()
+          pattern = re.compile(
+              r'M6A-071 final 77 sampled resources loader:未完了\n再開メモ:.*?\nM6A-072 brush-tip resource manager:未完了',
+              re.S,
+          )
+          replacement = '''M6A-071 final 77 sampled resources loader:完了\n再開メモ: M6A-071はI-FINALの凍結済み77件inventory semanticsを維持しつつ、消失したaccepted ZIP bytesについてユーザー明示許可を得て決定論的再生成へ移行した。新canonical packageは`ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-09-04.zip`、SHA-256=`7ba886fd15e22fcce3d6b0ae0004c85eb8370626346a00cff3d40c0955ad2eec`、source manifest SHA-256=`97d44976ab0e87b8f3ae5538afa8f5c809b7497a6c060559d74902e0cfaa1355`。33 brush-tip / 32 grain（paper 12）/ 12 patternの77件、exact duplicate 0、maximum same-kind correlation 0.9694<=0.995、maximum seam score 0.0237<=0.12、再生成2回のZIP SHA一致を確認した。production buildはdeterministic generatorから`.build/generated-public/assets/sampled`を生成してdistへ統合し、manifest/payload loaderはsafe relative path・frozen grain/paper alias・byteLength/SHA-256・verified-only lazy cacheをfail-closedで検証する。標準CI run 33864874154 / commit cb6f53fc02414ac6cd1defb515a37c531a89a486でformat/lint/typecheck/unit/M1-M5D/build/integration/deployment/build identityが全PASS。設計正本には旧2026-08-30 hashを履歴として残し、I-FINAL-5で2026-09-04 identityへのsupersessionを明示した。次はM6A-072 brush-tip resource managerから再開する。\nM6A-072 brush-tip resource manager:未完了'''
+          progress, count = pattern.subn(replacement, progress, count=1)
+          if count != 1:
+              raise SystemExit(f'unexpected M6A-071 progress replacement count: {count}')
+          progress_path.write_text(progress)
+          PY
+      - name: Validate closure diff
+        run: |
+          set -euo pipefail
+          grep -F 'M6A-071 final 77 sampled resources loader:完了' IMPLEMENTATION_PROGRESS.md
+          grep -F '## I-FINAL-5. Canonical regeneration supersession — 2026-09-04' ILLUSTRO_DESIGN_MEMO.md
+          grep -F '7ba886fd15e22fcce3d6b0ae0004c85eb8370626346a00cff3d40c0955ad2eec' ILLUSTRO_DESIGN_MEMO.md
+          git diff --check
+      - name: Commit closure and remove temporary workflow
+        run: |
+          set -euo pipefail
+          rm .github/workflows/m6a-071-close.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add ILLUSTRO_DESIGN_MEMO.md IMPLEMENTATION_PROGRESS.md .github/workflows/m6a-071-close.yml
+          git diff --cached --check
+          git commit -m 'docs: close M6A-071 regenerated sampled resources'
+          git push origin HEAD:work/m6a-071-close-20260904
