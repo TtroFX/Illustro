@@ -287,9 +287,29 @@
                 <button id="brush-pressure-flow" type="button" aria-pressed="false" title="ペン筆圧をブラシ流量へ反映">OFF</button>
                 <span class="shell-brush-tip-kind">Pressure</span>
               </div>
-              <fieldset class="shell-brush-pressure-curve-editor" aria-label="筆圧レスポンスカーブ">
+              <fieldset class="shell-brush-pressure-curve-editor" aria-label="既定の筆圧レスポンスカーブ">
+                <div class="shell-brush-pressure-curve-header">
+                  <label for="global-pressure-curve-preset">既定の筆圧カーブ</label>
+                  <select id="global-pressure-curve-preset" aria-label="既定の筆圧カーブプリセット">
+                    <option value="linear">Linear</option>
+                    <option value="soft">Soft</option>
+                    <option value="hard">Hard</option>
+                    <option value="s-curve">S Curve</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <canvas id="global-pressure-curve" width="240" height="128" tabindex="0" aria-label="既定の筆圧レスポンスカーブ。個別上書きのないブラシへ適用"></canvas>
+                <div class="shell-brush-pressure-curve-values">
+                  <label>入力 <input id="global-pressure-curve-input" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <label>出力 <input id="global-pressure-curve-output" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="0" /><span>%</span></label>
+                  <button id="global-pressure-curve-delete" type="button">点を削除</button>
+                  <button id="global-pressure-curve-reset" type="button">Reset</button>
+                </div>
+              </fieldset>
+              <fieldset class="shell-brush-pressure-curve-editor" aria-label="ブラシ個別の筆圧レスポンスカーブ">
                 <div class="shell-brush-pressure-curve-header">
                   <label for="brush-pressure-curve-preset">筆圧カーブ</label>
+                  <button id="brush-pressure-curve-override" type="button" aria-pressed="false">このブラシで上書き</button>
                   <select id="brush-pressure-curve-preset" aria-label="筆圧カーブプリセット">
                     <option value="linear">Linear</option>
                     <option value="soft">Soft</option>

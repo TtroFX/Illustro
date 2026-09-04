@@ -27,7 +27,8 @@ import {
   brushPressureSizeEnabledV1,
   brushPressureOpacityEnabledV1,
   brushPressureFlowEnabledV1,
-  brushPressureResponseCurveV1,
+  brushPressureResponseCurveOverrideV1,
+  resolveBrushPressureResponseCurveV1,
   brushTiltSizeEnabledV1,
   brushTiltOpacityEnabledV1,
   brushTiltFlowEnabledV1,
@@ -80,7 +81,11 @@ import {
   type BrushTipShapeV1,
   type BrushTextureBlendModeV1,
 } from '../domain/brush-schema.js';
-import { responseCurveIsLinearV1 } from '../domain/response-curve.js';
+import {
+  LINEAR_RESPONSE_CURVE_V1,
+  responseCurveIsLinearV1,
+  type ResponseCurvePointV1,
+} from '../domain/response-curve.js';
 import { customBrushTipAlphaFromFileV1, drawCustomBrushTipPreviewV1 } from './custom-brush-tip.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { installSharedCurveEditorV1, type SharedCurveEditorV1 } from './shared-curve-editor.js';
@@ -127,6 +132,7 @@ import {
   updateBrushPresetPressureOpacityV1,
   updateBrushPresetPressureFlowV1,
   updateBrushPresetPressureResponseCurveV1,
+  clearBrushPresetPressureResponseCurveOverrideV1,
   updateBrushPresetTiltSizeV1,
   updateBrushPresetTiltOpacityV1,
   updateBrushPresetTiltFlowV1,
@@ -198,6 +204,11 @@ function modeForBehavior(behavior: BrushBehaviorV1): 'raster' | 'eraser' | 'smud
   return behavior === 'paint' ? 'raster' : behavior === 'erase' ? 'eraser' : behavior;
 }
 
+export interface PressureResponseDefaultSourceV1 {
+  snapshot(): { readonly curve: readonly ResponseCurvePointV1[] };
+  subscribe(listener: (curve: readonly ResponseCurvePointV1[]) => void): () => void;
+}
+
 export interface BrushPresetControllerV1 {
   snapshot(): BrushPresetLibraryStateV1;
   refresh(): void;
@@ -208,9 +219,12 @@ export function installBrushPresetControllerV1(input: {
   readonly root: HTMLElement;
   readonly paintSession: PaintSessionControllerV1;
   readonly storage?: Storage | null;
+  readonly pressureResponseDefault?: PressureResponseDefaultSourceV1;
   readonly onBrushModeChanged?: () => void;
 }): BrushPresetControllerV1 {
   const storage = input.storage ?? globalThis.localStorage;
+  const defaultPressureResponseCurve = (): readonly ResponseCurvePointV1[] =>
+    input.pressureResponseDefault?.snapshot().curve ?? LINEAR_RESPONSE_CURVE_V1;
   const search = requireElement('#brush-preset-search', HTMLInputElement);
   const category = requireElement('#brush-preset-category', HTMLSelectElement);
   const list = requireElement('#brush-preset-list', HTMLFieldSetElement);
@@ -274,6 +288,10 @@ export function installBrushPresetControllerV1(input: {
   const pressureCurveOutput = requireElement('#brush-pressure-curve-output', HTMLInputElement);
   const pressureCurveDelete = requireElement('#brush-pressure-curve-delete', HTMLButtonElement);
   const pressureCurveReset = requireElement('#brush-pressure-curve-reset', HTMLButtonElement);
+  const pressureCurveOverrideButton = requireElement(
+    '#brush-pressure-curve-override',
+    HTMLButtonElement,
+  );
   const tiltSizeButton = requireElement('#brush-tilt-size', HTMLButtonElement);
   const tiltOpacityButton = requireElement('#brush-tilt-opacity', HTMLButtonElement);
   const tiltFlowButton = requireElement('#brush-tilt-flow', HTMLButtonElement);
@@ -517,7 +535,10 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushPressureOpacityEnabled(pressureOpacityEnabled);
     const pressureFlowEnabled = brushPressureFlowEnabledV1(item.preset);
     input.paintSession.setBrushPressureFlowEnabled(pressureFlowEnabled);
-    const pressureResponseCurve = brushPressureResponseCurveV1(item.preset);
+    const pressureResponseCurve = resolveBrushPressureResponseCurveV1(
+      item.preset,
+      defaultPressureResponseCurve(),
+    );
     input.paintSession.setBrushPressureResponseCurve(pressureResponseCurve);
     const tiltSizeEnabled = brushTiltSizeEnabledV1(item.preset);
     input.paintSession.setBrushTiltSizeEnabled(tiltSizeEnabled);
@@ -650,6 +671,8 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushPressureOpacity = String(pressureOpacityEnabled);
     input.root.dataset.illustroBrushPressureFlow = String(pressureFlowEnabled);
     input.root.dataset.illustroBrushPressureCurvePoints = String(pressureResponseCurve.length);
+    input.root.dataset.illustroBrushPressureCurveSource =
+      brushPressureResponseCurveOverrideV1(item.preset) === null ? 'global' : 'preset';
     input.root.dataset.illustroBrushTiltSize = String(tiltSizeEnabled);
     input.root.dataset.illustroBrushTiltOpacity = String(tiltOpacityEnabled);
     input.root.dataset.illustroBrushTiltFlow = String(tiltFlowEnabled);
@@ -875,8 +898,18 @@ export function installBrushPresetControllerV1(input: {
     const pressureFlowEnabled = brushPressureFlowEnabledV1(selected.preset);
     pressureFlowButton.textContent = pressureFlowEnabled ? 'ON' : 'OFF';
     pressureFlowButton.setAttribute('aria-pressed', String(pressureFlowEnabled));
-    const pressureResponseCurve = brushPressureResponseCurveV1(selected.preset);
+    const pressureResponseCurveOverride = brushPressureResponseCurveOverrideV1(selected.preset);
+    const pressureResponseCurve = resolveBrushPressureResponseCurveV1(
+      selected.preset,
+      defaultPressureResponseCurve(),
+    );
     pressureCurveEditor?.setCurve(pressureResponseCurve);
+    pressureCurveOverrideButton.textContent =
+      pressureResponseCurveOverride === null ? 'このブラシで上書き' : '既定に戻す';
+    pressureCurveOverrideButton.setAttribute(
+      'aria-pressed',
+      String(pressureResponseCurveOverride !== null),
+    );
     const tiltSizeEnabled = brushTiltSizeEnabledV1(selected.preset);
     tiltSizeButton.textContent = tiltSizeEnabled ? 'ON' : 'OFF';
     tiltSizeButton.setAttribute('aria-pressed', String(tiltSizeEnabled));
@@ -1235,6 +1268,7 @@ export function installBrushPresetControllerV1(input: {
       pressureSizeButton,
       pressureOpacityButton,
       pressureFlowButton,
+      pressureCurveOverrideButton,
       tiltSizeButton,
       tiltOpacityButton,
       tiltFlowButton,
@@ -1319,7 +1353,7 @@ export function installBrushPresetControllerV1(input: {
     colorMixPickupNumber.disabled = locked || !colorMixEnabled;
     colorMixCarryRange.disabled = locked || !colorMixEnabled;
     colorMixCarryNumber.disabled = locked || !colorMixEnabled;
-    pressureCurveEditor?.setDisabled(locked);
+    pressureCurveEditor?.setDisabled(locked || pressureResponseCurveOverride === null);
     tiltCurveEditor?.setDisabled(locked);
     velocityCurveEditor?.setDisabled(locked);
     randomCurveEditor?.setDisabled(locked);
@@ -1358,9 +1392,16 @@ export function installBrushPresetControllerV1(input: {
       deleteButton: pressureCurveDelete,
       resetButton: pressureCurveReset,
     },
-    initialCurve: brushPressureResponseCurveV1(selectedBrushPresetItemV1(state).preset),
-    onChange: (curve) =>
-      mutate(() => updateBrushPresetPressureResponseCurveV1(state, state.selectedPresetId, curve)),
+    initialCurve: resolveBrushPressureResponseCurveV1(
+      selectedBrushPresetItemV1(state).preset,
+      defaultPressureResponseCurve(),
+    ),
+    onChange: (curve) => {
+      if (brushPressureResponseCurveOverrideV1(selectedBrushPresetItemV1(state).preset) === null) {
+        return;
+      }
+      mutate(() => updateBrushPresetPressureResponseCurveV1(state, state.selectedPresetId, curve));
+    },
   });
 
   tiltCurveEditor = installSharedCurveEditorV1({
@@ -1405,6 +1446,15 @@ export function installBrushPresetControllerV1(input: {
       mutate(() => updateBrushPresetRandomResponseCurveV1(state, state.selectedPresetId, curve)),
   });
 
+  const unsubscribePressureDefault =
+    input.pressureResponseDefault?.subscribe(() => {
+      if (brushPressureResponseCurveOverrideV1(selectedBrushPresetItemV1(state).preset) !== null) {
+        return;
+      }
+      applySelected();
+      render();
+    }) ?? (() => undefined);
+
   const onSearch = (): void => {
     state = setBrushPresetSearchV1(state, search.value);
     render();
@@ -1433,6 +1483,19 @@ export function installBrushPresetControllerV1(input: {
   const onOpacityNumber = (): void => updateParameter({ opacity: Number(opacityNumber.value) });
   const onFlowRange = (): void => updateParameter({ flow: Number(flowRange.value) });
   const onFlowNumber = (): void => updateParameter({ flow: Number(flowNumber.value) });
+  const onPressureCurveOverride = (): void => {
+    const selected = selectedBrushPresetItemV1(state).preset;
+    const override = brushPressureResponseCurveOverrideV1(selected);
+    mutate(() =>
+      override === null
+        ? updateBrushPresetPressureResponseCurveV1(
+            state,
+            state.selectedPresetId,
+            defaultPressureResponseCurve(),
+          )
+        : clearBrushPresetPressureResponseCurveOverrideV1(state, state.selectedPresetId),
+    );
+  };
   const updateHardness = (hardness: number): void =>
     mutate(() => updateBrushPresetHardnessV1(state, state.selectedPresetId, hardness));
   const onHardnessRange = (): void => updateHardness(Number(hardnessRange.value));
@@ -1988,6 +2051,7 @@ export function installBrushPresetControllerV1(input: {
   pressureSizeButton.addEventListener('click', onPressureSize);
   pressureOpacityButton.addEventListener('click', onPressureOpacity);
   pressureFlowButton.addEventListener('click', onPressureFlow);
+  pressureCurveOverrideButton.addEventListener('click', onPressureCurveOverride);
   tiltSizeButton.addEventListener('click', onTiltSize);
   tiltOpacityButton.addEventListener('click', onTiltOpacity);
   tiltFlowButton.addEventListener('click', onTiltFlow);
@@ -2119,6 +2183,7 @@ export function installBrushPresetControllerV1(input: {
       pressureSizeButton.removeEventListener('click', onPressureSize);
       pressureOpacityButton.removeEventListener('click', onPressureOpacity);
       pressureFlowButton.removeEventListener('click', onPressureFlow);
+      pressureCurveOverrideButton.removeEventListener('click', onPressureCurveOverride);
       tiltSizeButton.removeEventListener('click', onTiltSize);
       tiltOpacityButton.removeEventListener('click', onTiltOpacity);
       tiltFlowButton.removeEventListener('click', onTiltFlow);
@@ -2182,6 +2247,7 @@ export function installBrushPresetControllerV1(input: {
       colorMixPickupNumber.removeEventListener('change', onColorMixPickupNumber);
       colorMixCarryRange.removeEventListener('input', onColorMixCarryRange);
       colorMixCarryNumber.removeEventListener('change', onColorMixCarryNumber);
+      unsubscribePressureDefault();
       pressureCurveEditor?.dispose();
       pressureCurveEditor = null;
       tiltCurveEditor?.dispose();

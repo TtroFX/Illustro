@@ -29,6 +29,7 @@ import {
   withBrushPressureOpacityEnabledV1,
   withBrushPressureFlowEnabledV1,
   withBrushPressureResponseCurveV1,
+  withoutBrushPressureResponseCurveOverrideV1,
   withBrushTiltSizeEnabledV1,
   withBrushTiltOpacityEnabledV1,
   withBrushTiltFlowEnabledV1,
@@ -891,6 +892,24 @@ export function updateBrushPresetPressureResponseCurveV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushPressureResponseCurveV1(item.preset, curve);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: next,
+      locked: item.locked,
+    });
+  });
+}
+
+export function clearBrushPresetPressureResponseCurveOverrideV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withoutBrushPressureResponseCurveOverrideV1(item.preset);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     const next = normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 });
     return itemV1({

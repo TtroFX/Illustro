@@ -519,7 +519,8 @@ M6A-066 hover brush outline:完了
 再開メモ: M6A-066は既存PointerHoverTrackerV1のpen/mouse非接触hoverをproductionのscreen-space brush outlineへ接続した。hover snapshotへclientX/clientYを保持し、Viewport Controllerの既存mapPointerToDocumentでpan/zoom/rotation/mirror後もdocument内判定を行う。円の中心はstage内の実pointer位置、直径は現在Brush Parametersのnominal sizePxをfit base scale×zoomでCSS pxへ投影する。hover pressure=0で径を潰さず、touch/contact/pointerleave/document外/no-documentでは非表示。overlayはpointer-events:noneかつRenderer/History/Persistence/Exportへ入らず、viewport変更とpreset/property変更でも即refreshする。M6A-067のcrosshairは未実装のまま分離。次はM6A-067 hover crosshair optionから再開する。
 M6A-067 hover crosshair option:完了
 再開メモ: M6A-067はM6A-066のscreen-space hover overlayへ任意中心十字を追加した。これはBrush Presetの画材属性ではなく表示設定としてBrushHoverDisplaySettingsV1が保持し、既定OFF。表示メニューの「ブラシ中心十字」buttonで切替え、outlineのdata-crosshairだけを更新するためhover位置/径計算・Renderer・stroke/history/persistenceには影響しない。十字はCSS pseudo-elementsでscreen-space固定9px、白線+暗縁の高コントラスト表示とし、outline hidden時は同時に消える。次はM6A-068 global/default pressure response controlsから再開する。
-M6A-068 global/default pressure response controls:未完了
+M6A-068 global/default pressure response controls:完了
+再開メモ: M6A-068はapplication-levelのglobal/default pressure response curve（既定linear、localStorage永続）をShared Curve Editorへ接続した。Brush presetに`dynamics.pressureResponseCurve`が無い場合だけglobalを継承し、明示curveはglobalをoverrideする。globalがnon-linearでもper-brush explicit Linearを表現できるようLinear選択でもoverride fieldを保持し、「既定に戻す」でのみfieldを削除する。global変更はinherit中の選択brushへ即時再解決するがpreset payload自体は書換えず、解決後curveは既存PaintSessionへ渡すためRenderer/Worker/History/Persistence ABIは不変。次はM6A-069 touch-position/input correction policyから再開する。
 M6A-069 touch-position/input correction policy:未完了
 M6A-070 configurable stylus-button action plumbing:未完了
 M6A-071 final 77 sampled resources loader:未完了

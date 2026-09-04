@@ -22,7 +22,7 @@ const CUSTOM_CURVE = Object.freeze([
 ]);
 
 describe('M6A-044 pressure response curve', () => {
-  it('uses linear identity by default and persists only non-linear preset data', () => {
+  it('uses linear identity by default and preserves explicit linear override data', () => {
     const preset = createBaselineBrushPresetV1({
       id: 'pressure.curve',
       name: 'Pressure Curve',
@@ -36,7 +36,7 @@ describe('M6A-044 pressure response curve', () => {
     expect(
       withBrushPressureResponseCurveV1(custom, LINEAR_RESPONSE_CURVE_V1).dynamics
         .pressureResponseCurve,
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
   it('resolves one shared curve output before independent size, opacity and flow mappings', () => {

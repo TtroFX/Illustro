@@ -786,16 +786,29 @@ export function withBrushPressureFlowEnabledV1(
   });
 }
 
-export function brushPressureResponseCurveV1(
+export function brushPressureResponseCurveOverrideV1(
   preset: BrushPresetV1,
-): readonly ResponseCurvePointV1[] {
+): readonly ResponseCurvePointV1[] | null {
   const value = preset.dynamics.pressureResponseCurve;
-  if (value === undefined) return LINEAR_RESPONSE_CURVE_V1;
+  if (value === undefined) return null;
   try {
     return normalizeResponseCurveV1(value);
   } catch {
-    return LINEAR_RESPONSE_CURVE_V1;
+    return null;
   }
+}
+
+export function brushPressureResponseCurveV1(
+  preset: BrushPresetV1,
+): readonly ResponseCurvePointV1[] {
+  return brushPressureResponseCurveOverrideV1(preset) ?? LINEAR_RESPONSE_CURVE_V1;
+}
+
+export function resolveBrushPressureResponseCurveV1(
+  preset: BrushPresetV1,
+  defaultCurve: readonly ResponseCurvePointV1[],
+): readonly ResponseCurvePointV1[] {
+  return brushPressureResponseCurveOverrideV1(preset) ?? normalizeResponseCurveV1(defaultCurve);
 }
 
 export function withBrushPressureResponseCurveV1(
@@ -803,10 +816,6 @@ export function withBrushPressureResponseCurveV1(
   curve: readonly ResponseCurvePointV1[],
 ): BrushPresetV1 {
   const normalized = normalizeResponseCurveV1(curve);
-  if (responseCurveIsLinearV1(normalized)) {
-    const { pressureResponseCurve: _pressureResponseCurve, ...dynamics } = preset.dynamics;
-    return normalizeBrushPresetV1({ ...preset, dynamics });
-  }
   const stored = toJsonValue(
     normalized.map((pointValue) => ({ input: pointValue.input, output: pointValue.output })),
   );
@@ -814,6 +823,11 @@ export function withBrushPressureResponseCurveV1(
     ...preset,
     dynamics: { ...preset.dynamics, pressureResponseCurve: stored },
   });
+}
+
+export function withoutBrushPressureResponseCurveOverrideV1(preset: BrushPresetV1): BrushPresetV1 {
+  const { pressureResponseCurve: _pressureResponseCurve, ...dynamics } = preset.dynamics;
+  return normalizeBrushPresetV1({ ...preset, dynamics });
 }
 
 export const DEFAULT_BRUSH_TILT_SIZE_ENABLED_V1 = false as const;

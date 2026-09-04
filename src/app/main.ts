@@ -20,6 +20,7 @@ import { resolveDocumentColorProfileV1, type DocumentV1 } from '../domain/docume
 import { installDocumentWorkflowControllerV1 } from './document-workflow-controller.js';
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
 import { installGridControllerV1 } from './grid-controller.js';
+import { installGlobalPressureResponseControllerV1 } from './global-pressure-response-controller.js';
 import { installLayerWorkflowControllerV1 } from './layer-workflow-controller.js';
 import { installLayerCompsControllerV1 } from './layer-comps-controller.js';
 import { getCanvasAdmissionControllerV1 } from './canvas-admission-controller.js';
@@ -95,10 +96,15 @@ brushBlurButton?.addEventListener('click', () => {
   publishBrushMode();
 });
 publishBrushMode();
+const globalPressureResponse = installGlobalPressureResponseControllerV1({
+  root,
+  storage: globalThis.localStorage,
+});
 const brushPresets = installBrushPresetControllerV1({
   root,
   paintSession,
   storage: globalThis.localStorage,
+  pressureResponseDefault: globalPressureResponse,
   onBrushModeChanged: () => {
     publishBrushMode();
     brushHoverOutline.refresh();
@@ -607,6 +613,7 @@ globalThis.addEventListener(
     colorMatch.dispose();
     referenceWorkflow.dispose();
     brushPresets.dispose();
+    globalPressureResponse.dispose();
     colorWorkflow.dispose();
     maskPaint.dispose();
     documentGeometryWorkflow.dispose();

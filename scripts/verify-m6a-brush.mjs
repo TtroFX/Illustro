@@ -1851,3 +1851,44 @@ requireText(
   'keeps hover crosshair optional and disabled by default',
   'hover crosshair regression coverage missing',
 );
+
+requireText(
+  progress,
+  'M6A-068 global/default pressure response controls:完了',
+  'M6A-068 progress is not complete',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushPressureResponseCurveOverrideV1',
+  'per-brush pressure response override identity missing',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'resolveBrushPressureResponseCurveV1',
+  'global/default pressure response resolver missing',
+);
+requireText(
+  read('src/app/global-pressure-response-controller.ts'),
+  'GLOBAL_PRESSURE_RESPONSE_STORAGE_KEY_V1',
+  'persistent global pressure response controller missing',
+);
+requireText(
+  read('src/app/brush-preset-controller.ts'),
+  'pressureResponseDefault',
+  'brush preset controller does not consume global pressure default',
+);
+requireText(
+  read('src/index.html'),
+  'id="global-pressure-curve"',
+  'reachable global pressure Curve Editor missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-pressure-curve-override"',
+  'reachable per-brush pressure override control missing',
+);
+requireText(
+  read('tests/unit/global-pressure-response.test.ts'),
+  'inherits the global curve only when a brush has no explicit override',
+  'global/default pressure inheritance regression coverage missing',
+);
