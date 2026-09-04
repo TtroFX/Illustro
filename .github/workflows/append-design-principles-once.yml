@@ -1,8 +1,9 @@
 name: Integrate regenerated M6A-076 once
 
-on:
+'on':
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - '.github/design-principles-trigger'
 
@@ -154,29 +155,26 @@ jobs:
           payload['sampledTipProxyMethod'] = '12x12 stratified alpha sampling per 5x5 proxy cell from the frozen I-FINAL deterministic generator field'
           payload['productionIntegrationStatus'] = 'connected-pending-standard-ci'
           provenance.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n')
-
-          memo = Path('ILLUSTRO_DESIGN_MEMO.md')
-          memo_text = memo.read_text()
-          heading = '## J-8. Canonical preset-definition regeneration supersession — 2026-09-04'
-          if heading not in memo_text:
-              memo_text += """
-
-## J-8. Canonical preset-definition regeneration supersession — 2026-09-04
-
-**Status:** AUTHORITATIVE / CLOSED for the regenerated **48 default-preset definitions**. This entry supersedes the 2026-08-30 J package identity only where the missing historical package bytes were required to instantiate the frozen Default Brush Pack. J-1 through J-5 inventory/category/procedural-first/tuning/thumbnail semantics remain unchanged.
-
-The historical `ILLUSTRO_J_DEFAULT_BRUSH_PACK_FINAL_2026-08-30.zip` and its individual preset-definition bytes were no longer recoverable from Git, File Library, Google Drive, or GitHub Actions. On 2026-09-04 the user explicitly authorized deterministic regeneration rather than blocking implementation on the missing artifact.
-
-The regenerated preset-definition identity is `2026-09-04-user-authorized-v1`. Its canonical production source is `src/app/default-brush-pack.ts`, with provenance in `verification/m6a-default-brush-pack-regeneration.json`. The inventory remains exactly **48** presets with the frozen J-1 counts: Ink / Pen 8; Pencil 6; Marker 5; Paint 9; Airbrush 3; Digital Watercolor-style 5; Eraser 4; Blend / Smudge / Blur 3; Scatter / Special 5.
-
-J-2 remains binding: G Pen, Round Pen, Mapping Pen, Technical Pen, Brush Pen, ordinary Hard/Soft Airbrush, and ordinary Hard/Soft/Precision Eraser remain procedural-first and carry no sampled texture/tip dependency. Retained sampled aliases are restricted to the current I-FINAL inventory and are used only for material/stamp irregularity. The four pre-existing runtime factory IDs (`builtin.runtime.round`, `builtin.runtime.eraser`, `builtin.runtime.smudge`, `builtin.runtime.blur`) are retained inside the 48-pack solely to preserve persisted factory-override compatibility.
-
-For the current raster-brush sampled-tip ABI, retained I-FINAL tip aliases are connected through deterministic 5×5 alpha proxy data derived from the frozen I-FINAL generator field; the alias remains the sampled-resource identity and the proxy is an implementation adapter, not a replacement I asset. Randomized/spray presets continue to use the already closed per-stroke deterministic random-seed path.
-
-M6A-077 owns deterministic 256×256 representative thumbnails and will finalize the complete regenerated J presentation/package identity. The historical 2026-08-30 package SHA remains provenance only after this supersession.
-"""
-              memo.write_text(memo_text)
           PY
+
+          if ! grep -Fqx '## J-8. Canonical preset-definition regeneration supersession — 2026-09-04' ILLUSTRO_DESIGN_MEMO.md; then
+            cat >> ILLUSTRO_DESIGN_MEMO.md <<'EOF'
+
+          ## J-8. Canonical preset-definition regeneration supersession — 2026-09-04
+
+          **Status:** AUTHORITATIVE / CLOSED for the regenerated **48 default-preset definitions**. This entry supersedes the 2026-08-30 J package identity only where the missing historical package bytes were required to instantiate the frozen Default Brush Pack. J-1 through J-5 inventory/category/procedural-first/tuning/thumbnail semantics remain unchanged.
+
+          The historical `ILLUSTRO_J_DEFAULT_BRUSH_PACK_FINAL_2026-08-30.zip` and its individual preset-definition bytes were no longer recoverable from Git, File Library, Google Drive, or GitHub Actions. On 2026-09-04 the user explicitly authorized deterministic regeneration rather than blocking implementation on the missing artifact.
+
+          The regenerated preset-definition identity is `2026-09-04-user-authorized-v1`. Its canonical production source is `src/app/default-brush-pack.ts`, with provenance in `verification/m6a-default-brush-pack-regeneration.json`. The inventory remains exactly **48** presets with the frozen J-1 counts: Ink / Pen 8; Pencil 6; Marker 5; Paint 9; Airbrush 3; Digital Watercolor-style 5; Eraser 4; Blend / Smudge / Blur 3; Scatter / Special 5.
+
+          J-2 remains binding: G Pen, Round Pen, Mapping Pen, Technical Pen, Brush Pen, ordinary Hard/Soft Airbrush, and ordinary Hard/Soft/Precision Eraser remain procedural-first and carry no sampled texture/tip dependency. Retained sampled aliases are restricted to the current I-FINAL inventory and are used only for material/stamp irregularity. The four pre-existing runtime factory IDs (`builtin.runtime.round`, `builtin.runtime.eraser`, `builtin.runtime.smudge`, `builtin.runtime.blur`) are retained inside the 48-pack solely to preserve persisted factory-override compatibility.
+
+          For the current raster-brush sampled-tip ABI, retained I-FINAL tip aliases are connected through deterministic 5×5 alpha proxy data derived from the frozen I-FINAL generator field; the alias remains the sampled-resource identity and the proxy is an implementation adapter, not a replacement I asset. Randomized/spray presets continue to use the already closed per-stroke deterministic random-seed path.
+
+          M6A-077 owns deterministic 256×256 representative thumbnails and will finalize the complete regenerated J presentation/package identity. The historical 2026-08-30 package SHA remains provenance only after this supersession.
+          EOF
+          fi
 
       - name: Restore locked dependencies
         run: npm ci
