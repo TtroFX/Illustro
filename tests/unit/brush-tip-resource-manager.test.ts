@@ -96,7 +96,9 @@ describe('M6A-072 brush-tip resource manager', () => {
       }),
       resources,
     );
-    await expect(manager.load('builtin.grain.fine.01')).rejects.toThrow(/unknown built-in brush-tip/);
+    await expect(manager.load('builtin.grain.fine.01')).rejects.toThrow(
+      /unknown built-in brush-tip/,
+    );
     expect(loadCount).toBe(0);
   });
 
