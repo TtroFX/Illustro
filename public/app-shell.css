@@ -2157,3 +2157,24 @@ body {
   cursor: default;
   opacity: 0.46;
 }
+
+
+/* M6A-069 touch input correction */
+.touch-input-policy-grid { display: grid; gap: 12px; }
+.touch-input-policy-toggle,
+.touch-input-offset-row {
+  display: grid;
+  grid-template-columns: 72px minmax(120px, 1fr) 86px;
+  gap: 10px;
+  align-items: center;
+}
+.touch-input-policy-toggle > button { grid-column: 2 / -1; min-height: 36px; }
+.touch-input-offset-row > input[type='range'] { width: 100%; min-width: 0; }
+.touch-input-offset-number { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px; }
+.touch-input-offset-number input { width: 100%; min-width: 0; }
+@media (max-width: 640px) {
+  .touch-input-policy-toggle,
+  .touch-input-offset-row { grid-template-columns: 64px minmax(0, 1fr); }
+  .touch-input-policy-toggle > button { grid-column: 2; }
+  .touch-input-offset-number { grid-column: 2; }
+}

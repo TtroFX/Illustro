@@ -223,3 +223,67 @@ describe('M3 pointer source arbitration and palm rejection foundation', () => {
     expect(arbitration.snapshot().activeTouchContacts).toBe(0);
   });
 });
+
+describe('M6A-069 touch-position/input correction policy', () => {
+  it('offsets confirmed and predicted touch tool samples without mutating the raw batch', () => {
+    const arbitration = new PointerInputArbitrationV1({
+      fingerDrawingEnabled: true,
+      touchOffsetXCssPx: 12,
+      touchOffsetYCssPx: -7,
+    });
+    const confirmed = sample('touch', 'pointerdown', {
+      pointerId: 20,
+      clientX: 100,
+      clientY: 80,
+      surfaceX: 90,
+      surfaceY: 70,
+    });
+    const predicted = sample('touch', 'pointerdown', {
+      pointerId: 20,
+      origin: 'predicted',
+      clientX: 104,
+      clientY: 84,
+      surfaceX: 94,
+      surfaceY: 74,
+    });
+    const raw = Object.freeze({
+      schema: 'illustro.pointer-batch/1' as const,
+      eventType: 'pointerdown' as const,
+      pointerId: 20,
+      confirmed: Object.freeze([confirmed]),
+      predicted: Object.freeze([predicted]),
+    });
+
+    const decision = arbitration.route(raw);
+    expect(decision.forwardBatch?.confirmed[0]).toMatchObject({
+      source: 'mouse',
+      clientX: 112,
+      clientY: 73,
+      surfaceX: 102,
+      surfaceY: 63,
+    });
+    expect(decision.forwardBatch?.predicted[0]).toMatchObject({
+      source: 'mouse',
+      clientX: 116,
+      clientY: 77,
+      surfaceX: 106,
+      surfaceY: 67,
+    });
+    expect(raw.confirmed[0]).toBe(confirmed);
+    expect(confirmed).toMatchObject({ clientX: 100, clientY: 80, surfaceX: 90, surfaceY: 70 });
+  });
+
+  it('keeps navigation touch uncorrected and lets the policy update at runtime', () => {
+    const arbitration = new PointerInputArbitrationV1({ fingerDrawingEnabled: false });
+    arbitration.setTouchPositionOffset(-20, 30);
+    expect(arbitration.snapshot()).toMatchObject({
+      fingerDrawingEnabled: false,
+      touchOffsetXCssPx: -20,
+      touchOffsetYCssPx: 30,
+    });
+    const decision = arbitration.route(
+      batch(sample('touch', 'pointerdown', { clientX: 50, clientY: 60 })),
+    );
+    expect(decision).toMatchObject({ disposition: 'navigation', forwardBatch: null });
+  });
+});

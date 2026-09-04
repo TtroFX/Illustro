@@ -20,6 +20,7 @@ import { resolveDocumentColorProfileV1, type DocumentV1 } from '../domain/docume
 import { installDocumentWorkflowControllerV1 } from './document-workflow-controller.js';
 import { installDocumentGeometryWorkflowControllerV1 } from './document-geometry-workflow-controller.js';
 import { installGridControllerV1 } from './grid-controller.js';
+import { installTouchInputPolicyControllerV1 } from './touch-input-policy-controller.js';
 import { installGlobalPressureResponseControllerV1 } from './global-pressure-response-controller.js';
 import { installLayerWorkflowControllerV1 } from './layer-workflow-controller.js';
 import { installLayerCompsControllerV1 } from './layer-comps-controller.js';
@@ -266,6 +267,11 @@ const pointerTransport = createPointerInputTransportV1(workers.render, {
     capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer && capabilities.atomics,
 });
 const pointerArbitration = createPointerInputArbitrationV1();
+const touchInputPolicy = installTouchInputPolicyControllerV1({
+  root,
+  arbitration: pointerArbitration,
+  storage: globalThis.localStorage,
+});
 const pointerHover = new PointerHoverTrackerV1();
 const pointerInput = installPointerInputControllerV1(shell.canvas, (batch) => {
   const latest = batch.confirmed.at(-1);
@@ -620,6 +626,7 @@ globalThis.addEventListener(
     documentWorkflow.dispose();
     grid.dispose();
     viewport.dispose();
+    touchInputPolicy.dispose();
     pointerInput.dispose();
     pointerTransport.dispose();
     pointerHover.clear();

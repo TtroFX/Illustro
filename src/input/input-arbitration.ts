@@ -2,6 +2,7 @@ import type { PointerInputBatchV1, PointerInputSampleV1 } from './pointer-input.
 
 export const DEFAULT_RECENT_PEN_BIAS_MS_V1 = 750;
 export const DEFAULT_PALM_CONTACT_THRESHOLD_CSS_PX_V1 = 18;
+export const TOUCH_POSITION_OFFSET_LIMIT_CSS_PX_V1 = 256;
 
 export type PointerInputDispositionV1 = 'tool' | 'navigation' | 'hover' | 'rejected-palm';
 export type PointerInputArbitrationReasonV1 =
@@ -20,6 +21,8 @@ export interface PointerInputArbitrationOptionsV1 {
   readonly fingerDrawingEnabled?: boolean;
   readonly recentPenBiasMs?: number;
   readonly palmContactThresholdCssPx?: number;
+  readonly touchOffsetXCssPx?: number;
+  readonly touchOffsetYCssPx?: number;
 }
 
 export interface PointerInputArbitrationDecisionV1 {
@@ -33,6 +36,8 @@ export interface PointerInputArbitrationDecisionV1 {
 export interface PointerInputArbitrationSnapshotV1 {
   readonly schema: 'illustro.pointer-arbitration-state/1';
   readonly fingerDrawingEnabled: boolean;
+  readonly touchOffsetXCssPx: number;
+  readonly touchOffsetYCssPx: number;
   readonly activePenContacts: number;
   readonly activeTouchContacts: number;
   readonly lastPenTimestampMs: number | null;
@@ -59,20 +64,53 @@ function defaultFingerDrawingEnabledV1(): boolean {
   return true;
 }
 
-function mapTouchSampleToToolV1(sample: PointerInputSampleV1): PointerInputSampleV1 {
-  if (sample.source !== 'touch') return sample;
-  return Object.freeze({ ...sample, source: 'mouse' as const });
+function normalizeTouchOffsetCssPxV1(value: number, label: string): number {
+  if (!Number.isFinite(value)) throw new RangeError(`${label} must be finite`);
+  if (Math.abs(value) > TOUCH_POSITION_OFFSET_LIMIT_CSS_PX_V1) {
+    throw new RangeError(
+      `${label} must be within -${TOUCH_POSITION_OFFSET_LIMIT_CSS_PX_V1}..${TOUCH_POSITION_OFFSET_LIMIT_CSS_PX_V1}`,
+    );
+  }
+  return Object.is(value, -0) ? 0 : value;
 }
 
-function mapTouchBatchToToolV1(batch: PointerInputBatchV1): PointerInputBatchV1 {
+function mapTouchSampleToToolV1(
+  sample: PointerInputSampleV1,
+  offsetXCssPx: number,
+  offsetYCssPx: number,
+): PointerInputSampleV1 {
+  if (sample.source !== 'touch') return sample;
   return Object.freeze({
-    ...batch,
-    confirmed: Object.freeze(batch.confirmed.map(mapTouchSampleToToolV1)),
-    predicted: Object.freeze(batch.predicted.map(mapTouchSampleToToolV1)),
+    ...sample,
+    source: 'mouse' as const,
+    clientX: sample.clientX + offsetXCssPx,
+    clientY: sample.clientY + offsetYCssPx,
+    surfaceX: sample.surfaceX + offsetXCssPx,
+    surfaceY: sample.surfaceY + offsetYCssPx,
   });
 }
 
-function cancellationBatchV1(sample: PointerInputSampleV1): PointerInputBatchV1 {
+function mapTouchBatchToToolV1(
+  batch: PointerInputBatchV1,
+  offsetXCssPx: number,
+  offsetYCssPx: number,
+): PointerInputBatchV1 {
+  return Object.freeze({
+    ...batch,
+    confirmed: Object.freeze(
+      batch.confirmed.map((sample) => mapTouchSampleToToolV1(sample, offsetXCssPx, offsetYCssPx)),
+    ),
+    predicted: Object.freeze(
+      batch.predicted.map((sample) => mapTouchSampleToToolV1(sample, offsetXCssPx, offsetYCssPx)),
+    ),
+  });
+}
+
+function cancellationBatchV1(
+  sample: PointerInputSampleV1,
+  offsetXCssPx: number,
+  offsetYCssPx: number,
+): PointerInputBatchV1 {
   const cancelled = mapTouchSampleToToolV1(
     Object.freeze({
       ...sample,
@@ -82,6 +120,8 @@ function cancellationBatchV1(sample: PointerInputSampleV1): PointerInputBatchV1 
       buttons: 0,
       button: -1,
     }),
+    offsetXCssPx,
+    offsetYCssPx,
   );
   return Object.freeze({
     schema: 'illustro.pointer-batch/1' as const,
@@ -94,6 +134,8 @@ function cancellationBatchV1(sample: PointerInputSampleV1): PointerInputBatchV1 
 
 export class PointerInputArbitrationV1 {
   #fingerDrawingEnabled: boolean;
+  #touchOffsetXCssPx: number;
+  #touchOffsetYCssPx: number;
   readonly #recentPenBiasMs: number;
   readonly #palmContactThresholdCssPx: number;
   readonly #activePenPointers = new Set<number>();
@@ -106,6 +148,14 @@ export class PointerInputArbitrationV1 {
 
   constructor(options: PointerInputArbitrationOptionsV1 = {}) {
     this.#fingerDrawingEnabled = options.fingerDrawingEnabled ?? defaultFingerDrawingEnabledV1();
+    this.#touchOffsetXCssPx = normalizeTouchOffsetCssPxV1(
+      options.touchOffsetXCssPx ?? 0,
+      'touch offset X',
+    );
+    this.#touchOffsetYCssPx = normalizeTouchOffsetCssPxV1(
+      options.touchOffsetYCssPx ?? 0,
+      'touch offset Y',
+    );
     this.#recentPenBiasMs = options.recentPenBiasMs ?? DEFAULT_RECENT_PEN_BIAS_MS_V1;
     this.#palmContactThresholdCssPx =
       options.palmContactThresholdCssPx ?? DEFAULT_PALM_CONTACT_THRESHOLD_CSS_PX_V1;
@@ -134,6 +184,8 @@ export class PointerInputArbitrationV1 {
     return Object.freeze({
       schema: 'illustro.pointer-arbitration-state/1' as const,
       fingerDrawingEnabled: this.#fingerDrawingEnabled,
+      touchOffsetXCssPx: this.#touchOffsetXCssPx,
+      touchOffsetYCssPx: this.#touchOffsetYCssPx,
       activePenContacts: this.#activePenPointers.size,
       activeTouchContacts: this.#activeTouchPointers.size,
       lastPenTimestampMs: this.#lastPenTimestampMs,
@@ -143,6 +195,15 @@ export class PointerInputArbitrationV1 {
 
   setFingerDrawingEnabled(enabled: boolean): PointerInputArbitrationSnapshotV1 {
     this.#fingerDrawingEnabled = enabled;
+    return this.snapshot();
+  }
+
+  setTouchPositionOffset(
+    offsetXCssPx: number,
+    offsetYCssPx: number,
+  ): PointerInputArbitrationSnapshotV1 {
+    this.#touchOffsetXCssPx = normalizeTouchOffsetCssPxV1(offsetXCssPx, 'touch offset X');
+    this.#touchOffsetYCssPx = normalizeTouchOffsetCssPxV1(offsetYCssPx, 'touch offset Y');
     return this.snapshot();
   }
 
@@ -198,7 +259,11 @@ export class PointerInputArbitrationV1 {
             cancelToolPointerIds.push(pointerId);
             const previous = this.#latestTouchSample.get(pointerId);
             if (transitionCancelBatch === null && previous !== undefined) {
-              transitionCancelBatch = cancellationBatchV1(previous);
+              transitionCancelBatch = cancellationBatchV1(
+                previous,
+                this.#touchOffsetXCssPx,
+                this.#touchOffsetYCssPx,
+              );
             }
           }
           if (this.#touchDisposition.get(pointerId) !== 'rejected-palm') {
@@ -221,7 +286,10 @@ export class PointerInputArbitrationV1 {
 
     this.#latestTouchSample.set(batch.pointerId, sample);
     const forwardBatch =
-      transitionCancelBatch ?? (disposition === 'tool' ? mapTouchBatchToToolV1(batch) : null);
+      transitionCancelBatch ??
+      (disposition === 'tool'
+        ? mapTouchBatchToToolV1(batch, this.#touchOffsetXCssPx, this.#touchOffsetYCssPx)
+        : null);
     const decision = this.#decision(
       transitionCancelBatch === null ? disposition : 'tool',
       reason,

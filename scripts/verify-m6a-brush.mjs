@@ -1892,3 +1892,39 @@ requireText(
   'inherits the global curve only when a brush has no explicit override',
   'global/default pressure inheritance regression coverage missing',
 );
+
+requireText(
+  progress,
+  'M6A-069 touch-position/input correction policy:完了',
+  'M6A-069 progress is not complete',
+);
+requireText(
+  read('src/input/input-arbitration.ts'),
+  'setTouchPositionOffset',
+  'touch-position correction is not connected to input arbitration',
+);
+requireText(
+  read('src/input/input-arbitration.ts'),
+  'mapTouchBatchToToolV1(batch, this.#touchOffsetXCssPx, this.#touchOffsetYCssPx)',
+  'touch tool bridge does not apply configured correction',
+);
+requireText(
+  read('src/app/touch-input-policy-controller.ts'),
+  'TOUCH_INPUT_POLICY_STORAGE_KEY_V1',
+  'persistent touch input policy controller missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="view-touch-input-settings"',
+  'reachable touch input settings command missing',
+);
+requireText(
+  read('src/index.html'),
+  'id="touch-offset-x-range"',
+  'intuitive touch X correction slider missing',
+);
+requireText(
+  read('tests/unit/input-arbitration.test.ts'),
+  'offsets confirmed and predicted touch tool samples without mutating the raw batch',
+  'touch tool correction regression coverage missing',
+);

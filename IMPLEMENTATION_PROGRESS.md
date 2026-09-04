@@ -521,7 +521,8 @@ M6A-067 hover crosshair option:完了
 再開メモ: M6A-067はM6A-066のscreen-space hover overlayへ任意中心十字を追加した。これはBrush Presetの画材属性ではなく表示設定としてBrushHoverDisplaySettingsV1が保持し、既定OFF。表示メニューの「ブラシ中心十字」buttonで切替え、outlineのdata-crosshairだけを更新するためhover位置/径計算・Renderer・stroke/history/persistenceには影響しない。十字はCSS pseudo-elementsでscreen-space固定9px、白線+暗縁の高コントラスト表示とし、outline hidden時は同時に消える。次はM6A-068 global/default pressure response controlsから再開する。
 M6A-068 global/default pressure response controls:完了
 再開メモ: M6A-068はapplication-levelのglobal/default pressure response curve（既定linear、localStorage永続）をShared Curve Editorへ接続した。Brush presetに`dynamics.pressureResponseCurve`が無い場合だけglobalを継承し、明示curveはglobalをoverrideする。globalがnon-linearでもper-brush explicit Linearを表現できるようLinear選択でもoverride fieldを保持し、「既定に戻す」でのみfieldを削除する。global変更はinherit中の選択brushへ即時再解決するがpreset payload自体は書換えず、解決後curveは既存PaintSessionへ渡すためRenderer/Worker/History/Persistence ABIは不変。次はM6A-069 touch-position/input correction policyから再開する。
-M6A-069 touch-position/input correction policy:未完了
+M6A-069 touch-position/input correction policy:完了
+再開メモ: M6A-069は既存PointerInputArbitrationV1のpalm rejection/finger-drawing境界を維持し、application-level touch policyをlocalStorage永続UIへ接続した。指描画ON/OFFとX/Y補正（各±256 CSS px、既定0）を設定でき、補正はtouchが単指toolと判定された後のbridgeだけでconfirmed/predicted双方のclientX/clientYとsurfaceX/surfaceYへ適用する。raw batchはimmutable、pen/mouse・palm reject・multi-touch navigation/pinch/panは完全identity。OS/driver/browser内部の未公開palm rejectionやdigitizer calibrationは制御対象外。次はM6A-070 configurable stylus-button action plumbingから再開する。
 M6A-070 configurable stylus-button action plumbing:未完了
 M6A-071 final 77 sampled resources loader:未完了
 M6A-072 brush-tip resource manager:未完了

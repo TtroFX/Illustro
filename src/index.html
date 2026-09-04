@@ -69,6 +69,7 @@
               <button id="view-pixel" type="button">ピクセル表示</button>
               <button id="view-grid-toggle" type="button">グリッド表示</button>
               <button id="view-grid-settings" type="button">グリッド設定…</button>
+              <button id="view-touch-input-settings" type="button">タッチ入力設定…</button>
               <button id="view-brush-hover-crosshair" type="button" aria-pressed="false">ブラシ中心十字</button>
               <button id="view-workspace" type="button">全画面ワークスペース</button>
             </div>
@@ -931,6 +932,34 @@
         <footer>
           <button id="canvas-geometry-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
           <button id="canvas-geometry-submit" type="submit" class="document-dialog-primary">適用</button>
+        </footer>
+      </form>
+    </dialog>
+    <dialog id="touch-input-dialog" class="document-dialog" aria-labelledby="touch-input-dialog-title">
+      <form id="touch-input-form" method="dialog" class="document-dialog-form">
+        <header><h2 id="touch-input-dialog-title">タッチ入力設定</h2></header>
+        <div class="touch-input-policy-grid">
+          <div class="touch-input-policy-toggle">
+            <span>指で描画</span>
+            <button id="touch-finger-drawing" type="button" aria-pressed="true">ON</button>
+          </div>
+          <div class="touch-input-offset-row">
+            <label for="touch-offset-x-range">横補正</label>
+            <input id="touch-offset-x-range" type="range" min="-256" max="256" step="1" value="0" />
+            <span class="touch-input-offset-number"><input id="touch-offset-x-number" type="number" inputmode="decimal" min="-256" max="256" step="1" value="0" aria-label="タッチ横補正" /><span>px</span></span>
+          </div>
+          <div class="touch-input-offset-row">
+            <label for="touch-offset-y-range">縦補正</label>
+            <input id="touch-offset-y-range" type="range" min="-256" max="256" step="1" value="0" />
+            <span class="touch-input-offset-number"><input id="touch-offset-y-number" type="number" inputmode="decimal" min="-256" max="256" step="1" value="0" aria-label="タッチ縦補正" /><span>px</span></span>
+          </div>
+          <p class="document-dialog-help">単指で描画するタッチ位置だけを補正します。ペン、マウス、ピンチ・パン操作には適用されません。</p>
+        </div>
+        <output id="touch-input-status" class="document-dialog-status" aria-live="polite"></output>
+        <footer>
+          <button id="touch-input-reset" type="button" class="document-dialog-secondary">リセット</button>
+          <button id="touch-input-cancel" type="button" class="document-dialog-secondary">キャンセル</button>
+          <button type="submit" class="document-dialog-primary">適用</button>
         </footer>
       </form>
     </dialog>
