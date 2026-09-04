@@ -6054,3 +6054,20 @@ J-2 remains binding: G Pen, Round Pen, Mapping Pen, Technical Pen, Brush Pen, or
 For the current raster-brush sampled-tip ABI, retained I-FINAL tip aliases are connected through deterministic 5×5 alpha proxy data derived from the frozen I-FINAL generator field; the alias remains the sampled-resource identity and the proxy is an implementation adapter, not a replacement I asset. Randomized/spray presets continue to use the already closed per-stroke deterministic random-seed path.
 
 M6A-077 owns deterministic 256×256 representative thumbnails and will finalize the complete regenerated J presentation/package identity. The historical 2026-08-30 package SHA remains provenance only after this supersession.
+
+
+## J-9. Deterministic thumbnail regeneration supersession — 2026-09-05
+
+**Status:** AUTHORITATIVE / CLOSED for regenerated J presentation assets under M6A-077. The historical J thumbnail bytes are superseded by deterministic 256×256 representative-stroke assets derived from the canonical 48 preset semantics, while J-4/J-5 visual/pressure QA meaning remains unchanged.
+
+- generation identity: `2026-09-05-deterministic-svg-v1`;
+- 48 main thumbnails: unique SHA-256 count `48/48`;
+- low/high-pressure reference pairs: `48` total;
+- pressure-responsive pairs: `40/40` correctly differentiated;
+- non-pressure-responsive pairs: `8/8` correctly stable;
+- manifest SHA-256: `f9c0691580df52fdd900f3be982bc983a584f38f201fb3cafb49bb9b3bc7e8ed`;
+- contact-sheet SHA-256: `c7eb0178d28177360cd120a9a0f55fe29752b1da192fffaf3e17e04785ce9551`;
+- category-pressure QA SHA-256: `1a09a187b71d3fe05fbf3d812bb64047c5076e56d6d7fd88bfdbe218df497ea1`;
+- failure count: `0`.
+
+The renderer follows the accepted light Canvas-First Brush Presets presentation and representative asset-board convention: isolated material strokes/swatches, neutral high-contrast stroke presentation, pressure differentiation only where the canonical preset actually maps pressure, material breakup for sampled/texture presets, analytic clean strokes for procedural-first presets, and explicit erase/blend/blur visual semantics. These thumbnails are presentation-only assets and do not change brush behavior. Production build generation, service-worker precache inclusion and Brush Presets list display are connected to the application path.

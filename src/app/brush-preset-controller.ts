@@ -87,6 +87,7 @@ import {
   type ResponseCurvePointV1,
 } from '../domain/response-curve.js';
 import { customBrushTipAlphaFromFileV1, drawCustomBrushTipPreviewV1 } from './custom-brush-tip.js';
+import { defaultBrushThumbnailUrlV1 } from './default-brush-thumbnails.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { installSharedCurveEditorV1, type SharedCurveEditorV1 } from './shared-curve-editor.js';
 import {
@@ -741,13 +742,27 @@ export function installBrushPresetControllerV1(input: {
       button.dataset.presetId = item.preset.id;
       button.setAttribute('aria-pressed', String(item.preset.id === state.selectedPresetId));
       if (item.preset.id === state.selectedPresetId) button.classList.add('is-selected');
+      const thumbnailUrl =
+        item.source === 'factory' ? defaultBrushThumbnailUrlV1(item.preset.id) : null;
       const title = document.createElement('span');
       title.className = 'shell-brush-preset-name';
       title.textContent = item.preset.name;
       const meta = document.createElement('span');
       meta.className = 'shell-brush-preset-meta';
       meta.textContent = `${item.preset.category} · ${item.source === 'factory' ? '標準' : 'ユーザー'}${item.modified ? ' · Modified' : ''}${item.locked ? ' · Locked' : ''}`;
-      button.append(title, meta);
+      if (thumbnailUrl !== null) {
+        const thumbnail = document.createElement('img');
+        thumbnail.className = 'shell-brush-preset-thumbnail';
+        thumbnail.src = thumbnailUrl;
+        thumbnail.alt = '';
+        thumbnail.loading = 'lazy';
+        thumbnail.decoding = 'async';
+        thumbnail.setAttribute('aria-hidden', 'true');
+        button.classList.add('has-thumbnail');
+        button.append(thumbnail, title, meta);
+      } else {
+        button.append(title, meta);
+      }
       button.addEventListener('click', () => {
         state = selectBrushPresetV1(state, item.preset.id);
         persist();

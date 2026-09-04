@@ -1,0 +1,19 @@
+{
+  "schema": "illustro.m6a-brush-thumbnail-regeneration-verification/1",
+  "generationId": "2026-09-05-deterministic-svg-v1",
+  "presetCount": 48,
+  "dimensions": [
+    256,
+    256
+  ],
+  "mainThumbnailUniqueHashes": 48,
+  "pressureReferencePairs": 48,
+  "pressureResponsivePairCount": 40,
+  "pressureResponsiveDistinctPairs": 40,
+  "pressureNonResponsivePairCount": 8,
+  "pressureNonResponsiveStablePairs": 8,
+  "manifestSHA256": "f9c0691580df52fdd900f3be982bc983a584f38f201fb3cafb49bb9b3bc7e8ed",
+  "contactSheetSHA256": "c7eb0178d28177360cd120a9a0f55fe29752b1da192fffaf3e17e04785ce9551",
+  "categoryPressureQaSHA256": "1a09a187b71d3fe05fbf3d812bb64047c5076e56d6d7fd88bfdbe218df497ea1",
+  "failureCount": 0
+}

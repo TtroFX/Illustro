@@ -32,6 +32,7 @@ await mkdir(distDir, { recursive: true });
 const generatorEnv = { ...process.env, ILLUSTRO_BUILD_MODE: mode };
 for (const script of [
   'scripts/generate-m6a-sampled-resources.mjs',
+  'scripts/generate-m6a-brush-thumbnails.mjs',
   'scripts/generate-wgsl.mjs',
   'scripts/generate-build-info.mjs',
   'scripts/generate-legal.mjs',
