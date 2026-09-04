@@ -1,0 +1,66 @@
+name: Verify M6A-071 loader checkpoint once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m6a-071-loader-checkpoint-repair-once.py'
+      - '.github/workflows/m6a-071-loader-checkpoint-once.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: m6a-071-loader-checkpoint-one-shot
+  cancel-in-progress: false
+
+jobs:
+  verify-m6a-071-loader-checkpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Apply loader checkpoint
+        run: python3 .github/m6a-071-loader-checkpoint-repair-once.py
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Pin npm toolchain
+        run: npm install -g npm@11.19.1
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --prefer-offline
+      - name: Format
+        run: npm run format
+      - name: Dedicated loader tests
+        run: npx vitest run tests/unit/builtin-sampled-resource-loader.test.ts tests/unit/brush-grain-selection.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: Verify M6A contracts
+        run: npm run verify:m6a
+      - name: Production build
+        run: npm run build
+      - name: Integration tests
+        run: npm run test:integration
+      - name: Commit verified checkpoint
+        env:
+          EXPECTED_TRIGGER_SHA: ${{ github.sha }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_TRIGGER_SHA" ]; then
+            echo 'trigger checkout changed unexpectedly' >&2
+            exit 1
+          fi
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: add final sampled resource loader core'
+          git push origin HEAD:main
