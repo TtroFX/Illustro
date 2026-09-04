@@ -89,3 +89,4 @@ jobs:
           git diff --cached --check
           git commit -m 'feat: implement wet color pickup'
           git push origin HEAD:main
+# rerun after explicit paint-session runtime field types
