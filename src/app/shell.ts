@@ -1,5 +1,6 @@
 import { startProductionBrushTipResourceManagerV1 } from './brush-tip-resource-manager.js';
 import { startProductionGrainResourceManagerV1 } from './grain-resource-manager.js';
+import { startProductionPaperResourceManagerV1 } from './paper-resource-manager.js';
 
 export interface CanvasBackingSizeV1 {
   readonly width: number;
@@ -49,6 +50,17 @@ export function installFoundationShell(): FoundationShell {
     .catch(() => {
       app.dataset.grainResources = 'error';
       app.dataset.grainResourceCount = '0';
+    });
+
+  app.dataset.paperResources = 'loading';
+  void startProductionPaperResourceManagerV1()
+    .then((manager) => {
+      app.dataset.paperResources = 'ready';
+      app.dataset.paperResourceCount = String(manager.snapshot().resourceCount);
+    })
+    .catch(() => {
+      app.dataset.paperResources = 'error';
+      app.dataset.paperResourceCount = '0';
     });
 
   const listeners = new Set<(size: CanvasBackingSizeV1) => void>();
