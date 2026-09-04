@@ -532,7 +532,7 @@ M6A-073 grain resource manager:完了
 M6A-074 paper resource manager:完了
 M6A-075 pattern resource manager:完了
 M6A-076 48-preset Default Brush Pack integration:完了
-M6A-077 deterministic brush thumbnails:未完了
+M6A-077 deterministic brush thumbnails:完了
 M6A-PERF-001 incremental active-stroke rendering（stable prefix + bounded mutable tail）:未完了
 M6A-PERF-002 retained tile/dirty-region presentation（normal hot pathでwhole-stroke/whole-history replay禁止）:未完了
 M6A-PERF-003 incremental GPU/transfer submission（累積stroke比例の毎回allocate/copy/destroy禁止）:未完了
