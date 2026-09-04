@@ -3851,6 +3851,26 @@ The pruned 77-resource pack was regenerated and re-verified after procedural pru
 
 **I is formally CLOSED.** No knowingly unnecessary raster brush-tip resource remains in the built-in I inventory. J must build default presets from the canonical procedural brush system plus these retained sampled resources; J must not reintroduce dedicated raster tips for clean G-Pen/round/marker/airbrush/eraser classes unless a later measured rendering requirement explicitly demonstrates that analytic geometry is insufficient.
 
+## I-FINAL-5. Canonical regeneration supersession — 2026-09-04
+
+**Status:** AUTHORITATIVE / CLOSED. This entry supersedes the 2026-08-30 I-FINAL package/hash identity only; the frozen 77-resource inventory semantics and procedural-first pruning remain unchanged.
+
+The previously accepted `ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-08-30.zip` bytes were no longer recoverable from Git, File Library, or Drive. The user explicitly authorized deterministic regeneration of the sampled assets and replacement of the canonical package/hash identity rather than blocking implementation on the missing historical ZIP.
+
+The regenerated production identity is:
+
+- package: `ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-09-04.zip`;
+- package SHA-256: `7ba886fd15e22fcce3d6b0ae0004c85eb8370626346a00cff3d40c0955ad2eec`;
+- package-manifest SHA-256: `b7321b529e5fa281b82a435ec7bc5f81a10dafe057e530216bb7b49e973e4783`;
+- source-manifest SHA-256: `97d44976ab0e87b8f3ae5538afa8f5c809b7497a6c060559d74902e0cfaa1355`;
+- loader-manifest SHA-256: `964993be658aec8cf476b171d5b4905dd96f4c2c0230ed698966854987d8f138`;
+- payload bytes: `28,156,613`;
+- inventory: 33 brush tips + 32 grains (12 paper subtype) + 12 patterns = 77 resources.
+
+Regeneration QA is CLOSED/PASS: exact duplicate groups `0`; maximum same-kind correlation `0.9694` (gate `<= 0.995`); maximum seam score `0.0237` (gate `<= 0.12`); a second deterministic generation produced the identical package SHA-256. Production build generation, manifest/payload distribution, fail-closed byte-length/SHA validation and verified-only lazy caching are connected to the production path. Repository-standard CI run `33864874154` at `cb6f53fc02414ac6cd1defb515a37c531a89a486` passed formatting, lint, typecheck, all unit tests, M1–M5D inspections, production build, integration tests, deployment contract and build-identity verification.
+
+The 2026-08-30 hashes remain historical provenance only and are not the current production package identity.
+
 ### I final change-log entry
 
 - 2026-08-30: Re-opened the provisional I closure after identifying unnecessary raster tips. Removed 23 procedural-replaceable raster resources, fixed the final sampled-resource inventory at 77, reran integrity/seam/duplicate/coverage QA with zero failures, and formally CLOSED I under a procedural-first resource policy. J remains OPEN.
