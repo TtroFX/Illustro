@@ -1,0 +1,5 @@
+M6A performance gate: PASS
+CI run: 33893455316
+Verified commit: 0a6686d8b38db2e54b44f26b8bffd99133ee7ebc
+Workloads: 100 / 1,000 / 10,000 confirmed samples
+Invariants: stable prefix replay=0; mutable tail bounded; retained-scene append; dirty-tile patching; amortized reusable GPU instance buffer
