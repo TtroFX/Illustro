@@ -1,0 +1,32 @@
+{
+  "schema": "illustro.default-brush-pack-regeneration/1",
+  "authorizedAt": "2026-09-04",
+  "authorization": "user-explicit",
+  "regenerationId": "2026-09-04-user-authorized-v1",
+  "historicalPackage": {
+    "filename": "ILLUSTRO_J_DEFAULT_BRUSH_PACK_FINAL_2026-08-30.zip",
+    "sha256": "62c0c3ad4aed9f0d2b49a41bcccfc7e30d2b9f3b1278ec60bcb15b19126a5dc6",
+    "status": "historical-unrecoverable"
+  },
+  "canonicalPresetSource": "src/app/default-brush-pack.ts",
+  "presetCount": 48,
+  "categoryCounts": {
+    "Ink / Pen": 8,
+    "Pencil": 6,
+    "Marker": 5,
+    "Paint": 9,
+    "Airbrush": 3,
+    "Digital Watercolor": 5,
+    "Eraser": 4,
+    "Blend / Smudge / Blur": 3,
+    "Scatter / Special": 5
+  },
+  "compatibilityFactoryIds": [
+    "builtin.runtime.round",
+    "builtin.runtime.eraser",
+    "builtin.runtime.smudge",
+    "builtin.runtime.blur"
+  ],
+  "thumbnailStatus": "pending-M6A-077",
+  "fullReplacementPackageStatus": "pending-M6A-077"
+}
