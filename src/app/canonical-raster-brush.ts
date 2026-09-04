@@ -94,6 +94,7 @@ export class CanonicalRasterBrushStrokeV1 {
       readonly color?: BaselineBrushColorV1;
       readonly subColor?: BaselineBrushColorV1;
       readonly subColorRatio?: number;
+      readonly referenceAntiOverflow?: boolean;
       readonly mode?: CanonicalBrushModeV1;
       readonly sizePx?: number;
       readonly opacity?: number;
@@ -162,6 +163,9 @@ export class CanonicalRasterBrushStrokeV1 {
       ...(options.color === undefined ? {} : { color: options.color }),
       ...(options.subColor === undefined ? {} : { subColor: options.subColor }),
       ...(options.subColorRatio === undefined ? {} : { subColorRatio: options.subColorRatio }),
+      ...(options.referenceAntiOverflow === undefined
+        ? {}
+        : { referenceAntiOverflow: options.referenceAntiOverflow }),
       ...(options.sizePx === undefined ? {} : { sizePx: options.sizePx }),
       ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
       ...(options.flow === undefined ? {} : { flow: options.flow }),

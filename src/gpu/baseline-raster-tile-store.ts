@@ -12,6 +12,9 @@ import {
   baselineDabColorMixSampleRadiusRatioV1,
   baselineDabColorMixPickupAmountV1,
   baselineDabColorMixCarryAmountV1,
+  baselineDabReferenceAntiOverflowV1,
+  baselineDabReferenceOriginXV1,
+  baselineDabReferenceOriginYV1,
   baselineDabFlowV1,
   baselineDabHardnessV1,
   baselineDabTipDensityV1,
@@ -63,6 +66,7 @@ export interface BaselineRasterLayerDescriptorV1 {
   readonly visible: boolean;
   readonly opacity: number;
   readonly draft?: boolean;
+  readonly reference?: boolean;
   readonly blendMode?: BlendModeId;
   readonly clippingBaseLayerId?: string;
   readonly masks?: readonly BaselineRasterMaskDescriptorV1[];
@@ -95,8 +99,10 @@ interface ActiveTileTransactionV1 {
   readonly before: Map<string, BaselineRasterTileImageV1 | null>;
   readonly affected: Map<string, TileCoordinateV1>;
   readonly paintCoverage: Map<string, Float32Array>;
+  readonly referenceComposite: Map<string, BaselineRasterTileImageV1>;
   lastSmudgeDab: BaselineBrushDabV1 | null;
   colorMixReservoir: readonly [number, number, number, number] | null;
+  antiOverflowLastOrigin: Readonly<{ x: number; y: number }> | null;
 }
 
 function clamp01(value: number): number {
@@ -330,6 +336,27 @@ function mixedDigitalBrushColorV1(
   ]);
 }
 
+export const REFERENCE_ANTI_OVERFLOW_ALPHA_THRESHOLD_V1 = 1 / 255;
+
+interface ReferenceAntiOverflowClipV1 {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+  readonly state: Uint8Array;
+}
+
+function referenceClipAllowsPixelV1(
+  clip: ReferenceAntiOverflowClipV1,
+  documentX: number,
+  documentY: number,
+): boolean {
+  const localX = documentX - clip.left;
+  const localY = documentY - clip.top;
+  if (localX < 0 || localY < 0 || localX >= clip.width || localY >= clip.height) return false;
+  return clip.state[localY * clip.width + localX] === 2;
+}
+
 function rasterizeColorDab(
   tile: BaselineRasterTileImageV1,
   tileX: number,
@@ -337,6 +364,7 @@ function rasterizeColorDab(
   dab: BaselineBrushDabV1,
   strokeCoverage: Float32Array | null = null,
   reservoir: readonly [number, number, number, number] | null = null,
+  referenceClip: ReferenceAntiOverflowClipV1 | null = null,
 ): void {
   const radiusX = baselineDabRadiusXV1(dab);
   const radiusY = baselineDabRadiusYV1(dab);
@@ -373,6 +401,12 @@ function rasterizeColorDab(
     for (let documentY = minY; documentY <= maxY; documentY += 1) {
       const localY = (documentY + 0.5 - dab.y) / radiusY;
       for (let documentX = minX; documentX <= maxX; documentX += 1) {
+        if (
+          referenceClip !== null &&
+          !referenceClipAllowsPixelV1(referenceClip, documentX, documentY)
+        ) {
+          continue;
+        }
         const localX = (documentX + 0.5 - dab.x) / radiusX;
         const tipCoverage = baselineProceduralTipCoverageV1(dab, localX, localY);
         if (tipCoverage <= 0) continue;
@@ -427,6 +461,12 @@ function rasterizeColorDab(
   for (let documentY = minY; documentY <= maxY; documentY += 1) {
     const localY = (documentY + 0.5 - dab.y) / radiusY;
     for (let documentX = minX; documentX <= maxX; documentX += 1) {
+      if (
+        referenceClip !== null &&
+        !referenceClipAllowsPixelV1(referenceClip, documentX, documentY)
+      ) {
+        continue;
+      }
       const localX = (documentX + 0.5 - dab.x) / radiusX;
       const tipCoverage = baselineProceduralTipCoverageV1(dab, localX, localY);
       if (tipCoverage <= 0) continue;
@@ -991,6 +1031,239 @@ export class BaselineRasterTileStoreV1 {
     this.#compositeCache.clear();
   }
 
+  #referenceLayersForTarget(layerId: string): readonly BaselineRasterLayerDescriptorV1[] {
+    return this.#layers.filter(
+      (layer) =>
+        layer.layerId !== layerId && layer.reference === true && layer.visible && layer.opacity > 0,
+    );
+  }
+
+  #referenceCompositeTile(
+    coordinate: TileCoordinateV1,
+    referenceLayers: readonly BaselineRasterLayerDescriptorV1[],
+    cache: Map<string, BaselineRasterTileImageV1>,
+  ): BaselineRasterTileImageV1 {
+    const key = tileKeyV1(coordinate);
+    const cached = cache.get(key);
+    if (cached !== undefined) return cached;
+    const composite = this.#composeCoordinate(coordinate, referenceLayers);
+    cache.set(key, composite);
+    return composite;
+  }
+
+  #referenceAlphaAt(
+    documentX: number,
+    documentY: number,
+    referenceLayers: readonly BaselineRasterLayerDescriptorV1[],
+    cache: Map<string, BaselineRasterTileImageV1>,
+  ): number {
+    const pixelX = Math.floor(documentX);
+    const pixelY = Math.floor(documentY);
+    if (
+      pixelX < 0 ||
+      pixelY < 0 ||
+      pixelX >= this.#documentWidth ||
+      pixelY >= this.#documentHeight
+    ) {
+      return 0;
+    }
+    const coordinate = {
+      tx: Math.floor(pixelX / CANONICAL_TILE_SIZE_PX),
+      ty: Math.floor(pixelY / CANONICAL_TILE_SIZE_PX),
+    };
+    const tile = this.#referenceCompositeTile(coordinate, referenceLayers, cache);
+    const localX = pixelX - coordinate.tx * CANONICAL_TILE_SIZE_PX;
+    const localY = pixelY - coordinate.ty * CANONICAL_TILE_SIZE_PX;
+    return readPixel(tile, localY * tile.width + localX)[3];
+  }
+
+  #referenceSegmentBlocked(
+    from: Readonly<{ x: number; y: number }> | null,
+    to: Readonly<{ x: number; y: number }>,
+    referenceLayers: readonly BaselineRasterLayerDescriptorV1[],
+    cache: Map<string, BaselineRasterTileImageV1>,
+  ): boolean {
+    if (
+      this.#referenceAlphaAt(to.x, to.y, referenceLayers, cache) >
+      REFERENCE_ANTI_OVERFLOW_ALPHA_THRESHOLD_V1
+    ) {
+      return true;
+    }
+    if (from === null) return false;
+    const distance = Math.hypot(to.x - from.x, to.y - from.y);
+    const steps = Math.max(1, Math.ceil(distance * 2));
+    for (let step = 1; step <= steps; step += 1) {
+      const t = step / steps;
+      const x = from.x + (to.x - from.x) * t;
+      const y = from.y + (to.y - from.y) * t;
+      if (
+        this.#referenceAlphaAt(x, y, referenceLayers, cache) >
+        REFERENCE_ANTI_OVERFLOW_ALPHA_THRESHOLD_V1
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  #buildReferenceAntiOverflowClip(
+    dabs: readonly BaselineBrushDabV1[],
+    origin: Readonly<{ x: number; y: number }>,
+    referenceLayers: readonly BaselineRasterLayerDescriptorV1[],
+    cache: Map<string, BaselineRasterTileImageV1>,
+  ): ReferenceAntiOverflowClipV1 | null {
+    if (
+      origin.x < 0 ||
+      origin.y < 0 ||
+      origin.x >= this.#documentWidth ||
+      origin.y >= this.#documentHeight
+    ) {
+      return null;
+    }
+    let left = Math.floor(origin.x);
+    let top = Math.floor(origin.y);
+    let right = left;
+    let bottom = top;
+    for (const dab of dabs) {
+      const extentX = baselineDabExtentXV1(dab);
+      const extentY = baselineDabExtentYV1(dab);
+      left = Math.min(left, Math.floor(dab.x - extentX));
+      top = Math.min(top, Math.floor(dab.y - extentY));
+      right = Math.max(right, Math.ceil(dab.x + extentX) - 1);
+      bottom = Math.max(bottom, Math.ceil(dab.y + extentY) - 1);
+    }
+    left = Math.max(0, left);
+    top = Math.max(0, top);
+    right = Math.min(this.#documentWidth - 1, right);
+    bottom = Math.min(this.#documentHeight - 1, bottom);
+    if (right < left || bottom < top) return null;
+    const width = right - left + 1;
+    const height = bottom - top + 1;
+    const state = new Uint8Array(width * height);
+    for (let localY = 0; localY < height; localY += 1) {
+      for (let localX = 0; localX < width; localX += 1) {
+        if (
+          this.#referenceAlphaAt(left + localX + 0.5, top + localY + 0.5, referenceLayers, cache) >
+          REFERENCE_ANTI_OVERFLOW_ALPHA_THRESHOLD_V1
+        ) {
+          state[localY * width + localX] = 1;
+        }
+      }
+    }
+    const seedX = Math.floor(origin.x) - left;
+    const seedY = Math.floor(origin.y) - top;
+    const seed = seedY * width + seedX;
+    if (state[seed] !== 0) return null;
+
+    // Scanline flood fill: local only, no canvas-sized region label or global flood operation.
+    const stack: number[] = [seed];
+    while (stack.length > 0) {
+      const index = stack.pop();
+      if (index === undefined || state[index] !== 0) continue;
+      const y = Math.floor(index / width);
+      const x = index - y * width;
+      const row = y * width;
+      let runLeft = x;
+      let runRight = x;
+      while (runLeft > 0 && state[row + runLeft - 1] === 0) runLeft -= 1;
+      while (runRight + 1 < width && state[row + runRight + 1] === 0) runRight += 1;
+      let aboveOpen = false;
+      let belowOpen = false;
+      for (let scanX = runLeft; scanX <= runRight; scanX += 1) {
+        state[row + scanX] = 2;
+        if (y > 0) {
+          const above = row - width + scanX;
+          if (state[above] === 0) {
+            if (!aboveOpen) stack.push(above);
+            aboveOpen = true;
+          } else {
+            aboveOpen = false;
+          }
+        }
+        if (y + 1 < height) {
+          const below = row + width + scanX;
+          if (state[below] === 0) {
+            if (!belowOpen) stack.push(below);
+            belowOpen = true;
+          } else {
+            belowOpen = false;
+          }
+        }
+      }
+    }
+    return Object.freeze({ left, top, width, height, state });
+  }
+
+  #prepareReferenceAntiOverflowDabs(
+    layerId: string,
+    dabs: readonly BaselineBrushDabV1[],
+  ): Readonly<{
+    dabs: readonly BaselineBrushDabV1[];
+    clips: ReadonlyMap<BaselineBrushDabV1, ReferenceAntiOverflowClipV1>;
+  }> {
+    const active = this.#active;
+    if (active === null) throw new Error('reference anti-overflow requires an active transaction');
+    if (!dabs.some(baselineDabReferenceAntiOverflowV1)) {
+      return Object.freeze({ dabs, clips: new Map() });
+    }
+    const referenceLayers = this.#referenceLayersForTarget(layerId);
+    if (referenceLayers.length === 0) return Object.freeze({ dabs, clips: new Map() });
+
+    const accepted: BaselineBrushDabV1[] = [];
+    const clips = new Map<BaselineBrushDabV1, ReferenceAntiOverflowClipV1>();
+    let index = 0;
+    while (index < dabs.length) {
+      const first = dabs[index];
+      if (first === undefined) break;
+      if (!baselineDabReferenceAntiOverflowV1(first)) {
+        accepted.push(first);
+        index += 1;
+        continue;
+      }
+      const origin = Object.freeze({
+        x: baselineDabReferenceOriginXV1(first),
+        y: baselineDabReferenceOriginYV1(first),
+      });
+      let end = index + 1;
+      while (end < dabs.length) {
+        const candidate = dabs[end];
+        if (
+          candidate === undefined ||
+          !baselineDabReferenceAntiOverflowV1(candidate) ||
+          baselineDabReferenceOriginXV1(candidate) !== origin.x ||
+          baselineDabReferenceOriginYV1(candidate) !== origin.y
+        ) {
+          break;
+        }
+        end += 1;
+      }
+      const group = dabs.slice(index, end);
+      const blocked = this.#referenceSegmentBlocked(
+        active.antiOverflowLastOrigin,
+        origin,
+        referenceLayers,
+        active.referenceComposite,
+      );
+      if (!blocked) {
+        const clip = this.#buildReferenceAntiOverflowClip(
+          group,
+          origin,
+          referenceLayers,
+          active.referenceComposite,
+        );
+        if (clip !== null) {
+          for (const dab of group) {
+            accepted.push(dab);
+            clips.set(dab, clip);
+          }
+          active.antiOverflowLastOrigin = origin;
+        }
+      }
+      index = end;
+    }
+    return Object.freeze({ dabs: Object.freeze(accepted), clips });
+  }
+
   applyDabs(
     layerId: string,
     strokeId: string,
@@ -1009,32 +1282,47 @@ export class BaselineRasterTileStoreV1 {
         before: new Map(),
         affected: new Map(),
         paintCoverage: new Map(),
+        referenceComposite: new Map(),
         lastSmudgeDab: null,
         colorMixReservoir: null,
+        antiOverflowLastOrigin: null,
       };
     }
     if (this.#active.layerId !== layerId) throw new Error('active stroke changed raster layer');
     if (this.#active.operation !== operation)
       throw new Error('active stroke changed brush operation');
+    const antiOverflow =
+      operation === 'paint'
+        ? this.#prepareReferenceAntiOverflowDabs(layerId, dabs)
+        : Object.freeze({
+            dabs,
+            clips: new Map<BaselineBrushDabV1, ReferenceAntiOverflowClipV1>(),
+          });
+    const effectiveDabs = antiOverflow.dabs;
+    if (effectiveDabs.length === 0) return;
     if (operation === 'smudge') {
-      this.#applySmudgeDabs(layerId, dabs);
+      this.#applySmudgeDabs(layerId, effectiveDabs);
       return;
     }
     if (operation === 'blur') {
-      this.#applyBlurDabs(layerId, dabs);
+      this.#applyBlurDabs(layerId, effectiveDabs);
       return;
     }
     if (
       operation === 'paint' &&
-      dabs.some(
+      effectiveDabs.some(
         (dab) => baselineDabColorMixEnabledV1(dab) && baselineDabColorMixPickupAmountV1(dab) > 0,
       )
     ) {
-      this.#applyColorMixPickupDabs(layerId, dabs);
+      this.#applyColorMixPickupDabs(layerId, effectiveDabs, antiOverflow.clips);
       return;
     }
 
-    for (const plan of planBaselineBrushTilesV1(dabs, this.#documentWidth, this.#documentHeight)) {
+    for (const plan of planBaselineBrushTilesV1(
+      effectiveDabs,
+      this.#documentWidth,
+      this.#documentHeight,
+    )) {
       const coordinateKey = tileKeyV1(plan.coordinate);
       this.#compositeCache.delete(coordinateKey);
       const key = tileStateKey(layerId, plan.coordinate);
@@ -1068,12 +1356,25 @@ export class BaselineRasterTileStoreV1 {
       }
       for (const dab of plan.dabs) {
         if (operation === 'erase') rasterizeEraseDab(tile, bounds.x, bounds.y, dab);
-        else rasterizeColorDab(tile, bounds.x, bounds.y, dab, coverage);
+        else
+          rasterizeColorDab(
+            tile,
+            bounds.x,
+            bounds.y,
+            dab,
+            coverage,
+            null,
+            antiOverflow.clips.get(dab) ?? null,
+          );
       }
     }
   }
 
-  #applyColorMixPickupDabs(layerId: string, dabs: readonly BaselineBrushDabV1[]): void {
+  #applyColorMixPickupDabs(
+    layerId: string,
+    dabs: readonly BaselineBrushDabV1[],
+    referenceClips: ReadonlyMap<BaselineBrushDabV1, ReferenceAntiOverflowClipV1>,
+  ): void {
     const active = this.#active;
     if (active === null || active.operation !== 'paint') {
       throw new Error('color pickup rasterization requires an active paint transaction');
@@ -1129,7 +1430,15 @@ export class BaselineRasterTileStoreV1 {
           coverage = active.paintCoverage.get(key) ?? new Float32Array(tile.width * tile.height);
           active.paintCoverage.set(key, coverage);
         }
-        rasterizeColorDab(tile, bounds.x, bounds.y, dab, coverage, active.colorMixReservoir);
+        rasterizeColorDab(
+          tile,
+          bounds.x,
+          bounds.y,
+          dab,
+          coverage,
+          active.colorMixReservoir,
+          referenceClips.get(dab) ?? null,
+        );
       }
     }
   }
@@ -1597,6 +1906,9 @@ export class BaselineRasterTileStoreV1 {
       if (!Number.isFinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1) {
         throw new RangeError('baseline raster layer opacity must be between 0 and 1');
       }
+      if (layer.reference !== undefined && typeof layer.reference !== 'boolean') {
+        throw new TypeError('baseline raster layer reference flag must be boolean');
+      }
       const blendMode = layer.blendMode ?? 'normal';
       if (!isM5cBaseBlendModeV1(blendMode)) {
         throw new Error(`unsupported baseline blend mode: ${blendMode}`);
@@ -1660,6 +1972,7 @@ export class BaselineRasterTileStoreV1 {
         visible: layer.visible,
         opacity: layer.opacity,
         draft: layer.draft ?? false,
+        ...(layer.reference === true ? { reference: true } : {}),
         ...(blendMode === 'normal' ? {} : { blendMode }),
         ...(masks.length === 0 ? {} : { masks }),
         ...(layer.clippingBaseLayerId === undefined

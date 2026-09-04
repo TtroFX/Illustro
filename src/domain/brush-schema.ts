@@ -1629,6 +1629,30 @@ export function withBrushSprayAngleBasedOnCenterV1(
   });
 }
 
+export const DEFAULT_BRUSH_REFERENCE_ANTI_OVERFLOW_V1 = false as const;
+
+export function brushReferenceAntiOverflowV1(preset: BrushPresetV1): boolean {
+  const value = preset.ink.referenceAntiOverflow;
+  return typeof value === 'boolean' ? value : DEFAULT_BRUSH_REFERENCE_ANTI_OVERFLOW_V1;
+}
+
+export function withBrushReferenceAntiOverflowV1(
+  preset: BrushPresetV1,
+  enabled: boolean,
+): BrushPresetV1 {
+  if (typeof enabled !== 'boolean') {
+    throw new TypeError('brush reference anti-overflow flag must be boolean');
+  }
+  if (enabled === DEFAULT_BRUSH_REFERENCE_ANTI_OVERFLOW_V1) {
+    const { referenceAntiOverflow: _referenceAntiOverflow, ...ink } = preset.ink;
+    return normalizeBrushPresetV1({ ...preset, ink });
+  }
+  return normalizeBrushPresetV1({
+    ...preset,
+    ink: { ...preset.ink, referenceAntiOverflow: enabled },
+  });
+}
+
 export const DEFAULT_BRUSH_SUB_COLOR_RATIO_V1 = 0 as const;
 
 export function brushSubColorRatioV1(preset: BrushPresetV1): number {

@@ -305,6 +305,7 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
       typeof candidate.visible !== 'boolean' ||
       typeof candidate.opacity !== 'number' ||
       (candidate.draft !== undefined && typeof candidate.draft !== 'boolean') ||
+      (candidate.reference !== undefined && typeof candidate.reference !== 'boolean') ||
       (candidate.blendMode !== undefined && !isM5cBaseBlendModeV1(candidate.blendMode)) ||
       !Number.isFinite(candidate.opacity) ||
       candidate.opacity < 0 ||
@@ -328,6 +329,7 @@ function parseRasterLayers(value: unknown): readonly BaselineRasterLayerDescript
         visible: candidate.visible,
         opacity: candidate.opacity,
         draft: candidate.draft ?? false,
+        reference: candidate.reference ?? false,
         ...(candidate.blendMode === undefined ? {} : { blendMode: candidate.blendMode }),
         ...(masks.length === 0 ? {} : { masks }),
         ...(candidate.clippingBaseLayerId === undefined
@@ -498,6 +500,9 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
     const colorMixSampleRadiusRatio = candidate.colorMixSampleRadiusRatio;
     const colorMixPickupAmount = candidate.colorMixPickupAmount;
     const colorMixCarryAmount = candidate.colorMixCarryAmount;
+    const referenceAntiOverflow = candidate.referenceAntiOverflow;
+    const referenceOriginX = candidate.referenceOriginX;
+    const referenceOriginY = candidate.referenceOriginY;
     if (
       (radiusX !== undefined &&
         (typeof radiusX !== 'number' || !Number.isFinite(radiusX) || radiusX <= 0)) ||
@@ -547,7 +552,15 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         (typeof colorMixCarryAmount !== 'number' ||
           !Number.isFinite(colorMixCarryAmount) ||
           colorMixCarryAmount < 0 ||
-          colorMixCarryAmount > 1))
+          colorMixCarryAmount > 1)) ||
+      (referenceAntiOverflow !== undefined && typeof referenceAntiOverflow !== 'boolean') ||
+      (referenceOriginX !== undefined &&
+        (typeof referenceOriginX !== 'number' || !Number.isFinite(referenceOriginX))) ||
+      (referenceOriginY !== undefined &&
+        (typeof referenceOriginY !== 'number' || !Number.isFinite(referenceOriginY))) ||
+      (referenceOriginX === undefined) !== (referenceOriginY === undefined) ||
+      (referenceAntiOverflow === true &&
+        (referenceOriginX === undefined || referenceOriginY === undefined))
     ) {
       return null;
     }
@@ -584,6 +597,9 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
         ...(colorMixSampleRadiusRatio === undefined ? {} : { colorMixSampleRadiusRatio }),
         ...(colorMixPickupAmount === undefined ? {} : { colorMixPickupAmount }),
         ...(colorMixCarryAmount === undefined ? {} : { colorMixCarryAmount }),
+        ...(referenceAntiOverflow === undefined ? {} : { referenceAntiOverflow }),
+        ...(referenceOriginX === undefined ? {} : { referenceOriginX }),
+        ...(referenceOriginY === undefined ? {} : { referenceOriginY }),
       }),
     );
   }

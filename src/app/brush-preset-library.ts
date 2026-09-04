@@ -63,6 +63,7 @@ import {
   withBrushSprayDeviationV1,
   withBrushSprayAngleBasedOnCenterV1,
   withBrushSubColorRatioV1,
+  withBrushReferenceAntiOverflowV1,
   withBrushColorMixEnabledV1,
   withBrushColorMixCanvasRatioV1,
   withBrushColorMixDepositAmountV1,
@@ -1422,6 +1423,24 @@ export function updateBrushPresetSubColorRatioV1(
   return updateItemV1(state, presetId, (item) => {
     if (item.locked) throw new Error('locked brush preset cannot be edited');
     const current = withBrushSubColorRatioV1(item.preset, subColorRatio);
+    if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
+    return itemV1({
+      source: item.source,
+      baseline: item.baseline,
+      preset: normalizeBrushPresetV1({ ...current, revision: item.preset.revision + 1 }),
+      locked: item.locked,
+    });
+  });
+}
+
+export function updateBrushPresetReferenceAntiOverflowV1(
+  state: BrushPresetLibraryStateV1,
+  presetId: string,
+  enabled: boolean,
+): BrushPresetLibraryStateV1 {
+  return updateItemV1(state, presetId, (item) => {
+    if (item.locked) throw new Error('locked brush preset cannot be edited');
+    const current = withBrushReferenceAntiOverflowV1(item.preset, enabled);
     if (JSON.stringify(current) === JSON.stringify(item.preset)) return item;
     return itemV1({
       source: item.source,

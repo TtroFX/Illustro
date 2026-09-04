@@ -241,6 +241,9 @@ export interface BaselineBrushDabV1 {
   readonly colorMixSampleRadiusRatio?: number;
   readonly colorMixPickupAmount?: number;
   readonly colorMixCarryAmount?: number;
+  readonly referenceAntiOverflow?: boolean;
+  readonly referenceOriginX?: number;
+  readonly referenceOriginY?: number;
 }
 
 export const BASELINE_BRUSH_COLOR_MIX_CANVAS_RATIO_V1 = 0.5 as const;
@@ -291,6 +294,20 @@ export function baselineDabColorMixCarryAmountV1(dab: BaselineBrushDabV1): numbe
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
     ? value
     : BASELINE_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1;
+}
+
+export function baselineDabReferenceAntiOverflowV1(dab: BaselineBrushDabV1): boolean {
+  return dab.referenceAntiOverflow === true;
+}
+
+export function baselineDabReferenceOriginXV1(dab: BaselineBrushDabV1): number {
+  const value = dab.referenceOriginX;
+  return typeof value === 'number' && Number.isFinite(value) ? value : dab.x;
+}
+
+export function baselineDabReferenceOriginYV1(dab: BaselineBrushDabV1): number {
+  const value = dab.referenceOriginY;
+  return typeof value === 'number' && Number.isFinite(value) ? value : dab.y;
 }
 
 export function baselineDabColorV1(dab: BaselineBrushDabV1): BaselineBrushColorV1 {
@@ -386,6 +403,9 @@ function freezeDab(
   tipAngleDegrees: number,
   color: BaselineBrushColorV1,
   tipShape: Exclude<BaselineBrushTipShapeV1, 'sampled-image'>,
+  referenceAntiOverflow: boolean,
+  referenceOriginX: number,
+  referenceOriginY: number,
 ): BaselineBrushDabV1 {
   return Object.freeze({
     schema: 'illustro.baseline-brush-dab/1' as const,
@@ -400,6 +420,9 @@ function freezeDab(
     tipAngleDegrees,
     tipShape,
     color,
+    ...(referenceAntiOverflow
+      ? { referenceAntiOverflow: true, referenceOriginX, referenceOriginY }
+      : {}),
   });
 }
 
@@ -416,6 +439,9 @@ function pushBaselineBrushStampV1(
   color: BaselineBrushColorV1,
   tipShape: BaselineBrushTipShapeV1,
   sampledTipAlpha: BaselineBrushSampledTipAlphaV1,
+  referenceAntiOverflow: boolean,
+  referenceOriginX: number,
+  referenceOriginY: number,
 ): void {
   if (tipShape !== 'sampled-image') {
     target.push(
@@ -430,6 +456,9 @@ function pushBaselineBrushStampV1(
         tipAngleDegrees,
         color,
         tipShape,
+        referenceAntiOverflow,
+        referenceOriginX,
+        referenceOriginY,
       ),
     );
     return;
@@ -463,6 +492,9 @@ function pushBaselineBrushStampV1(
         tipAngleDegrees,
         color,
         'round',
+        referenceAntiOverflow,
+        referenceOriginX,
+        referenceOriginY,
       ),
     );
   };
@@ -863,6 +895,7 @@ export class BaselineBrushDabBuilderV1 {
   readonly #color: BaselineBrushColorV1;
   readonly #subColor: BaselineBrushColorV1;
   readonly #subColorRatio: number;
+  readonly #referenceAntiOverflow: boolean;
   readonly #radius: number;
   readonly #spacing: number;
   readonly #startTaperLengthPx: number;
@@ -950,6 +983,7 @@ export class BaselineBrushDabBuilderV1 {
       readonly color?: BaselineBrushColorV1;
       readonly subColor?: BaselineBrushColorV1;
       readonly subColorRatio?: number;
+      readonly referenceAntiOverflow?: boolean;
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
@@ -1025,6 +1059,11 @@ export class BaselineBrushDabBuilderV1 {
       throw new RangeError('baseline brush sub color ratio must be within 0..1');
     }
     this.#subColorRatio = subColorRatio;
+    const referenceAntiOverflow = options.referenceAntiOverflow ?? false;
+    if (typeof referenceAntiOverflow !== 'boolean') {
+      throw new TypeError('baseline brush reference anti-overflow flag must be boolean');
+    }
+    this.#referenceAntiOverflow = referenceAntiOverflow;
     const sizePx = options.sizePx ?? BASELINE_BRUSH_RADIUS_PX * 2;
     const opacity = options.opacity ?? BASELINE_BRUSH_OPACITY;
     const flow = options.flow ?? 1;
@@ -1679,6 +1718,9 @@ export class BaselineBrushDabBuilderV1 {
         stamp.color,
         this.#tipShape,
         stamp.sampledTipAlpha,
+        this.#referenceAntiOverflow,
+        stamp.x,
+        stamp.y,
       );
     if (stamp.sprayParticles === null) {
       emitParticle(stamp.x, stamp.y, 1, stamp.tipAngleDegrees);

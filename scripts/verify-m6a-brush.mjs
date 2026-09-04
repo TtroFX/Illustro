@@ -1756,3 +1756,39 @@ requireText(
   'mixes main and sub colors in linear light before creating resolved dabs',
   'main/sub brush regression coverage missing',
 );
+
+requireText(
+  progress,
+  'M6A-065 reference-aware anti-overflow painting:完了',
+  'M6A-065 progress is not complete',
+);
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushReferenceAntiOverflowV1',
+  'reference anti-overflow brush preset contract missing',
+);
+requireText(
+  read('src/app/raster-compositor-descriptors.ts'),
+  'reference: true',
+  'Reference Layer role is not carried to the raster compositor',
+);
+requireText(
+  read('src/gpu/baseline-raster-tile-store.ts'),
+  '#buildReferenceAntiOverflowClip',
+  'local reference anti-overflow connectivity clip missing',
+);
+requireText(
+  read('src/gpu/baseline-paint-renderer.ts'),
+  'baselineDabReferenceAntiOverflowV1(dab)',
+  'anti-overflow paint is not routed through canonical preview',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-reference-anti-overflow"',
+  'reachable reference anti-overflow control missing',
+);
+requireText(
+  read('tests/unit/brush-reference-anti-overflow.test.ts'),
+  'clips brush-radius overflow to the connected side of a reference line',
+  'reference anti-overflow regression coverage missing',
+);

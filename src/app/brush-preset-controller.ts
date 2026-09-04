@@ -62,6 +62,7 @@ import {
   brushSprayDeviationV1,
   brushSprayAngleBasedOnCenterV1,
   brushSubColorRatioV1,
+  brushReferenceAntiOverflowV1,
   brushColorMixEnabledV1,
   brushColorMixCanvasRatioV1,
   brushColorMixDepositAmountV1,
@@ -159,6 +160,7 @@ import {
   updateBrushPresetSpraySpreadV1,
   updateBrushPresetSprayAngleBasedOnCenterV1,
   updateBrushPresetSubColorRatioV1,
+  updateBrushPresetReferenceAntiOverflowV1,
   updateBrushPresetColorMixEnabledV1,
   updateBrushPresetColorMixCanvasRatioV1,
   updateBrushPresetColorMixDepositAmountV1,
@@ -401,6 +403,10 @@ export function installBrushPresetControllerV1(input: {
   );
   const subColorRatioRange = requireElement('#brush-sub-color-ratio-range', HTMLInputElement);
   const subColorRatioNumber = requireElement('#brush-sub-color-ratio-number', HTMLInputElement);
+  const referenceAntiOverflowButton = requireElement(
+    '#brush-reference-anti-overflow',
+    HTMLButtonElement,
+  );
   const colorMixEnabledButton = requireElement('#brush-color-mix-enabled', HTMLButtonElement);
   const colorMixCanvasRatioRange = requireElement(
     '#brush-color-mix-canvas-ratio-range',
@@ -577,6 +583,7 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushSprayAngleBasedOnCenter(sprayAngleBasedOnCenter);
     const subColorRatio = brushSubColorRatioV1(item.preset);
     input.paintSession.setBrushSubColorRatio(subColorRatio);
+    input.paintSession.setBrushReferenceAntiOverflow(brushReferenceAntiOverflowV1(item.preset));
     const colorMixEnabled = brushColorMixEnabledV1(item.preset);
     const colorMixCanvasRatio = brushColorMixCanvasRatioV1(item.preset);
     const colorMixDepositAmount = brushColorMixDepositAmountV1(item.preset);
@@ -1024,6 +1031,9 @@ export function installBrushPresetControllerV1(input: {
     sprayAngleBasedOnCenterButton.setAttribute('aria-pressed', String(sprayAngleBasedOnCenter));
     const subColorRatio = brushSubColorRatioV1(selected.preset);
     configurePair(subColorRatioRange, subColorRatioNumber, 0, 100, 1, subColorRatio * 100);
+    const referenceAntiOverflow = brushReferenceAntiOverflowV1(selected.preset);
+    referenceAntiOverflowButton.textContent = referenceAntiOverflow ? 'ON' : 'OFF';
+    referenceAntiOverflowButton.setAttribute('aria-pressed', String(referenceAntiOverflow));
     const colorMixEnabled = brushColorMixEnabledV1(selected.preset);
     colorMixEnabledButton.textContent = colorMixEnabled ? 'ON' : 'OFF';
     colorMixEnabledButton.setAttribute('aria-pressed', String(colorMixEnabled));
@@ -1298,6 +1308,7 @@ export function installBrushPresetControllerV1(input: {
     sprayAngleBasedOnCenterButton.disabled = locked || !sprayEnabled;
     subColorRatioRange.disabled = locked || selected.preset.behavior !== 'paint';
     subColorRatioNumber.disabled = locked || selected.preset.behavior !== 'paint';
+    referenceAntiOverflowButton.disabled = locked || selected.preset.behavior !== 'paint';
     colorMixCanvasRatioRange.disabled = locked || !colorMixEnabled;
     colorMixCanvasRatioNumber.disabled = locked || !colorMixEnabled;
     colorMixDepositRange.disabled = locked || !colorMixEnabled;
@@ -1802,6 +1813,14 @@ export function installBrushPresetControllerV1(input: {
     );
   const onSubColorRatioRange = (): void => updateSubColorRatio(Number(subColorRatioRange.value));
   const onSubColorRatioNumber = (): void => updateSubColorRatio(Number(subColorRatioNumber.value));
+  const onReferenceAntiOverflow = (): void =>
+    mutate(() =>
+      updateBrushPresetReferenceAntiOverflowV1(
+        state,
+        state.selectedPresetId,
+        !brushReferenceAntiOverflowV1(selectedBrushPresetItemV1(state).preset),
+      ),
+    );
   const onColorMixEnabled = (): void =>
     mutate(() =>
       updateBrushPresetColorMixEnabledV1(
@@ -2020,6 +2039,7 @@ export function installBrushPresetControllerV1(input: {
   sprayAngleBasedOnCenterButton.addEventListener('click', onSprayAngleBasedOnCenter);
   subColorRatioRange.addEventListener('input', onSubColorRatioRange);
   subColorRatioNumber.addEventListener('change', onSubColorRatioNumber);
+  referenceAntiOverflowButton.addEventListener('click', onReferenceAntiOverflow);
   colorMixEnabledButton.addEventListener('click', onColorMixEnabled);
   colorMixCanvasRatioRange.addEventListener('input', onColorMixCanvasRatioRange);
   colorMixCanvasRatioNumber.addEventListener('change', onColorMixCanvasRatioNumber);
@@ -2150,6 +2170,7 @@ export function installBrushPresetControllerV1(input: {
       sprayAngleBasedOnCenterButton.removeEventListener('click', onSprayAngleBasedOnCenter);
       subColorRatioRange.removeEventListener('input', onSubColorRatioRange);
       subColorRatioNumber.removeEventListener('change', onSubColorRatioNumber);
+      referenceAntiOverflowButton.removeEventListener('click', onReferenceAntiOverflow);
       colorMixEnabledButton.removeEventListener('click', onColorMixEnabled);
       colorMixCanvasRatioRange.removeEventListener('input', onColorMixCanvasRatioRange);
       colorMixCanvasRatioNumber.removeEventListener('change', onColorMixCanvasRatioNumber);

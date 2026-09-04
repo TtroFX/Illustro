@@ -182,6 +182,7 @@ export async function hydratePaintRasterLayerDescriptorsV1(
         visible: layer.visible,
         opacity: layer.opacity,
         ...(layer.roleFlags.draft ? { draft: true } : {}),
+        ...(layer.roleFlags.reference ? { reference: true } : {}),
         ...(layer.blendMode === 'normal' ? {} : { blendMode: layer.blendMode }),
         ...(masks.length === 0 ? {} : { masks: Object.freeze(masks) }),
         ...(clippingBaseLayerId === undefined ? {} : { clippingBaseLayerId }),

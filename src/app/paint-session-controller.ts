@@ -7,6 +7,7 @@ import {
 import {
   DEFAULT_BRUSH_PARAMETER_VALUES_V1,
   DEFAULT_BRUSH_SUB_COLOR_RATIO_V1,
+  DEFAULT_BRUSH_REFERENCE_ANTI_OVERFLOW_V1,
   DEFAULT_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1,
   DEFAULT_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1,
   DEFAULT_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1,
@@ -295,6 +296,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushSprayDeviation: number;
   readonly brushSprayAngleBasedOnCenter: boolean;
   readonly brushSubColorRatio: number;
+  readonly brushReferenceAntiOverflow: boolean;
   readonly brushColorMixEnabled: boolean;
   readonly brushColorMixCanvasRatio: number;
   readonly brushColorMixDepositAmount: number;
@@ -835,6 +837,7 @@ export class PaintSessionControllerV1 {
   #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
   #paintSubColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
   #brushSubColorRatio: number = DEFAULT_BRUSH_SUB_COLOR_RATIO_V1;
+  #brushReferenceAntiOverflow: boolean = DEFAULT_BRUSH_REFERENCE_ANTI_OVERFLOW_V1;
   #brushMode: CanonicalBrushModeV1 = 'raster';
   #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
   #brushHardness: number = BASELINE_BRUSH_HARDNESS;
@@ -984,6 +987,7 @@ export class PaintSessionControllerV1 {
       brushSprayDeviation: this.#brushSprayDeviation,
       brushSprayAngleBasedOnCenter: this.#brushSprayAngleBasedOnCenter,
       brushSubColorRatio: this.#brushSubColorRatio,
+      brushReferenceAntiOverflow: this.#brushReferenceAntiOverflow,
       brushColorMixEnabled: this.#brushColorMixEnabled,
       brushColorMixCanvasRatio: this.#brushColorMixCanvasRatio,
       brushColorMixDepositAmount: this.#brushColorMixDepositAmount,
@@ -1856,6 +1860,18 @@ export class PaintSessionControllerV1 {
 
   brushSubColorRatio(): number {
     return this.#brushSubColorRatio;
+  }
+
+  setBrushReferenceAntiOverflow(enabled: boolean): void {
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('invalid runtime brush reference anti-overflow flag');
+    }
+    if (enabled !== this.#brushReferenceAntiOverflow) this.#clearActiveStroke();
+    this.#brushReferenceAntiOverflow = enabled;
+  }
+
+  brushReferenceAntiOverflow(): boolean {
+    return this.#brushReferenceAntiOverflow;
   }
 
   setBrushColorMix(
@@ -2836,6 +2852,7 @@ export class PaintSessionControllerV1 {
         color: this.#paintColor,
         subColor: this.#paintSubColor,
         subColorRatio: this.#brushSubColorRatio,
+        referenceAntiOverflow: this.#brushReferenceAntiOverflow,
         mode: this.#brushMode,
         sizePx: parameters.sizePx,
         opacity: parameters.opacity,

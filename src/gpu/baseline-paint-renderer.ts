@@ -9,6 +9,9 @@ import {
   baselineDabColorMixSampleRadiusRatioV1,
   baselineDabColorMixPickupAmountV1,
   baselineDabColorMixCarryAmountV1,
+  baselineDabReferenceAntiOverflowV1,
+  baselineDabReferenceOriginXV1,
+  baselineDabReferenceOriginYV1,
   baselineDabColorMixEnabledV1,
   baselineDabFlowV1,
   baselineDabHardnessV1,
@@ -258,6 +261,11 @@ function freezeDabs(dabs: readonly BaselineBrushDabV1[]): readonly BaselineBrush
         ...(dab.colorMixCarryAmount === undefined
           ? {}
           : { colorMixCarryAmount: dab.colorMixCarryAmount }),
+        ...(dab.referenceAntiOverflow === undefined
+          ? {}
+          : { referenceAntiOverflow: dab.referenceAntiOverflow }),
+        ...(dab.referenceOriginX === undefined ? {} : { referenceOriginX: dab.referenceOriginX }),
+        ...(dab.referenceOriginY === undefined ? {} : { referenceOriginY: dab.referenceOriginY }),
       }),
     ),
   );
@@ -306,7 +314,13 @@ function isRenderableDab(dab: BaselineBrushDabV1): boolean {
     (dab.colorMixCarryAmount === undefined ||
       (Number.isFinite(dab.colorMixCarryAmount) &&
         dab.colorMixCarryAmount >= 0 &&
-        dab.colorMixCarryAmount <= 1))
+        dab.colorMixCarryAmount <= 1)) &&
+    (dab.referenceAntiOverflow === undefined || typeof dab.referenceAntiOverflow === 'boolean') &&
+    (dab.referenceOriginX === undefined || Number.isFinite(dab.referenceOriginX)) &&
+    (dab.referenceOriginY === undefined || Number.isFinite(dab.referenceOriginY)) &&
+    (dab.referenceOriginX === undefined) === (dab.referenceOriginY === undefined) &&
+    (dab.referenceAntiOverflow !== true ||
+      (dab.referenceOriginX !== undefined && dab.referenceOriginY !== undefined))
   );
 }
 
@@ -332,6 +346,9 @@ function sameDab(left: BaselineBrushDabV1, right: BaselineBrushDabV1): boolean {
       baselineDabColorMixSampleRadiusRatioV1(right) &&
     baselineDabColorMixPickupAmountV1(left) === baselineDabColorMixPickupAmountV1(right) &&
     baselineDabColorMixCarryAmountV1(left) === baselineDabColorMixCarryAmountV1(right) &&
+    baselineDabReferenceAntiOverflowV1(left) === baselineDabReferenceAntiOverflowV1(right) &&
+    baselineDabReferenceOriginXV1(left) === baselineDabReferenceOriginXV1(right) &&
+    baselineDabReferenceOriginYV1(left) === baselineDabReferenceOriginYV1(right) &&
     baselineDabColorV1(left).every(
       (component, index) => component === baselineDabColorV1(right)[index],
     )
@@ -344,6 +361,7 @@ function requiresCanonicalPaintPreview(dabs: readonly BaselineBrushDabV1[]): boo
       dab.tipShape === 'square' ||
       baselineDabHardnessV1(dab) !== BASELINE_BRUSH_HARDNESS ||
       baselineDabTipDensityV1(dab) !== BASELINE_BRUSH_TIP_DENSITY ||
+      baselineDabReferenceAntiOverflowV1(dab) ||
       baselineDabColorMixEnabledV1(dab) ||
       (baselineDabUsesFlowOpacityV1(dab) &&
         (baselineDabFlowV1(dab) < 1 || baselineDabStrokeOpacityV1(dab) < 1)),
