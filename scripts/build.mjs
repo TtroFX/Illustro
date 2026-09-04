@@ -31,6 +31,7 @@ await mkdir(distDir, { recursive: true });
 
 const generatorEnv = { ...process.env, ILLUSTRO_BUILD_MODE: mode };
 for (const script of [
+  'scripts/generate-m6a-sampled-resources.mjs',
   'scripts/generate-wgsl.mjs',
   'scripts/generate-build-info.mjs',
   'scripts/generate-legal.mjs',
@@ -61,6 +62,7 @@ for (const entry of await readdir(publicDir, { withFileTypes: true })) {
     { recursive: true },
   );
 }
+await cp(new URL('../.build/generated-public/', import.meta.url), distDir, { recursive: true });
 await cp(
   new URL('../.build/meta/build-info.json', import.meta.url),
   new URL('build-info.json', distDir),

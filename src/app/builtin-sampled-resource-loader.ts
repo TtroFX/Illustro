@@ -5,11 +5,12 @@ import {
 import { isSha256Hex } from '../domain/resources.js';
 
 export const FINAL_SAMPLED_RESOURCE_PACKAGE_FILENAME_V1 =
-  'ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-08-30.zip' as const;
+  'ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-09-04.zip' as const;
 export const FINAL_SAMPLED_RESOURCE_PACKAGE_SHA256_V1 =
-  'c23ccd51d37e6081c21c0961102d1d320e0d6a6e67c9ea97eaaf4828f65ec0f2' as const;
+  '7ba886fd15e22fcce3d6b0ae0004c85eb8370626346a00cff3d40c0955ad2eec' as const;
 export const FINAL_SAMPLED_RESOURCE_SOURCE_MANIFEST_SHA256_V1 =
-  '5db86732c5e8b250599e74b0c85a0474272d48998e0d1863240a40d4d2ff1776' as const;
+  '97d44976ab0e87b8f3ae5538afa8f5c809b7497a6c060559d74902e0cfaa1355' as const;
+export const FINAL_SAMPLED_RESOURCE_MANIFEST_URL_V1 = './assets/sampled/manifest.json' as const;
 export const FINAL_SAMPLED_RESOURCE_COUNT_V1 = 77 as const;
 export const FINAL_SAMPLED_BRUSH_TIP_COUNT_V1 = 33 as const;
 export const FINAL_SAMPLED_GRAIN_COUNT_V1 = 32 as const;
@@ -226,6 +227,33 @@ export async function fetchBuiltinSampledResourceBytesV1(payloadPath: string): P
   if (!response.ok)
     throw new Error(`sampled resource fetch failed: ${response.status} ${payloadPath}`);
   return new Uint8Array(await response.arrayBuffer());
+}
+
+export type BuiltinSampledResourceManifestFetchV1 = (url: string) => Promise<unknown>;
+
+async function fetchBuiltinSampledResourceManifestValueV1(url: string): Promise<unknown> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`sampled resource manifest fetch failed: ${response.status} ${url}`);
+  }
+  return response.json() as Promise<unknown>;
+}
+
+export async function fetchFinalBuiltinSampledResourceManifestV1(
+  manifestUrl: string = FINAL_SAMPLED_RESOURCE_MANIFEST_URL_V1,
+  fetchManifest: BuiltinSampledResourceManifestFetchV1 = fetchBuiltinSampledResourceManifestValueV1,
+): Promise<FinalBuiltinSampledResourceManifestV1> {
+  return parseFinalBuiltinSampledResourceManifestV1(await fetchManifest(manifestUrl));
+}
+
+export async function createProductionFinalBuiltinSampledResourceLoaderV1(
+  manifestUrl: string = FINAL_SAMPLED_RESOURCE_MANIFEST_URL_V1,
+  fetchManifest: BuiltinSampledResourceManifestFetchV1 = fetchBuiltinSampledResourceManifestValueV1,
+  fetchPayload: BuiltinSampledResourceFetchV1 = fetchBuiltinSampledResourceBytesV1,
+  digest: BuiltinSampledResourceDigestV1 = sha256HexBytesV1,
+): Promise<BuiltinSampledResourceLoaderV1> {
+  const manifest = await fetchFinalBuiltinSampledResourceManifestV1(manifestUrl, fetchManifest);
+  return createFinalBuiltinSampledResourceLoaderV1(manifest, fetchPayload, digest);
 }
 
 export function createFinalBuiltinSampledResourceLoaderV1(

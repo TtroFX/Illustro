@@ -5,7 +5,9 @@ import {
 } from '../../src/domain/brush-schema.js';
 import {
   createFinalBuiltinSampledResourceLoaderV1,
+  createProductionFinalBuiltinSampledResourceLoaderV1,
   FINAL_SAMPLED_RESOURCE_COUNT_V1,
+  FINAL_SAMPLED_RESOURCE_MANIFEST_URL_V1,
   FINAL_SAMPLED_RESOURCE_PACKAGE_FILENAME_V1,
   FINAL_SAMPLED_RESOURCE_PACKAGE_SHA256_V1,
   FINAL_SAMPLED_RESOURCE_SOURCE_MANIFEST_SHA256_V1,
@@ -62,12 +64,12 @@ describe('M6A-071 final sampled-resource loader checkpoint', () => {
   it('pins the accepted I-FINAL package identity and exact 33/32/12 inventory', () => {
     const parsed = parseFinalBuiltinSampledResourceManifestV1(manifest());
     expect(parsed.resources).toHaveLength(FINAL_SAMPLED_RESOURCE_COUNT_V1);
-    expect(parsed.packageFileName).toBe('ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-08-30.zip');
+    expect(parsed.packageFileName).toBe('ILLUSTRO_I_FINAL_PRODUCTION_ASSETS_2026-09-04.zip');
     expect(parsed.packageSha256).toBe(
-      'c23ccd51d37e6081c21c0961102d1d320e0d6a6e67c9ea97eaaf4828f65ec0f2',
+      '7ba886fd15e22fcce3d6b0ae0004c85eb8370626346a00cff3d40c0955ad2eec',
     );
     expect(parsed.sourceManifestSha256).toBe(
-      '5db86732c5e8b250599e74b0c85a0474272d48998e0d1863240a40d4d2ff1776',
+      '97d44976ab0e87b8f3ae5538afa8f5c809b7497a6c060559d74902e0cfaa1355',
     );
     expect(parsed.resources.filter((resource) => resource.kind === 'brush-tip')).toHaveLength(33);
     expect(parsed.resources.filter((resource) => resource.kind === 'grain')).toHaveLength(32);
@@ -126,6 +128,19 @@ describe('M6A-071 final sampled-resource loader checkpoint', () => {
     expect([...second.bytes]).toEqual([1, 2, 3]);
     expect(fetchCount).toBe(1);
     expect(loader.snapshot().cachedResourceCount).toBe(1);
+  });
+
+  it('creates the production loader from the generated canonical manifest route', async () => {
+    let requestedUrl = '';
+    const loader = await createProductionFinalBuiltinSampledResourceLoaderV1(
+      FINAL_SAMPLED_RESOURCE_MANIFEST_URL_V1,
+      async (url) => {
+        requestedUrl = url;
+        return manifest();
+      },
+    );
+    expect(requestedUrl).toBe('./assets/sampled/manifest.json');
+    expect(loader.snapshot()).toMatchObject({ resourceCount: 77, cachedResourceCount: 0 });
   });
 
   it('does not cache a payload whose digest differs from the frozen descriptor', async () => {
