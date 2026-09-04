@@ -1629,6 +1629,29 @@ export function withBrushSprayAngleBasedOnCenterV1(
   });
 }
 
+export const DEFAULT_BRUSH_SUB_COLOR_RATIO_V1 = 0 as const;
+
+export function brushSubColorRatioV1(preset: BrushPresetV1): number {
+  const value = preset.ink.subColorRatio;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : DEFAULT_BRUSH_SUB_COLOR_RATIO_V1;
+}
+
+export function withBrushSubColorRatioV1(
+  preset: BrushPresetV1,
+  subColorRatio: number,
+): BrushPresetV1 {
+  if (!Number.isFinite(subColorRatio) || subColorRatio < 0 || subColorRatio > 1) {
+    throw new RangeError('brush sub color ratio must be within 0..1');
+  }
+  if (subColorRatio === DEFAULT_BRUSH_SUB_COLOR_RATIO_V1) {
+    const { subColorRatio: _subColorRatio, ...ink } = preset.ink;
+    return normalizeBrushPresetV1({ ...preset, ink });
+  }
+  return normalizeBrushPresetV1({ ...preset, ink: { ...preset.ink, subColorRatio } });
+}
+
 export const DEFAULT_BRUSH_COLOR_MIX_ENABLED_V1 = false as const;
 export const DEFAULT_BRUSH_COLOR_MIX_CANVAS_RATIO_V1 = 0.5 as const;
 export const DEFAULT_BRUSH_COLOR_MIX_DEPOSIT_AMOUNT_V1 = 1 as const;

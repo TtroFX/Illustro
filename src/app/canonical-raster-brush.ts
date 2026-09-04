@@ -92,6 +92,8 @@ export class CanonicalRasterBrushStrokeV1 {
   constructor(
     options: {
       readonly color?: BaselineBrushColorV1;
+      readonly subColor?: BaselineBrushColorV1;
+      readonly subColorRatio?: number;
       readonly mode?: CanonicalBrushModeV1;
       readonly sizePx?: number;
       readonly opacity?: number;
@@ -158,6 +160,8 @@ export class CanonicalRasterBrushStrokeV1 {
     this.#mode = options.mode ?? 'raster';
     this.#kernel = new BaselineBrushDabBuilderV1({
       ...(options.color === undefined ? {} : { color: options.color }),
+      ...(options.subColor === undefined ? {} : { subColor: options.subColor }),
+      ...(options.subColorRatio === undefined ? {} : { subColorRatio: options.subColorRatio }),
       ...(options.sizePx === undefined ? {} : { sizePx: options.sizePx }),
       ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
       ...(options.flow === undefined ? {} : { flow: options.flow }),

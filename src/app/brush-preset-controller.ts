@@ -61,6 +61,7 @@ import {
   brushSpraySpreadRadiusRatioV1,
   brushSprayDeviationV1,
   brushSprayAngleBasedOnCenterV1,
+  brushSubColorRatioV1,
   brushColorMixEnabledV1,
   brushColorMixCanvasRatioV1,
   brushColorMixDepositAmountV1,
@@ -157,6 +158,7 @@ import {
   updateBrushPresetSprayParticleDensityV1,
   updateBrushPresetSpraySpreadV1,
   updateBrushPresetSprayAngleBasedOnCenterV1,
+  updateBrushPresetSubColorRatioV1,
   updateBrushPresetColorMixEnabledV1,
   updateBrushPresetColorMixCanvasRatioV1,
   updateBrushPresetColorMixDepositAmountV1,
@@ -397,6 +399,8 @@ export function installBrushPresetControllerV1(input: {
     '#brush-spray-angle-based-on-center',
     HTMLButtonElement,
   );
+  const subColorRatioRange = requireElement('#brush-sub-color-ratio-range', HTMLInputElement);
+  const subColorRatioNumber = requireElement('#brush-sub-color-ratio-number', HTMLInputElement);
   const colorMixEnabledButton = requireElement('#brush-color-mix-enabled', HTMLButtonElement);
   const colorMixCanvasRatioRange = requireElement(
     '#brush-color-mix-canvas-ratio-range',
@@ -571,6 +575,8 @@ export function installBrushPresetControllerV1(input: {
     input.paintSession.setBrushSpraySpread(spraySpreadRadiusRatio, sprayDeviation);
     const sprayAngleBasedOnCenter = brushSprayAngleBasedOnCenterV1(item.preset);
     input.paintSession.setBrushSprayAngleBasedOnCenter(sprayAngleBasedOnCenter);
+    const subColorRatio = brushSubColorRatioV1(item.preset);
+    input.paintSession.setBrushSubColorRatio(subColorRatio);
     const colorMixEnabled = brushColorMixEnabledV1(item.preset);
     const colorMixCanvasRatio = brushColorMixCanvasRatioV1(item.preset);
     const colorMixDepositAmount = brushColorMixDepositAmountV1(item.preset);
@@ -670,6 +676,7 @@ export function installBrushPresetControllerV1(input: {
     input.root.dataset.illustroBrushSpraySpreadRadiusRatio = String(spraySpreadRadiusRatio);
     input.root.dataset.illustroBrushSprayDeviation = String(sprayDeviation);
     input.root.dataset.illustroBrushSprayAngleBasedOnCenter = String(sprayAngleBasedOnCenter);
+    input.root.dataset.illustroBrushSubColorRatio = String(subColorRatio);
     input.root.dataset.illustroBrushColorMixEnabled = String(colorMixEnabled);
     input.root.dataset.illustroBrushColorMixCanvasRatio = String(colorMixCanvasRatio);
     input.root.dataset.illustroBrushColorMixDepositAmount = String(colorMixDepositAmount);
@@ -1015,6 +1022,8 @@ export function installBrushPresetControllerV1(input: {
     const sprayAngleBasedOnCenter = brushSprayAngleBasedOnCenterV1(selected.preset);
     sprayAngleBasedOnCenterButton.textContent = sprayAngleBasedOnCenter ? 'ON' : 'OFF';
     sprayAngleBasedOnCenterButton.setAttribute('aria-pressed', String(sprayAngleBasedOnCenter));
+    const subColorRatio = brushSubColorRatioV1(selected.preset);
+    configurePair(subColorRatioRange, subColorRatioNumber, 0, 100, 1, subColorRatio * 100);
     const colorMixEnabled = brushColorMixEnabledV1(selected.preset);
     colorMixEnabledButton.textContent = colorMixEnabled ? 'ON' : 'OFF';
     colorMixEnabledButton.setAttribute('aria-pressed', String(colorMixEnabled));
@@ -1265,6 +1274,8 @@ export function installBrushPresetControllerV1(input: {
       sprayDeviationRange,
       sprayDeviationNumber,
       sprayAngleBasedOnCenterButton,
+      subColorRatioRange,
+      subColorRatioNumber,
       colorMixEnabledButton,
       colorMixCanvasRatioRange,
       colorMixCanvasRatioNumber,
@@ -1285,6 +1296,8 @@ export function installBrushPresetControllerV1(input: {
     sprayDeviationRange.disabled = locked || !sprayEnabled;
     sprayDeviationNumber.disabled = locked || !sprayEnabled;
     sprayAngleBasedOnCenterButton.disabled = locked || !sprayEnabled;
+    subColorRatioRange.disabled = locked || selected.preset.behavior !== 'paint';
+    subColorRatioNumber.disabled = locked || selected.preset.behavior !== 'paint';
     colorMixCanvasRatioRange.disabled = locked || !colorMixEnabled;
     colorMixCanvasRatioNumber.disabled = locked || !colorMixEnabled;
     colorMixDepositRange.disabled = locked || !colorMixEnabled;
@@ -1783,6 +1796,12 @@ export function installBrushPresetControllerV1(input: {
         !brushSprayAngleBasedOnCenterV1(selectedBrushPresetItemV1(state).preset),
       ),
     );
+  const updateSubColorRatio = (valuePercent: number): void =>
+    mutate(() =>
+      updateBrushPresetSubColorRatioV1(state, state.selectedPresetId, valuePercent / 100),
+    );
+  const onSubColorRatioRange = (): void => updateSubColorRatio(Number(subColorRatioRange.value));
+  const onSubColorRatioNumber = (): void => updateSubColorRatio(Number(subColorRatioNumber.value));
   const onColorMixEnabled = (): void =>
     mutate(() =>
       updateBrushPresetColorMixEnabledV1(
@@ -1999,6 +2018,8 @@ export function installBrushPresetControllerV1(input: {
   sprayDeviationRange.addEventListener('input', onSprayDeviationRange);
   sprayDeviationNumber.addEventListener('change', onSprayDeviationNumber);
   sprayAngleBasedOnCenterButton.addEventListener('click', onSprayAngleBasedOnCenter);
+  subColorRatioRange.addEventListener('input', onSubColorRatioRange);
+  subColorRatioNumber.addEventListener('change', onSubColorRatioNumber);
   colorMixEnabledButton.addEventListener('click', onColorMixEnabled);
   colorMixCanvasRatioRange.addEventListener('input', onColorMixCanvasRatioRange);
   colorMixCanvasRatioNumber.addEventListener('change', onColorMixCanvasRatioNumber);
@@ -2127,6 +2148,8 @@ export function installBrushPresetControllerV1(input: {
       sprayDeviationRange.removeEventListener('input', onSprayDeviationRange);
       sprayDeviationNumber.removeEventListener('change', onSprayDeviationNumber);
       sprayAngleBasedOnCenterButton.removeEventListener('click', onSprayAngleBasedOnCenter);
+      subColorRatioRange.removeEventListener('input', onSubColorRatioRange);
+      subColorRatioNumber.removeEventListener('change', onSubColorRatioNumber);
       colorMixEnabledButton.removeEventListener('click', onColorMixEnabled);
       colorMixCanvasRatioRange.removeEventListener('input', onColorMixCanvasRatioRange);
       colorMixCanvasRatioNumber.removeEventListener('change', onColorMixCanvasRatioNumber);

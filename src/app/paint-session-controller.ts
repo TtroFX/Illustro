@@ -6,6 +6,7 @@ import {
 } from '../domain/document.js';
 import {
   DEFAULT_BRUSH_PARAMETER_VALUES_V1,
+  DEFAULT_BRUSH_SUB_COLOR_RATIO_V1,
   DEFAULT_BRUSH_COLOR_MIX_SAMPLE_RADIUS_RATIO_V1,
   DEFAULT_BRUSH_COLOR_MIX_PICKUP_AMOUNT_V1,
   DEFAULT_BRUSH_COLOR_MIX_CARRY_AMOUNT_V1,
@@ -293,6 +294,7 @@ export interface PaintSessionSnapshotV1 {
   readonly brushSpraySpreadRadiusRatio: number;
   readonly brushSprayDeviation: number;
   readonly brushSprayAngleBasedOnCenter: boolean;
+  readonly brushSubColorRatio: number;
   readonly brushColorMixEnabled: boolean;
   readonly brushColorMixCanvasRatio: number;
   readonly brushColorMixDepositAmount: number;
@@ -831,6 +833,8 @@ export class PaintSessionControllerV1 {
   readonly #rasterMaskTileCache = new Map<string, RasterMaskTilePayloadV1>();
   #rasterMaskTileLoader: RasterMaskTileLoaderV1 | null = null;
   #paintColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
+  #paintSubColor: BaselineBrushColorV1 = DEFAULT_BASELINE_BRUSH_COLOR_V1;
+  #brushSubColorRatio: number = DEFAULT_BRUSH_SUB_COLOR_RATIO_V1;
   #brushMode: CanonicalBrushModeV1 = 'raster';
   #brushParameters: BrushParameterValuesV1 = DEFAULT_BRUSH_PARAMETER_VALUES_V1;
   #brushHardness: number = BASELINE_BRUSH_HARDNESS;
@@ -979,6 +983,7 @@ export class PaintSessionControllerV1 {
       brushSpraySpreadRadiusRatio: this.#brushSpraySpreadRadiusRatio,
       brushSprayDeviation: this.#brushSprayDeviation,
       brushSprayAngleBasedOnCenter: this.#brushSprayAngleBasedOnCenter,
+      brushSubColorRatio: this.#brushSubColorRatio,
       brushColorMixEnabled: this.#brushColorMixEnabled,
       brushColorMixCanvasRatio: this.#brushColorMixCanvasRatio,
       brushColorMixDepositAmount: this.#brushColorMixDepositAmount,
@@ -1017,6 +1022,14 @@ export class PaintSessionControllerV1 {
 
   paintColor(): BaselineBrushColorV1 {
     return this.#paintColor;
+  }
+
+  setPaintSubColor(color: BaselineBrushColorV1): void {
+    this.#paintSubColor = freezeBaselineBrushColorV1(color);
+  }
+
+  paintSubColor(): BaselineBrushColorV1 {
+    return this.#paintSubColor;
   }
 
   brushMode(): CanonicalBrushModeV1 {
@@ -1831,6 +1844,18 @@ export class PaintSessionControllerV1 {
 
   brushSprayAngleBasedOnCenter(): boolean {
     return this.#brushSprayAngleBasedOnCenter;
+  }
+
+  setBrushSubColorRatio(subColorRatio: number): void {
+    if (!Number.isFinite(subColorRatio) || subColorRatio < 0 || subColorRatio > 1) {
+      throw new RangeError('invalid runtime brush sub color ratio');
+    }
+    if (subColorRatio !== this.#brushSubColorRatio) this.#clearActiveStroke();
+    this.#brushSubColorRatio = subColorRatio;
+  }
+
+  brushSubColorRatio(): number {
+    return this.#brushSubColorRatio;
   }
 
   setBrushColorMix(
@@ -2809,6 +2834,8 @@ export class PaintSessionControllerV1 {
     const createBrush = (): CanonicalRasterBrushStrokeV1 =>
       new CanonicalRasterBrushStrokeV1({
         color: this.#paintColor,
+        subColor: this.#paintSubColor,
+        subColorRatio: this.#brushSubColorRatio,
         mode: this.#brushMode,
         sizePx: parameters.sizePx,
         opacity: parameters.opacity,

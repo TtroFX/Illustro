@@ -1729,3 +1729,30 @@ requireText(
   'carries picked-up active-layer color across later paint dabs',
   'wet color pickup regression coverage missing',
 );
+
+requireText(progress, 'M6A-064 main/sub color behavior:完了', 'M6A-064 progress is not complete');
+requireText(
+  read('src/domain/brush-schema.ts'),
+  'brushSubColorRatioV1',
+  'main/sub brush preset contract missing',
+);
+requireText(
+  read('src/gpu/baseline-brush.ts'),
+  'mixBaselineBrushMainSubColorV1',
+  'main/sub brush kernel resolution missing',
+);
+requireText(
+  read('src/app/color-workflow-controller.ts'),
+  'setPaintSubColor(state.previous)',
+  'Color Workspace previous color is not connected as brush Sub color',
+);
+requireText(
+  read('src/index.html'),
+  'id="brush-sub-color-ratio-range"',
+  'reachable Sub Color Ratio control missing',
+);
+requireText(
+  read('tests/unit/brush-main-sub-color.test.ts'),
+  'mixes main and sub colors in linear light before creating resolved dabs',
+  'main/sub brush regression coverage missing',
+);

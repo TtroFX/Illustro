@@ -511,6 +511,11 @@
                 <button id="brush-spray-angle-based-on-center" type="button" aria-pressed="false" title="各粒子の向きを散布中心からの径方向を基準にする" disabled>OFF</button>
                 <span class="shell-brush-tip-kind">Orient</span>
               </div>
+              <div class="shell-brush-property-row">
+                <label for="brush-sub-color-ratio-range">副色比率</label>
+                <input id="brush-sub-color-ratio-range" type="range" min="0" max="100" step="1" value="0" />
+                <span class="shell-brush-property-number shell-brush-property-percent"><input id="brush-sub-color-ratio-number" type="number" inputmode="decimal" min="0" max="100" step="1" value="0" aria-label="ブラシ副色比率" /><span>%</span></span>
+              </div>
               <div class="shell-brush-property-row shell-brush-tip-property-row">
                 <label for="brush-color-mix-enabled">通常色混ぜ</label>
                 <button id="brush-color-mix-enabled" type="button" aria-pressed="false" title="通常ブラシが下地の色を取り込みながら描画する">OFF</button>

@@ -303,6 +303,7 @@ export function installColorWorkflowControllerV1(input: {
     drawWheel();
     if (redrawSv) drawSv(hsv.h);
     input.paintSession.setPaintColor(state.current);
+    input.paintSession.setPaintSubColor(state.previous);
     input.root.dataset.illustroCurrentColor = formatHexRgbV1(state.current);
     input.root.dataset.illustroPreviousColor = formatHexRgbV1(state.previous);
     input.root.dataset.illustroColorHistory = String(state.history.length);

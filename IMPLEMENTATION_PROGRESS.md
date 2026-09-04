@@ -511,7 +511,8 @@ M6A-062 ordinary raster color mixing:完了
 再開メモ: M6A-062はcolorMix.enabled / canvasRatio / depositAmountを通常Raster paintへ接続した。canvasRatioは0..1（既定0.5）で現在のactive Raster Layer画素をdestination alphaで重み付けしてlinear-light RGB混色するため透明画素のhidden/black RGBを取り込まない。depositAmountは0..1（既定1）で既存flow/stroke-opacity accumulationの前にcoverageをscaleする。解決済み設定はcanonical dabへ保存されWorker/History/Recoveryで決定的に再生される。mix-enabled dabはdestination samplingが必要なためcanonical Raster Tile preview/recompositionへfallbackし、OFF時は既存GPU fast path/outputを維持する。sample/pickup radius・pickup amount・carried color・drag/extensionはM6A-063の責務として未実装のまま残す。次はM6A-063 wet/smudge-style pickupから再開する。
 M6A-063 wet/smudge-style pickup:完了
 再開メモ: M6A-063はcolorMix.sampleRadiusRatio（0..3、既定0.5）/ pickupAmount（0..1、既定0）/ carryAmount（0..1、既定0.85）を通常Raster paintのstateful reservoirへ接続した。pickupAmount=0はM6A-062と完全互換。pickup有効時は各dabの変更前active Raster Layerだけを固定13点disk latticeでO(1) samplingし、premultiplied RGBAでreservoirへ取り込む。carryAmountは前dab reservoirの保持率、pickupAmountは現在sampleの取り込み率として独立し、reservoir alphaを含めて下地色比率へ反映する。解決済み3値はcanonical dab/Worker/Historyへ保存され、再生時は同じ初期Tile+dabsからreservoirを決定論的に再構築する。基本Smudge displacement（M6A-003）とは別経路で、merged compositeや下位layerはsampleしない。次はM6A-064 main/sub color behaviorから再開する。
-M6A-064 main/sub color behavior:未完了
+M6A-064 main/sub color behavior:完了
+再開メモ: M6A-064はBrush ink.subColorRatio（0..1、既定0）を実装し、既存M5D Color WorkspaceのcurrentをMain、previousをSub/Swap色としてcanonical stroke開始時にcaptureする。0は既存Main-only出力と完全互換、1はSub-only、中間値はshared RGB transferによるlinear-light補間。main/sub解決後にM6A-056 HSV jitterを適用し、primitive dabには最終RGBだけを保存するためWorker/History/Undo/Redo/Recovery ABIは増やさない。Tool Propertiesへ副色比率slider+数値入力を接続しpreset/runtimeへ保存する。次はM6A-065 reference-aware anti-overflow paintingから再開する。
 M6A-065 reference-aware anti-overflow painting:未完了
 M6A-066 hover brush outline:未完了
 M6A-067 hover crosshair option:未完了

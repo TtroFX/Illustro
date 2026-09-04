@@ -4,6 +4,10 @@ import {
   type ResponseCurvePointV1,
 } from '../domain/response-curve.js';
 import {
+  decodeSrgbTransferComponentV1,
+  encodeSrgbTransferComponentV1,
+} from '../domain/color-management.js';
+import {
   CANONICAL_TILE_SIZE_PX,
   tileBoundsForDocumentV1,
   tileKeyV1,
@@ -32,6 +36,7 @@ export const BASELINE_BRUSH_DENSITY_JITTER = 0 as const;
 export const BASELINE_BRUSH_HUE_JITTER = 0 as const;
 export const BASELINE_BRUSH_SATURATION_JITTER = 0 as const;
 export const BASELINE_BRUSH_VALUE_JITTER = 0 as const;
+export const BASELINE_BRUSH_SUB_COLOR_RATIO = 0 as const;
 export const BASELINE_BRUSH_SPRAY_ENABLED = false as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_V1 = 4 as const;
 export const BASELINE_BRUSH_SPRAY_PARTICLE_COUNT_MIN_V1 = 1 as const;
@@ -83,6 +88,33 @@ export function freezeBaselineBrushColorV1(color: readonly number[]): BaselineBr
     throw new RangeError('baseline brush RGB components must be finite values in 0..1');
   }
   return Object.freeze([color[0] ?? 0, color[1] ?? 0, color[2] ?? 0]);
+}
+
+export function mixBaselineBrushMainSubColorV1(
+  mainColor: BaselineBrushColorV1,
+  subColor: BaselineBrushColorV1,
+  subColorRatio: number,
+): BaselineBrushColorV1 {
+  if (!Number.isFinite(subColorRatio) || subColorRatio < 0 || subColorRatio > 1) {
+    throw new RangeError('baseline brush sub color ratio must be within 0..1');
+  }
+  if (subColorRatio === 0) return mainColor;
+  if (subColorRatio === 1) return subColor;
+  const mainWeight = 1 - subColorRatio;
+  return freezeBaselineBrushColorV1([
+    encodeSrgbTransferComponentV1(
+      decodeSrgbTransferComponentV1(mainColor[0]) * mainWeight +
+        decodeSrgbTransferComponentV1(subColor[0]) * subColorRatio,
+    ),
+    encodeSrgbTransferComponentV1(
+      decodeSrgbTransferComponentV1(mainColor[1]) * mainWeight +
+        decodeSrgbTransferComponentV1(subColor[1]) * subColorRatio,
+    ),
+    encodeSrgbTransferComponentV1(
+      decodeSrgbTransferComponentV1(mainColor[2]) * mainWeight +
+        decodeSrgbTransferComponentV1(subColor[2]) * subColorRatio,
+    ),
+  ]);
 }
 
 export interface BaselineBrushSampleV1 {
@@ -829,6 +861,8 @@ interface BaselineLogicalStampRecordV1 {
 export class BaselineBrushDabBuilderV1 {
   readonly #dabs: BaselineBrushDabV1[] = [];
   readonly #color: BaselineBrushColorV1;
+  readonly #subColor: BaselineBrushColorV1;
+  readonly #subColorRatio: number;
   readonly #radius: number;
   readonly #spacing: number;
   readonly #startTaperLengthPx: number;
@@ -914,6 +948,8 @@ export class BaselineBrushDabBuilderV1 {
   constructor(
     options: {
       readonly color?: BaselineBrushColorV1;
+      readonly subColor?: BaselineBrushColorV1;
+      readonly subColorRatio?: number;
       readonly sizePx?: number;
       readonly opacity?: number;
       readonly flow?: number;
@@ -980,6 +1016,15 @@ export class BaselineBrushDabBuilderV1 {
       options.color === undefined
         ? DEFAULT_BASELINE_BRUSH_COLOR_V1
         : freezeBaselineBrushColorV1(options.color);
+    this.#subColor =
+      options.subColor === undefined
+        ? DEFAULT_BASELINE_BRUSH_COLOR_V1
+        : freezeBaselineBrushColorV1(options.subColor);
+    const subColorRatio = options.subColorRatio ?? BASELINE_BRUSH_SUB_COLOR_RATIO;
+    if (!Number.isFinite(subColorRatio) || subColorRatio < 0 || subColorRatio > 1) {
+      throw new RangeError('baseline brush sub color ratio must be within 0..1');
+    }
+    this.#subColorRatio = subColorRatio;
     const sizePx = options.sizePx ?? BASELINE_BRUSH_RADIUS_PX * 2;
     const opacity = options.opacity ?? BASELINE_BRUSH_OPACITY;
     const flow = options.flow ?? 1;
@@ -1720,11 +1765,16 @@ export class BaselineBrushDabBuilderV1 {
       ? deterministicBaselineBrushColorJitterV1(this.#randomSeed, this.#colorJitterStampIndex)
       : null;
     if (usesColorJitter) this.#colorJitterStampIndex += 1;
+    const baseColor = mixBaselineBrushMainSubColorV1(
+      this.#color,
+      this.#subColor,
+      this.#subColorRatio,
+    );
     const resolvedColor =
       colorJitterRandom === null
-        ? this.#color
+        ? baseColor
         : applyBaselineBrushColorJitterV1(
-            this.#color,
+            baseColor,
             colorJitterRandom,
             this.#hueJitter,
             this.#saturationJitter,
