@@ -1,0 +1,58 @@
+name: Fix M8C types once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/m8c-type-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Apply M8C-only type fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/app/m8-tool-rail.ts')
+          s = p.read_text()
+          old = "].map((family) =>\n    Object.freeze({\n      ...family,\n      subtools: Object.freeze(family.subtools.map((item) => Object.freeze(item))),\n    }),\n  ),\n);"
+          new = "] satisfies readonly M8ToolFamilyV1[],\n);"
+          if old not in s:
+              raise SystemExit('family freeze tail not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('  let flyoutFamily: M8ToolFamilyIdV1 | \'lasso-direct\' | null = null;\n', '', 1)
+          s = s.replace('    flyoutFamily = null;\n', '', 1)
+          s = s.replace('    flyoutFamily = entryId;\n', '', 1)
+          s = s.replace('  let dragStartWidth = M8_TOOL_RAIL_WIDTH_V1.default;', '  let dragStartWidth: number = M8_TOOL_RAIL_WIDTH_V1.default;', 1)
+          p.write_text(s)
+          PY
+      - name: Format and typecheck
+        run: |
+          npx biome format --write src/app/m8-tool-rail.ts
+          npm run typecheck
+      - name: Remove helper and verification trigger
+        run: |
+          rm .github/workflows/m8c-type-fix-once.yml
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/m8-tool-rail.ts .github/workflows/m8c-type-fix-once.yml
+          git commit -m 'fix: keep M8C tool rail types precise'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
