@@ -1,0 +1,27 @@
+{
+  "schema": "illustro.m8a-canonical-assets/1",
+  "verifiedOn": "2026-09-05",
+  "policy": "Materialize both Drive copies in the implementation environment and require exact SHA-256, byte length, dimensions, and primary/backup byte equality before UI/visual implementation or QA.",
+  "canonicalUiVisualTarget": {
+    "primaryDriveFileId": "1PvkSCaSNNMBZfnn9aRUwGSkja5janHqQ",
+    "primaryFileName": "ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png",
+    "backupDriveFileId": "10CNPXcQ_Iwlz1v7Fgttlly9x4ff2xhhV",
+    "backupFileName": "ILLUSTRO_UI_VISUAL_TARGET_2026-08-30_BACKUP.png",
+    "mimeType": "image/png",
+    "width": 1536,
+    "height": 1024,
+    "byteLength": 1169382,
+    "sha256": "32a6cb3991c9baa5b5e097943ce0550a3968d2dcde1be68e132f30ce03341a13"
+  },
+  "canonicalAppIcon": {
+    "primaryDriveFileId": "1nQh5dKvma5fuj-8xPkX31Ah1NdVxVv4G",
+    "primaryFileName": "ILLUSTRO_APP_ICON_MASTER_2026-08-30.jpg",
+    "backupDriveFileId": "1rDr-yG50UmIP63tf2OsvuxSuVbMgnlB1",
+    "backupFileName": "ILLUSTRO_APP_ICON_MASTER_2026-08-30_BACKUP.jpg",
+    "mimeType": "image/jpeg",
+    "width": 1536,
+    "height": 1536,
+    "byteLength": 157659,
+    "sha256": "bcfe9b5f2a007ce4e451289e66b866052ce81d43e82d78efffa55b9eeb51fa8d"
+  }
+}
