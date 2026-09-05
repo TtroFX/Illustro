@@ -26,6 +26,7 @@ interface DocumentWorkflowOptionsV1 {
   readonly schedule: (operation: () => Promise<void>) => void;
   readonly onDocumentChanged: (document: DocumentV1) => void;
   readonly onHistoryChanged: () => void;
+  readonly onProjectCreated?: (document: DocumentV1) => void;
 }
 
 function requireElement<T extends Element>(selector: string): T {
@@ -246,6 +247,7 @@ export function installDocumentWorkflowControllerV1(
           if (current === null) throw new Error('new document creation lost the active document');
           options.onDocumentChanged(current);
           options.onHistoryChanged();
+          options.onProjectCreated?.(current);
         }
         status.value = '';
         dialog.close();

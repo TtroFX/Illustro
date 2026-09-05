@@ -549,6 +549,63 @@ export class PaintPersistenceControllerV1 {
     }
   }
 
+  async openProject(
+    projectIdValue: ProjectId | string,
+  ): Promise<PaintPersistenceInitializeResultV1> {
+    this.#assertNotDisposed();
+    if (this.#status === 'initializing' || this.#status === 'saving') {
+      throw new Error('paint persistence is busy');
+    }
+    const projectId = parseProjectId(projectIdValue);
+    const previousProjectId = this.#projectId;
+    try {
+      if (previousProjectId !== null) {
+        await this.#flush('autosave');
+        await this.#request({ type: 'storage.project.close', projectId: previousProjectId });
+      }
+      this.#setStatus('initializing');
+      const opened = parseStorageProjectState(
+        await this.#request({ type: 'storage.project.open', projectId }),
+      );
+      const durable = parsePaintPersistenceProjectSnapshotV1(opened.snapshot);
+      if (durable.paint.document.projectId !== opened.projectId) {
+        throw new Error('opened paint snapshot belongs to another project');
+      }
+      if (durable.paint.document.revision !== opened.documentRevision) {
+        throw new Error('opened paint revision disagrees with checkpoint metadata');
+      }
+      this.#adoptProject(opened);
+      this.#resetRasterPersistenceState();
+      if (durable.raster === undefined) {
+        await this.#session.restoreProjectSnapshot(durable.paint);
+        this.#history.reset();
+        this.#rasterStateEnabled = true;
+        await this.#migrateLegacyRasterSnapshot();
+        await this.markDirty(crypto.randomUUID());
+        await this.#flush('autosave');
+      } else {
+        this.#rasterStateEnabled = true;
+        this.#indexDurableRasterState(durable);
+        const tiles = await this.#loadCurrentRasterTiles(durable.paint);
+        await this.#session.restoreCanonicalProjectSnapshot(durable.paint, tiles);
+        this.#history.hydrate(durable.history, durable.revisionHighWater);
+      }
+      this.#rememberProject(opened.projectId);
+      this.#setStatus('ready');
+      return Object.freeze({
+        schema: 'illustro.paint-persistence-initialize/1' as const,
+        mode: 'recovered' as const,
+        projectId: opened.projectId,
+        sequence: this.#sequence,
+        recoveryGeneration: this.#recoveryGeneration,
+        documentRevision: this.#session.currentDocument()?.revision ?? opened.documentRevision,
+      });
+    } catch (error) {
+      this.#fail(error);
+      throw error;
+    }
+  }
+
   async createNewProject(input: {
     readonly name: string;
     readonly document: PaintPersistenceNewDocumentInputV1;
@@ -1048,10 +1105,12 @@ export class PaintPersistenceControllerV1 {
   }
 
   async flushRecovery(): Promise<void> {
+    if (this.#projectId === null) return;
     await this.#flush('recovery');
   }
 
   async flushCheckpoint(): Promise<void> {
+    if (this.#projectId === null) return;
     await this.#flush('autosave');
   }
 

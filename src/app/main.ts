@@ -4,6 +4,7 @@ import { PointerHoverTrackerV1 } from '../input/hover-state.js';
 import { createPointerInputArbitrationV1 } from '../input/input-arbitration.js';
 import { createPointerInputTransportV1 } from '../input/input-transport.js';
 import { downloadPngBlobV1, encodeCompositeRasterTilesToPngV1 } from '../export/png-export.js';
+import { openIllustroOpfsRoot } from '../storage/opfs-layout.js';
 import { createLogger } from '../shared/logger.js';
 import {
   incrementPerformanceCounter,
@@ -30,6 +31,12 @@ import { installDiagnosticsHook } from './diagnostics.js';
 import { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import { MaskPaintControllerV1 } from './layer-mask-paint.js';
 import { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
+import { LocalProjectLibraryControllerV1 } from './local-project-library-controller.js';
+import {
+  installM9aLibrarySurfaceV1,
+  type M9aLibrarySurfaceHandleV1,
+} from './m9a-library-surface.js';
+import { createProjectThumbnailPngV1, ProjectPreviewStoreV1 } from './project-preview-store.js';
 import { PaintSessionControllerV1 } from './paint-session-controller.js';
 import { canonicalBrushCompositeOperationV1 } from './canonical-raster-brush.js';
 import { installBrushPresetControllerV1 } from './brush-preset-controller.js';
@@ -146,6 +153,12 @@ const paintPersistence = new PaintPersistenceControllerV1(
     },
   },
 );
+let localLibraryController: LocalProjectLibraryControllerV1 | null = null;
+let localLibrarySurface: M9aLibrarySurfaceHandleV1 | null = null;
+let projectPreviewStore: ProjectPreviewStoreV1 | null = null;
+let libraryVisibilityObserver: MutationObserver | null = null;
+let previewCaptureTask: Promise<void> | null = null;
+
 const colorMatch = installColorMatchControllerV1({
   root,
   paintSession,
@@ -220,6 +233,53 @@ function publishDocumentState(documentValue: DocumentV1): void {
   syncPngExportAvailability();
 }
 
+function activatePaintDocument(documentValue: DocumentV1, mode: 'created' | 'recovered'): void {
+  root.dataset.illustroPaintRecovery = mode;
+  root.dataset.illustroPaintSession = 'ready';
+  publishDocumentState(documentValue);
+  root.dataset.illustroActiveLayerId = String(documentValue.layerTree.rootLayerIds[0] ?? '');
+  root.dataset.illustroPaintStroke = 'idle';
+  root.dataset.illustroPaintStrokeSamples = '0';
+  syncPngExportAvailability();
+  publishPaintHistory();
+}
+
+async function captureActiveProjectPreview(): Promise<void> {
+  if (previewCaptureTask !== null) return previewCaptureTask;
+  const controller = localLibraryController;
+  const previews = projectPreviewStore;
+  const documentValue = paintSession.currentDocument();
+  if (controller === null || previews === null || documentValue === null) return;
+  previewCaptureTask = (async () => {
+    await paintRenderTask;
+    await paintPersistence.flushCheckpoint();
+    const current = paintSession.currentDocument();
+    if (current === null || current.projectId !== documentValue.projectId) return;
+    const tiles = await paintSession.exportCompositeRasterTiles();
+    const png = await encodeCompositeRasterTilesToPngV1(current, tiles);
+    const thumbnail = await createProjectThumbnailPngV1(png);
+    const projects = await controller.query({ section: 'projects' });
+    const previousPreview = projects.cards.find(
+      (card) => card.projectId === current.projectId,
+    )?.previewResourceId;
+    const resourceId = await previews.write(
+      current.projectId,
+      thumbnail,
+      previousPreview ?? undefined,
+    );
+    await controller.updatePreview(current.projectId, resourceId);
+    root.dataset.illustroProjectPreview = resourceId;
+  })()
+    .catch((error: unknown) => {
+      root.dataset.illustroProjectPreview = 'error';
+      logger.error('library.preview-capture-failed', error);
+    })
+    .finally(() => {
+      previewCaptureTask = null;
+    });
+  return previewCaptureTask;
+}
+
 const documentWorkflow = installDocumentWorkflowControllerV1({
   root,
   canvasAdmission,
@@ -229,6 +289,10 @@ const documentWorkflow = installDocumentWorkflowControllerV1({
   schedule: enqueuePaintRender,
   onDocumentChanged: publishDocumentState,
   onHistoryChanged: publishPaintHistory,
+  onProjectCreated(documentValue) {
+    activatePaintDocument(documentValue, 'created');
+    shell.productShell.hideLibrary();
+  },
 });
 
 const documentGeometryWorkflow = installDocumentGeometryWorkflowControllerV1({
@@ -591,30 +655,46 @@ void renderer
   .then(async (snapshot) => {
     logger.info('renderer.runtime-ready', { snapshot });
     if (snapshot.deviceState !== 'ready') return;
-    const surfaceSize = shell.currentRenderSurfaceSize();
-    const persistence = await paintPersistence.initialize({
-      name: 'Untitled',
-      document: {
-        width: Math.max(1, Math.round(surfaceSize.width / surfaceSize.pixelRatio)),
-        height: Math.max(1, Math.round(surfaceSize.height / surfaceSize.pixelRatio)),
+    const opfsRoot = await openIllustroOpfsRoot();
+    localLibraryController = new LocalProjectLibraryControllerV1(opfsRoot);
+    projectPreviewStore = new ProjectPreviewStoreV1(opfsRoot);
+    localLibrarySurface = installM9aLibrarySurfaceV1({
+      root,
+      controller: localLibraryController,
+      previews: projectPreviewStore,
+      productShell: shell.productShell,
+      onNewProject: () => documentWorkflow.openNewDocument(),
+      async onOpenProject(projectId) {
+        const persistence = await paintPersistence.openProject(projectId);
+        const documentValue = paintSession.currentDocument();
+        if (documentValue === null) throw new Error('Library open lost the active document');
+        activatePaintDocument(documentValue, persistence.mode);
+        shell.productShell.hideLibrary();
+        logger.info('paint-session.document-ready', {
+          documentId: documentValue.documentId,
+          activeLayerId: documentValue.layerTree.rootLayerIds[0] ?? null,
+          width: documentValue.canvas.width,
+          height: documentValue.canvas.height,
+        });
       },
+      onImport: () => shell.productShell.openNamedTaskSurface('import-report'),
+      canReturnToEditor: () => paintSession.currentDocument() !== null,
+      activeProjectId: () => paintSession.currentDocument()?.projectId ?? null,
     });
-    const document = paintSession.currentDocument();
-    if (document === null) throw new Error('paint persistence initialized without a document');
-    root.dataset.illustroPaintRecovery = persistence.mode;
-    root.dataset.illustroPaintSession = 'ready';
-    publishDocumentState(document);
-    root.dataset.illustroActiveLayerId = String(document.layerTree.rootLayerIds[0] ?? '');
-    root.dataset.illustroPaintStroke = 'idle';
-    root.dataset.illustroPaintStrokeSamples = '0';
-    syncPngExportAvailability();
-    publishPaintHistory();
-    logger.info('paint-session.document-ready', {
-      documentId: document.documentId,
-      activeLayerId: document.layerTree.rootLayerIds[0] ?? null,
-      width: document.canvas.width,
-      height: document.canvas.height,
+    const libraryHost = document.querySelector<HTMLElement>('#m8-library-surface');
+    if (libraryHost === null) throw new Error('Library host disappeared during M9A startup');
+    libraryVisibilityObserver = new MutationObserver(() => {
+      if (libraryHost.hidden) return;
+      void captureActiveProjectPreview().then(() => localLibrarySurface?.refresh());
     });
+    libraryVisibilityObserver.observe(libraryHost, {
+      attributes: true,
+      attributeFilter: ['hidden'],
+    });
+    root.dataset.illustroPaintSession = 'library';
+    root.dataset.illustroPaintRecovery = 'library';
+    await localLibrarySurface.show('projects');
+    logger.info('library.production-ready');
   })
   .catch((error: unknown) => {
     root.dataset.illustroPaintSession = 'error';
@@ -638,6 +718,8 @@ globalThis.addEventListener(
     exportPngMenuButton?.removeEventListener('click', onExportPngMenuClick);
     mobileExportButton?.removeEventListener('click', onExportPngClick);
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
+    libraryVisibilityObserver?.disconnect();
+    localLibrarySurface?.dispose();
     layerComps.dispose();
     layerWorkflow.dispose();
     colorMatch.dispose();

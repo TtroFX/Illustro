@@ -1,7 +1,7 @@
 import { startProductionBrushTipResourceManagerV1 } from './brush-tip-resource-manager.js';
 import { startProductionGrainResourceManagerV1 } from './grain-resource-manager.js';
 import { installM7UiSkeletonV1 } from './m7-ui-shell.js';
-import { installM8ProductShellV1 } from './m8-product-shell.js';
+import { installM8ProductShellV1, type M8ProductShellHandleV1 } from './m8-product-shell.js';
 import { installM8ToolRailV1 } from './m8-tool-rail.js';
 import { startProductionPaperResourceManagerV1 } from './paper-resource-manager.js';
 import { startProductionPatternResourceManagerV1 } from './pattern-resource-manager.js';
@@ -14,6 +14,7 @@ export interface CanvasBackingSizeV1 {
 
 export interface FoundationShell {
   readonly canvas: HTMLCanvasElement;
+  readonly productShell: M8ProductShellHandleV1;
   currentRenderSurfaceSize(): CanvasBackingSizeV1;
   transferRenderSurface(): OffscreenCanvas | null;
   subscribeRenderSurfaceSize(listener: (size: CanvasBackingSizeV1) => void): () => void;
@@ -105,6 +106,7 @@ export function installFoundationShell(): FoundationShell {
 
   return {
     canvas,
+    productShell: m8ProductShell,
     currentRenderSurfaceSize(): CanvasBackingSizeV1 {
       return size;
     },

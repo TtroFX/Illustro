@@ -15,7 +15,6 @@ const main = fs.readFileSync('src/app/main.ts', 'utf8');
 for (const contract of [
   'paintHistory.commitCompletedStroke',
   'paintPersistence.scheduleDirty',
-  'paintPersistence.initialize',
   'paintSession.exportCompositeRasterTiles',
   'encodeCompositeRasterTilesToPngV1',
   'downloadPngBlobV1',
@@ -23,6 +22,20 @@ for (const contract of [
 ]) {
   if (!main.includes(contract)) throw new Error(`M4 production wiring missing: ${contract}`);
 }
+
+const legacyPersistenceStartup = main.includes('paintPersistence.initialize');
+const documentWorkflowSource = fs.readFileSync('src/app/document-workflow-controller.ts', 'utf8');
+const libraryFirstPersistenceStartup =
+  main.includes('installM9aLibrarySurfaceV1') &&
+  main.includes('paintPersistence.openProject(projectId)') &&
+  main.includes('documentWorkflow.openNewDocument()') &&
+  documentWorkflowSource.includes('paintPersistence.createNewProject');
+if (!legacyPersistenceStartup && !libraryFirstPersistenceStartup) {
+  throw new Error(
+    'M4 production wiring missing a valid persisted document startup path (legacy initialize or Library-first create/open)',
+  );
+}
+
 const indexSource = fs.readFileSync('src/index.html', 'utf8');
 for (const control of ['id="history-undo"', 'id="history-redo"']) {
   if (!indexSource.includes(control))
@@ -46,5 +59,10 @@ if (!shader.includes('smoothstep(0.85, 1.0, radial_distance)')) {
   throw new Error('M4 baseline shader coverage contract changed without PNG flatten update');
 }
 console.log(
-  JSON.stringify({ schema: 'illustro.verify-m4/1', status: 'pass', files: requiredFiles.length }),
+  JSON.stringify({
+    schema: 'illustro.verify-m4/1',
+    status: 'pass',
+    files: requiredFiles.length,
+    persistenceStartup: legacyPersistenceStartup ? 'legacy-initialize' : 'library-first',
+  }),
 );
