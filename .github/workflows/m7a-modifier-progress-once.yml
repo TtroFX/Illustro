@@ -1,0 +1,57 @@
+name: Close M7A selection modifiers once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m7a-modifier-progress-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  close-m7a-modifiers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Mark M7A-012 through M7A-016 complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          replacements = {
+              'M7A-012 deselect:未完了': 'M7A-012 deselect:完了',
+              'M7A-013 invert selection:未完了': 'M7A-013 invert selection:完了',
+              'M7A-014 expand selection:未完了': 'M7A-014 expand selection:完了',
+              'M7A-015 contract selection:未完了': 'M7A-015 contract selection:完了',
+              'M7A-016 feather selection:未完了': 'M7A-016 feather selection:完了',
+          }
+          changed = False
+          for before, after in replacements.items():
+              if before in text:
+                  if text.count(before) != 1:
+                      raise SystemExit(f'expected one progress line: {before}')
+                  text = text.replace(before, after, 1)
+                  changed = True
+              elif after not in text:
+                  raise SystemExit(f'progress line missing: {before}')
+          if changed:
+              path.write_text(text)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md
+          if git diff --cached --quiet; then
+            echo 'M7A modifier progress already complete.'
+            exit 0
+          fi
+          git commit -m 'chore: close M7A selection modifier batch'
+          git pull --rebase origin main
+          git push origin HEAD:main
