@@ -1,5 +1,6 @@
 import { startProductionBrushTipResourceManagerV1 } from './brush-tip-resource-manager.js';
 import { startProductionGrainResourceManagerV1 } from './grain-resource-manager.js';
+import { installM7UiSkeletonV1 } from './m7-ui-shell.js';
 import { startProductionPaperResourceManagerV1 } from './paper-resource-manager.js';
 import { startProductionPatternResourceManagerV1 } from './pattern-resource-manager.js';
 
@@ -30,6 +31,8 @@ export function installFoundationShell(): FoundationShell {
   const app = document.querySelector<HTMLElement>('[data-illustro-shell="foundation"]');
   const canvas = document.querySelector<HTMLCanvasElement>('#render-surface');
   if (!app || !canvas) throw new Error('Illustro foundation shell is missing required DOM nodes.');
+
+  const m7UiSkeleton = installM7UiSkeletonV1(app);
 
   app.dataset.brushTipResources = 'loading';
   void startProductionBrushTipResourceManagerV1()
@@ -118,6 +121,7 @@ export function installFoundationShell(): FoundationShell {
       observer?.disconnect();
       if (!observer) globalThis.removeEventListener('resize', resize);
       listeners.clear();
+      m7UiSkeleton.dispose();
       app.dataset.shellState = 'disposed';
     },
   };
