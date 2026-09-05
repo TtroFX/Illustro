@@ -1,0 +1,21 @@
+{
+  "schema": "illustro.m8d-user-review-checkpoint/1",
+  "recordedAt": "2026-09-05",
+  "m8cUserPass": true,
+  "m8dStatus": "provisional",
+  "reviewGate": "USER-M8D",
+  "requirements": {
+    "inspectorBlocks": 13,
+    "inspectorWidthCssPx": { "min": 260, "default": 320, "max": 480 },
+    "pipInitialWidthCssPx": 280,
+    "pipMinimumCssPx": { "width": 220, "height": 140 },
+    "toolRailWidthPersisted": true,
+    "workspacePersistence": true
+  },
+  "internalVerification": {
+    "format": "pass",
+    "typecheck": "pass",
+    "focusedM8Tests": "pass",
+    "productionBuild": "pass"
+  }
+}
