@@ -29,7 +29,10 @@ export interface M9aLibrarySurfaceHandleV1 {
 }
 
 const SECTION_COPY: Readonly<
-  Record<LocalProjectLibrarySectionV1, { readonly title: string; readonly detail: string; readonly short: string }>
+  Record<
+    LocalProjectLibrarySectionV1,
+    { readonly title: string; readonly detail: string; readonly short: string }
+  >
 > = Object.freeze({
   projects: { title: 'Projects', detail: 'この端末に保存されている作品', short: 'P' },
   recent: { title: 'Recent', detail: '最近更新した作品', short: 'R' },
@@ -198,7 +201,8 @@ export function installM9aLibrarySurfaceV1(
   ): Promise<void> => {
     if (card.previewResourceId === null) return;
     const blob = await options.previews.read(card.projectId, card.previewResourceId);
-    if (blob === null || disposed || generation !== renderGeneration || !preview.isConnected) return;
+    if (blob === null || disposed || generation !== renderGeneration || !preview.isConnected)
+      return;
     const url = URL.createObjectURL(blob);
     previewUrls.add(url);
     const image = document.createElement('img');
@@ -218,10 +222,9 @@ export function installM9aLibrarySurfaceV1(
     returnButton.hidden = !options.canReturnToEditor();
     try {
       const navButtons = surface.querySelectorAll<HTMLButtonElement>('[data-section]');
-      for (const button of navButtons) {
+      for (const button of Array.from(navButtons)) {
         button.setAttribute('aria-current', button.dataset.section === section ? 'page' : 'false');
       }
-      if (section === 'import') return;
       const copy = SECTION_COPY[section];
       title.textContent = copy.title;
       detail.textContent = copy.detail;
@@ -413,7 +416,9 @@ export function installM9aLibrarySurfaceV1(
   const setSection = (next: string): void => {
     if (next === 'import') {
       renderImport();
-      for (const button of surface.querySelectorAll<HTMLButtonElement>('[data-section]')) {
+      for (const button of Array.from(
+        surface.querySelectorAll<HTMLButtonElement>('[data-section]'),
+      )) {
         button.setAttribute('aria-current', button.dataset.section === 'import' ? 'page' : 'false');
       }
       return;
@@ -452,11 +457,16 @@ export function installM9aLibrarySurfaceV1(
     void refresh();
   };
   const onView = (event: MouseEvent): void => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-m9a-view]') : null;
+    const target =
+      event.target instanceof Element
+        ? event.target.closest<HTMLButtonElement>('[data-m9a-view]')
+        : null;
     if (target === null) return;
     view = target.dataset.m9aView === 'list' ? 'list' : 'grid';
     projectsHost.dataset.view = view;
-    for (const button of surface.querySelectorAll<HTMLButtonElement>('[data-m9a-view]')) {
+    for (const button of Array.from(
+      surface.querySelectorAll<HTMLButtonElement>('[data-m9a-view]'),
+    )) {
       button.setAttribute('aria-pressed', String(button.dataset.m9aView === view));
     }
   };

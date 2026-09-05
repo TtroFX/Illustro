@@ -1,4 +1,10 @@
-import { createResourceId, parseProjectId, parseResourceId, type ProjectId, type ResourceId } from '../domain/identity.js';
+import {
+  createResourceId,
+  parseProjectId,
+  parseResourceId,
+  type ProjectId,
+  type ResourceId,
+} from '../domain/identity.js';
 import { ensureProjectDirectoryLayout, type IllustroOpfsRootV1 } from '../storage/opfs-layout.js';
 import { PNG_MIME_TYPE } from '../export/png-export.js';
 
