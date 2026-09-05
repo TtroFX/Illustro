@@ -85,7 +85,7 @@ describe('M3 production canvas pointer controller', () => {
     });
   });
 
-  it('uses rawupdate as the confirmed active stream instead of duplicating later pointermove events', () => {
+  it('uses rawupdate as the confirmed active pen stream instead of duplicating later pointermove events', () => {
     const target = new FakePointerTarget();
     const batches: string[] = [];
     const controller = installPointerInputControllerV1(target, (batch) =>
@@ -103,6 +103,74 @@ describe('M3 production canvas pointer controller', () => {
       batchCount: 3,
       confirmedSampleCount: 3,
       latestConfirmed: { surfaceX: 60, eventType: 'pointerrawupdate' },
+    });
+  });
+
+  it('keeps touch drawing on coalesced pointermove even when touch pointerrawupdate is emitted', () => {
+    const target = new FakePointerTarget();
+    const batches: string[] = [];
+    const controller = installPointerInputControllerV1(target, (batch) =>
+      batches.push(batch.eventType),
+    );
+
+    target.emit(
+      event('pointerdown', {
+        pointerType: 'touch',
+        pressure: 1,
+        width: 8,
+        height: 8,
+        timeStamp: 1,
+      }),
+    );
+    target.emit(
+      event('pointerrawupdate', {
+        pointerType: 'touch',
+        clientX: 60,
+        pressure: 1,
+        width: 8,
+        height: 8,
+        timeStamp: 2,
+      }),
+    );
+    target.emit(
+      event('pointermove', {
+        pointerType: 'touch',
+        clientX: 65,
+        pressure: 1,
+        width: 8,
+        height: 8,
+        timeStamp: 3,
+        getCoalescedEvents: () => [
+          event('pointermove', {
+            pointerType: 'touch',
+            clientX: 61,
+            pressure: 1,
+            width: 8,
+            height: 8,
+            timeStamp: 2.5,
+          }),
+          event('pointermove', {
+            pointerType: 'touch',
+            clientX: 65,
+            pressure: 1,
+            width: 8,
+            height: 8,
+            timeStamp: 3,
+          }),
+        ],
+      }),
+    );
+
+    expect(batches).toEqual(['pointerdown', 'pointermove']);
+    expect(controller.snapshot()).toMatchObject({
+      batchCount: 2,
+      confirmedSampleCount: 3,
+      latestConfirmed: {
+        source: 'touch',
+        surfaceX: 55,
+        eventType: 'pointermove',
+        origin: 'coalesced',
+      },
     });
   });
 
