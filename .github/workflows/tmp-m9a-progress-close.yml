@@ -1,0 +1,52 @@
+name: Temporary M9A progress closure
+on:
+  push:
+    branches:
+      - chore/m9a-progress-close
+permissions:
+  contents: write
+jobs:
+  close-progress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Close only M9A canonical progress items
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          s = p.read_text()
+          items = [
+              'M9A-001 local Project Library',
+              'M9A-002 project thumbnails',
+              'M9A-003 project search',
+              'M9A-004 project sorting',
+              'M9A-005 project organization',
+              'M9A-006 create from Library',
+              'M9A-007 open from Library',
+              'M9A-008 import from Library',
+              'M9A-009 recovery-project visibility',
+              'M9A-010 Recently Deleted Library surface',
+              'M9A-検査 M9A内部検査',
+          ]
+          for item in items:
+              old = f'{item}:未完了'
+              new = f'{item}:完了'
+              if s.count(old) != 1:
+                  raise SystemExit(f'expected exactly one canonical unfinished item: {old!r}')
+              s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: Verify scoped progress diff
+        run: |
+          git diff --check
+          test "$(git diff --name-only)" = "IMPLEMENTATION_PROGRESS.md"
+          git diff -- IMPLEMENTATION_PROGRESS.md
+      - name: Commit progress closure
+        run: |
+          rm .github/workflows/tmp-m9a-progress-close.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add IMPLEMENTATION_PROGRESS.md .github/workflows/tmp-m9a-progress-close.yml
+          git commit -m "chore(M9A): close Local Project Library progress"
+          git push
