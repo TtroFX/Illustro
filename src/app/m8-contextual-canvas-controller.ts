@@ -1,10 +1,12 @@
 import type { M8SelectionContextLayerHandleV1 } from './m8-selection-context-layer.js';
 
-export type M8ContextualCanvasModeV1 = 'ruler' | 'lineart';
+export type M8ContextualCanvasModeV1 = 'vector' | 'text' | 'ruler' | 'lineart';
 
 export interface M8ContextualCanvasControllerHandleV1 {
   readonly element: HTMLElement;
   mode(): M8ContextualCanvasModeV1 | null;
+  showVectorPreview(): void;
+  showTextPreview(): void;
   showRulerPreview(): void;
   showLineartPreview(): void;
   hide(): void;
@@ -16,7 +18,9 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 function previewModeFromLocationV1(): M8ContextualCanvasModeV1 | null {
   if (typeof location === 'undefined') return null;
   const value = new URLSearchParams(location.search).get('m8e-preview');
-  return value === 'ruler' || value === 'lineart' ? value : null;
+  return value === 'vector' || value === 'text' || value === 'ruler' || value === 'lineart'
+    ? value
+    : null;
 }
 
 function createPreviewButtonV1(label: string, glyph: string): HTMLButtonElement {
@@ -45,6 +49,105 @@ function createSvgV1(className: string): SVGSVGElement {
   svg.setAttribute('viewBox', '0 0 1000 700');
   svg.setAttribute('preserveAspectRatio', 'none');
   return svg;
+}
+
+function renderVectorV1(host: HTMLElement): void {
+  host.replaceChildren();
+  host.dataset.contextKind = 'vector';
+  host.setAttribute('aria-label', 'Vector node and Bézier contextual controls preview');
+
+  const svg = createSvgV1('m8e-vector-preview-svg');
+  const curve = document.createElementNS(SVG_NS, 'path');
+  curve.classList.add('m8e-vector-preview-curve');
+  curve.setAttribute('d', 'M 210 485 C 360 175 655 170 805 430');
+  svg.append(curve);
+
+  const nodeData = [
+    { x: 210, y: 485, hx: 295, hy: 310, kind: 'corner' },
+    { x: 505, y: 265, hx: 655, hy: 172, kind: 'smooth' },
+    { x: 805, y: 430, hx: 715, hy: 275, kind: 'corner' },
+  ] as const;
+  for (const nodeValue of nodeData) {
+    const handleLine = document.createElementNS(SVG_NS, 'line');
+    handleLine.classList.add('m8e-vector-preview-handle-line');
+    handleLine.setAttribute('x1', String(nodeValue.x));
+    handleLine.setAttribute('y1', String(nodeValue.y));
+    handleLine.setAttribute('x2', String(nodeValue.hx));
+    handleLine.setAttribute('y2', String(nodeValue.hy));
+    const handle = document.createElementNS(SVG_NS, 'circle');
+    handle.classList.add('m8e-vector-preview-handle');
+    handle.setAttribute('cx', String(nodeValue.hx));
+    handle.setAttribute('cy', String(nodeValue.hy));
+    handle.setAttribute('r', '6');
+    const node = document.createElementNS(SVG_NS, 'rect');
+    node.classList.add('m8e-vector-preview-node', `is-${nodeValue.kind}`);
+    node.dataset.nodeKind = nodeValue.kind;
+    node.setAttribute('x', String(nodeValue.x - 7));
+    node.setAttribute('y', String(nodeValue.y - 7));
+    node.setAttribute('width', '14');
+    node.setAttribute('height', '14');
+    svg.append(handleLine, handle, node);
+  }
+
+  const toolbar = createToolbarV1();
+  toolbar.dataset.contextKind = 'vector';
+  const identity = document.createElement('span');
+  identity.className = 'm8e-context-preview-identity';
+  identity.innerHTML = '<strong>Node Edit</strong><small>Bézier Preview · M7D接続待ち</small>';
+  const controls = document.createElement('div');
+  controls.className = 'm8e-context-preview-controls';
+  controls.append(
+    createPreviewButtonV1('コーナーノード', '◆'),
+    createPreviewButtonV1('スムーズノード', '●'),
+    createPreviewButtonV1('ノードを接続', '⌁'),
+    createPreviewButtonV1('ノードを分離', '⌇'),
+  );
+  toolbar.append(identity, controls);
+
+  const note = document.createElement('div');
+  note.className = 'm8e-context-preview-note';
+  note.textContent = 'ノード・Bézierハンドル・スナップはCanvas上で直接操作。線幅や数値はTool Propertiesへ。';
+  host.append(svg, toolbar, note);
+}
+
+function renderTextV1(host: HTMLElement): void {
+  host.replaceChildren();
+  host.dataset.contextKind = 'text';
+  host.setAttribute('aria-label', 'Text on-canvas editing affordance preview');
+
+  const textBox = document.createElement('div');
+  textBox.className = 'm8e-text-preview-box';
+  textBox.dataset.productionState = 'pending-dependency';
+  textBox.setAttribute('role', 'textbox');
+  textBox.setAttribute('aria-readonly', 'true');
+  textBox.setAttribute('aria-label', 'Text edit preview');
+  textBox.innerHTML = '<span>Illustroで描く</span><i aria-hidden="true"></i>';
+  for (const corner of ['nw', 'ne', 'se', 'sw'] as const) {
+    const handle = document.createElement('b');
+    handle.className = 'm8e-text-preview-handle';
+    handle.dataset.corner = corner;
+    handle.setAttribute('aria-hidden', 'true');
+    textBox.append(handle);
+  }
+
+  const toolbar = createToolbarV1();
+  toolbar.dataset.contextKind = 'text';
+  const identity = document.createElement('span');
+  identity.className = 'm8e-context-preview-identity';
+  identity.innerHTML = '<strong>Text Edit</strong><small>On-canvas Preview · M7E接続待ち</small>';
+  const controls = document.createElement('div');
+  controls.className = 'm8e-context-preview-controls';
+  controls.append(
+    createPreviewButtonV1('テキスト編集を確定', '✓'),
+    createPreviewButtonV1('テキスト編集をキャンセル', '×'),
+    createPreviewButtonV1('テキストボックスを自動調整', '↔'),
+  );
+  toolbar.append(identity, controls);
+
+  const note = document.createElement('div');
+  note.className = 'm8e-context-preview-note';
+  note.textContent = '文字内容とボックス形状はCanvas上。フォント・サイズ・行間・整列はTool Propertiesへ。';
+  host.append(textBox, toolbar, note);
 }
 
 function renderRulerV1(host: HTMLElement): void {
@@ -225,15 +328,21 @@ export function installM8ContextualCanvasControllerV1(input: {
   const show = (mode: M8ContextualCanvasModeV1): void => {
     if (disposed) return;
     currentMode = mode;
-    if (mode === 'ruler') renderRulerV1(host);
+    if (mode === 'vector') renderVectorV1(host);
+    else if (mode === 'text') renderTextV1(host);
+    else if (mode === 'ruler') renderRulerV1(host);
     else renderLineartV1(host);
     host.hidden = false;
     input.root.dataset.illustroM8ContextPreview = mode;
-    input.context.announce(
-      mode === 'ruler'
-        ? '定規 contextual controls preview。production接続待ちです'
-        : 'Lineart Boundary contextual overlay preview。production接続待ちです',
-    );
+    const announcement =
+      mode === 'vector'
+        ? 'Vector node and Bézier contextual preview。production接続待ちです'
+        : mode === 'text'
+          ? 'Text on-canvas edit affordance preview。production接続待ちです'
+          : mode === 'ruler'
+            ? '定規 contextual controls preview。production接続待ちです'
+            : 'Lineart Boundary contextual overlay preview。production接続待ちです';
+    input.context.announce(announcement);
   };
 
   const hide = (): void => {
@@ -249,6 +358,8 @@ export function installM8ContextualCanvasControllerV1(input: {
   return Object.freeze({
     element: host,
     mode: () => currentMode,
+    showVectorPreview: () => show('vector'),
+    showTextPreview: () => show('text'),
     showRulerPreview: () => show('ruler'),
     showLineartPreview: () => show('lineart'),
     hide,
