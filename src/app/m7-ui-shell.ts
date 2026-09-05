@@ -176,6 +176,10 @@ const M7_UI_SHELL_CSS = `
 .m7-inspector-surface { display: grid; min-height: 0; height: 100%; align-content: start; overflow: auto; }
 .m7-inspector-surface[hidden] { display: none !important; }
 .m7-inspector-surface[data-m7-inspector-surface="layers"] { grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }
+.m7-inspector-surface[data-m7-inspector-surface="layers"] > #layer-list { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; align-content: start; grid-auto-rows: max-content; }
+.m7-inspector-surface[data-m7-inspector-surface="layers"] > #layer-actions { min-height: 0; max-height: 156px; overflow: auto; overscroll-behavior: contain; }
+.m7-inspector-surface[data-m7-inspector-surface="brush"] { display: block; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.m7-inspector-surface[data-m7-inspector-surface="brush"] > .shell-brush-properties-panel, .m7-inspector-surface[data-m7-inspector-surface="brush"] > .shell-brush-presets-panel { width: 100%; min-width: 0; }
 .m7-layer-create-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 7px 8px; border-bottom: 1px solid #e7eaf0; background: #fff; }
 .m7-layer-create-bar button { min-height: 44px; border: 1px solid #e1e6ef; border-radius: 9px; background: #f8faff; color: #46536c; font: 700 10px/1 system-ui, sans-serif; cursor: pointer; }
 .m7-layer-create-bar button:hover, .m7-layer-create-bar button:focus-visible { border-color: #f2c58c; background: #fff4e5; outline: none; }
@@ -422,7 +426,8 @@ function installInspectorV1(
       destination.append(element);
     });
   };
-  moveInto('.shell-brush-presets-panel, .shell-brush-properties-panel', 'brush');
+  moveInto('.shell-brush-properties-panel', 'brush');
+  moveInto('.shell-brush-presets-panel', 'brush');
   moveInto('.shell-color-panel', 'color');
   moveInto('.shell-reference-panel', 'reference');
   moveInto('.shell-layer-search, #layer-list, #layer-actions', 'layers');
