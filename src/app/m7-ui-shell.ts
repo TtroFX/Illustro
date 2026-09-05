@@ -417,7 +417,9 @@ function installInspectorV1(
     if (!destination) return;
     inspector
       .querySelectorAll<HTMLElement>(selector)
-      .forEach((element) => destination.append(element));
+      .forEach((element) => {
+        destination.append(element);
+      });
   };
   moveInto('.shell-brush-presets-panel, .shell-brush-properties-panel', 'brush');
   moveInto('.shell-color-panel', 'color');
