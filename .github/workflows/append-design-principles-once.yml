@@ -1,4 +1,4 @@
-name: Format M7 UI shell once
+name: Mark phone UX remediation complete once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  format-m7-ui-shell:
+  mark-phone-ux-remediation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,29 +18,40 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply exact Biome formatting
+      - name: Mark implemented phone UX items complete
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          path = Path('src/app/m7-ui-shell.ts')
+          path = Path('IMPLEMENTATION_PROGRESS.md')
           text = path.read_text()
-          before = "    inspector\n      .querySelectorAll<HTMLElement>(selector)\n      .forEach((element) => {\n        destination.append(element);\n      });"
-          after = "    inspector.querySelectorAll<HTMLElement>(selector).forEach((element) => {\n      destination.append(element);\n    });"
-          if before in text:
-              if text.count(before) != 1:
-                  raise SystemExit('expected one M7 UI format target')
-              path.write_text(text.replace(before, after, 1))
-          elif after not in text:
-              raise SystemExit('M7 UI format target missing')
+          replacements = {
+              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
+                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
+              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
+                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
+              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
+                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
+          }
+          changed = False
+          for before, after in replacements.items():
+              if before in text:
+                  if text.count(before) != 1:
+                      raise SystemExit(f'expected one progress line: {before}')
+                  text = text.replace(before, after, 1)
+                  changed = True
+              elif after not in text:
+                  raise SystemExit(f'progress line missing: {before}')
+          if changed:
+              path.write_text(text)
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/app/m7-ui-shell.ts
+          git add IMPLEMENTATION_PROGRESS.md
           if git diff --cached --quiet; then
-            echo 'M7 UI shell format already applied.'
+            echo 'Phone UX remediation progress already complete.'
             exit 0
           fi
-          git commit -m 'style: format M7 UI shell'
+          git commit -m 'chore: close phone UX remediation'
           git push origin HEAD:main
