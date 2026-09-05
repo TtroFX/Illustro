@@ -69,7 +69,11 @@ export function quickMaskOverlayAlphaV1(
   selectionCoverageByte: number,
   overlayOpacity = 0.45,
 ): number {
-  if (!Number.isInteger(selectionCoverageByte) || selectionCoverageByte < 0 || selectionCoverageByte > 255) {
+  if (
+    !Number.isInteger(selectionCoverageByte) ||
+    selectionCoverageByte < 0 ||
+    selectionCoverageByte > 255
+  ) {
     throw new RangeError('Quick Mask selection coverage byte must be an integer between 0 and 255');
   }
   if (!Number.isFinite(overlayOpacity) || overlayOpacity < 0 || overlayOpacity > 1) {
