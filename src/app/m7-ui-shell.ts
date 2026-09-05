@@ -415,11 +415,9 @@ function installInspectorV1(
   const moveInto = (selector: string, surface: M7InspectorSurfaceV1): void => {
     const destination = surfaceNodes.get(surface);
     if (!destination) return;
-    inspector
-      .querySelectorAll<HTMLElement>(selector)
-      .forEach((element) => {
-        destination.append(element);
-      });
+    inspector.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+      destination.append(element);
+    });
   };
   moveInto('.shell-brush-presets-panel, .shell-brush-properties-panel', 'brush');
   moveInto('.shell-color-panel', 'color');
