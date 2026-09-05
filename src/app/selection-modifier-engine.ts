@@ -78,7 +78,11 @@ function validateDecodedCoverageTileV1(
   width: number,
   height: number,
 ): void {
-  if (decoded.pixelFormat !== 'rgba8-unorm' || decoded.width !== width || decoded.height !== height) {
+  if (
+    decoded.pixelFormat !== 'rgba8-unorm' ||
+    decoded.width !== width ||
+    decoded.height !== height
+  ) {
     throw new Error('selection modifier tile does not match canonical RGBA8 coverage');
   }
   if (decoded.bytes.byteLength !== width * height * 4) {
@@ -320,14 +324,7 @@ function morphologyTileV1(
     radiusPx,
     mode,
   );
-  return verticalExtremaV1(
-    horizontal,
-    patchHeight,
-    outputWidth,
-    outputHeight,
-    radiusPx,
-    mode,
-  );
+  return verticalExtremaV1(horizontal, patchHeight, outputWidth, outputHeight, radiusPx, mode);
 }
 
 function horizontalBoxAverageV1(
@@ -391,20 +388,8 @@ function featherTileV1(
     }
     return result;
   }
-  const horizontal = horizontalBoxAverageV1(
-    patch,
-    patchWidth,
-    patchHeight,
-    outputWidth,
-    radiusPx,
-  );
-  return verticalBoxAverageV1(
-    horizontal,
-    patchHeight,
-    outputWidth,
-    outputHeight,
-    radiusPx,
-  );
+  const horizontal = horizontalBoxAverageV1(patch, patchWidth, patchHeight, outputWidth, radiusPx);
+  return verticalBoxAverageV1(horizontal, patchHeight, outputWidth, outputHeight, radiusPx);
 }
 
 function encodeCoverageBytesV1(values: Uint8Array): Uint8Array<ArrayBuffer> {
