@@ -49,5 +49,18 @@ if old_install not in text:
         raise SystemExit('M8E installation anchor missing')
 else:
     text = text.replace(old_install, new_install, 1)
-
 path.write_text(text)
+
+gesture_path = Path('src/app/m8-selection-gesture-controller.ts')
+gesture = gesture_path.read_text()
+old_loop = """for (const button of modePanel.querySelectorAll<HTMLButtonElement>(
+      '[data-m8e-selection-mode]',
+    )) {"""
+new_loop = """for (const button of Array.from(
+      modePanel.querySelectorAll<HTMLButtonElement>('[data-m8e-selection-mode]'),
+    )) {"""
+if old_loop in gesture:
+    gesture = gesture.replace(old_loop, new_loop, 1)
+elif new_loop not in gesture:
+    raise SystemExit('M8E selection mode loop anchor missing')
+gesture_path.write_text(gesture)
