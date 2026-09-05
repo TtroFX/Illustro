@@ -1,0 +1,48 @@
+name: Mark M8D preview once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m8d-preview-gate-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  mark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Rebase latest main
+        run: git pull --rebase origin main
+      - name: Mark published preview
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          old = 'PUB-M8D M8Dユーザー確認用Preview公開:未完了'
+          new = 'PUB-M8D M8Dユーザー確認用Preview公開:完了'
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif new not in text:
+              raise SystemExit('M8D preview gate not found')
+          path.write_text(text)
+          PY
+      - name: Remove temporary updater
+        run: rm .github/workflows/mark-m8d-preview-once.yml .github/m8d-preview-gate-trigger
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'chore: mark M8D preview published'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
