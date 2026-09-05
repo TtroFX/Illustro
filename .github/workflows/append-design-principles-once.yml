@@ -1,4 +1,4 @@
-name: Mark phone UX remediation complete once
+name: Integrate M6B native brush import export once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  mark-phone-ux-remediation:
+  integrate-native-brush-interchange:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,40 +18,92 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mark implemented phone UX items complete
+      - name: Patch production integration
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          path = Path('IMPLEMENTATION_PROGRESS.md')
-          text = path.read_text()
-          replacements = {
-              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
-                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
-              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
-                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
-              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
-                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
-          }
-          changed = False
-          for before, after in replacements.items():
-              if before in text:
-                  if text.count(before) != 1:
-                      raise SystemExit(f'expected one progress line: {before}')
-                  text = text.replace(before, after, 1)
-                  changed = True
-              elif after not in text:
-                  raise SystemExit(f'progress line missing: {before}')
-          if changed:
-              path.write_text(text)
+
+          def replace_once(path, before, after):
+              p = Path(path)
+              text = p.read_text()
+              if after in text:
+                  return
+              if text.count(before) != 1:
+                  raise SystemExit(f'expected one anchor in {path}: {before[:80]!r}')
+              p.write_text(text.replace(before, after, 1))
+
+          library = 'src/app/brush-preset-library.ts'
+          create_anchor = "export function createUserBrushPresetV1(\n"
+          import_fn = """export function importBrushPresetV1(\n  state: BrushPresetLibraryStateV1,\n  presetInput: BrushPresetV1,\n  importedId: string = presetInput.id,\n): BrushPresetLibraryStateV1 {\n  if (state.items.length >= BRUSH_PRESET_LIMIT_V1)\n    throw new RangeError('brush preset library is full');\n  const source = normalizeBrushPresetV1(presetInput);\n  const id = requireAvailableId(state, importedId);\n  const preset =\n    source.id === id ? source : clonePresetV1(source, { id, revision: 1 });\n  const item = itemV1({ source: 'user', baseline: preset, locked: false });\n  return stateV1([...state.items, item], id, state.query, state.category);\n}\n\n"""
+          replace_once(library, create_anchor, import_fn + create_anchor)
+
+          controller = 'src/app/brush-preset-controller.ts'
+          replace_once(
+              controller,
+              "  type BrushBehaviorV1,\n",
+              "  type BrushBehaviorV1,\n  type BrushPresetV1,\n",
+          )
+          replace_once(
+              controller,
+              "  filteredBrushPresetItemsV1,\n",
+              "  filteredBrushPresetItemsV1,\n  importBrushPresetV1,\n",
+          )
+          replace_once(
+              controller,
+              "export interface BrushPresetControllerV1 {\n  snapshot(): BrushPresetLibraryStateV1;\n  refresh(): void;\n",
+              "export interface BrushPresetControllerV1 {\n  snapshot(): BrushPresetLibraryStateV1;\n  importPreset(preset: BrushPresetV1): string;\n  refresh(): void;\n",
+          )
+          replace_once(
+              controller,
+              "  return Object.freeze({\n    snapshot: () => state,\n    refresh: render,\n",
+              """  return Object.freeze({\n    snapshot: () => state,\n    importPreset: (preset: BrushPresetV1): string => {\n      const requestedId = state.items.some((item) => item.preset.id === preset.id)\n        ? nextId()\n        : preset.id;\n      state = importBrushPresetV1(state, preset, requestedId);\n      persist();\n      applySelected();\n      render();\n      return state.selectedPresetId;\n    },\n    refresh: render,\n""",
+          )
+
+          html = 'src/index.html'
+          replace_once(
+              html,
+              "              <button id=\"brush-preset-reset\" type=\"button\" title=\"保存基準へリセット\">Reset</button>\n            </fieldset>\n",
+              """              <button id=\"brush-preset-reset\" type=\"button\" title=\"保存基準へリセット\">Reset</button>\n              <button id=\"brush-preset-import\" type=\"button\" title=\"Illustroブラシを読み込む\">読込</button>\n              <button id=\"brush-preset-export\" type=\"button\" title=\"選択ブラシを書き出す\">書出</button>\n              <input id=\"brush-preset-import-file\" type=\"file\" accept=\".illbrush,application/x-illustro-brush+zip\" hidden />\n            </fieldset>\n""",
+          )
+
+          main = 'src/app/main.ts'
+          replace_once(
+              main,
+              "import { installBrushPresetControllerV1 } from './brush-preset-controller.js';\n",
+              "import { installBrushPresetControllerV1 } from './brush-preset-controller.js';\nimport { installBrushInterchangeControllerV1 } from './brush-interchange-controller.js';\n",
+          )
+          preset_anchor = """const brushPresets = installBrushPresetControllerV1({\n  root,\n  paintSession,\n  storage: globalThis.localStorage,\n  pressureResponseDefault: globalPressureResponse,\n  onBrushModeChanged: () => {\n    publishBrushMode();\n    brushHoverOutline.refresh();\n  },\n});\n"""
+          preset_with_interchange = preset_anchor + """const brushInterchange = installBrushInterchangeControllerV1({\n  root,\n  brushPresets,\n});\nvoid brushInterchange;\n"""
+          replace_once(main, preset_anchor, preset_with_interchange)
           PY
+
+      - name: Restore locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Format and verify native interchange
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx biome format --write src/app/brush-package-attachment-store.ts src/app/brush-interchange-service.ts src/app/brush-interchange-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts src/app/main.ts src/index.html tests/unit/brush-interchange-service.test.ts tests/unit/brush-preset-import.test.ts
+          npm run format:check
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+          npm run verify:m6a
+          git diff --check
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add IMPLEMENTATION_PROGRESS.md
+          git add src/app/brush-package-attachment-store.ts src/app/brush-interchange-service.ts src/app/brush-interchange-controller.ts src/app/brush-preset-library.ts src/app/brush-preset-controller.ts src/app/main.ts src/index.html tests/unit/brush-interchange-service.test.ts tests/unit/brush-preset-import.test.ts
           if git diff --cached --quiet; then
-            echo 'Phone UX remediation progress already complete.'
+            echo 'Native brush interchange already integrated.'
             exit 0
           fi
-          git commit -m 'chore: close phone UX remediation'
+          git commit -m 'feat: integrate native brush import and export'
           git push origin HEAD:main
