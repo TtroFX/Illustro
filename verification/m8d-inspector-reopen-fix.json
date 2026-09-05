@@ -1,0 +1,15 @@
+{
+  "schema": "illustro.verification.m8d-inspector-reopen/1",
+  "verifiedAt": "2026-09-05",
+  "scope": "M8D Inspector collapse/reopen affordance",
+  "fixCommit": "3e9f79da9b427f82c93dd76055122468492183b7",
+  "rootCause": "Collapsed state set the entire Inspector to visibility:hidden and width:0, hiding the only control capable of reopening it.",
+  "resolution": "Collapsed state now reserves a 42px right-edge rail, hides Inspector contents, and keeps only the canonical Inspector toggle visible and operable. Persisted collapsed state therefore remains recoverable after reload.",
+  "focusedVerification": {
+    "format": "pass",
+    "typecheck": "pass",
+    "m8dTests": "pass",
+    "productionBuild": "pass"
+  },
+  "userGate": "USER-M8D remains pending"
+}
