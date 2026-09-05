@@ -25,10 +25,15 @@ for (const contract of [
 
 const legacyPersistenceStartup = main.includes('paintPersistence.initialize');
 const documentWorkflowSource = fs.readFileSync('src/app/document-workflow-controller.ts', 'utf8');
+const legacyLibraryNewDocumentRoute = main.includes('documentWorkflow.openNewDocument()');
+const canonicalLibraryNewDocumentRoute =
+  main.includes("shell.productShell.openNamedTaskSurface('new-document')") &&
+  main.includes('shell.productShell.setNewDocumentSubmitHandler') &&
+  main.includes('documentWorkflow.createNewDocument(input)');
 const libraryFirstPersistenceStartup =
   main.includes('installM9aLibrarySurfaceV1') &&
   main.includes('paintPersistence.openProject(projectId)') &&
-  main.includes('documentWorkflow.openNewDocument()') &&
+  (legacyLibraryNewDocumentRoute || canonicalLibraryNewDocumentRoute) &&
   documentWorkflowSource.includes('paintPersistence.createNewProject');
 if (!legacyPersistenceStartup && !libraryFirstPersistenceStartup) {
   throw new Error(
