@@ -6,6 +6,7 @@ class FakePointerTarget {
   readonly listeners = new Map<string, Set<EventListener>>();
   readonly captured: number[] = [];
   readonly released: number[] = [];
+  rectReadCount = 0;
 
   addEventListener(type: string, listener: EventListener): void {
     const set = this.listeners.get(type) ?? new Set<EventListener>();
@@ -18,6 +19,7 @@ class FakePointerTarget {
   }
 
   getBoundingClientRect(): { readonly left: number; readonly top: number } {
+    this.rectReadCount += 1;
     return { left: 10, top: 20 };
   }
 
@@ -81,6 +83,62 @@ describe('M3 production canvas pointer controller', () => {
       confirmedSampleCount: 2,
       latestConfirmed: { surfaceX: 50, pressure: 0.8, eventType: 'pointerrawupdate' },
     });
+  });
+
+  it('uses rawupdate as the confirmed active stream instead of duplicating later pointermove events', () => {
+    const target = new FakePointerTarget();
+    const batches: string[] = [];
+    const controller = installPointerInputControllerV1(target, (batch) =>
+      batches.push(batch.eventType),
+    );
+
+    target.emit(event('pointerdown', { timeStamp: 1 }));
+    target.emit(event('pointerrawupdate', { clientX: 60, timeStamp: 2 }));
+    target.emit(event('pointermove', { clientX: 60, timeStamp: 2 }));
+    target.emit(event('pointerrawupdate', { clientX: 70, timeStamp: 3 }));
+    target.emit(event('pointermove', { clientX: 70, timeStamp: 3 }));
+
+    expect(batches).toEqual(['pointerdown', 'pointerrawupdate', 'pointerrawupdate']);
+    expect(controller.snapshot()).toMatchObject({
+      batchCount: 3,
+      confirmedSampleCount: 3,
+      latestConfirmed: { surfaceX: 60, eventType: 'pointerrawupdate' },
+    });
+  });
+
+  it('keeps pointermove as the compatibility stream when raw updates are unavailable', () => {
+    const target = new FakePointerTarget();
+    const batches: string[] = [];
+    const controller = installPointerInputControllerV1(target, (batch) =>
+      batches.push(batch.eventType),
+    );
+
+    target.emit(event('pointerdown', { timeStamp: 1 }));
+    target.emit(event('pointermove', { clientX: 65, timeStamp: 2 }));
+
+    expect(batches).toEqual(['pointerdown', 'pointermove']);
+    expect(controller.snapshot()).toMatchObject({
+      confirmedSampleCount: 2,
+      latestConfirmed: { surfaceX: 55, eventType: 'pointermove' },
+    });
+  });
+
+  it('does not force a bounding-rect read for every active drawing sample', () => {
+    const target = new FakePointerTarget();
+    installPointerInputControllerV1(target);
+    expect(target.rectReadCount).toBe(1);
+
+    target.emit(event('pointerdown'));
+    expect(target.rectReadCount).toBe(2);
+
+    target.emit(event('pointerrawupdate', { clientX: 55, timeStamp: 2 }));
+    target.emit(event('pointerrawupdate', { clientX: 60, timeStamp: 3 }));
+    target.emit(event('pointerrawupdate', { clientX: 65, timeStamp: 4 }));
+    expect(target.rectReadCount).toBe(2);
+
+    target.emit(event('pointerup', { timeStamp: 5 }));
+    target.emit(event('pointermove', { buttons: 0, timeStamp: 6 }));
+    expect(target.rectReadCount).toBe(3);
   });
 
   it('keeps predicted samples presentation-only and clears them on pointerup', () => {
