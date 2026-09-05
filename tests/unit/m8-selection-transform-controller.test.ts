@@ -57,21 +57,11 @@ describe('M8E selection transform controller', () => {
       maxX: 30,
       maxY: 60,
     });
-    const moved = updateSelectionTransformDragV1(
-      base,
-      'move',
-      { x: 1, y: 1 },
-      { x: 6, y: -2 },
-    );
+    const moved = updateSelectionTransformDragV1(base, 'move', { x: 1, y: 1 }, { x: 6, y: -2 });
     expect(moved.translateX).toBe(5);
     expect(moved.translateY).toBe(-3);
 
-    const scaled = updateSelectionTransformDragV1(
-      base,
-      'se',
-      { x: 30, y: 60 },
-      { x: 40, y: 80 },
-    );
+    const scaled = updateSelectionTransformDragV1(base, 'se', { x: 30, y: 60 }, { x: 40, y: 80 });
     expect(scaled.scaleX).toBe(2);
     expect(scaled.scaleY).toBe(2);
 
@@ -129,11 +119,16 @@ describe('M8E selection transform controller', () => {
   it('commits only once through the canonical History and Persistence transaction path', () => {
     const source = readFileSync('src/app/m8-selection-transform-controller.ts', 'utf8');
     expect(source).toContain('prepareSelectionAffineTransformV1');
-    expect(source).toContain("commitSnapshotTransform(\n            'selection.transform'");
+    expect(source).toContain('input.paintHistory.commitSnapshotTransform(');
+    expect(source).toContain("'selection.transform'");
     expect(source).toContain('applyPreparedSelectionTransformV1');
     expect(source).toContain('paintPersistence.markDirty(transaction.transactionId)');
     expect(source).toContain('selectionCoverage.clear()');
-    expect(source).not.toContain('pointermove') || expect(source).not.toContain('prepareSelectionAffineTransformV1(event');
+    const moveStart = source.indexOf('const onPointerMove');
+    const moveEnd = source.indexOf('const finishDrag', moveStart);
+    expect(moveStart).toBeGreaterThanOrEqual(0);
+    expect(moveEnd).toBeGreaterThan(moveStart);
+    expect(source.slice(moveStart, moveEnd)).not.toContain('prepareSelectionAffineTransformV1');
   });
 
   it('uses canonical on-canvas handle styling with coarse-pointer hit targets', () => {

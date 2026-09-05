@@ -147,7 +147,8 @@ describe('M8E rebuilt selection interaction', () => {
     const source = readFileSync('src/app/m8-selection-launcher.ts', 'utf8');
     expect(source).toContain("dataset.commandGroup = 'content'");
     expect(source).toContain("dataset.commandGroup = 'mask'");
-    expect(source).toContain("setAvailability('transform', false, 'pending-dependency')");
+    expect(source).toContain("setAvailability('transform', input.transformController.available())");
+    expect(source).toContain('input.transformController.begin()');
     expect(source).toContain("setAvailability('cut', false, 'pending-dependency')");
     expect(source).toContain("setAvailability('fill', false, 'pending-dependency')");
     expect(source).not.toContain('prepareLassoSelectionV1');

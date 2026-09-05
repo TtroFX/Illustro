@@ -47,6 +47,7 @@ import { installM8SelectionContextLayerV1 } from './m8-selection-context-layer.j
 import { installM8SelectionGestureControllerV1 } from './m8-selection-gesture-controller.js';
 import { installSelectionContourPresenterV1 } from './selection-contour-presenter.js';
 import { installM8SelectionLauncherV1 } from './m8-selection-launcher.js';
+import { installM8SelectionTransformControllerV1 } from './m8-selection-transform-controller.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { installViewportControllerV1 } from './viewport-controller.js';
 import { startRendererController } from './renderer-controller.js';
@@ -173,15 +174,31 @@ const selectionGesture = installM8SelectionGestureControllerV1({
   selectionCoverage,
   viewport,
 });
+const selectionTransform = installM8SelectionTransformControllerV1({
+  root,
+  context: selectionContext,
+  contourPresenter: selectionContour,
+  paintSession,
+  paintHistory,
+  paintPersistence,
+  selectionCoverage,
+  viewport,
+  deactivateSelectionTool: () => selectionGesture.setActiveTool(null),
+  schedule: enqueuePaintRender,
+  onHistoryChanged: publishPaintHistory,
+  onDocumentChanged: publishDocumentState,
+});
 const selectionLauncher = installM8SelectionLauncherV1({
   root,
   context: selectionContext,
   contourPresenter: selectionContour,
+  transformController: selectionTransform,
   paintSession,
   paintPersistence,
   selectionCoverage,
 });
 void selectionGesture;
+void selectionTransform;
 void selectionLauncher;
 let localLibraryController: LocalProjectLibraryControllerV1 | null = null;
 let localLibrarySurface: M9aLibrarySurfaceHandleV1 | null = null;
@@ -754,6 +771,11 @@ globalThis.addEventListener(
     document.removeEventListener('visibilitychange', onPaintVisibilityChange);
     libraryVisibilityObserver?.disconnect();
     localLibrarySurface?.dispose();
+    selectionLauncher.dispose();
+    selectionTransform.dispose();
+    selectionGesture.dispose();
+    selectionContour.dispose();
+    selectionContext.dispose();
     layerComps.dispose();
     layerWorkflow.dispose();
     colorMatch.dispose();
