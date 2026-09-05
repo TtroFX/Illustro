@@ -89,12 +89,20 @@ requireText(illbrush, 'writeIllbrushPackageV1', 'native .illbrush writer is disc
 requireText(illbrush, 'SHA-256', 'native package integrity verification is missing');
 
 const ibisParser = read('src/interchange/ibis-brush-parser-v1.ts');
-requireText(ibisParser, "DecompressionStream('deflate-raw')", 'ibis IPBZ raw-deflate decoding is missing');
+requireText(
+  ibisParser,
+  "DecompressionStream('deflate-raw')",
+  'ibis IPBZ raw-deflate decoding is missing',
+);
 requireText(ibisParser, 'declaredPayloadByteLength', 'ibis payload length validation is missing');
 
 const ibisQr = read('src/interchange/ibis-qr-carrier-v1.ts');
 requireText(ibisQr, 'binaryData', 'ibis QR decoding is not binary-safe');
-requireText(ibisQr, 'parseIbisBrushEnvelopeV1(payload)', 'ibis QR carrier does not validate the decoded payload');
+requireText(
+  ibisQr,
+  'parseIbisBrushEnvelopeV1(payload)',
+  'ibis QR carrier does not validate the decoded payload',
+);
 
 const cspParser = read('src/interchange/csp-sut-parser-v1.ts');
 requireText(cspParser, 'SQLite format 3', 'CSP SUT SQLite header validation is missing');
@@ -102,23 +110,55 @@ requireText(cspParser, 'initSqlJs', 'CSP SUT parser is not connected to the SQLi
 requireText(cspParser, 'database.close()', 'CSP SUT parser does not close read-only SQLite state');
 
 const report = read('src/interchange/brush-import-property-report-v1.ts');
-requireText(report, 'createCompatibilityReport', 'unsupported property reporting is not structured');
-requireText(report, "mapping: 'ignored'", 'unsupported imported properties are not explicitly reported');
+requireText(
+  report,
+  'createCompatibilityReport',
+  'unsupported property reporting is not structured',
+);
+requireText(
+  report,
+  "mapping: 'ignored'",
+  'unsupported imported properties are not explicitly reported',
+);
 
 const normalizer = read('src/interchange/imported-brush-normalizer-v1.ts');
-requireText(normalizer, 'normalizeBrushPresetV1', 'imported brushes are not canonically normalized');
+requireText(
+  normalizer,
+  'normalizeBrushPresetV1',
+  'imported brushes are not canonically normalized',
+);
 requireText(normalizer, 'stageIbisBrushImportV1', 'ibis import staging boundary is missing');
 requireText(normalizer, 'stageCspBrushImportV1', 'CSP import staging boundary is missing');
-requireText(normalizer, 'ImportedBrushAcceptanceRequiredErrorV1', 'lossy import acceptance gate is missing');
-requireText(normalizer, 'commitImportedBrushStageV1', 'canonical imported-brush commit boundary is missing');
+requireText(
+  normalizer,
+  'ImportedBrushAcceptanceRequiredErrorV1',
+  'lossy import acceptance gate is missing',
+);
+requireText(
+  normalizer,
+  'commitImportedBrushStageV1',
+  'canonical imported-brush commit boundary is missing',
+);
 
 const service = read('src/app/brush-interchange-service.ts');
 requireText(service, 'parseCspSutV1', 'production CSP import does not use the validated parser');
-requireText(service, 'decodeIbisBrushQrBlobV1', 'production ibis import does not use binary-safe QR decoding');
-requireText(service, 'commitImportedBrushStageV1', 'production external import bypasses canonical commit normalization');
+requireText(
+  service,
+  'decodeIbisBrushQrBlobV1',
+  'production ibis import does not use binary-safe QR decoding',
+);
+requireText(
+  service,
+  'commitImportedBrushStageV1',
+  'production external import bypasses canonical commit normalization',
+);
 
 const controller = read('src/app/brush-interchange-controller.ts');
-requireText(controller, 'acceptLossyMapping', 'production UI does not expose the lossy-import acceptance boundary');
+requireText(
+  controller,
+  'acceptLossyMapping',
+  'production UI does not expose the lossy-import acceptance boundary',
+);
 
 const packageJson = JSON.parse(read('package.json'));
 if (packageJson.dependencies?.jsqr !== '1.4.0') {
@@ -132,7 +172,11 @@ const html = read('src/index.html');
 requireText(html, './vendor/jsQR.js', 'jsQR runtime is not loaded by the production shell');
 requireText(html, './vendor/sql-wasm.js', 'sql.js runtime is not loaded by the production shell');
 
-for (const path of ['dist/vendor/jsQR.js', 'dist/vendor/sql-wasm.js', 'dist/vendor/sql-wasm.wasm']) {
+for (const path of [
+  'dist/vendor/jsQR.js',
+  'dist/vendor/sql-wasm.js',
+  'dist/vendor/sql-wasm.wasm',
+]) {
   requireFile(path, `production build is missing required brush-import runtime: ${path}`);
 }
 
