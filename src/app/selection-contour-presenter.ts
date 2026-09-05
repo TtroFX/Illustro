@@ -478,6 +478,7 @@ export function installSelectionContourPresenterV1(input: {
   const listeners = new Set<SelectionContourListenerV1>();
   let documentContours: readonly (readonly SelectionContourPointV1[])[] = Object.freeze([]);
   let selectionKey: string | null = null;
+  let resolvedSelectionKey: string | null = null;
   let pending = false;
   let generation = 0;
   let snapshotValue: SelectionContourSnapshotV1 = Object.freeze({
@@ -531,18 +532,22 @@ export function installSelectionContourPresenterV1(input: {
     const documentValue = input.paintSession.currentDocument();
     if (!coverage || !documentValue) {
       selectionKey = null;
+      resolvedSelectionKey = null;
       documentContours = Object.freeze([]);
       pending = false;
       reproject();
       return;
     }
     const nextKey = selectionContourKeyV1(coverage);
-    if (nextKey === selectionKey && documentContours.length > 0) {
+    selectionKey = nextKey;
+    if (nextKey === resolvedSelectionKey) {
+      pending = false;
       reproject();
       return;
     }
+
+    documentContours = Object.freeze([]);
     pending = true;
-    selectionKey = nextKey;
     reproject();
     try {
       const contours = await extractSelectionCoverageContoursV1({
@@ -553,9 +558,11 @@ export function installSelectionContourPresenterV1(input: {
       });
       if (generation !== currentGeneration) return;
       documentContours = contours;
+      resolvedSelectionKey = nextKey;
     } catch (error) {
       if (generation !== currentGeneration) return;
       documentContours = Object.freeze([]);
+      resolvedSelectionKey = null;
       input.context.announce(
         error instanceof Error ? error.message : '選択範囲の輪郭を表示できませんでした',
       );
