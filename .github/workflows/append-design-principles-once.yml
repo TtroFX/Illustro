@@ -49,7 +49,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --global npm@11.19.1
           npm ci --ignore-scripts
           npx biome format --write src/workers/render.worker.ts src/app/brush-preset-controller.ts src/app/m7-ui-shell.ts
 
