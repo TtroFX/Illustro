@@ -587,7 +587,7 @@ M7A-検査 M7A内部検査:完了
 再開メモ: M7A-003/004は2026-09-05のAUTHORITATIVE Lasso Selection契約再監査で、現行selection-shape-engineがLasso/Freehand境界をpixel-centerの二値0/255でrasterizeし、既定AA付きfractional 0..255 coverage要件を満たさないことを確認したため未完了へ戻した。既存のdocument-space polygon/even-odd/sparse 128px tile基盤とselection-combine-engineのReplace/Add/Subtract/Intersect fractional algebraは保持し、境界AA・degenerate gesture保持・behavioral coverage検査をM7側で是正する。並行M7の他項目は停止・巻き戻ししない。
 
 ## M7B — Fill / Gradient / Region Tools
-M7B-001 Flood Fill:未完了
+M7B-001 Flood Fill:完了
 M7B-002 fill tolerance:未完了
 M7B-003 fill strength:未完了
 M7B-004 gap recognition:未完了
