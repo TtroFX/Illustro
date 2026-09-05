@@ -77,7 +77,169 @@ class MemoryHandleStore implements LinkedObjectExternalHandleStoreV1 {
   }
 }
 
+async function hashText(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 describe('M9D linked object external acceleration', () => {
+  it('links a matching persistent handle without changing canonical linked-object state', async () => {
+    const projectId = createProjectId();
+    const snapshot = documentFixture('canonical');
+    const sourceHash = await hashText('same source');
+    const layer = createLinkedObjectLayer({
+      name: 'Linked',
+      embeddedSnapshot: snapshot,
+      externalSource: {
+        originalName: 'source.png',
+        format: 'image/png',
+        sourceHash,
+      },
+    });
+    const store = new MemoryHandleStore();
+    const handle = handleFixture(fileFixture('renamed-source.png', 'same source'));
+    const controller = new LinkedObjectExternalControllerV1({
+      store,
+      importer: {
+        async importExternal() {
+          throw new Error('handle-only link must not import or replace canonical content');
+        },
+      },
+    });
+
+    const result = await controller.linkPersistentHandle({ projectId, layer, handle });
+
+    expect(result.state).toBe('linked');
+    expect(result.handlePersisted).toBe(true);
+    expect(result.sourceHash).toBe(sourceHash);
+    expect(result.layer).toBe(layer);
+    expect(result.layer.revision).toBe(layer.revision);
+    expect(result.layer.embeddedSnapshot).toBe(snapshot);
+    expect(result.layer.externalSource).toBe(layer.externalSource);
+    expect(store.handles.get(store.key(projectId, layer.objectId))).toBe(handle);
+  });
+
+  it('rejects a mismatched handle without persisting or replacing the embedded snapshot', async () => {
+    const projectId = createProjectId();
+    const snapshot = documentFixture('canonical');
+    const layer = createLinkedObjectLayer({
+      name: 'Linked',
+      embeddedSnapshot: snapshot,
+      externalSource: {
+        originalName: 'source.png',
+        format: 'image/png',
+        sourceHash: await hashText('expected source'),
+      },
+    });
+    const store = new MemoryHandleStore();
+    const controller = new LinkedObjectExternalControllerV1({
+      store,
+      importer: {
+        async importExternal() {
+          throw new Error('must not import');
+        },
+      },
+    });
+
+    const result = await controller.linkPersistentHandle({
+      projectId,
+      layer,
+      handle: handleFixture(fileFixture('other.png', 'different source')),
+    });
+
+    expect(result.state).toBe('source-mismatch');
+    expect(result.handlePersisted).toBe(false);
+    expect(result.layer).toBe(layer);
+    expect(result.layer.embeddedSnapshot).toBe(snapshot);
+    expect(store.handles.size).toBe(0);
+  });
+
+  it('keeps the embedded snapshot independent when no external descriptor or permission is available', async () => {
+    const projectId = createProjectId();
+    const snapshot = documentFixture('canonical');
+    const untracked = createLinkedObjectLayer({ name: 'Linked', embeddedSnapshot: snapshot });
+    const store = new MemoryHandleStore();
+    const controller = new LinkedObjectExternalControllerV1({
+      store,
+      importer: {
+        async importExternal() {
+          throw new Error('must not import');
+        },
+      },
+    });
+    const file = fileFixture('source.png', 'source');
+
+    const noDescriptor = await controller.linkPersistentHandle({
+      projectId,
+      layer: untracked,
+      handle: handleFixture(file),
+    });
+    expect(noDescriptor.state).toBe('untracked');
+    expect(noDescriptor.layer.embeddedSnapshot).toBe(snapshot);
+
+    const tracked = createLinkedObjectLayer({
+      name: 'Tracked',
+      embeddedSnapshot: snapshot,
+      externalSource: {
+        originalName: 'source.png',
+        format: 'image/png',
+        sourceHash: await hashText('source'),
+      },
+    });
+    const denied = await controller.linkPersistentHandle({
+      projectId,
+      layer: tracked,
+      handle: handleFixture(file, 'denied'),
+    });
+    const prompt = await controller.linkPersistentHandle({
+      projectId,
+      layer: tracked,
+      handle: handleFixture(file, 'prompt'),
+    });
+    expect(denied.state).toBe('permission-lost');
+    expect(prompt.state).toBe('permission-required');
+    expect(store.handles.size).toBe(0);
+    expect(tracked.embeddedSnapshot).toBe(snapshot);
+  });
+
+  it('reports optional handle-store failure without changing the canonical linked object', async () => {
+    const projectId = createProjectId();
+    const snapshot = documentFixture('canonical');
+    const file = fileFixture('source.png', 'source');
+    const layer = createLinkedObjectLayer({
+      name: 'Linked',
+      embeddedSnapshot: snapshot,
+      externalSource: {
+        originalName: 'source.png',
+        format: 'image/png',
+        sourceHash: await hashText('source'),
+      },
+    });
+    const store = new MemoryHandleStore();
+    store.failSave = true;
+    const controller = new LinkedObjectExternalControllerV1({
+      store,
+      importer: {
+        async importExternal() {
+          throw new Error('must not import');
+        },
+      },
+    });
+
+    const result = await controller.linkPersistentHandle({
+      projectId,
+      layer,
+      handle: handleFixture(file),
+    });
+
+    expect(result.state).toBe('storage-failed');
+    expect(result.handlePersisted).toBe(false);
+    expect(result.layer).toBe(layer);
+    expect(result.layer.revision).toBe(layer.revision);
+    expect(result.layer.embeddedSnapshot).toBe(snapshot);
+  });
+
   it('stages a changed external file without mutating the embedded canonical snapshot, then commits once', async () => {
     const projectId = createProjectId();
     const oldSnapshot = documentFixture('old');

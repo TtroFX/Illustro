@@ -64,6 +64,23 @@ export interface LinkedObjectRefreshCommitResultV1 {
   readonly handlePersisted: boolean;
 }
 
+export type LinkedObjectPersistentHandleLinkStateV1 =
+  | 'linked'
+  | 'untracked'
+  | 'missing'
+  | 'permission-required'
+  | 'permission-lost'
+  | 'source-mismatch'
+  | 'storage-failed';
+
+export interface LinkedObjectPersistentHandleLinkResultV1 {
+  readonly state: LinkedObjectPersistentHandleLinkStateV1;
+  readonly layer: LinkedObjectLayerV1;
+  readonly handlePersisted: boolean;
+  readonly sourceHash: string | null;
+  readonly message: string | null;
+}
+
 const DB_NAME = 'illustro-linked-object-handles-v1';
 const STORE_NAME = 'handles';
 
@@ -189,6 +206,16 @@ function unavailableStage(
   });
 }
 
+function persistentHandleLinkResult(
+  layer: LinkedObjectLayerV1,
+  state: LinkedObjectPersistentHandleLinkStateV1,
+  handlePersisted: boolean,
+  sourceHash: string | null,
+  message: string | null,
+): LinkedObjectPersistentHandleLinkResultV1 {
+  return Object.freeze({ state, layer, handlePersisted, sourceHash, message });
+}
+
 function isMissingFileError(error: unknown): boolean {
   return (
     error instanceof DOMException &&
@@ -281,6 +308,83 @@ export class LinkedObjectExternalControllerV1 {
         incompatibilities: Object.freeze([]),
         message: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  async linkPersistentHandle(input: {
+    readonly projectId: ProjectId;
+    readonly layer: LinkedObjectLayerV1;
+    readonly handle: LinkedObjectExternalHandleV1;
+  }): Promise<LinkedObjectPersistentHandleLinkResultV1> {
+    const externalSource = input.layer.externalSource;
+    if (externalSource === null) {
+      return persistentHandleLinkResult(
+        input.layer,
+        'untracked',
+        false,
+        null,
+        'Linked object has no external source descriptor; canonical embedded snapshot remains active.',
+      );
+    }
+
+    const permission = await permissionState(input.handle);
+    if (permission === 'denied') {
+      return persistentHandleLinkResult(
+        input.layer,
+        'permission-lost',
+        false,
+        null,
+        'External source permission is unavailable; canonical embedded snapshot remains active.',
+      );
+    }
+    if (permission === 'prompt') {
+      return persistentHandleLinkResult(
+        input.layer,
+        'permission-required',
+        false,
+        null,
+        'External source permission must be granted before retaining the optional persistent link.',
+      );
+    }
+
+    let file: LinkedObjectExternalFileV1;
+    try {
+      file = await input.handle.getFile();
+    } catch (error) {
+      if (isMissingFileError(error)) {
+        return persistentHandleLinkResult(
+          input.layer,
+          'missing',
+          false,
+          null,
+          'External source is missing; canonical embedded snapshot remains active.',
+        );
+      }
+      throw error;
+    }
+
+    const sourceHash = await sha256Hex(file);
+    if (sourceHash !== externalSource.sourceHash) {
+      return persistentHandleLinkResult(
+        input.layer,
+        'source-mismatch',
+        false,
+        sourceHash,
+        'Selected handle does not match the linked object external source; no persistent link was stored.',
+      );
+    }
+
+    try {
+      await this.#store.save(input.projectId, input.layer.objectId, input.handle);
+      return persistentHandleLinkResult(input.layer, 'linked', true, sourceHash, null);
+    } catch (error) {
+      return persistentHandleLinkResult(
+        input.layer,
+        'storage-failed',
+        false,
+        sourceHash,
+        error instanceof Error ? error.message : String(error),
+      );
     }
   }
 
