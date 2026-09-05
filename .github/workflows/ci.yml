@@ -64,6 +64,8 @@ jobs:
         env:
           ILLUSTRO_BUILD_MODE: production
         run: npm run build
+      - name: M6B brush interchange inspection
+        run: npm run verify:m6b
       - name: Integration tests
         run: npm run test:integration
       - name: Deployment contract
