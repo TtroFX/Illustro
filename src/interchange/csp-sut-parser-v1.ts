@@ -165,7 +165,9 @@ export async function parseCspSutV1(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
     );
     const tables = Object.freeze(
-      tableRows.map((row) => requiredStringV1(row, 'name')).filter((name, index, all) => all.indexOf(name) === index),
+      tableRows
+        .map((row) => requiredStringV1(row, 'name'))
+        .filter((name, index, all) => all.indexOf(name) === index),
     );
     if (!tables.includes('Node') || !tables.includes('Variant')) {
       throw new TypeError('CSP SUT requires Node and Variant tables');
@@ -196,7 +198,10 @@ export async function parseCspSutV1(
     if (variant === undefined) throw new TypeError('CSP SUT current Variant row is missing');
 
     const materials = tables.includes('MaterialFile')
-      ? queryRowsV1(database, `SELECT * FROM "MaterialFile" LIMIT ${CSP_SUT_MAX_MATERIAL_ROWS_V1 + 1}`)
+      ? queryRowsV1(
+          database,
+          `SELECT * FROM "MaterialFile" LIMIT ${CSP_SUT_MAX_MATERIAL_ROWS_V1 + 1}`,
+        )
       : Object.freeze([]);
     if (materials.length > CSP_SUT_MAX_MATERIAL_ROWS_V1) {
       throw new RangeError('CSP SUT material row count exceeds the safety limit');
