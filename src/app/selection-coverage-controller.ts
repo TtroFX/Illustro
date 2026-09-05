@@ -25,6 +25,8 @@ export interface SelectionCoverageSnapshotV1 {
   readonly coverage: RasterSelectionCoverageV1 | null;
 }
 
+export type SelectionCoverageListenerV1 = (snapshot: SelectionCoverageSnapshotV1) => void;
+
 function freezeCoverage(input: RasterSelectionCoverageV1): RasterSelectionCoverageV1 {
   return Object.freeze({
     ...input,
@@ -118,6 +120,7 @@ export function attachRasterMaskFromSelectionSnapshotV1(
 
 export class SelectionCoverageControllerV1 {
   #coverage: RasterSelectionCoverageV1 | null = null;
+  readonly #listeners = new Set<SelectionCoverageListenerV1>();
 
   snapshot(): SelectionCoverageSnapshotV1 {
     return Object.freeze({
@@ -126,23 +129,35 @@ export class SelectionCoverageControllerV1 {
     });
   }
 
+  subscribe(listener: SelectionCoverageListenerV1): () => void {
+    this.#listeners.add(listener);
+    listener(this.snapshot());
+    return () => this.#listeners.delete(listener);
+  }
+
+  #publish(): SelectionCoverageSnapshotV1 {
+    const snapshot = this.snapshot();
+    for (const listener of this.#listeners) listener(snapshot);
+    return snapshot;
+  }
+
   replaceFromRasterMask(mask: RasterMaskAttachmentV1): SelectionCoverageSnapshotV1 {
     this.#coverage = rasterSelectionCoverageFromMaskV1(mask);
-    return this.snapshot();
+    return this.#publish();
   }
 
   replacePrepared(prepared: PreparedSelectionCoverageV1): SelectionCoverageSnapshotV1 {
     this.#coverage = rasterSelectionCoverageFromPreparedV1(prepared);
-    return this.snapshot();
+    return this.#publish();
   }
 
   replace(coverage: RasterSelectionCoverageV1): SelectionCoverageSnapshotV1 {
     this.#coverage = freezeCoverage(coverage);
-    return this.snapshot();
+    return this.#publish();
   }
 
   clear(): SelectionCoverageSnapshotV1 {
     this.#coverage = null;
-    return this.snapshot();
+    return this.#publish();
   }
 }
