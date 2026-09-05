@@ -1,0 +1,50 @@
+name: Format M8 files once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m8-format-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  format-m8:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Format and publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in $(seq 1 12); do
+            git fetch origin main
+            git reset --hard origin/main
+            npx biome format --write scripts/verify-m8a-visual-assets.mjs src/app/m8-product-shell.ts
+            git add scripts/verify-m8a-visual-assets.mjs src/app/m8-product-shell.ts
+            if git diff --cached --quiet; then
+              echo 'M8 files already formatted.'
+              exit 0
+            fi
+            git commit -m 'style: format M8 implementation files'
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Concurrent main update detected; retrying ($attempt/12)."
+            sleep 2
+          done
+          exit 1
