@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { createProjectId } from '../../src/domain/identity.js';
 import { PNG_MIME_TYPE } from '../../src/export/png-export.js';
-import { openIllustroOpfsRoot, type DirectoryHandleLike, type FileHandleLike, type StorageManagerLike, type WritableFileStreamLike } from '../../src/storage/opfs-layout.js';
-import { createProjectThumbnailPngV1, ProjectPreviewStoreV1 } from '../../src/app/project-preview-store.js';
+import {
+  openIllustroOpfsRoot,
+  type DirectoryHandleLike,
+  type FileHandleLike,
+  type StorageManagerLike,
+  type WritableFileStreamLike,
+} from '../../src/storage/opfs-layout.js';
+import {
+  createProjectThumbnailPngV1,
+  ProjectPreviewStoreV1,
+} from '../../src/app/project-preview-store.js';
 
 class MemoryFileHandle implements FileHandleLike {
   bytes = new Uint8Array(0);
@@ -28,7 +37,10 @@ class MemoryDirectoryHandle implements DirectoryHandleLike {
   readonly directories = new Map<string, MemoryDirectoryHandle>();
   readonly files = new Map<string, MemoryFileHandle>();
 
-  async getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<MemoryDirectoryHandle> {
+  async getDirectoryHandle(
+    name: string,
+    options?: { create?: boolean },
+  ): Promise<MemoryDirectoryHandle> {
     const existing = this.directories.get(name);
     if (existing) return existing;
     if (options?.create !== true) throw new DOMException('missing', 'NotFoundError');
@@ -55,7 +67,7 @@ class MemoryStorageManager implements StorageManagerLike {
 }
 
 describe('M9A project preview store', () => {
-  it('persists a project thumbnail under a stable resource ID and reads it back', async () => {
+  it('persists and overwrites a project thumbnail under one stable resource ID', async () => {
     const storage = new MemoryStorageManager();
     const root = await openIllustroOpfsRoot(storage);
     const store = new ProjectPreviewStoreV1(root);
@@ -67,10 +79,18 @@ describe('M9A project preview store', () => {
     const resourceId = await store.write(projectId, png);
     const restored = await store.read(projectId, resourceId);
 
+    expect(restored).not.toBeNull();
     expect(restored?.type).toBe(PNG_MIME_TYPE);
-    expect(new Uint8Array(await restored?.arrayBuffer())).toEqual(
-      new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    const restoredBytes = new Uint8Array(await restored!.arrayBuffer());
+    expect(restoredBytes).toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+
+    const replacement = new Blob(
+      [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1])],
+      { type: PNG_MIME_TYPE },
     );
+    const reusedResourceId = await store.write(projectId, replacement, resourceId);
+    expect(reusedResourceId).toBe(resourceId);
+    expect((await store.read(projectId, resourceId))?.size).toBe(9);
   });
 
   it('keeps a valid PNG as the thumbnail fallback when bitmap APIs are unavailable', async () => {
