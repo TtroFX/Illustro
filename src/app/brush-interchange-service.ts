@@ -74,7 +74,9 @@ export function commitExternalBrushImportV1(input: {
 }): ExternalBrushImportResultV1 {
   const committed = commitImportedBrushStageV1({
     stage: input.stage,
-    acceptLossyMapping: input.acceptLossyMapping,
+    ...(input.acceptLossyMapping === undefined
+      ? {}
+      : { acceptLossyMapping: input.acceptLossyMapping }),
   });
   const presetId = input.brushPresets.importPreset(committed.preset);
   return Object.freeze({
