@@ -28,6 +28,7 @@ jobs:
           cat > tsconfig.m7a025.json <<'EOF'
           {
             "extends": "./tsconfig.json",
+            "compilerOptions": { "rootDir": "." },
             "include": [
               "src/app/selection-layer-operation-engine.ts",
               "tests/unit/selection-layer-operation-engine.test.ts"
