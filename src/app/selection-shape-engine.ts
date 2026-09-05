@@ -87,19 +87,25 @@ function rectangularBounds(startValue: SelectionPointV1, endValue: SelectionPoin
   const minY = Math.min(start.y, end.y);
   const maxX = Math.max(start.x, end.x);
   const maxY = Math.max(start.y, end.y);
-  if (maxX <= minX || maxY <= minY) throw new RangeError('selection bounds must have positive area');
+  if (maxX <= minX || maxY <= minY)
+    throw new RangeError('selection bounds must have positive area');
   return Object.freeze({ minX, minY, maxX, maxY });
 }
 
-function polygonPoints(points: readonly SelectionPointV1[], label: string): readonly SelectionPointV1[] {
+function polygonPoints(
+  points: readonly SelectionPointV1[],
+  label: string,
+): readonly SelectionPointV1[] {
   if (points.length < 3) throw new RangeError(`${label} requires at least three points`);
   const normalized: SelectionPointV1[] = [];
   for (const [index, input] of points.entries()) {
     const next = point(input, `${label}[${index}]`);
     const previous = normalized.at(-1);
-    if (previous === undefined || previous.x !== next.x || previous.y !== next.y) normalized.push(next);
+    if (previous === undefined || previous.x !== next.x || previous.y !== next.y)
+      normalized.push(next);
   }
-  if (normalized.length < 3) throw new RangeError(`${label} requires three distinct consecutive points`);
+  if (normalized.length < 3)
+    throw new RangeError(`${label} requires three distinct consecutive points`);
   return Object.freeze(normalized);
 }
 
@@ -114,7 +120,8 @@ function polygonBounds(points: readonly SelectionPointV1[]): BoundsV1 {
     maxX = Math.max(maxX, entry.x);
     maxY = Math.max(maxY, entry.y);
   }
-  if (maxX <= minX || maxY <= minY) throw new RangeError('polygon selection must have positive area');
+  if (maxX <= minX || maxY <= minY)
+    throw new RangeError('polygon selection must have positive area');
   return Object.freeze({ minX, minY, maxX, maxY });
 }
 
@@ -125,8 +132,10 @@ function brushDabs(dabs: readonly SelectionBrushDabV1[]): readonly SelectionBrus
       const center = point(input, `selection dab[${index}]`);
       const radius = finite(input.radius, `selection dab[${index}].radius`);
       if (radius <= 0) throw new RangeError('selection brush radius must be positive');
-      const opacity = input.opacity === undefined ? 1 : finite(input.opacity, `selection dab[${index}].opacity`);
-      if (opacity < 0 || opacity > 1) throw new RangeError('selection brush opacity must be between 0 and 1');
+      const opacity =
+        input.opacity === undefined ? 1 : finite(input.opacity, `selection dab[${index}].opacity`);
+      if (opacity < 0 || opacity > 1)
+        throw new RangeError('selection brush opacity must be between 0 and 1');
       return Object.freeze({ ...center, radius, opacity });
     }),
   );
@@ -148,7 +157,11 @@ function brushBounds(dabs: readonly SelectionBrushDabV1[]): BoundsV1 {
 
 function pointInPolygon(x: number, y: number, points: readonly SelectionPointV1[]): boolean {
   let inside = false;
-  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+  for (
+    let index = 0, previous = points.length - 1;
+    index < points.length;
+    previous = index, index += 1
+  ) {
     const currentPoint = points[index];
     const previousPoint = points[previous];
     if (currentPoint === undefined || previousPoint === undefined) continue;
@@ -255,8 +268,10 @@ export function rasterizeSelectionShapeTileV1(
   },
 ): Uint8Array<ArrayBuffer> {
   const { shape } = normalizedShape(shapeInput);
-  if (!Number.isSafeInteger(input.width) || input.width < 1) throw new RangeError('selection tile width is invalid');
-  if (!Number.isSafeInteger(input.height) || input.height < 1) throw new RangeError('selection tile height is invalid');
+  if (!Number.isSafeInteger(input.width) || input.width < 1)
+    throw new RangeError('selection tile width is invalid');
+  if (!Number.isSafeInteger(input.height) || input.height < 1)
+    throw new RangeError('selection tile height is invalid');
   const bytes = new Uint8Array(input.width * input.height * 4);
   for (let localY = 0; localY < input.height; localY += 1) {
     const documentY = input.tileDocumentY + localY + 0.5;
@@ -306,13 +321,22 @@ export async function prepareSelectionShapeCoverageV1(
 
   const minTx = Math.max(0, Math.floor(clippedMinX / CANONICAL_TILE_SIZE_PX));
   const minTy = Math.max(0, Math.floor(clippedMinY / CANONICAL_TILE_SIZE_PX));
-  const maxTx = Math.min(grid.columns - 1, Math.floor((clippedMaxX - Number.EPSILON) / CANONICAL_TILE_SIZE_PX));
-  const maxTy = Math.min(grid.rows - 1, Math.floor((clippedMaxY - Number.EPSILON) / CANONICAL_TILE_SIZE_PX));
+  const maxTx = Math.min(
+    grid.columns - 1,
+    Math.floor((clippedMaxX - Number.EPSILON) / CANONICAL_TILE_SIZE_PX),
+  );
+  const maxTy = Math.min(
+    grid.rows - 1,
+    Math.floor((clippedMaxY - Number.EPSILON) / CANONICAL_TILE_SIZE_PX),
+  );
   const tiles: RasterTileReferenceV1[] = [];
 
   for (let ty = minTy; ty <= maxTy; ty += 1) {
     for (let tx = minTx; tx <= maxTx; tx += 1) {
-      const tileBounds = tileBoundsForDocumentV1(input.documentWidth, input.documentHeight, { tx, ty });
+      const tileBounds = tileBoundsForDocumentV1(input.documentWidth, input.documentHeight, {
+        tx,
+        ty,
+      });
       const bytes = rasterizeSelectionShapeTileV1(shape, {
         tileDocumentX: tileBounds.x,
         tileDocumentY: tileBounds.y,

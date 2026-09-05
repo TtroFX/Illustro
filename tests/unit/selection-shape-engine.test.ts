@@ -30,7 +30,10 @@ function persistenceRecorder(): {
   const calls: Array<{ width: number; height: number; bytes: Uint8Array }> = [];
   const port: SelectionCoveragePersistencePortV1 = {
     async persistRasterTile(input) {
-      const bytes = input.bytes instanceof Uint8Array ? new Uint8Array(input.bytes) : new Uint8Array(input.bytes.slice(0));
+      const bytes =
+        input.bytes instanceof Uint8Array
+          ? new Uint8Array(input.bytes)
+          : new Uint8Array(input.bytes.slice(0));
       calls.push({ width: input.width, height: input.height, bytes });
       const objectHash = calls.length.toString(16).padStart(64, '0');
       return Object.freeze({
@@ -158,12 +161,14 @@ describe('M7A selection shape engine', () => {
 
     const rectangle = makeInput();
     expect(
-      (await prepareRectangularSelectionV1({ x: 2, y: 2 }, { x: 10, y: 10 }, rectangle.input)).tiles.length,
+      (await prepareRectangularSelectionV1({ x: 2, y: 2 }, { x: 10, y: 10 }, rectangle.input)).tiles
+        .length,
     ).toBeGreaterThan(0);
 
     const ellipse = makeInput();
     expect(
-      (await prepareEllipticalSelectionV1({ x: 2, y: 2 }, { x: 10, y: 10 }, ellipse.input)).tiles.length,
+      (await prepareEllipticalSelectionV1({ x: 2, y: 2 }, { x: 10, y: 10 }, ellipse.input)).tiles
+        .length,
     ).toBeGreaterThan(0);
 
     const lasso = makeInput();
