@@ -1,0 +1,47 @@
+name: Connect New Document production once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/connect-new-document-production-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Rebase latest main
+        run: git pull --rebase origin main
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Connect canonical New Document production path
+        run: python scripts/connect-new-document-production-once.py
+      - name: Format and verify focused regressions
+        run: |
+          npx biome format --write src/app/document-workflow-controller.ts src/app/m8-product-shell.ts src/app/main.ts public/m8-shell.css tests/unit/m8-product-shell.test.ts tests/unit/m9a-library-production.test.ts
+          npm run typecheck
+          npx vitest run tests/unit/m8-product-shell.test.ts tests/unit/m9a-library-production.test.ts
+      - name: Remove temporary helpers
+        run: |
+          rm .github/workflows/connect-new-document-production-once.yml
+          rm scripts/connect-new-document-production-once.py
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/document-workflow-controller.ts src/app/m8-product-shell.ts src/app/main.ts public/m8-shell.css tests/unit/m8-product-shell.test.ts tests/unit/m9a-library-production.test.ts .github/workflows/connect-new-document-production-once.yml scripts/connect-new-document-production-once.py
+          git commit -m 'fix: connect canonical New Document to production'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
