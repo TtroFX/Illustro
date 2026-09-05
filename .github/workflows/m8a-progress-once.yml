@@ -1,0 +1,98 @@
+name: Mark M8A provisional completion once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m8a-progress-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  mark-m8a-provisional:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Record M8 provisional status policy and M8A result
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          for attempt in $(seq 1 12); do
+            git fetch origin main
+            git reset --hard origin/main
+
+            python - <<'PY'
+          from pathlib import Path
+
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+
+          old_status = 'Status values: `未完了` / `完了`'
+          new_status = 'Status values: `未完了` / `仮完了` / `完了`'
+          if old_status in text:
+              text = text.replace(old_status, new_status, 1)
+          elif new_status not in text:
+              raise SystemExit('progress status-values line not found')
+
+          policy = (
+              'M8 status rule: M8は先行UI/UX実装を許可するが、M7等の依存機能とのproduction path接続・'
+              'History/Persistence/Command接続・必要な最終検査が未完了の項目は `仮完了` とする。'
+              '`完了` へ昇格できるのは依存機能を含む本接続と最終検証まで成立した場合のみ。'
+          )
+          anchor = new_status + '\n'
+          if policy not in text:
+              if anchor not in text:
+                  raise SystemExit('status policy insertion anchor missing')
+              text = text.replace(anchor, anchor + policy + '\n', 1)
+
+          replacements = {
+              'M8A-001 canonical visual referenceの保存先/ID確認:未完了':
+                  'M8A-001 canonical visual referenceの保存先/ID確認:仮完了',
+              'M8A-002 `ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png` 実物取得:未完了':
+                  'M8A-002 `ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png` 実物取得:仮完了',
+              'M8A-003 canonical visual reference SHA-256照合:未完了':
+                  'M8A-003 canonical visual reference SHA-256照合:仮完了',
+              'M8A-004 backup visual reference一致確認導線:未完了':
+                  'M8A-004 backup visual reference一致確認導線:仮完了',
+              'M8A-005 adopted app icon実物取得:未完了':
+                  'M8A-005 adopted app icon実物取得:仮完了',
+              'M8A-006 adopted app icon canonical identity確認:未完了':
+                  'M8A-006 adopted app icon canonical identity確認:仮完了',
+              'M8A-検査 M8A visual reference準備検査:未完了':
+                  'M8A-検査 M8A visual reference準備検査:仮完了',
+          }
+
+          for before, after in replacements.items():
+              if before in text:
+                  if text.count(before) != 1:
+                      raise SystemExit(f'expected one M8A progress line: {before}')
+                  text = text.replace(before, after, 1)
+              elif after not in text:
+                  raise SystemExit(f'M8A progress line missing: {before}')
+
+          path.write_text(text)
+          PY
+
+            git add IMPLEMENTATION_PROGRESS.md
+            if git diff --cached --quiet; then
+              echo 'M8 provisional policy and M8A statuses already recorded.'
+              exit 0
+            fi
+            git commit -m 'chore: mark M8A provisionally complete'
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Concurrent main update detected; retrying ($attempt/12)."
+            sleep 2
+          done
+
+          echo 'Unable to publish M8A provisional progress after retries.' >&2
+          exit 1
