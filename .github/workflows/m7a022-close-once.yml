@@ -1,0 +1,40 @@
+name: Close M7A022 once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m7a022-close-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  close:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Record progress and clean temporary materializers
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text(encoding='utf-8')
+          old = 'M7A-022 selection-scoped transform:未完了'
+          new = 'M7A-022 selection-scoped transform:完了'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one M7A-022 open row, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+          rm -f \
+            .github/workflows/m7a022-materialize-once.yml \
+            .github/m7a022-materialize-trigger \
+            .github/workflows/m7a022-close-once.yml \
+            .github/m7a022-close-trigger
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'chore: close M7A-022 selection transform'
+          git push
