@@ -1401,3 +1401,10 @@ MOBILE-007 smartphone実機・最低限のcompatibility regression確認:未完�
 - Sampled/custom tips rotate the logical 5×5 mask offsets before primitive round-dab expansion, preserving the existing renderer/history architecture.
 - The resolved angle is copied to primitive dabs and preserved through save/recovery and Worker parsing. This remains static angle only; M6A-025 direction and M6A-026 follow-stroke rotation are not implemented here.
 - Next incomplete item is M6A-025 tip direction.
+
+### Realtime GPU frame pipeline remediation — 2026-09-05
+
+- Branch: `perf/realtime-gpu-frame-pipeline`, base main `de748c3f5b098e0d59854a0c97292272133da860`.
+- Baseline instrumented; `verification/realtime-paint-before.json` measures real CPU raster/composite with mocked GPU commands, not hardware GPU time or visible latency.
+- GPU visible-path separation, frame scheduling, regression gates, integration and Pages deployment: 未完了.
+- Preserve Pen rawupdate / Touch coalesced pointermove, canonical Raster Tiles and one History transaction per stroke. Do not count this remediation toward the 1,165 canonical items.

@@ -1,0 +1,68 @@
+{
+  "environment": "Node synthetic, real CPU raster, GPU commands mocked; not visible latency",
+  "results": [
+    {
+      "radius": 8,
+      "inputBatches": 960,
+      "elapsedMs": 601.89897,
+      "work": {
+        "canonicalRasterMs": 64.50504299999926,
+        "canonicalDabs": 960,
+        "liveCanonicalMs": 65.34782699999852,
+        "liveCanonicalDabs": 960,
+        "cpuCompositeMs": 143.50932099999858,
+        "cpuCompositeTiles": 2100,
+        "cpuCompositePixels": 34406400,
+        "commandEncoders": 960,
+        "gpuSubmissions": 960,
+        "presentations": 960,
+        "renderedDabs": 0,
+        "dirtyPixels": 0,
+        "presentedPixels": 125829120,
+        "fullSurfaceCopies": 960
+      }
+    },
+    {
+      "radius": 32,
+      "inputBatches": 960,
+      "elapsedMs": 1025.6962609999998,
+      "work": {
+        "canonicalRasterMs": 475.8885220000011,
+        "canonicalDabs": 960,
+        "liveCanonicalMs": 476.7912819999992,
+        "liveCanonicalDabs": 960,
+        "cpuCompositeMs": 90.60502700000302,
+        "cpuCompositeTiles": 2706,
+        "cpuCompositePixels": 44335104,
+        "commandEncoders": 960,
+        "gpuSubmissions": 960,
+        "presentations": 960,
+        "renderedDabs": 0,
+        "dirtyPixels": 0,
+        "presentedPixels": 125829120,
+        "fullSurfaceCopies": 960
+      }
+    },
+    {
+      "radius": 64,
+      "inputBatches": 960,
+      "elapsedMs": 2370.206918,
+      "work": {
+        "canonicalRasterMs": 1689.5901780000045,
+        "canonicalDabs": 960,
+        "liveCanonicalMs": 1690.6395440000001,
+        "liveCanonicalDabs": 960,
+        "cpuCompositeMs": 112.35416599999735,
+        "cpuCompositeTiles": 3538,
+        "cpuCompositePixels": 57966592,
+        "commandEncoders": 960,
+        "gpuSubmissions": 960,
+        "presentations": 960,
+        "renderedDabs": 0,
+        "dirtyPixels": 0,
+        "presentedPixels": 125829120,
+        "fullSurfaceCopies": 960
+      }
+    }
+  ]
+}

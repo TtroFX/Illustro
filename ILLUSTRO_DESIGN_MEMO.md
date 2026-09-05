@@ -6086,3 +6086,15 @@ M8 UI implementation is reviewed by the user at each major UI sub-section bounda
 - User PASS accepts the presented UI/UX/Visual direction; it does not falsely mark production wiring complete. Items whose M7/M9/Command/History/Persistence or other production dependencies remain incomplete stay `仮完了` until those dependencies and final verification are actually satisfied.
 - M8A is canonical-reference materialization rather than a product UI review boundary and therefore is excluded from this staged user UI gate.
 - At each review, canonical visual reference and all later AUTHORITATIVE F/G/H/V refinements remain the design authority. Legacy UI that conflicts with them is replacement/removal material, not a styling baseline to preserve.
+
+# Post-freeze correction — Frame-aligned GPU live paint — 2026-09-05
+
+**AUTHORITATIVE / user-authorized implementation correction.** Ordinary Raster Brush presentation must not await CPU canonical pixel rasterization. Confirmed samples and resolved dabs remain lossless and incremental, while presentations are coalesced at the display frame cadence (including high-refresh displays). The one-in-flight presenter remains the backpressure boundary.
+
+Interactive GPU tiles/scene and canonical Raster Tile/History/Persistence have separate responsibilities. A stroke remains one transaction. Finalize/checkpoint must synchronize canonical before/after tiles before History, autosave, export or recovery may treat the stroke as committed; GPU memory is never the only source of recoverable document correctness. Device loss can reconstruct the uncommitted stroke from the confirmed transaction input retained by the session.
+
+The old M6A gate requiring `canonicalTiles.applyDabs` in every live batch is superseded by correctness gates at transaction boundaries. Ordinary hardness, density, flow, opacity, round/square shape, resolved pressure, rotation and jitter must use GPU brush execution. Complex nonlocal brush operations may retain an explicitly identified correctness path, sharing frame scheduling.
+
+Canvas presentation must respect WebGPU current-texture expiry (https://www.w3.org/TR/webgpu/#canvas-context). Dirty-only copies into an expired swap texture are not valid retention. Dirty brush/tile work and the final visible-viewport resolve are separately instrumented; a full viewport resolve, if necessary, occurs at frame cadence, never once per input event. CPU mock measurements and submit latency are not physical visible-latency evidence.
+
+Implementation status and measured evidence for this correction are recorded separately from canonical milestone totals in IMPLEMENTATION_PROGRESS.md.

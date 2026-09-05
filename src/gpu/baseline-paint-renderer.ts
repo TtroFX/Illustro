@@ -41,6 +41,8 @@ import {
   type BaselineRasterTilePatchV1,
 } from './baseline-raster-tile-store.js';
 
+import { PaintWorkMetricsV1 } from './paint-work-metrics.js';
+
 const GPU_BUFFER_USAGE_COPY_DST = 0x0008;
 const GPU_BUFFER_USAGE_VERTEX = 0x0020;
 const GPU_TEXTURE_USAGE_COPY_SRC = 0x0001;
@@ -181,6 +183,7 @@ interface BaselineGpuDeviceLikeV1 extends IllustroGpuDeviceV1 {
 
 export interface BaselinePaintRendererSnapshotV1 {
   readonly schema: 'illustro.baseline-paint-renderer/1';
+  readonly work?: ReturnType<PaintWorkMetricsV1['snapshot']>;
   readonly documentWidth: number | null;
   readonly documentHeight: number | null;
   readonly activeStrokeId: string | null;
@@ -502,6 +505,7 @@ function surfaceTileBytes(
 }
 
 class BaselineGpuSurfaceRasterizerV1 {
+  constructor(readonly metrics: PaintWorkMetricsV1) {}
   #device: IllustroGpuDeviceV1 | null = null;
   #shaderModule: unknown = null;
   #scene: RetainedSceneV1 | null = null;
@@ -585,6 +589,7 @@ class BaselineGpuSurfaceRasterizerV1 {
     }
 
     const context = canvasContext(input.surface);
+    this.metrics.commandEncoders += 1;
     const encoder = device.createCommandEncoder({ label: 'illustro-baseline-brush-surface' });
     if (input.mode === 'replace' || input.dabs.length > 0) {
       const pass = encoder.beginRenderPass({
@@ -615,6 +620,8 @@ class BaselineGpuSurfaceRasterizerV1 {
       pass.end();
     }
 
+    this.metrics.fullSurfaceCopies += 1;
+    this.metrics.presentedPixels += input.surface.width * input.surface.height;
     encoder.copyTextureToTexture(
       { texture: scene.texture },
       { texture: context.getCurrentTexture() },
@@ -625,6 +632,8 @@ class BaselineGpuSurfaceRasterizerV1 {
       },
     );
     device.queue.submit([encoder.finish()]);
+    this.metrics.gpuSubmissions += 1;
+    this.metrics.presentations += 1;
   }
 
   patchTiles(input: {
@@ -669,13 +678,18 @@ class BaselineGpuSurfaceRasterizerV1 {
       );
     }
     const context = canvasContext(input.surface);
+    this.metrics.commandEncoders += 1;
     const encoder = device.createCommandEncoder({ label: 'illustro-baseline-tile-patch-present' });
+    this.metrics.fullSurfaceCopies += 1;
+    this.metrics.presentedPixels += input.surface.width * input.surface.height;
     encoder.copyTextureToTexture(
       { texture: scene.texture },
       { texture: context.getCurrentTexture() },
       { width: input.surface.width, height: input.surface.height, depthOrArrayLayers: 1 },
     );
     device.queue.submit([encoder.finish()]);
+    this.metrics.gpuSubmissions += 1;
+    this.metrics.presentations += 1;
   }
 
   #pipeline(format: string, device: BaselineGpuDeviceLikeV1): object {
@@ -758,7 +772,8 @@ class BaselineGpuSurfaceRasterizerV1 {
 }
 
 export class BaselinePaintRendererV1 {
-  readonly #gpu = new BaselineGpuSurfaceRasterizerV1();
+  readonly workMetrics = new PaintWorkMetricsV1();
+  readonly #gpu = new BaselineGpuSurfaceRasterizerV1(this.workMetrics);
   #device: IllustroGpuDeviceV1 | null = null;
   #surface: RendererSurfaceLikeV1 | null = null;
   #surfaceFormat: string | null = null;
@@ -776,6 +791,7 @@ export class BaselinePaintRendererV1 {
   snapshot(): BaselinePaintRendererSnapshotV1 {
     return Object.freeze({
       schema: 'illustro.baseline-paint-renderer/1' as const,
+      work: this.workMetrics.snapshot(),
       documentWidth: this.#documentWidth,
       documentHeight: this.#documentHeight,
       activeStrokeId: this.#activeStroke?.strokeId ?? null,
@@ -844,7 +860,7 @@ export class BaselinePaintRendererV1 {
     layerId?: string,
     operation: BaselineBrushCompositeOperationV1 = 'paint',
   ): BaselinePaintRendererSnapshotV1 {
-    const { canonicalTiles } = this.#requireDocument();
+    this.#requireDocument();
     if (strokeId.length === 0) throw new TypeError('baseline paint strokeId must not be empty');
     if (this.#finalizations.has(strokeId)) return this.snapshot();
     const delta = freezeDabs(dabs);
@@ -860,7 +876,10 @@ export class BaselinePaintRendererV1 {
     if (this.#activeStroke.operation !== operation) {
       throw new Error('baseline paint stroke changed brush operation');
     }
-    canonicalTiles.applyDabs(this.#resolveLayerId(layerId), strokeId, delta, operation);
+    const started = performance.now();
+    this.#rasterCanonical(this.#resolveLayerId(layerId), strokeId, delta, operation);
+    this.workMetrics.liveCanonicalMs += performance.now() - started;
+    this.workMetrics.liveCanonicalDabs += delta.length;
     this.#activeStroke.dabs.push(...delta);
     if (delta.length > 0) {
       if (operation !== 'paint' || requiresCanonicalPaintPreview(delta)) {
@@ -909,7 +928,7 @@ export class BaselinePaintRendererV1 {
     if (active?.strokeId === strokeId && isDabPrefix(active.dabs, frozenDabs)) {
       const missingTail = frozenDabs.slice(active.dabs.length);
       if (missingTail.length > 0) {
-        canonicalTiles.applyDabs(resolvedLayerId, strokeId, missingTail, operation);
+        this.#rasterCanonical(resolvedLayerId, strokeId, missingTail, operation);
         active.dabs.push(...missingTail);
         if (operation !== 'paint' || requiresCanonicalPaintPreview(missingTail)) {
           this.#patchCompositeTiles(
@@ -923,7 +942,7 @@ export class BaselinePaintRendererV1 {
       }
     } else if (active === null) {
       this.#activeStroke = { strokeId, operation, dabs: [...frozenDabs] };
-      canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs, operation);
+      this.#rasterCanonical(resolvedLayerId, strokeId, frozenDabs, operation);
       if (frozenDabs.length > 0) {
         if (operation !== 'paint' || requiresCanonicalPaintPreview(frozenDabs)) {
           this.#patchCompositeTiles(
@@ -942,7 +961,7 @@ export class BaselinePaintRendererV1 {
         );
       }
       this.#activeStroke = { strokeId, operation, dabs: [...frozenDabs] };
-      canonicalTiles.applyDabs(resolvedLayerId, strokeId, frozenDabs, operation);
+      this.#rasterCanonical(resolvedLayerId, strokeId, frozenDabs, operation);
       for (const plan of planBaselineBrushTilesV1(frozenDabs, width, height)) {
         reconciledCoordinates.set(`${plan.coordinate.tx}:${plan.coordinate.ty}`, plan.coordinate);
       }
@@ -1023,7 +1042,7 @@ export class BaselinePaintRendererV1 {
         tileState.markDirty(plan.coordinate, plan.dirtyRect);
       }
       const layerId = this.#resolveLayerId(stroke.layerId);
-      this.#canonicalTiles.applyDabs(layerId, stroke.strokeId, dabs, stroke.operation ?? 'paint');
+      this.#rasterCanonical(layerId, stroke.strokeId, dabs, stroke.operation ?? 'paint');
       this.#canonicalTiles.finalize(stroke.strokeId);
       this.#committedStrokeCount += 1;
       this.#committedDabCount += dabs.length;
@@ -1155,7 +1174,7 @@ export class BaselinePaintRendererV1 {
       dabs: Object.freeze([]),
       mode: 'replace',
     });
-    const tiles = this.#canonicalTiles?.compositeTiles() ?? Object.freeze([]);
+    const tiles = this.#canonicalTiles === null ? Object.freeze([]) : this.#compositeCanonical();
     if (tiles.length > 0) {
       this.#gpu.patchTiles({
         surface: this.#surface,
@@ -1188,8 +1207,34 @@ export class BaselinePaintRendererV1 {
       format: this.#surfaceFormat,
       documentWidth: this.#documentWidth,
       documentHeight: this.#documentHeight,
-      tiles: this.#canonicalTiles.compositeTiles(coordinates),
+      tiles: this.#compositeCanonical(coordinates),
     });
+  }
+
+  #rasterCanonical(
+    layerId: string,
+    strokeId: string,
+    dabs: readonly BaselineBrushDabV1[],
+    operation: BaselineBrushCompositeOperationV1,
+  ): void {
+    const started = performance.now();
+    this.#requireDocument().canonicalTiles.applyDabs(layerId, strokeId, dabs, operation);
+    this.workMetrics.canonicalRasterMs += performance.now() - started;
+    this.workMetrics.canonicalDabs += dabs.length;
+  }
+
+  #compositeCanonical(
+    coordinates?: readonly TileCoordinateV1[],
+  ): readonly BaselineRasterTileImageV1[] {
+    const started = performance.now();
+    const tiles = this.#requireDocument().canonicalTiles.compositeTiles(coordinates);
+    this.workMetrics.cpuCompositeMs += performance.now() - started;
+    this.workMetrics.cpuCompositeTiles += tiles.length;
+    this.workMetrics.cpuCompositePixels += tiles.reduce(
+      (sum, tile) => sum + tile.width * tile.height,
+      0,
+    );
+    return tiles;
   }
 
   #resolveLayerId(layerId?: string): string {
