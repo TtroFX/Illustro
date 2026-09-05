@@ -6,10 +6,7 @@ import type {
 } from './layer-raster-merge.js';
 import type { PaintProjectSnapshotV1 } from './paint-session-controller.js';
 import type { RasterSelectionCoverageV1 } from './selection-coverage-controller.js';
-import {
-  prepareSelectionCutV1,
-  selectionCutEligibilityV1,
-} from './selection-cut-engine.js';
+import { prepareSelectionCutV1, selectionCutEligibilityV1 } from './selection-cut-engine.js';
 import {
   prepareSelectionScopedFilterV1,
   selectionScopedFilterEligibilityV1,

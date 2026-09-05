@@ -175,7 +175,9 @@ describe('M7A selection-scoped layer operations', () => {
     expect(committedLayer?.type).toBe('raster');
     expect(committedLayer?.revision).toBe(9);
     if (committedLayer?.type !== 'raster') throw new Error('expected committed raster layer');
-    expect(committedLayer.tiles[0]?.payloadRef).toBe(prepared.tiles[0]?.payloadRef);
+    expect((committedLayer as RasterLayerV1).tiles[0]?.payloadRef).toBe(
+      prepared.tiles[0]?.payloadRef,
+    );
   });
 
   it('routes Invert Layer Color through selection strength while preserving alpha', async () => {
@@ -204,11 +206,10 @@ describe('M7A selection-scoped layer operations', () => {
 
   it('keeps alpha lock valid for RGB invert but blocks selection-scoped clear', async () => {
     const persistence = new MemoryRasterPersistence();
-    const layer = await rasterLayerV1(
-      persistence,
-      new Uint8Array([10, 20, 30, 255]),
-      { name: 'Alpha locked', locks: { alpha: true } },
-    );
+    const layer = await rasterLayerV1(persistence, new Uint8Array([10, 20, 30, 255]), {
+      name: 'Alpha locked',
+      locks: { alpha: true },
+    });
     const snapshot = snapshotWith(layer, 1, 1);
     const coverage = await coverageV1(persistence, [255]);
 
@@ -222,10 +223,7 @@ describe('M7A selection-scoped layer operations', () => {
 
   it('requires an active selection and rejects a stale prepared commit', async () => {
     const persistence = new MemoryRasterPersistence();
-    const layer = await rasterLayerV1(
-      persistence,
-      new Uint8Array([20, 40, 60, 255]),
-    );
+    const layer = await rasterLayerV1(persistence, new Uint8Array([20, 40, 60, 255]));
     const snapshot = snapshotWith(layer, 1, 1);
     expect(
       selectionScopedLayerOperationEligibilityV1(snapshot, layer.id, null, 'clear'),
