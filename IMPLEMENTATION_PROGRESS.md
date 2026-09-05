@@ -540,8 +540,8 @@ M6A-PERF-004 long-stroke scaling workload verification:完了
 M6A-検査 M6A内部検査:完了
 
 ## M6B — Brush Interoperability
-M6B-001 `.illbrush` parser:未完了
-M6B-002 `.illbrush` writer:未完了
+M6B-001 `.illbrush` parser:完了
+M6B-002 `.illbrush` writer:完了
 M6B-003 Illustro brush import:未完了
 M6B-004 Illustro brush export:未完了
 M6B-005 ibisPaint custom brush parser:未完了
