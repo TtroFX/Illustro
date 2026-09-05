@@ -176,6 +176,28 @@ function pointInPolygon(x: number, y: number, points: readonly SelectionPointV1[
   return inside;
 }
 
+const POLYGON_COVERAGE_GRID_SIZE_V1 = 4;
+const POLYGON_COVERAGE_SAMPLE_COUNT_V1 =
+  POLYGON_COVERAGE_GRID_SIZE_V1 * POLYGON_COVERAGE_GRID_SIZE_V1;
+
+function polygonPixelCoverageV1(
+  centerX: number,
+  centerY: number,
+  points: readonly SelectionPointV1[],
+): number {
+  let insideSamples = 0;
+  const pixelMinX = centerX - 0.5;
+  const pixelMinY = centerY - 0.5;
+  for (let sampleY = 0; sampleY < POLYGON_COVERAGE_GRID_SIZE_V1; sampleY += 1) {
+    const y = pixelMinY + (sampleY + 0.5) / POLYGON_COVERAGE_GRID_SIZE_V1;
+    for (let sampleX = 0; sampleX < POLYGON_COVERAGE_GRID_SIZE_V1; sampleX += 1) {
+      const x = pixelMinX + (sampleX + 0.5) / POLYGON_COVERAGE_GRID_SIZE_V1;
+      if (pointInPolygon(x, y, points)) insideSamples += 1;
+    }
+  }
+  return insideSamples / POLYGON_COVERAGE_SAMPLE_COUNT_V1;
+}
+
 function brushCoverage(x: number, y: number, dabs: readonly SelectionBrushDabV1[]): number {
   let coverage = 0;
   for (const dab of dabs) {
@@ -252,7 +274,7 @@ function coverageAt(shape: SelectionShapeV1, x: number, y: number): number {
     }
     case 'lasso':
     case 'freehand':
-      return pointInPolygon(x, y, shape.points) ? 1 : 0;
+      return polygonPixelCoverageV1(x, y, shape.points);
     case 'brush':
       return brushCoverage(x, y, shape.dabs);
   }
