@@ -1,0 +1,58 @@
+name: Fix M7A025 test narrowing once
+
+on:
+  push:
+    branches:
+      - work/m7a-025-selection-layer-ops-20260905
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Fix test narrowing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/unit/selection-layer-operation-engine.test.ts')
+          text = path.read_text()
+          old = "expect(committedLayer.tiles[0]?.payloadRef).toBe(prepared.tiles[0]?.payloadRef);"
+          new = "expect((committedLayer as RasterLayerV1).tiles[0]?.payloadRef).toBe(prepared.tiles[0]?.payloadRef);"
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one test narrowing target, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          npx biome format --write src/app/selection-layer-operation-engine.ts src/app/layer-workflow-controller.ts tests/unit/selection-layer-operation-engine.test.ts
+          npx biome lint src/app/selection-layer-operation-engine.ts src/app/layer-workflow-controller.ts tests/unit/selection-layer-operation-engine.test.ts
+      - name: Focused typecheck
+        run: |
+          cat > tsconfig.m7a025.json <<'EOF'
+          {
+            "extends": "./tsconfig.json",
+            "compilerOptions": { "rootDir": "." },
+            "include": [
+              "src/app/selection-layer-operation-engine.ts",
+              "tests/unit/selection-layer-operation-engine.test.ts"
+            ]
+          }
+          EOF
+          npx tsc -p tsconfig.m7a025.json --noEmit
+          rm tsconfig.m7a025.json
+      - name: Targeted unit tests
+        run: npx vitest run tests/unit/selection-layer-operation-engine.test.ts tests/unit/selection-cut-engine.test.ts tests/unit/selection-filter-engine.test.ts
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/selection-layer-operation-engine.ts src/app/layer-workflow-controller.ts tests/unit/selection-layer-operation-engine.test.ts
+          git commit -m 'test(M7A): fix layer operation type narrowing'
+          git push
