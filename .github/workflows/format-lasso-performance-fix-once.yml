@@ -1,0 +1,62 @@
+name: Format lasso performance fix once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/format-lasso-performance-fix-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Clear stale selection commit diagnostic on superseding gesture
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/m8-selection-gesture-controller.ts')
+          text = path.read_text(encoding='utf-8')
+          old = "    commitGate.invalidate();\n    gestureStageRect = stage.getBoundingClientRect();"
+          new = "    commitGate.invalidate();\n    delete input.root.dataset.illustroSelectionCommit;\n    gestureStageRect = stage.getBoundingClientRect();"
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected superseding-gesture site once, found {count}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Format only lasso remediation files
+        run: |
+          npx biome format --write \
+            src/app/selection-shape-engine.ts \
+            src/app/selection-combine-engine.ts \
+            src/app/m8-selection-gesture-controller.ts \
+            src/app/selection-contour-presenter.ts \
+            tests/unit/m8-selection-gesture-controller.test.ts \
+            tests/unit/selection-lasso-performance.test.ts \
+            tests/unit/selection-additive-union.test.ts
+      - name: Commit formatted remediation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/app/selection-shape-engine.ts \
+            src/app/selection-combine-engine.ts \
+            src/app/m8-selection-gesture-controller.ts \
+            src/app/selection-contour-presenter.ts \
+            tests/unit/m8-selection-gesture-controller.test.ts \
+            tests/unit/selection-lasso-performance.test.ts \
+            tests/unit/selection-additive-union.test.ts
+          git diff --cached --quiet && exit 0
+          git commit -m 'style: format lasso performance remediation'
+          git push origin HEAD:main
