@@ -21,7 +21,10 @@ function readyDeviceSnapshotV1(): Readonly<Record<string, unknown>> {
   });
 }
 
-function paintSnapshotV1(strokeId: string | null, activeDabCount: number): Readonly<Record<string, unknown>> {
+function paintSnapshotV1(
+  strokeId: string | null,
+  activeDabCount: number,
+): Readonly<Record<string, unknown>> {
   return Object.freeze({
     schema: 'illustro.baseline-paint-renderer/1',
     documentWidth: 64,
@@ -222,7 +225,9 @@ describe('realtime paint renderer backpressure', () => {
       });
     await flushMicrotasksV1();
     expect(finalized).toBe(false);
-    expect(worker.requestOrder.filter((type) => type === 'renderer.paint.finalize')).toHaveLength(0);
+    expect(worker.requestOrder.filter((type) => type === 'renderer.paint.finalize')).toHaveLength(
+      0,
+    );
 
     worker.resolveNextPresent();
     await flushMicrotasksV1();
