@@ -113,12 +113,8 @@ export function selectionTransformPreviewMatrixV1(
   const b = canonicalZero(sine * state.scaleX);
   const c = canonicalZero(-sine * state.scaleY);
   const d = canonicalZero(cosine * state.scaleY);
-  const e = canonicalZero(
-    state.translateX + state.pivotX - a * state.pivotX - c * state.pivotY,
-  );
-  const f = canonicalZero(
-    state.translateY + state.pivotY - b * state.pivotX - d * state.pivotY,
-  );
+  const e = canonicalZero(state.translateX + state.pivotX - a * state.pivotX - c * state.pivotY);
+  const f = canonicalZero(state.translateY + state.pivotY - b * state.pivotX - d * state.pivotY);
   return Object.freeze([a, b, c, d, e, f]);
 }
 
@@ -163,10 +159,7 @@ function radialScaleRatio(
 ): number {
   const startDistance = Math.hypot(start.x - pivot.x, start.y - pivot.y);
   if (startDistance < 1e-6) return 1;
-  return Math.max(
-    MIN_SCALE,
-    Math.hypot(current.x - pivot.x, current.y - pivot.y) / startDistance,
-  );
+  return Math.max(MIN_SCALE, Math.hypot(current.x - pivot.x, current.y - pivot.y) / startDistance);
 }
 
 function rebasePivotPreservingMatrixV1(
@@ -209,7 +202,10 @@ export function updateSelectionTransformDragV1(
     return rebasePivotPreservingMatrixV1(startState, currentPoint);
   }
   if (handle === 'rotate') {
-    const startAngle = Math.atan2(startPoint.y - startState.pivotY, startPoint.x - startState.pivotX);
+    const startAngle = Math.atan2(
+      startPoint.y - startState.pivotY,
+      startPoint.x - startState.pivotX,
+    );
     const currentAngle = Math.atan2(
       currentPoint.y - startState.pivotY,
       currentPoint.x - startState.pivotX,
@@ -352,7 +348,12 @@ export function installM8SelectionTransformControllerV1(input: {
     const layerId = input.paintSession.activeLayerId();
     const coverage = input.selectionCoverage.snapshot().coverage;
     const contour = input.contourPresenter.snapshot();
-    if (snapshot === null || layerId === null || coverage === null || contour.documentBounds === null) {
+    if (
+      snapshot === null ||
+      layerId === null ||
+      coverage === null ||
+      contour.documentBounds === null
+    ) {
       return false;
     }
     return selectionTransformEligibilityV1(snapshot, layerId, coverage).eligible;
@@ -368,6 +369,7 @@ export function installM8SelectionTransformControllerV1(input: {
       host.hidden = true;
       return;
     }
+    const currentState = state;
     const viewport = input.viewport.snapshot();
     frame.setAttribute('viewBox', `0 0 ${viewport.stageWidth} ${viewport.stageHeight}`);
     const documentCorners = [
@@ -377,7 +379,7 @@ export function installM8SelectionTransformControllerV1(input: {
       { x: sourceBounds.minX, y: sourceBounds.maxY },
     ] as const;
     const corners = documentCorners.map((point) =>
-      projectDocumentPointToStageV1(applySelectionTransformPointV1(state, point), viewport),
+      projectDocumentPointToStageV1(applySelectionTransformPointV1(currentState, point), viewport),
     );
     const [nw, ne, se, sw] = corners;
     if (!nw || !ne || !se || !sw) return;
@@ -524,14 +526,18 @@ export function installM8SelectionTransformControllerV1(input: {
             input.context.announce('変形を適用しました');
           } catch (error) {
             finishSession('cancelled');
-            input.context.announce(error instanceof Error ? error.message : '変形を適用できませんでした');
+            input.context.announce(
+              error instanceof Error ? error.message : '変形を適用できませんでした',
+            );
           }
         });
       })
       .catch((error) => {
         busy = false;
         refresh();
-        input.context.announce(error instanceof Error ? error.message : '変形を準備できませんでした');
+        input.context.announce(
+          error instanceof Error ? error.message : '変形を準備できませんでした',
+        );
       });
   };
 
@@ -549,9 +555,9 @@ export function installM8SelectionTransformControllerV1(input: {
       event.target instanceof Element
         ? event.target.closest<Element>('[data-m8e-transform-handle]')
         : null;
-    const handle = target?.getAttribute('data-m8e-transform-handle') as
-      | M8SelectionTransformHandleIdV1
-      | null;
+    const handle = target?.getAttribute(
+      'data-m8e-transform-handle',
+    ) as M8SelectionTransformHandleIdV1 | null;
     if (!handle) return;
     const point = pointerDocumentPoint(event);
     if (point === null) return;
