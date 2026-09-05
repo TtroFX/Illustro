@@ -846,14 +846,14 @@ M8A-006 adopted app icon canonical identity確認:仮完了
 M8A-検査 M8A visual reference準備検査:仮完了
 
 ## M8B — Product Surfaces / Editor Shell
-M8B-001 Library shell:未完了
-M8B-002 Editor shell:未完了
-M8B-003 Task surfaces framework:未完了
-M8B-004 Application/Document Bar:未完了
-M8B-005 Canvas Workspace:未完了
-M8B-006 Primary Tool Rail shell:未完了
-M8B-007 Inspector Dock shell:未完了
-M8B-008 Inspector Action Strip:未完了
+M8B-001 Library shell:仮完了
+M8B-002 Editor shell:仮完了
+M8B-003 Task surfaces framework:仮完了
+M8B-004 Application/Document Bar:仮完了
+M8B-005 Canvas Workspace:仮完了
+M8B-006 Primary Tool Rail shell:仮完了
+M8B-007 Inspector Dock shell:仮完了
+M8B-008 Inspector Action Strip:仮完了
 M8B-009 contextual action surfaces:未完了
 M8B-010 task/error surfaces:未完了
 M8B-011 persistent data-safety banner:未完了
