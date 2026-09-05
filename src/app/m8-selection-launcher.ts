@@ -156,24 +156,9 @@ export function installM8SelectionLauncherV1(input: {
   const morePanel = document.createElement('div');
   morePanel.className = 'm8e-selection-more-panel';
   morePanel.append(
-    createButtonV1(
-      'feather',
-      `境界をぼかす ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`,
-      '◌',
-      'mask',
-    ),
-    createButtonV1(
-      'expand',
-      `選択範囲を拡張 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`,
-      '⊕',
-      'mask',
-    ),
-    createButtonV1(
-      'shrink',
-      `選択範囲を縮小 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`,
-      '⊖',
-      'mask',
-    ),
+    createButtonV1('feather', `境界をぼかす ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`, '◌', 'mask'),
+    createButtonV1('expand', `選択範囲を拡張 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`, '⊕', 'mask'),
+    createButtonV1('shrink', `選択範囲を縮小 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`, '⊖', 'mask'),
   );
   more.append(moreSummary, morePanel);
 
@@ -334,7 +319,8 @@ export function installM8SelectionLauncherV1(input: {
   launcher.addEventListener('click', onLauncherClick);
   const unsubscribeCoverage = input.selectionCoverage.subscribe((snapshot) => {
     if (snapshot.coverage === null) dismissedSignature = null;
-    else if (selectionSignatureV1(snapshot.coverage) !== dismissedSignature) dismissedSignature = null;
+    else if (selectionSignatureV1(snapshot.coverage) !== dismissedSignature)
+      dismissedSignature = null;
     reposition();
   });
   const unsubscribeContour = input.contourPresenter.subscribe(() => reposition());

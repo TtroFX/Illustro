@@ -128,8 +128,8 @@ export function installM8SelectionGestureControllerV1(input: {
 
   const publishMode = (): void => {
     input.root.dataset.illustroSelectionMode = persistentMode;
-    for (const button of modePanel.querySelectorAll<HTMLButtonElement>(
-      '[data-m8e-selection-mode]',
+    for (const button of Array.from(
+      modePanel.querySelectorAll<HTMLButtonElement>('[data-m8e-selection-mode]'),
     )) {
       const pressed = button.dataset.m8eSelectionMode === persistentMode;
       button.setAttribute('aria-pressed', String(pressed));
