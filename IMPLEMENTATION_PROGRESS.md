@@ -1212,7 +1212,7 @@ M9C-016 OS/PWA file association progressive enhancement:未完了
 M9C-検査 M9C内部検査:未完了
 
 ## M9D — Linked Object External Acceleration
-M9D-001 external persistent file handle optional link:未完了
+M9D-001 external persistent file handle optional link:完了
 M9D-002 linked object refresh:未完了
 M9D-003 linked object relink:未完了
 M9D-004 missing external source warning:未完了
