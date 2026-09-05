@@ -260,7 +260,6 @@
     display: none;
   }
 
-
   .shell-inspector-card.shell-color-panel {
     display: grid;
     max-height: 36dvh;
@@ -341,4 +340,70 @@
   .document-dialog button {
     min-height: 44px;
   }
+}
+
+/* M8B overlay/layer contract. Loaded after m8-shell.css so every viewport shares one stacking policy. */
+:root {
+  --m8-layer-workspace: 0;
+  --m8-layer-workspace-overlay: 100;
+  --m8-layer-library: 200;
+  --m8-layer-document-bar: 400;
+  --m8-layer-safety: 500;
+  --m8-layer-task: 700;
+  --m8-layer-toast: 800;
+  --m8-layer-tooltip: 900;
+}
+
+.m8-editor-layout {
+  z-index: var(--m8-layer-workspace);
+  overflow: visible;
+}
+
+.m8-tool-rail {
+  z-index: var(--m8-layer-workspace-overlay);
+  overflow: visible;
+}
+
+.m8-inspector-dock {
+  z-index: var(--m8-layer-workspace-overlay);
+}
+
+.m8-tool-family-flyout,
+.m8-context-action-surface,
+.m8-inspector-action-strip {
+  z-index: var(--m8-layer-workspace-overlay);
+}
+
+.m8-library-surface {
+  z-index: var(--m8-layer-library);
+}
+
+.m8-document-bar {
+  position: relative;
+  z-index: var(--m8-layer-document-bar);
+  overflow: visible;
+}
+
+.m8-menu[open] {
+  z-index: 1;
+}
+
+.m8-menu-popover {
+  z-index: 2;
+}
+
+.m8-data-safety-banner {
+  z-index: var(--m8-layer-safety);
+}
+
+.m8-task-layer {
+  z-index: var(--m8-layer-task);
+}
+
+.m8-toast {
+  z-index: var(--m8-layer-toast);
+}
+
+[data-m8-tooltip]::after {
+  z-index: var(--m8-layer-tooltip);
 }
