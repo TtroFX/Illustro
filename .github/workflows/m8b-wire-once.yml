@@ -1,0 +1,84 @@
+name: Wire provisional M8 product shell once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m8b-wire-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  wire-m8-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wire M8 shell into foundation entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          for attempt in $(seq 1 12); do
+            git fetch origin main
+            git reset --hard origin/main
+
+            python - <<'PY'
+          from pathlib import Path
+
+          shell = Path('src/app/shell.ts')
+          text = shell.read_text()
+          import_line = "import { installM7UiSkeletonV1 } from './m7-ui-shell.js';\n"
+          m8_import = "import { installM8ProductShellV1 } from './m8-product-shell.js';\n"
+          if m8_import not in text:
+              if import_line not in text:
+                  raise SystemExit('M7 shell import anchor missing')
+              text = text.replace(import_line, import_line + m8_import, 1)
+
+          install_line = '  const m7UiSkeleton = installM7UiSkeletonV1(app);\n'
+          m8_install = '  const m8ProductShell = installM8ProductShellV1(app);\n'
+          if m8_install not in text:
+              if install_line not in text:
+                  raise SystemExit('M7 install anchor missing')
+              text = text.replace(install_line, install_line + m8_install, 1)
+
+          dispose_line = '      m7UiSkeleton.dispose();\n'
+          m8_dispose = '      m8ProductShell.dispose();\n'
+          if m8_dispose not in text:
+              if dispose_line not in text:
+                  raise SystemExit('M7 dispose anchor missing')
+              text = text.replace(dispose_line, m8_dispose + dispose_line, 1)
+          shell.write_text(text)
+
+          index = Path('src/index.html')
+          html = index.read_text()
+          app_css = '    <link rel="stylesheet" href="./app-shell.css" />\n'
+          m8_css = '    <link rel="stylesheet" href="./m8-shell.css" />\n'
+          if m8_css not in html:
+              if app_css not in html:
+                  raise SystemExit('app-shell stylesheet anchor missing')
+              html = html.replace(app_css, app_css + m8_css, 1)
+          index.write_text(html)
+          PY
+
+            git add src/app/shell.ts src/index.html
+            if git diff --cached --quiet; then
+              echo 'M8 shell wiring already present.'
+              exit 0
+            fi
+            git commit -m 'feat: wire provisional M8 product shell'
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Concurrent main update detected; retrying ($attempt/12)."
+            sleep 2
+          done
+
+          echo 'Unable to publish M8 shell wiring after retries.' >&2
+          exit 1
