@@ -54,6 +54,13 @@ function validateCoverageTileV1(
   }
 }
 
+function throwIfAbortedV1(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  const error = new Error('Selection combine aborted');
+  error.name = 'AbortError';
+  throw error;
+}
+
 async function readCoverageBytesV1(
   reference: RasterTileReferenceV1 | undefined,
   defaultCoverage: 0 | 1,
@@ -61,13 +68,16 @@ async function readCoverageBytesV1(
   width: number,
   height: number,
   storage: SelectionCoverageStoragePortV1,
+  signal?: AbortSignal,
 ): Promise<Uint8Array<ArrayBuffer>> {
+  throwIfAbortedV1(signal);
   const base = defaultCoverage === 1 ? 255 : 0;
   const defaultValue = inverted ? 255 - base : base;
   const result = new Uint8Array(width * height);
   result.fill(defaultValue);
   if (reference === undefined) return result;
   const decoded = await storage.readRasterTile(reference.payloadRef);
+  throwIfAbortedV1(signal);
   validateCoverageTileV1(decoded, width, height);
   for (let pixel = 0; pixel < result.length; pixel += 1) {
     const value = decoded.bytes[pixel * 4] ?? 0;
@@ -109,6 +119,14 @@ function differsFromDefaultV1(values: Uint8Array, defaultCoverage: 0 | 1): boole
   return values.some((value) => value !== expected);
 }
 
+function equalCoverageValuesV1(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
 function effectiveDefaultV1(coverage: RasterSelectionCoverageV1): 0 | 1 {
   return coverage.inverted ? (coverage.defaultCoverage === 1 ? 0 : 1) : coverage.defaultCoverage;
 }
@@ -131,6 +149,29 @@ function emptyPreparedV1(revision: Revision): PreparedSelectionCoverageV1 {
   });
 }
 
+function preparedMatchesCoverageV1(
+  coverage: RasterSelectionCoverageV1 | null,
+  prepared: PreparedSelectionCoverageV1,
+): boolean {
+  if (
+    coverage === null ||
+    coverage.inverted ||
+    coverage.transformStack.length > 0 ||
+    coverage.effectStack.length > 0 ||
+    coverage.defaultCoverage !== prepared.defaultCoverage ||
+    coverage.sourceRevision !== prepared.sourceRevision ||
+    coverage.tiles.length !== prepared.tiles.length
+  ) {
+    return false;
+  }
+  const existing = indexTilesV1(coverage.tiles);
+  for (const tile of prepared.tiles) {
+    const current = existing.get(tileKey(tile.x, tile.y));
+    if (!current || current.payloadRef !== tile.payloadRef) return false;
+  }
+  return true;
+}
+
 export async function prepareCombinedSelectionCoverageV1(
   existing: RasterSelectionCoverageV1 | null,
   incoming: PreparedSelectionCoverageV1,
@@ -140,8 +181,10 @@ export async function prepareCombinedSelectionCoverageV1(
     readonly documentHeight: number;
     readonly revision: Revision;
     readonly storage: SelectionCoverageStoragePortV1;
+    readonly signal?: AbortSignal;
   },
 ): Promise<PreparedSelectionCoverageV1> {
+  throwIfAbortedV1(input.signal);
   validateDimensions(input.documentWidth, input.documentHeight);
   if (mode === 'replace') {
     return Object.freeze({
@@ -173,35 +216,50 @@ export async function prepareCombinedSelectionCoverageV1(
     (left, right) => left[1] - right[1] || left[0] - right[0],
   );
   const outputTiles: RasterTileReferenceV1[] = [];
+  const mayReuseExisting = existing.inverted === false && existing.defaultCoverage === outputDefault;
+
   for (const [tx, ty] of ordered) {
+    throwIfAbortedV1(input.signal);
+    const key = tileKey(tx, ty);
     const bounds = tileBoundsForDocumentV1(input.documentWidth, input.documentHeight, { tx, ty });
+    const leftReference = existingTiles.get(key);
     const left = await readCoverageBytesV1(
-      existingTiles.get(tileKey(tx, ty)),
+      leftReference,
       existing.defaultCoverage,
       existing.inverted,
       bounds.validWidth,
       bounds.validHeight,
       input.storage,
+      input.signal,
     );
     const right = await readCoverageBytesV1(
-      incomingTiles.get(tileKey(tx, ty)),
+      incomingTiles.get(key),
       incoming.defaultCoverage,
       false,
       bounds.validWidth,
       bounds.validHeight,
       input.storage,
+      input.signal,
     );
     const combined = new Uint8Array(left.length);
     for (let pixel = 0; pixel < combined.length; pixel += 1) {
       combined[pixel] = combineValueV1(mode, left[pixel] ?? 0, right[pixel] ?? 0);
     }
     if (!differsFromDefaultV1(combined, outputDefault)) continue;
+
+    if (mayReuseExisting && leftReference && equalCoverageValuesV1(left, combined)) {
+      outputTiles.push(leftReference);
+      continue;
+    }
+
+    throwIfAbortedV1(input.signal);
     const persisted = await input.storage.persistRasterTile({
       width: bounds.validWidth,
       height: bounds.validHeight,
       pixelFormat: 'rgba8-unorm',
       bytes: encodeCoverageBytesV1(combined),
     });
+    throwIfAbortedV1(input.signal);
     outputTiles.push(
       Object.freeze({
         x: tx,
@@ -228,13 +286,17 @@ export async function applyPreparedSelectionModeV1(
     readonly documentHeight: number;
     readonly revision: Revision;
     readonly storage: SelectionCoverageStoragePortV1;
+    readonly signal?: AbortSignal;
   },
 ): Promise<SelectionCoverageSnapshotV1> {
+  const before = controller.snapshot();
   const prepared = await prepareCombinedSelectionCoverageV1(
-    controller.snapshot().coverage,
+    before.coverage,
     incoming,
     mode,
     input,
   );
+  throwIfAbortedV1(input.signal);
+  if (preparedMatchesCoverageV1(before.coverage, prepared)) return before;
   return controller.replacePrepared(prepared);
 }
