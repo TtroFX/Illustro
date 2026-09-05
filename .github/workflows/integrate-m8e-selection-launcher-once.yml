@@ -47,6 +47,8 @@ jobs:
 
           launcher_path = Path('src/app/m8-selection-launcher.ts')
           launcher = launcher_path.read_text()
+          launcher = launcher.replace("dragPreview.hidden = true;", "dragPreview.setAttribute('hidden', '');")
+          launcher = launcher.replace("dragPreview.hidden = false;", "dragPreview.removeAttribute('hidden');")
           old_add = "  stage.addEventListener('pointerup', (event) => void completeSelection(event), true);\n"
           new_add = "  const onStagePointerUp = (event: PointerEvent): void => {\n    void completeSelection(event);\n  };\n  stage.addEventListener('pointerup', onStagePointerUp, true);\n"
           if old_add in launcher:
