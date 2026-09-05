@@ -4,7 +4,8 @@
 
 Design baseline: `IMPLEMENTATION READY — DESIGN FREEZE` / 2026-08-30
 Canonical specification: `ILLUSTRO_DESIGN_MEMO.md`
-Status values: `未完了` / `完了`
+Status values: `未完了` / `仮完了` / `完了`
+M8 status rule: M8は先行UI/UX実装を許可するが、M7等の依存機能とのproduction path接続・History/Persistence/Command接続・必要な最終検査が未完了の項目は `仮完了` とする。`完了` へ昇格できるのは依存機能を含む本接続と最終検証まで成立した場合のみ。
 
 ## M0 — Repository / Build / Engineering Foundation
 M0-001 Web/PWAプロジェクト初期化:完了
@@ -836,13 +837,13 @@ PUB-03 ユーザー確認3用Preview公開:未完了
 USER-03 Selection・Fill・Transform・Vector/Shape・Text・Lineart・Filters・Adjustment・Liquify・Reference/Navigatorユーザー確認PASS:未完了
 
 ## M8A — Canonical UI Reference Materialization
-M8A-001 canonical visual referenceの保存先/ID確認:未完了
-M8A-002 `ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png` 実物取得:未完了
-M8A-003 canonical visual reference SHA-256照合:未完了
-M8A-004 backup visual reference一致確認導線:未完了
-M8A-005 adopted app icon実物取得:未完了
-M8A-006 adopted app icon canonical identity確認:未完了
-M8A-検査 M8A visual reference準備検査:未完了
+M8A-001 canonical visual referenceの保存先/ID確認:仮完了
+M8A-002 `ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png` 実物取得:仮完了
+M8A-003 canonical visual reference SHA-256照合:仮完了
+M8A-004 backup visual reference一致確認導線:仮完了
+M8A-005 adopted app icon実物取得:仮完了
+M8A-006 adopted app icon canonical identity確認:仮完了
+M8A-検査 M8A visual reference準備検査:仮完了
 
 ## M8B — Product Surfaces / Editor Shell
 M8B-001 Library shell:未完了
