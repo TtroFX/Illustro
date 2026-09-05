@@ -106,7 +106,8 @@ function renderVectorV1(host: HTMLElement): void {
 
   const note = document.createElement('div');
   note.className = 'm8e-context-preview-note';
-  note.textContent = 'ノード・Bézierハンドル・スナップはCanvas上で直接操作。線幅や数値はTool Propertiesへ。';
+  note.textContent =
+    'ノード・Bézierハンドル・スナップはCanvas上で直接操作。線幅や数値はTool Propertiesへ。';
   host.append(svg, toolbar, note);
 }
 
@@ -146,7 +147,8 @@ function renderTextV1(host: HTMLElement): void {
 
   const note = document.createElement('div');
   note.className = 'm8e-context-preview-note';
-  note.textContent = '文字内容とボックス形状はCanvas上。フォント・サイズ・行間・整列はTool Propertiesへ。';
+  note.textContent =
+    '文字内容とボックス形状はCanvas上。フォント・サイズ・行間・整列はTool Propertiesへ。';
   host.append(textBox, toolbar, note);
 }
 
