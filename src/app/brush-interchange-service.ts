@@ -50,9 +50,11 @@ export async function exportNativeBrushPackageV1(input: {
 }
 
 export function nativeBrushFilenameV1(name: string): string {
-  const normalized = name
-    .normalize('NFKC')
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-')
+  const withoutControls = [...name.normalize('NFKC')]
+    .map((character) => (character.charCodeAt(0) < 32 ? '-' : character))
+    .join('');
+  const normalized = withoutControls
+    .replace(/[\\/:*?"<>|]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/[. ]+$/g, '')
