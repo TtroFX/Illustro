@@ -544,8 +544,8 @@ M6B-001 `.illbrush` parser:完了
 M6B-002 `.illbrush` writer:完了
 M6B-003 Illustro brush import:完了
 M6B-004 Illustro brush export:完了
-M6B-005 ibisPaint custom brush parser:未完了
-M6B-006 ibisPaint brush QR carrier decode:未完了
+M6B-005 ibisPaint custom brush parser:完了
+M6B-006 ibisPaint brush QR carrier decode:完了
 M6B-007 ibis→Illustro parameter mapper:未完了
 M6B-008 CSP `.sut` parser:未完了
 M6B-009 CSP→Illustro parameter mapper:未完了
