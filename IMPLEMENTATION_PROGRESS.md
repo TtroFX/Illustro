@@ -560,8 +560,8 @@ USER-02 Layer・Color・Blend・Brush Engine・48 Brushes・筆圧傾き・ibis/
 ## M7A — Selection / Mask Workflow
 M7A-001 rectangular selection:完了
 M7A-002 elliptical selection:完了
-M7A-003 Lasso selection:完了
-M7A-004 freehand selection:完了
+M7A-003 Lasso selection:未完了
+M7A-004 freehand selection:未完了
 M7A-005 brush-painted selection:完了
 M7A-006 Magic Wand/Auto Select:完了
 M7A-007 color-range selection:完了
@@ -584,6 +584,7 @@ M7A-023 selection-scoped filter:完了
 M7A-024 selection-scoped fill:未完了
 M7A-025 selection-scoped layer operations:未完了
 M7A-検査 M7A内部検査:未完了
+再開メモ: M7A-003/004は2026-09-05のAUTHORITATIVE Lasso Selection契約再監査で、現行selection-shape-engineがLasso/Freehand境界をpixel-centerの二値0/255でrasterizeし、既定AA付きfractional 0..255 coverage要件を満たさないことを確認したため未完了へ戻した。既存のdocument-space polygon/even-odd/sparse 128px tile基盤とselection-combine-engineのReplace/Add/Subtract/Intersect fractional algebraは保持し、境界AA・degenerate gesture保持・behavioral coverage検査をM7側で是正する。並行M7の他項目は停止・巻き戻ししない。
 
 ## M7B — Fill / Gradient / Region Tools
 M7B-001 Flood Fill:未完了
