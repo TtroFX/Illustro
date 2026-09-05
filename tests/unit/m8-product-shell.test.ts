@@ -1,9 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import {
-  M8_PRODUCT_REGIONS_V1,
-  M8_TASK_SURFACES_V1,
-} from '../../src/app/m8-product-shell.js';
+import { M8_PRODUCT_REGIONS_V1, M8_TASK_SURFACES_V1 } from '../../src/app/m8-product-shell.js';
 
 const shellSource = readFileSync(
   new URL('../../src/app/m8-product-shell.ts', import.meta.url),
@@ -24,7 +21,7 @@ describe('M8 canonical product shell', () => {
 
   it('replaces the legacy visual shell instead of decorating legacy regions', () => {
     expect(shellSource).toContain("const CANONICAL_SHELL_ID = 'm8-canonical-shell'");
-    expect(shellSource).toContain("compatibilityHost.hidden = true");
+    expect(shellSource).toContain('compatibilityHost.hidden = true');
     expect(shellSource).toContain("app.dataset.m8LegacyUi = 'removed-from-production-surface'");
     expect(shellSource).not.toContain("requireElementV1<HTMLElement>(app, '.shell-topbar'");
     expect(shellSource).not.toContain("requireElementV1<HTMLElement>(app, '.shell-tool-rail'");
@@ -35,7 +32,7 @@ describe('M8 canonical product shell', () => {
 
   it('moves the production canvas into the canonical workspace rather than mocking artwork', () => {
     expect(shellSource).toContain("'#render-surface'");
-    expect(shellSource).toContain("frame.append(input.canvas)");
+    expect(shellSource).toContain('frame.append(input.canvas)');
     expect(shellSource).toContain('id="canvas-viewport-frame"');
     expect(shellSource).toContain('m8-canvas-stage shell-canvas-stage');
   });

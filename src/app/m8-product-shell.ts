@@ -45,7 +45,10 @@ const TOAST_ID = 'm8-toast';
 const DATA_SAFETY_BANNER_ID = 'm8-data-safety-banner';
 
 const TASK_SURFACE_COPY_V1: Readonly<
-  Record<M8TaskSurfaceIdV1, { readonly title: string; readonly body: string; readonly tone?: string }>
+  Record<
+    M8TaskSurfaceIdV1,
+    { readonly title: string; readonly body: string; readonly tone?: string }
+  >
 > = Object.freeze({
   'new-document': {
     title: '新規ドキュメント',
@@ -113,7 +116,11 @@ function makeIconButtonV1(input: {
 
 function createMenuV1(
   label: string,
-  items: readonly { readonly label: string; readonly task?: M8TaskSurfaceIdV1; readonly proxyId?: string }[],
+  items: readonly {
+    readonly label: string;
+    readonly task?: M8TaskSurfaceIdV1;
+    readonly proxyId?: string;
+  }[],
 ): HTMLDetailsElement {
   const details = document.createElement('details');
   details.className = 'm8-menu';
@@ -274,7 +281,8 @@ function createInspectorActionStripV1(): HTMLElement {
   strip.className = 'm8-inspector-action-strip';
   strip.dataset.m8Region = 'inspector-action-strip';
   strip.setAttribute('aria-label', 'Inspector actions');
-  strip.innerHTML = '<button type="button" aria-label="追加">＋</button><button type="button" aria-label="その他">•••</button>';
+  strip.innerHTML =
+    '<button type="button" aria-label="追加">＋</button><button type="button" aria-label="その他">•••</button>';
   return strip;
 }
 
@@ -326,7 +334,8 @@ function createSafetyBannerV1(): HTMLElement {
   banner.className = 'm8-data-safety-banner';
   banner.hidden = true;
   banner.setAttribute('role', 'status');
-  banner.innerHTML = '<strong>保存状態を確認してください</strong><span>復元可能な状態を保ったまま作業を続けます。</span>';
+  banner.innerHTML =
+    '<strong>保存状態を確認してください</strong><span>復元可能な状態を保ったまま作業を続けます。</span>';
   return banner;
 }
 
@@ -395,8 +404,16 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
   app.dataset.m8LegacyUi = 'removed-from-production-surface';
 
   const library = requireElementV1<HTMLElement>(canonicalShell, `#${LIBRARY_ID}`, 'Library shell');
-  const taskLayer = requireElementV1<HTMLElement>(canonicalShell, `#${TASK_LAYER_ID}`, 'Task layer');
-  const taskSurface = requireElementV1<HTMLElement>(taskLayer, `#${TASK_SURFACE_ID}`, 'Task surface');
+  const taskLayer = requireElementV1<HTMLElement>(
+    canonicalShell,
+    `#${TASK_LAYER_ID}`,
+    'Task layer',
+  );
+  const taskSurface = requireElementV1<HTMLElement>(
+    taskLayer,
+    `#${TASK_SURFACE_ID}`,
+    'Task surface',
+  );
   const documentIdentity = requireElementV1<HTMLOutputElement>(
     canonicalShell,
     `#${DOCUMENT_IDENTITY_ID}`,
@@ -456,7 +473,10 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
   };
 
   const onCanonicalClick = (event: Event): void => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLElement>('button,[data-m8-task]') : null;
+    const target =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>('button,[data-m8-task]')
+        : null;
     if (!target) return;
     if (target.hasAttribute('data-m8-library-open')) {
       showLibrary();
@@ -493,8 +513,12 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
   const syncRuntimeState = (): void => {
     const undoState = root.dataset.illustroHistoryUndo;
     const redoState = root.dataset.illustroHistoryRedo;
-    const undo = canonicalShell.querySelector<HTMLButtonElement>('[data-m8-proxy-id="history-undo"]');
-    const redo = canonicalShell.querySelector<HTMLButtonElement>('[data-m8-proxy-id="history-redo"]');
+    const undo = canonicalShell.querySelector<HTMLButtonElement>(
+      '[data-m8-proxy-id="history-undo"]',
+    );
+    const redo = canonicalShell.querySelector<HTMLButtonElement>(
+      '[data-m8-proxy-id="history-redo"]',
+    );
     if (undo) undo.disabled = undoState !== 'enabled';
     if (redo) redo.disabled = redoState !== 'enabled';
 
@@ -518,7 +542,14 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
     }
   };
   const runtimeObserver = new MutationObserver(syncRuntimeState);
-  runtimeObserver.observe(root, { attributes: true, attributeFilter: ['data-illustro-history-undo', 'data-illustro-history-redo', 'data-illustro-persistence'] });
+  runtimeObserver.observe(root, {
+    attributes: true,
+    attributeFilter: [
+      'data-illustro-history-undo',
+      'data-illustro-history-redo',
+      'data-illustro-persistence',
+    ],
+  });
   syncRuntimeState();
 
   return {
