@@ -53,10 +53,12 @@ export function layerAlphaSelectionEligibilityV1(
   switch (layer.type) {
     case 'raster':
       return Object.freeze({ eligible: true, layerId, reason: null });
-    case 'fill':
-      return layer.fill.kind === 'solid'
+    case 'fill': {
+      const fillLayer = layer as FillLayerV1;
+      return fillLayer.fill.kind === 'solid'
         ? Object.freeze({ eligible: true, layerId, reason: null })
         : unavailable(layerId, 'pattern fill alpha selection requires the material renderer');
+    }
     case 'vector':
       return unavailable(layerId, 'vector alpha selection requires the canonical vector renderer');
     case 'gradient':
@@ -297,10 +299,10 @@ export async function prepareLayerAlphaSelectionV1(
   const layer = snapshot.document.layerTree.layers[layerId];
   if (layer === undefined) throw new Error('alpha selection source disappeared');
   if (layer.type === 'raster') {
-    return prepareRasterLayerAlphaSelectionV1(snapshot, layer, input);
+    return prepareRasterLayerAlphaSelectionV1(snapshot, layer as RasterLayerV1, input);
   }
   if (layer.type === 'fill') {
-    return prepareSolidFillAlphaSelectionV1(snapshot, layer, input);
+    return prepareSolidFillAlphaSelectionV1(snapshot, layer as FillLayerV1, input);
   }
   throw new Error('alpha selection source type changed before preparation');
 }
