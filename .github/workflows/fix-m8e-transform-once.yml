@@ -1,0 +1,56 @@
+name: Repair M8E transform once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m8e-transform-repair-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Rebase latest main
+        run: git pull --rebase origin main
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install dependencies
+        run: |
+          npm install --global npm@11.19.1
+          npm ci --ignore-scripts
+      - name: Repair nullable narrowing
+        run: |
+          perl -0pi -e 's/    const viewport = input\.viewport\.snapshot\(\);/    const currentState = state;\n    const viewport = input.viewport.snapshot();/' src/app/m8-selection-transform-controller.ts
+          perl -0pi -e 's/applySelectionTransformPointV1\(state, point\)/applySelectionTransformPointV1(currentState, point)/' src/app/m8-selection-transform-controller.ts
+      - name: Format controller
+        run: npx biome format --write src/app/m8-selection-transform-controller.ts
+      - name: Repository format check
+        run: npm run format:check
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Remove temporary helpers
+        run: |
+          rm -f .github/workflows/fix-m8e-transform-once.yml
+          rm -f .github/m8e-transform-repair-trigger
+          rm -f .github/workflows/format-m8e-transform-once.yml
+          rm -f .github/m8e-transform-format-trigger
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: typecheck M8E transform controller'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
