@@ -43,6 +43,7 @@ import { installBrushPresetControllerV1 } from './brush-preset-controller.js';
 import { installBrushInterchangeControllerV1 } from './brush-interchange-controller.js';
 import { installBrushHoverOutlineControllerV1 } from './brush-hover-outline-controller.js';
 import { SelectionCoverageControllerV1 } from './selection-coverage-controller.js';
+import { installM8ContextualCanvasControllerV1 } from './m8-contextual-canvas-controller.js';
 import { installM8SelectionContextLayerV1 } from './m8-selection-context-layer.js';
 import { installM8SelectionGestureControllerV1 } from './m8-selection-gesture-controller.js';
 import { installSelectionContourPresenterV1 } from './selection-contour-presenter.js';
@@ -159,6 +160,7 @@ const paintPersistence = new PaintPersistenceControllerV1(
   },
 );
 const selectionContext = installM8SelectionContextLayerV1();
+const contextualCanvas = installM8ContextualCanvasControllerV1({ root, context: selectionContext });
 const selectionContour = installSelectionContourPresenterV1({
   context: selectionContext,
   paintSession,
@@ -194,9 +196,15 @@ const selectionLauncher = installM8SelectionLauncherV1({
   contourPresenter: selectionContour,
   transformController: selectionTransform,
   paintSession,
+  paintHistory,
   paintPersistence,
   selectionCoverage,
+  getFillColor: () => colorWorkflow.snapshot().current,
+  schedule: enqueuePaintRender,
+  onHistoryChanged: publishPaintHistory,
+  onDocumentChanged: publishDocumentState,
 });
+void contextualCanvas;
 void selectionGesture;
 void selectionTransform;
 void selectionLauncher;
@@ -775,6 +783,7 @@ globalThis.addEventListener(
     selectionTransform.dispose();
     selectionGesture.dispose();
     selectionContour.dispose();
+    contextualCanvas.dispose();
     selectionContext.dispose();
     layerComps.dispose();
     layerWorkflow.dispose();

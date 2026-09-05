@@ -1,5 +1,8 @@
+import type { RgbUnitColorV1 } from '../domain/color.js';
+import type { DocumentV1 } from '../domain/document.js';
 import type { M8SelectionContextLayerHandleV1 } from './m8-selection-context-layer.js';
 import type { M8SelectionTransformControllerHandleV1 } from './m8-selection-transform-controller.js';
+import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import {
@@ -8,7 +11,17 @@ import {
   type SelectionMorphologyOperationV1,
 } from './selection-modifier-engine.js';
 import { prepareSelectionCopyV1, selectionCopyEligibilityV1 } from './selection-copy-engine.js';
-import type { SelectionTransferPayloadV1 } from './selection-cut-engine.js';
+import {
+  applyPreparedSelectionCutV1,
+  prepareSelectionCutV1,
+  selectionCutEligibilityV1,
+  type SelectionTransferPayloadV1,
+} from './selection-cut-engine.js';
+import {
+  applyPreparedSelectionScopedFillV1,
+  prepareSelectionScopedFillV1,
+  selectionScopedFillEligibilityV1,
+} from './selection-fill-engine.js';
 import type {
   RasterSelectionCoverageV1,
   SelectionCoverageControllerV1,
@@ -117,8 +130,13 @@ export function installM8SelectionLauncherV1(input: {
   readonly contourPresenter: SelectionContourPresenterHandleV1;
   readonly transformController: M8SelectionTransformControllerHandleV1;
   readonly paintSession: PaintSessionControllerV1;
+  readonly paintHistory: PaintHistoryControllerV1;
   readonly paintPersistence: PaintPersistenceControllerV1;
   readonly selectionCoverage: SelectionCoverageControllerV1;
+  readonly getFillColor: () => RgbUnitColorV1;
+  readonly schedule: (operation: () => Promise<unknown>) => void;
+  readonly onHistoryChanged: () => void;
+  readonly onDocumentChanged: (documentValue: DocumentV1) => void;
 }): M8SelectionLauncherHandleV1 {
   const { stage, overlay } = input.context;
   const launcher = document.createElement('div');
@@ -206,13 +224,18 @@ export function installM8SelectionLauncherV1(input: {
       snapshot !== null && activeLayerId !== null
         ? selectionCopyEligibilityV1(snapshot, activeLayerId, coverage)
         : null;
+    const cutEligibility =
+      snapshot !== null && activeLayerId !== null
+        ? selectionCutEligibilityV1(snapshot, activeLayerId, coverage)
+        : null;
+    const fillEligibility =
+      snapshot !== null && activeLayerId !== null
+        ? selectionScopedFillEligibilityV1(snapshot, activeLayerId, coverage)
+        : null;
     setAvailability('copy', copyEligibility?.eligible === true);
     setAvailability('transform', input.transformController.available());
-
-    // Cut/Fill remain intentionally unavailable until their M7 production commit
-    // paths are connected here. A visible button never fakes success.
-    setAvailability('cut', false, 'pending-dependency');
-    setAvailability('fill', false, 'pending-dependency');
+    setAvailability('cut', cutEligibility?.eligible === true);
+    setAvailability('fill', fillEligibility?.eligible === true);
   };
 
   const reposition = (): void => {
@@ -261,6 +284,31 @@ export function installM8SelectionLauncherV1(input: {
     );
   };
 
+  const commitPreparedSnapshot = async (
+    commandId: string,
+    layerId: NonNullable<ReturnType<PaintSessionControllerV1['activeLayerId']>>,
+    transform: Parameters<PaintHistoryControllerV1['commitSnapshotTransform']>[1],
+  ): Promise<void> =>
+    new Promise<void>((resolve, reject) => {
+      input.schedule(async () => {
+        try {
+          const transaction = await input.paintHistory.commitSnapshotTransform(
+            commandId,
+            transform,
+          );
+          input.paintSession.setActiveLayer(layerId);
+          await input.paintPersistence.markDirty(transaction.transactionId);
+          input.root.dataset.illustroSelectionTransaction = transaction.transactionId;
+          const current = input.paintSession.currentDocument();
+          if (current !== null) input.onDocumentChanged(current);
+          input.onHistoryChanged();
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
+
   const runCommand = async (command: M8SelectionLauncherCommandV1): Promise<void> => {
     if (commandBusy) return;
     if (command === 'transform') {
@@ -284,7 +332,7 @@ export function installM8SelectionLauncherV1(input: {
         input.context.announce('選択範囲を反転しました');
       } else if (command === 'copy') {
         const snapshot = input.paintSession.projectSnapshot();
-        const layerId = input.paintSession.snapshot().activeLayerId;
+        const layerId = input.paintSession.activeLayerId();
         if (!snapshot || !layerId) throw new Error('コピー対象のレイヤーがありません');
         clipboard = await prepareSelectionCopyV1(
           snapshot,
@@ -294,6 +342,37 @@ export function installM8SelectionLauncherV1(input: {
         );
         input.root.dataset.illustroSelectionClipboard = 'ready';
         input.context.announce('選択内容をコピーしました');
+      } else if (command === 'cut') {
+        const snapshot = input.paintSession.projectSnapshot();
+        const layerId = input.paintSession.activeLayerId();
+        if (!snapshot || !layerId) throw new Error('切り取り対象のレイヤーがありません');
+        const prepared = await prepareSelectionCutV1(
+          snapshot,
+          layerId,
+          coverage,
+          input.paintPersistence,
+        );
+        await commitPreparedSnapshot('selection.cut', layerId, (before, revision) =>
+          applyPreparedSelectionCutV1(before, prepared, revision),
+        );
+        clipboard = prepared.transfer;
+        input.root.dataset.illustroSelectionClipboard = 'ready';
+        input.context.announce('選択内容を切り取りました');
+      } else if (command === 'fill') {
+        const snapshot = input.paintSession.projectSnapshot();
+        const layerId = input.paintSession.activeLayerId();
+        if (!snapshot || !layerId) throw new Error('塗りつぶし対象のレイヤーがありません');
+        const prepared = await prepareSelectionScopedFillV1(
+          snapshot,
+          layerId,
+          coverage,
+          { color: input.getFillColor(), opacity: 1 },
+          input.paintPersistence,
+        );
+        await commitPreparedSnapshot('selection.fill', layerId, (before, revision) =>
+          applyPreparedSelectionScopedFillV1(before, prepared, revision),
+        );
+        input.context.announce('選択範囲を現在色で塗りつぶしました');
       } else if (command === 'feather' || command === 'expand' || command === 'shrink') {
         await runMorphology(command === 'shrink' ? 'contract' : command);
         more.removeAttribute('open');

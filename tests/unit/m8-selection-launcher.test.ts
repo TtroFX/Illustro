@@ -149,8 +149,13 @@ describe('M8E rebuilt selection interaction', () => {
     expect(source).toContain("dataset.commandGroup = 'mask'");
     expect(source).toContain("setAvailability('transform', input.transformController.available())");
     expect(source).toContain('input.transformController.begin()');
-    expect(source).toContain("setAvailability('cut', false, 'pending-dependency')");
-    expect(source).toContain("setAvailability('fill', false, 'pending-dependency')");
+    expect(source).toContain('selectionCutEligibilityV1');
+    expect(source).toContain('selectionScopedFillEligibilityV1');
+    expect(source).toContain("commitPreparedSnapshot('selection.cut'");
+    expect(source).toContain("commitPreparedSnapshot('selection.fill'");
+    expect(source).toContain('prepareSelectionCutV1');
+    expect(source).toContain('prepareSelectionScopedFillV1');
+    expect(source).toContain('paintPersistence.markDirty(transaction.transactionId)');
     expect(source).not.toContain('prepareLassoSelectionV1');
     expect(source).not.toContain('prepareRectangularSelectionV1');
   });

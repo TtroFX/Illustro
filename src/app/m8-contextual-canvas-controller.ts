@@ -185,7 +185,8 @@ function renderLineartV1(host: HTMLElement): void {
   toolbar.dataset.contextKind = 'lineart';
   const identity = document.createElement('span');
   identity.className = 'm8e-context-preview-identity';
-  identity.innerHTML = '<strong>Lineart Boundary</strong><small>Topology Preview · M7F接続待ち</small>';
+  identity.innerHTML =
+    '<strong>Lineart Boundary</strong><small>Topology Preview · M7F接続待ち</small>';
   const controls = document.createElement('div');
   controls.className = 'm8e-context-preview-controls';
   controls.append(
