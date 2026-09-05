@@ -1,0 +1,21 @@
+{
+  "schema": "illustro.verification.m8d-direct-drag-tearoff/1",
+  "verifiedAt": "2026-09-05",
+  "scope": "M8D Inspector block direct-manipulation PiP tear-off",
+  "implementationCommit": "bab451b7dafc5079b3bfd7c171db990681d9a4b3",
+  "interactionContract": {
+    "dockedReorder": "drag block handle within Inspector",
+    "tearOff": "drag block beyond Inspector boundary; no dedicated Detach button",
+    "tearOffThresholdCssPx": 28,
+    "redock": "drag detached PiP back near Inspector, preview insertion target, drop to dock",
+    "closeDetached": "upper-right x returns block to Inspector"
+  },
+  "focusedVerification": {
+    "format": "pass",
+    "typecheck": "pass",
+    "m8dTests": "pass",
+    "productionBuild": "pass"
+  },
+  "canonicalMemo": "updated to make drag-out and magnetic drag-back explicitly symmetric direct-manipulation operations",
+  "userGate": "USER-M8D remains pending"
+}
