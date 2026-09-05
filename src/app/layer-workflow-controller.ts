@@ -93,6 +93,11 @@ import {
   attachRasterMaskFromSelectionSnapshotV1,
   type SelectionCoverageControllerV1,
 } from './selection-coverage-controller.js';
+import {
+  applyPreparedSelectionScopedLayerOperationV1,
+  prepareSelectionScopedLayerOperationV1,
+  selectionScopedLayerOperationEligibilityV1,
+} from './selection-layer-operation-engine.js';
 
 export interface LayerWorkflowControllerV1 {
   readonly schema: 'illustro.layer-workflow/1';
@@ -508,13 +513,22 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     rasterizeButton.disabled =
       rasterizeEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
     rasterizeButton.title = rasterizeEligibility?.reason ?? 'ラスタライズ';
+    const activeSelectionCoverage = selectionCoverageSnapshot.coverage;
     const invertEligibility =
       active === null || projectSnapshot === null
         ? null
-        : layerInvertEligibilityV1(projectSnapshot, active.id);
-    invertButton.disabled =
-      invertEligibility?.eligible !== true || options.paintSession.activeStrokeId() !== null;
-    invertButton.title = invertEligibility?.reason ?? '色反転';
+        : activeSelectionCoverage === null
+          ? layerInvertEligibilityV1(projectSnapshot, active.id)
+          : selectionScopedLayerOperationEligibilityV1(
+              projectSnapshot,
+              active.id,
+              activeSelectionCoverage,
+              'invert-color',
+            );
+    invertButton.disabled = invertEligibility?.eligible !== true || activeStroke;
+    invertButton.title =
+      invertEligibility?.reason ??
+      (activeSelectionCoverage === null ? '色反転' : '選択範囲の色を反転');
     const flipEligibility =
       active === null || projectSnapshot === null
         ? null
@@ -564,11 +578,26 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
       );
     }
     deleteButton.disabled = disabled;
+    const scopedClearEligibility =
+      activeSelectionCoverage === null || active === null || projectSnapshot === null
+        ? null
+        : selectionScopedLayerOperationEligibilityV1(
+            projectSnapshot,
+            active.id,
+            activeSelectionCoverage,
+            'clear',
+          );
     clearButton.disabled =
-      disabled ||
-      (active?.layer.type !== 'raster' && active?.layer.type !== 'vector') ||
-      active.layer.locks.all ||
-      active.layer.locks.pixels;
+      activeSelectionCoverage !== null
+        ? scopedClearEligibility?.eligible !== true || activeStroke
+        : disabled ||
+          (active?.layer.type !== 'raster' && active?.layer.type !== 'vector') ||
+          active.layer.locks.all ||
+          active.layer.locks.pixels;
+    clearButton.title =
+      activeSelectionCoverage === null
+        ? 'レイヤーを消去'
+        : (scopedClearEligibility?.reason ?? '選択範囲を消去');
     renameButton.disabled = disabled;
     lockButton.disabled = disabled;
     alphaLockButton.disabled = disabled;
@@ -829,14 +858,33 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
         }
         const current = options.paintSession.projectSnapshot();
         if (current === null) return;
-        const prepared = await prepareLayerInvertV1(current, layerId, options.paintPersistence);
-        const transaction = await options.paintHistory.commitSnapshotTransform(
-          'layer.invert',
-          (before, revision) => applyPreparedLayerInvertV1(before, prepared, revision),
-        );
+        const coverage = options.selectionCoverage.snapshot().coverage;
+        let transactionId: string;
+        if (coverage === null) {
+          const prepared = await prepareLayerInvertV1(current, layerId, options.paintPersistence);
+          const transaction = await options.paintHistory.commitSnapshotTransform(
+            'layer.invert',
+            (before, revision) => applyPreparedLayerInvertV1(before, prepared, revision),
+          );
+          transactionId = transaction.transactionId;
+        } else {
+          const prepared = await prepareSelectionScopedLayerOperationV1(
+            current,
+            layerId,
+            coverage,
+            'invert-color',
+            options.paintPersistence,
+          );
+          const transaction = await options.paintHistory.commitSnapshotTransform(
+            'layer.selection.invert',
+            (before, revision) =>
+              applyPreparedSelectionScopedLayerOperationV1(before, prepared, revision),
+          );
+          transactionId = transaction.transactionId;
+        }
         options.paintSession.setActiveLayer(layerId);
-        await options.paintPersistence.markDirty(transaction.transactionId);
-        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        await options.paintPersistence.markDirty(transactionId);
+        root.dataset.illustroLayerTransaction = transactionId;
         clearError();
         refresh();
         options.onHistoryChanged();
@@ -1051,11 +1099,44 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   const onClear = (): void => {
     const layerId = options.paintSession.activeLayerId();
     if (layerId === null) return;
-    commitMutation(
-      'layer.clear',
-      (before, revision) => clearLayerSnapshotV1(before, layerId, revision),
-      () => layerId,
-    );
+    const coverage = options.selectionCoverage.snapshot().coverage;
+    if (coverage === null) {
+      commitMutation(
+        'layer.clear',
+        (before, revision) => clearLayerSnapshotV1(before, layerId, revision),
+        () => layerId,
+      );
+      return;
+    }
+    options.schedule(async () => {
+      try {
+        if (options.paintSession.activeStrokeId() !== null) {
+          throw new Error('selection-scoped layer clear is unavailable while a stroke is active');
+        }
+        const current = options.paintSession.projectSnapshot();
+        if (current === null) return;
+        const prepared = await prepareSelectionScopedLayerOperationV1(
+          current,
+          layerId,
+          coverage,
+          'clear',
+          options.paintPersistence,
+        );
+        const transaction = await options.paintHistory.commitSnapshotTransform(
+          'layer.selection.clear',
+          (before, revision) =>
+            applyPreparedSelectionScopedLayerOperationV1(before, prepared, revision),
+        );
+        options.paintSession.setActiveLayer(layerId);
+        await options.paintPersistence.markDirty(transaction.transactionId);
+        root.dataset.illustroLayerTransaction = transaction.transactionId;
+        clearError();
+        refresh();
+        options.onHistoryChanged();
+      } catch (error) {
+        publishError(error);
+      }
+    });
   };
 
   const onRename = (): void => {
@@ -1704,6 +1785,9 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
   list.addEventListener('pointermove', onPointerMove);
   list.addEventListener('pointerup', finishPointerDrag);
   list.addEventListener('pointercancel', finishPointerDrag);
+  const unsubscribeSelectionCoverage = options.selectionCoverage.subscribe(() => {
+    if (!disposed) refresh();
+  });
   refresh();
 
   return Object.freeze({
@@ -1712,6 +1796,7 @@ export function installLayerWorkflowControllerV1(options: OptionsV1): LayerWorkf
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      unsubscribeSelectionCoverage();
       for (const [kind, handler] of createHandlers)
         buttons.get(kind)?.removeEventListener('click', handler);
       maskButton.removeEventListener('click', onMask);
