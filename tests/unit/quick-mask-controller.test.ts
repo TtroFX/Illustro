@@ -111,16 +111,12 @@ describe('M7A Quick Mask controller', () => {
     const quickMask = new QuickMaskControllerV1(selection);
     quickMask.enter(parseRevision(2));
 
-    await quickMask.paintBrush(
-      [{ x: 4, y: 4, radius: 2 }],
-      'select',
-      {
-        documentWidth: 8,
-        documentHeight: 8,
-        revision: parseRevision(3),
-        storage,
-      },
-    );
+    await quickMask.paintBrush([{ x: 4, y: 4, radius: 2 }], 'select', {
+      documentWidth: 8,
+      documentHeight: 8,
+      revision: parseRevision(3),
+      storage,
+    });
     expect(selection.snapshot().coverage).toBeNull();
 
     const committed = quickMask.commit().coverage;
@@ -147,16 +143,12 @@ describe('M7A Quick Mask controller', () => {
     const quickMask = new QuickMaskControllerV1(selection);
     quickMask.enter(parseRevision(5));
 
-    await quickMask.paintBrush(
-      [{ x: 4, y: 4, radius: 1.5 }],
-      'mask',
-      {
-        documentWidth: 8,
-        documentHeight: 8,
-        revision: parseRevision(6),
-        storage,
-      },
-    );
+    await quickMask.paintBrush([{ x: 4, y: 4, radius: 1.5 }], 'mask', {
+      documentWidth: 8,
+      documentHeight: 8,
+      revision: parseRevision(6),
+      storage,
+    });
     const committed = quickMask.commit().coverage;
     expect(committed).not.toBeNull();
     if (committed === null) throw new Error('Quick Mask subtract unexpectedly cleared selection');
