@@ -1,6 +1,6 @@
 from pathlib import Path
 
-# Reuse the currently published preview resource so opening Library repeatedly does not leak files.
+# Reuse the published preview resource so repeated Library visits do not leak preview files.
 p = Path('src/app/project-preview-store.ts')
 s = p.read_text()
 s = s.replace(
@@ -15,7 +15,7 @@ s = s.replace(
 )
 p.write_text(s)
 
-# Protect the actively edited project from being moved to Recently Deleted while the editor owns it.
+# Protect the actively edited project from being moved to Recently Deleted.
 p = Path('src/app/m9a-library-surface.ts')
 s = p.read_text()
 s = s.replace(
@@ -68,12 +68,12 @@ assert old in s
 s = s.replace(old, new, 1)
 p.write_text(s)
 
-# Production startup supplies the active project identity and overwrites the previous thumbnail in place.
+# Production wiring supplies active identity and overwrites the previous thumbnail in place.
 p = Path('src/app/main.ts')
 s = p.read_text()
 s = s.replace(
     "    const resourceId = await previews.write(current.projectId, thumbnail);",
-    "    const projects = await controller.query({ section: 'projects' });\n    const previousPreview = projects.cards.find(\n      (card) => card.projectId === current.projectId,\n    )?.previewResourceId;\n    const resourceId = await previews.write(current.projectId, thumbnail, previousPreview ?? undefined);",
+    "    const projects = await controller.query({ section: 'projects' });\n    const previousPreview = projects.cards.find(\n      (card) => card.projectId === current.projectId,\n    )?.previewResourceId;\n    const resourceId = await previews.write(\n      current.projectId,\n      thumbnail,\n      previousPreview ?? undefined,\n    );",
     1,
 )
 s = s.replace(
@@ -83,19 +83,7 @@ s = s.replace(
 )
 p.write_text(s)
 
-# Preview unit test: avoid optional ArrayBuffer and prove stable resource overwrite.
-p = Path('tests/unit/project-preview-store.test.ts')
-s = p.read_text()
-s = s.replace(
-    "    expect(restored?.type).toBe(PNG_MIME_TYPE);\n    expect(new Uint8Array(await restored?.arrayBuffer())).toEqual(
-      new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
-    );",
-    "    expect(restored).not.toBeNull();\n    expect(restored?.type).toBe(PNG_MIME_TYPE);\n    const restoredBytes = new Uint8Array(await restored!.arrayBuffer());\n    expect(restoredBytes).toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));\n\n    const replacement = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1])], {\n      type: PNG_MIME_TYPE,\n    });\n    const reusedResourceId = await store.write(projectId, replacement, resourceId);\n    expect(reusedResourceId).toBe(resourceId);\n    expect((await store.read(projectId, resourceId))?.size).toBe(9);",
-    1,
-)
-p.write_text(s)
-
-# Permanent contract tests/verifier must keep the active-project deletion protection and stable preview overwrite.
+# Permanent tests/verifier lock the two safety invariants.
 p = Path('tests/unit/m9a-library-production.test.ts')
 s = p.read_text()
 s = s.replace(
