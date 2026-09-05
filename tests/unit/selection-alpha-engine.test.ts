@@ -269,7 +269,9 @@ describe('M7A alpha/transparency to selection', () => {
     });
 
     expect(prepared.tiles.length).toBeGreaterThan(0);
-    const decoded = await persistence.readRasterTile(prepared.tiles[0]!.payloadRef);
+    const reference = prepared.tiles[0];
+    if (reference === undefined) throw new Error('unbaked stroke alpha did not create selection coverage');
+    const decoded = await persistence.readRasterTile(reference.payloadRef);
     expect(decoded.bytes[(20 * decoded.width + 20) * 4]).toBeGreaterThan(0);
   });
 
@@ -296,7 +298,9 @@ describe('M7A alpha/transparency to selection', () => {
     expect(result.coverage).not.toBeNull();
     expect(controller.snapshot()).toEqual(result);
     if (result.coverage === null) throw new Error('alpha selection unexpectedly cleared');
-    const decoded = await persistence.readRasterTile(result.coverage.tiles[0]!.payloadRef);
+    const reference = result.coverage.tiles[0];
+    if (reference === undefined) throw new Error('alpha selection did not create coverage tile');
+    const decoded = await persistence.readRasterTile(reference.payloadRef);
     expect(decoded.bytes[0]).toBe(200);
   });
 
