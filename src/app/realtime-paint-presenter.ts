@@ -111,10 +111,7 @@ export class RealtimePaintPresenterV1<TDab, TOperation> {
       });
     }
 
-    this.#maximumPendingDabCount = Math.max(
-      this.#maximumPendingDabCount,
-      this.#pendingDabCount(),
-    );
+    this.#maximumPendingDabCount = Math.max(this.#maximumPendingDabCount, this.#pendingDabCount());
     this.#ensureDrain();
   }
 
