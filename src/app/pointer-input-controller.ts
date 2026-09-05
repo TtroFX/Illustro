@@ -32,6 +32,9 @@ export function installPointerInputControllerV1(
   onBatch: (batch: PointerInputBatchV1) => void = () => undefined,
 ): PointerInputControllerV1 {
   const builder = new PointerBatchBuilderV1();
+  const activePointers = new Set<number>();
+  const rawUpdatePointers = new Set<number>();
+  let surfaceRect = target.getBoundingClientRect();
   let disposed = false;
   let batchCount = 0;
   let confirmedSampleCount = 0;
@@ -50,8 +53,31 @@ export function installPointerInputControllerV1(
   const listener: EventListener = (rawEvent) => {
     if (disposed) return;
     const event = rawEvent as unknown as PointerEventLikeV1;
-    const rect = target.getBoundingClientRect();
-    const batch = builder.build(event, rect);
+
+    if (event.type === 'pointerdown') {
+      activePointers.add(event.pointerId);
+      rawUpdatePointers.delete(event.pointerId);
+      surfaceRect = target.getBoundingClientRect();
+    } else if (event.type === 'pointermove' && !activePointers.has(event.pointerId)) {
+      // Hover can happen after responsive layout movement. It is outside the drawing hot path,
+      // so refresh the surface origin there rather than forcing layout on every active sample.
+      surfaceRect = target.getBoundingClientRect();
+    }
+
+    if (event.type === 'pointerrawupdate') {
+      rawUpdatePointers.add(event.pointerId);
+    } else if (
+      event.type === 'pointermove' &&
+      activePointers.has(event.pointerId) &&
+      rawUpdatePointers.has(event.pointerId)
+    ) {
+      // Browsers that expose pointerrawupdate commonly emit a lower-rate pointermove for the
+      // same active pointer as well. Once raw delivery is observed, rawupdate is the confirmed
+      // stream for that pointer and pointermove must not duplicate canonical paint samples.
+      return;
+    }
+
+    const batch = builder.build(event, surfaceRect);
     if (batch.eventType === 'pointerdown') {
       try {
         target.setPointerCapture?.(batch.pointerId);
@@ -70,6 +96,8 @@ export function installPointerInputControllerV1(
     onBatch(batch);
 
     if (batch.eventType === 'pointerup' || batch.eventType === 'pointercancel') {
+      activePointers.delete(batch.pointerId);
+      rawUpdatePointers.delete(batch.pointerId);
       try {
         target.releasePointerCapture?.(batch.pointerId);
       } catch {
@@ -94,6 +122,8 @@ export function installPointerInputControllerV1(
       if (disposed) return;
       disposed = true;
       for (const type of eventTypes) target.removeEventListener(type, listener);
+      activePointers.clear();
+      rawUpdatePointers.clear();
       predictedPresentation = Object.freeze([]);
     },
   });
