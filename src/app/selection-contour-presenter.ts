@@ -82,10 +82,7 @@ function classifyValuesV1(values: Uint8Array): LoadedCoverageTileV1['classificat
   return hasInside ? 'inside' : 'outside';
 }
 
-function decodeCoverageValuesV1(
-  decoded: PaintDecodedRasterTileV1,
-  inverted: boolean,
-): Uint8Array {
+function decodeCoverageValuesV1(decoded: PaintDecodedRasterTileV1, inverted: boolean): Uint8Array {
   if (decoded.pixelFormat !== 'rgba8-unorm') {
     throw new Error('Selection contour requires rgba8-unorm coverage tiles');
   }
@@ -352,9 +349,7 @@ function contourBoundsV1(
       maxY = Math.max(maxY, point.y);
     }
   }
-  return Number.isFinite(minX)
-    ? Object.freeze({ minX, minY, maxX, maxY })
-    : null;
+  return Number.isFinite(minX) ? Object.freeze({ minX, minY, maxX, maxY }) : null;
 }
 
 export async function extractSelectionCoverageContoursV1(input: {
@@ -442,7 +437,9 @@ function projectContoursV1(
   viewport: ViewportSnapshotV1,
 ): readonly (readonly SelectionContourPointV1[])[] {
   return Object.freeze(
-    contours.map((contour) => Object.freeze(contour.map((point) => documentPointToStageV1(point, viewport)))),
+    contours.map((contour) =>
+      Object.freeze(contour.map((point) => documentPointToStageV1(point, viewport))),
+    ),
   );
 }
 

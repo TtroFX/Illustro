@@ -59,8 +59,7 @@ export function lassoHasNonZeroAreaV1(points: readonly SelectionPointV1[]): bool
       const right = normalized[rightIndex];
       if (!right) continue;
       const cross =
-        (left.x - origin.x) * (right.y - origin.y) -
-        (left.y - origin.y) * (right.x - origin.x);
+        (left.x - origin.x) * (right.y - origin.y) - (left.y - origin.y) * (right.x - origin.x);
       if (Math.abs(cross) > Number.EPSILON) return true;
     }
   }
@@ -129,7 +128,9 @@ export function installM8SelectionGestureControllerV1(input: {
 
   const publishMode = (): void => {
     input.root.dataset.illustroSelectionMode = persistentMode;
-    for (const button of modePanel.querySelectorAll<HTMLButtonElement>('[data-m8e-selection-mode]')) {
+    for (const button of modePanel.querySelectorAll<HTMLButtonElement>(
+      '[data-m8e-selection-mode]',
+    )) {
       const pressed = button.dataset.m8eSelectionMode === persistentMode;
       button.setAttribute('aria-pressed', String(pressed));
     }
@@ -159,7 +160,9 @@ export function installM8SelectionGestureControllerV1(input: {
     publishTool();
   };
 
-  const capturePoint = (event: Pick<PointerEvent, 'clientX' | 'clientY'>): CapturedSelectionPointV1 | null => {
+  const capturePoint = (
+    event: Pick<PointerEvent, 'clientX' | 'clientY'>,
+  ): CapturedSelectionPointV1 | null => {
     const documentValue = input.paintSession.currentDocument();
     if (!documentValue) return null;
     const stageRect = stage.getBoundingClientRect();
@@ -274,7 +277,8 @@ export function installM8SelectionGestureControllerV1(input: {
     try {
       const prepared =
         tool === 'rectangle'
-          ? start && end &&
+          ? start &&
+            end &&
             Math.abs(end.stageX - start.stageX) >= 2 &&
             Math.abs(end.stageY - start.stageY) >= 2
             ? await prepareRectangularSelectionV1(start.document, end.document, {
@@ -304,7 +308,9 @@ export function installM8SelectionGestureControllerV1(input: {
       });
       input.context.announce('選択範囲を更新しました');
     } catch (error) {
-      input.context.announce(error instanceof Error ? error.message : '選択範囲を更新できませんでした');
+      input.context.announce(
+        error instanceof Error ? error.message : '選択範囲を更新できませんでした',
+      );
     }
   };
 
@@ -369,7 +375,8 @@ export function installM8SelectionGestureControllerV1(input: {
       resetGesture();
       modePanel.removeEventListener('click', onModeClick);
       rail?.removeEventListener('click', onRailClick, true);
-      for (const button of productionToolButtons) button.removeEventListener('click', deactivateSelection);
+      for (const button of productionToolButtons)
+        button.removeEventListener('click', deactivateSelection);
       stage.removeEventListener('pointerdown', beginSelection, true);
       stage.removeEventListener('pointermove', moveSelection, true);
       stage.removeEventListener('pointerup', onPointerUp, true);
