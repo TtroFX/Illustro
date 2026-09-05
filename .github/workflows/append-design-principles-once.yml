@@ -26,14 +26,8 @@ jobs:
           from pathlib import Path
           path = Path('src/app/m7-ui-shell.ts')
           text = path.read_text()
-          before = """    inspector
-              .querySelectorAll<HTMLElement>(selector)
-              .forEach((element) => destination.append(element));
-          """
-          after = """    inspector.querySelectorAll<HTMLElement>(selector).forEach((element) => {
-              destination.append(element);
-            });
-          """
+          before = '.forEach((element) => destination.append(element));'
+          after = '.forEach((element) => {\n        destination.append(element);\n      });'
           if before in text:
               if text.count(before) != 1:
                   raise SystemExit('expected one M7 UI lint target')
