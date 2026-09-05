@@ -1,4 +1,4 @@
-name: Mark phone UX remediation complete once
+name: Fix USER-02 inspector layout once
 
 on:
   push:
@@ -10,48 +10,80 @@ permissions:
   contents: write
 
 jobs:
-  mark-phone-ux-remediation:
+  fix-user-02-inspector-layout:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Mark implemented phone UX items complete
+      - name: Patch inspector reachability
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
-          path = Path('IMPLEMENTATION_PROGRESS.md')
-          text = path.read_text()
-          replacements = {
-              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
-                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
-              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
-                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
-              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
-                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
-          }
-          changed = False
-          for before, after in replacements.items():
+
+          def replace_once(path_text, before, after):
+              path = Path(path_text)
+              text = path.read_text()
               if before in text:
                   if text.count(before) != 1:
-                      raise SystemExit(f'expected one progress line: {before}')
-                  text = text.replace(before, after, 1)
-                  changed = True
-              elif after not in text:
-                  raise SystemExit(f'progress line missing: {before}')
-          if changed:
-              path.write_text(text)
+                      raise SystemExit(f'expected exactly one target in {path_text}: {before}')
+                  path.write_text(text.replace(before, after, 1))
+                  return
+              if after not in text:
+                  raise SystemExit(f'patch target missing in {path_text}: {before}')
+
+          css_before = '.m7-inspector-surface[data-m7-inspector-surface="layers"] { grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }'
+          css_after = css_before + '\n.m7-inspector-surface[data-m7-inspector-surface="layers"] > #layer-list { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; align-content: start; grid-auto-rows: max-content; }\n.m7-inspector-surface[data-m7-inspector-surface="layers"] > #layer-actions { min-height: 0; max-height: 156px; overflow: auto; overscroll-behavior: contain; }\n.m7-inspector-surface[data-m7-inspector-surface="brush"] { display: block; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }\n.m7-inspector-surface[data-m7-inspector-surface="brush"] > .shell-brush-properties-panel, .m7-inspector-surface[data-m7-inspector-surface="brush"] > .shell-brush-presets-panel { width: 100%; min-width: 0; }'
+          replace_once('src/app/m7-ui-shell.ts', css_before, css_after)
+
+          move_before = "  moveInto('.shell-brush-presets-panel, .shell-brush-properties-panel', 'brush');"
+          move_after = "  moveInto('.shell-brush-properties-panel', 'brush');\n  moveInto('.shell-brush-presets-panel', 'brush');"
+          replace_once('src/app/m7-ui-shell.ts', move_before, move_after)
+
+          test_path = Path('tests/unit/m7-ui-shell.test.ts')
+          test_text = test_path.read_text()
+          import_before = "import { describe, expect, it } from 'vitest';"
+          import_after = "import { readFileSync } from 'node:fs';\nimport { describe, expect, it } from 'vitest';"
+          if import_before in test_text and import_after not in test_text:
+              test_text = test_text.replace(import_before, import_after, 1)
+          marker = "describe('M7 UI shell catalog', () => {"
+          setup = "const m7ShellSource = readFileSync(new URL('../../src/app/m7-ui-shell.ts', import.meta.url), 'utf8');\n\n" + marker
+          if 'const m7ShellSource = readFileSync' not in test_text:
+              if marker not in test_text:
+                  raise SystemExit('M7 test describe marker missing')
+              test_text = test_text.replace(marker, setup, 1)
+          close = "  it('leaves M7 feature families planned until their milestones connect them', () => {"
+          regression = "  it('keeps Layer rows clipped to their own scroll region and exposes Brush settings first', () => {\n    expect(m7ShellSource).toContain('> #layer-list { min-height: 0; overflow-y: auto;');\n    expect(m7ShellSource).toContain('> #layer-actions { min-height: 0; max-height: 156px; overflow: auto;');\n    const propertiesMove = m7ShellSource.indexOf(\"moveInto('.shell-brush-properties-panel', 'brush')\");\n    const presetsMove = m7ShellSource.indexOf(\"moveInto('.shell-brush-presets-panel', 'brush')\");\n    expect(propertiesMove).toBeGreaterThan(-1);\n    expect(presetsMove).toBeGreaterThan(propertiesMove);\n  });\n\n" + close
+          if "keeps Layer rows clipped to their own scroll region" not in test_text:
+              if close not in test_text:
+                  raise SystemExit('M7 test insertion marker missing')
+              test_text = test_text.replace(close, regression, 1)
+          test_path.write_text(test_text)
           PY
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Format touched sources
+        run: npx biome format --write src/app/m7-ui-shell.ts tests/unit/m7-ui-shell.test.ts
+
+      - name: Run M7 regression test
+        run: npx vitest run tests/unit/m7-ui-shell.test.ts
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add IMPLEMENTATION_PROGRESS.md
+          git add src/app/m7-ui-shell.ts tests/unit/m7-ui-shell.test.ts
           if git diff --cached --quiet; then
-            echo 'Phone UX remediation progress already complete.'
+            echo 'USER-02 inspector fixes already applied.'
             exit 0
           fi
-          git commit -m 'chore: close phone UX remediation'
+          git commit -m 'fix: repair inspector layer and brush layout'
           git push origin HEAD:main
