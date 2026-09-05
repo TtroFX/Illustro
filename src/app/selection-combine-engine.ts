@@ -22,7 +22,9 @@ function tileKey(x: number, y: number): string {
   return `${x}:${y}`;
 }
 
-function indexTilesV1(tiles: readonly RasterTileReferenceV1[]): ReadonlyMap<string, RasterTileReferenceV1> {
+function indexTilesV1(
+  tiles: readonly RasterTileReferenceV1[],
+): ReadonlyMap<string, RasterTileReferenceV1> {
   const indexed = new Map<string, RasterTileReferenceV1>();
   for (const tile of tiles) {
     const key = tileKey(tile.x, tile.y);
@@ -39,7 +41,11 @@ function validateDimensions(width: number, height: number): void {
   tileGridForDocumentV1(width, height);
 }
 
-function validateCoverageTileV1(tile: PaintDecodedRasterTileV1, width: number, height: number): void {
+function validateCoverageTileV1(
+  tile: PaintDecodedRasterTileV1,
+  width: number,
+  height: number,
+): void {
   if (tile.pixelFormat !== 'rgba8-unorm' || tile.width !== width || tile.height !== height) {
     throw new Error('selection coverage tile does not match the canonical RGBA8 coverage contract');
   }
@@ -70,7 +76,11 @@ async function readCoverageBytesV1(
   return result;
 }
 
-function combineValueV1(mode: Exclude<SelectionCombineModeV1, 'replace'>, left: number, right: number): number {
+function combineValueV1(
+  mode: Exclude<SelectionCombineModeV1, 'replace'>,
+  left: number,
+  right: number,
+): number {
   switch (mode) {
     case 'add':
       return Math.max(left, right);

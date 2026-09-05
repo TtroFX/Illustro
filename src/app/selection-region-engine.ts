@@ -98,7 +98,8 @@ interface DecodedSourceTileV1 {
 }
 
 function validateDimension(value: number, label: string): number {
-  if (!Number.isSafeInteger(value) || value < 1) throw new RangeError(`${label} must be a positive safe integer`);
+  if (!Number.isSafeInteger(value) || value < 1)
+    throw new RangeError(`${label} must be a positive safe integer`);
   return value;
 }
 
@@ -176,7 +177,10 @@ function hasUnbakedStrokeV1(snapshot: PaintProjectSnapshotV1, layerId: LayerId):
   );
 }
 
-export function selectionColorDistanceV1(leftValue: SelectionRgbaV1, rightValue: SelectionRgbaV1): number {
+export function selectionColorDistanceV1(
+  leftValue: SelectionRgbaV1,
+  rightValue: SelectionRgbaV1,
+): number {
   const left = normalizeRgba(leftValue);
   const right = normalizeRgba(rightValue);
   const leftAlpha = left[3];
@@ -203,7 +207,14 @@ export function createArraySelectionPixelSourceV1(input: {
     width,
     height,
     rgbaAt(x: number, y: number): SelectionRgbaV1 {
-      if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y) || x < 0 || y < 0 || x >= width || y >= height) {
+      if (
+        !Number.isSafeInteger(x) ||
+        !Number.isSafeInteger(y) ||
+        x < 0 ||
+        y < 0 ||
+        x >= width ||
+        y >= height
+      ) {
         throw new RangeError('selection source coordinate is out of bounds');
       }
       const value = colors[y * width + x];
@@ -221,10 +232,14 @@ export async function prepareRasterLayerSelectionPixelSourceV1(
   const layer = snapshot.document.layerTree.layers[layerId];
   if (layer?.type !== 'raster') throw new Error('selection pixel source requires a Raster Layer');
   if (layer.transformStack.length > 0) {
-    throw new Error('selection from a live-transformed Raster Layer requires transform rendering integration');
+    throw new Error(
+      'selection from a live-transformed Raster Layer requires transform rendering integration',
+    );
   }
   if (layer.effectStack.length > 0) {
-    throw new Error('selection from a live-effect Raster Layer requires effect compositor integration');
+    throw new Error(
+      'selection from a live-effect Raster Layer requires effect compositor integration',
+    );
   }
   const raster = layer as RasterLayerV1;
   const references = hasUnbakedStrokeV1(snapshot, layerId)
@@ -255,7 +270,14 @@ export async function prepareRasterLayerSelectionPixelSourceV1(
     width,
     height,
     rgbaAt(x: number, y: number): SelectionRgbaV1 {
-      if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y) || x < 0 || y < 0 || x >= width || y >= height) {
+      if (
+        !Number.isSafeInteger(x) ||
+        !Number.isSafeInteger(y) ||
+        x < 0 ||
+        y < 0 ||
+        x >= width ||
+        y >= height
+      ) {
         throw new RangeError('selection source coordinate is out of bounds');
       }
       const tx = Math.floor(x / CANONICAL_TILE_SIZE_PX);
@@ -270,7 +292,10 @@ export async function prepareRasterLayerSelectionPixelSourceV1(
   });
 }
 
-function pointToPixelV1(source: SelectionPixelSourceV1, value: SelectionPointV1): readonly [number, number] {
+function pointToPixelV1(
+  source: SelectionPixelSourceV1,
+  value: SelectionPointV1,
+): readonly [number, number] {
   if (!Number.isFinite(value.x) || !Number.isFinite(value.y)) {
     throw new TypeError('selection seed must contain finite coordinates');
   }
