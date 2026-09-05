@@ -73,7 +73,8 @@ export function installBrushInterchangeControllerV1(input: {
       });
       status.textContent = `${result.package.brush.name} を読み込みました`;
     } catch (error) {
-      status.textContent = error instanceof Error ? error.message : 'ブラシの読み込みに失敗しました';
+      status.textContent =
+        error instanceof Error ? error.message : 'ブラシの読み込みに失敗しました';
     } finally {
       importFile.value = '';
       importButton.disabled = false;
@@ -90,7 +91,8 @@ export function installBrushInterchangeControllerV1(input: {
       downloadIllbrushV1(bytes, nativeBrushFilenameV1(brush.name));
       status.textContent = `${brush.name} を書き出しました`;
     } catch (error) {
-      status.textContent = error instanceof Error ? error.message : 'ブラシの書き出しに失敗しました';
+      status.textContent =
+        error instanceof Error ? error.message : 'ブラシの書き出しに失敗しました';
     } finally {
       importButton.disabled = false;
       exportButton.disabled = false;

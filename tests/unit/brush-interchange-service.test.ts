@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { createBaselineBrushPresetV1, normalizeBrushPresetV1 } from '../../src/domain/brush-schema.js';
+import {
+  createBaselineBrushPresetV1,
+  normalizeBrushPresetV1,
+} from '../../src/domain/brush-schema.js';
 import { createProvenanceV1, createResourceV1 } from '../../src/domain/resources.js';
 import {
   parseIllbrushPackageV1,

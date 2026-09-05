@@ -97,7 +97,8 @@ function storedPackageV1(value: unknown): StoredBrushPackageV1 | null {
 export function createIndexedDbBrushPackageAttachmentStoreV1(
   indexedDb: IDBFactory = globalThis.indexedDB,
 ): BrushPackageAttachmentStoreV1 {
-  if (indexedDb === undefined) throw new Error('IndexedDB is unavailable for brush package persistence');
+  if (indexedDb === undefined)
+    throw new Error('IndexedDB is unavailable for brush package persistence');
   const database = openDatabaseV1(indexedDb);
   return Object.freeze({
     async put(presetId: string, archiveBytes: Uint8Array): Promise<void> {

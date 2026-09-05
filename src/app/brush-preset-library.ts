@@ -239,6 +239,20 @@ function clonePresetV1(
   return normalizeBrushPresetV1({ ...source, ...update, schema: BRUSH_V1_SCHEMA });
 }
 
+export function importBrushPresetV1(
+  state: BrushPresetLibraryStateV1,
+  presetInput: BrushPresetV1,
+  importedId: string = presetInput.id,
+): BrushPresetLibraryStateV1 {
+  if (state.items.length >= BRUSH_PRESET_LIMIT_V1)
+    throw new RangeError('brush preset library is full');
+  const source = normalizeBrushPresetV1(presetInput);
+  const id = requireAvailableId(state, importedId);
+  const preset = source.id === id ? source : clonePresetV1(source, { id, revision: 1 });
+  const item = itemV1({ source: 'user', baseline: preset, locked: false });
+  return stateV1([...state.items, item], id, state.query, state.category);
+}
+
 export function createUserBrushPresetV1(
   state: BrushPresetLibraryStateV1,
   input: { readonly id: string; readonly name?: string; readonly behavior?: BrushBehaviorV1 },

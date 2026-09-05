@@ -76,6 +76,7 @@ import {
   brushTipAssetsV1,
   brushTipShapeV1,
   type BrushBehaviorV1,
+  type BrushPresetV1,
   type BrushParameterValuesV1,
   type BrushTipSelectionModeV1,
   type BrushTipShapeV1,
@@ -98,6 +99,7 @@ import {
   deleteBrushPresetV1,
   duplicateBrushPresetV1,
   filteredBrushPresetItemsV1,
+  importBrushPresetV1,
   parseBrushPresetLibraryV1,
   renameBrushPresetV1,
   resetBrushPresetV1,
@@ -212,6 +214,7 @@ export interface PressureResponseDefaultSourceV1 {
 
 export interface BrushPresetControllerV1 {
   snapshot(): BrushPresetLibraryStateV1;
+  importPreset(preset: BrushPresetV1): string;
   refresh(): void;
   dispose(): void;
 }
@@ -2143,6 +2146,16 @@ export function installBrushPresetControllerV1(input: {
 
   return Object.freeze({
     snapshot: () => state,
+    importPreset: (preset: BrushPresetV1): string => {
+      const requestedId = state.items.some((item) => item.preset.id === preset.id)
+        ? nextId()
+        : preset.id;
+      state = importBrushPresetV1(state, preset, requestedId);
+      persist();
+      applySelected();
+      render();
+      return state.selectedPresetId;
+    },
     refresh: render,
     dispose: () => {
       search.removeEventListener('input', onSearch);
