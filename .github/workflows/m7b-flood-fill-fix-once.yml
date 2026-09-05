@@ -1,0 +1,47 @@
+name: Fix M7B flood fill once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/m7b-flood-fill-fix-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Apply Raster Layer narrowing fix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/flood-fill-engine.ts')
+          text = path.read_text()
+          old = 'const sourceTiles = await sourceTilesV1(snapshot, layer, persistence);'
+          new = 'const sourceTiles = await sourceTilesV1(snapshot, layer as RasterLayerV1, persistence);'
+          if old not in text:
+              raise SystemExit('flood fill narrowing anchor missing')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          npm ci --ignore-scripts
+          npx biome format --write src/app/flood-fill-engine.ts
+          npm run format:check
+          npm run typecheck
+          npm run test:unit
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/flood-fill-engine.ts
+          git commit -m 'fix(M7B): narrow flood fill raster source'
+          git pull --rebase origin main
+          git push origin HEAD:main
