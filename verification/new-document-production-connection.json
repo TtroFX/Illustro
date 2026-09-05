@@ -1,0 +1,19 @@
+{
+  "schema": "illustro.new-document-production-connection/1",
+  "recordedAt": "2026-09-05",
+  "rule": "The visible canonical New Document surface must create a real project through DocumentWorkflow and persistence, then enter the Canvas; the hidden legacy dialog must not be the user-facing route.",
+  "path": [
+    "M9A Library 新規作成",
+    "M8 canonical New Document form",
+    "DocumentWorkflow.createNewDocument",
+    "CanvasAdmission preflight",
+    "PaintPersistence.createNewProject",
+    "PaintSession active document",
+    "Canvas workspace"
+  ],
+  "focusedVerification": [
+    "npm run typecheck",
+    "tests/unit/m8-product-shell.test.ts",
+    "tests/unit/m9a-library-production.test.ts"
+  ]
+}
