@@ -1,4 +1,5 @@
 import type { M8SelectionContextLayerHandleV1 } from './m8-selection-context-layer.js';
+import type { M8SelectionTransformControllerHandleV1 } from './m8-selection-transform-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 import {
@@ -114,6 +115,7 @@ export function installM8SelectionLauncherV1(input: {
   readonly root: HTMLElement;
   readonly context: M8SelectionContextLayerHandleV1;
   readonly contourPresenter: SelectionContourPresenterHandleV1;
+  readonly transformController: M8SelectionTransformControllerHandleV1;
   readonly paintSession: PaintSessionControllerV1;
   readonly paintPersistence: PaintPersistenceControllerV1;
   readonly selectionCoverage: SelectionCoverageControllerV1;
@@ -156,9 +158,24 @@ export function installM8SelectionLauncherV1(input: {
   const morePanel = document.createElement('div');
   morePanel.className = 'm8e-selection-more-panel';
   morePanel.append(
-    createButtonV1('feather', `境界をぼかす ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`, '◌', 'mask'),
-    createButtonV1('expand', `選択範囲を拡張 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`, '⊕', 'mask'),
-    createButtonV1('shrink', `選択範囲を縮小 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`, '⊖', 'mask'),
+    createButtonV1(
+      'feather',
+      `境界をぼかす ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`,
+      '◌',
+      'mask',
+    ),
+    createButtonV1(
+      'expand',
+      `選択範囲を拡張 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`,
+      '⊕',
+      'mask',
+    ),
+    createButtonV1(
+      'shrink',
+      `選択範囲を縮小 ${M8_SELECTION_MORPHOLOGY_STEP_PX_V1}px`,
+      '⊖',
+      'mask',
+    ),
   );
   more.append(moreSummary, morePanel);
 
@@ -205,10 +222,10 @@ export function installM8SelectionLauncherV1(input: {
         ? selectionCopyEligibilityV1(snapshot, activeLayerId, coverage)
         : null;
     setAvailability('copy', copyEligibility?.eligible === true);
+    setAvailability('transform', input.transformController.available());
 
-    // Selected-content adapters are intentionally unavailable until their existing M7
-    // production commit paths are connected here. A visible button never fakes success.
-    setAvailability('transform', false, 'pending-dependency');
+    // Cut/Fill remain intentionally unavailable until their M7 production commit
+    // paths are connected here. A visible button never fakes success.
     setAvailability('cut', false, 'pending-dependency');
     setAvailability('fill', false, 'pending-dependency');
   };
@@ -225,6 +242,7 @@ export function installM8SelectionLauncherV1(input: {
       contour.pending === false &&
       drawing !== 'active' &&
       drawing !== 'pending-commit' &&
+      !input.transformController.active() &&
       signature !== dismissedSignature;
     launcher.hidden = !visible;
     if (!visible || !contour.stageBounds) return;
@@ -260,6 +278,13 @@ export function installM8SelectionLauncherV1(input: {
 
   const runCommand = async (command: M8SelectionLauncherCommandV1): Promise<void> => {
     if (commandBusy) return;
+    if (command === 'transform') {
+      if (!input.transformController.begin()) {
+        input.context.announce('現在の選択内容は変形できません');
+      }
+      reposition();
+      return;
+    }
     const coverage = coverageSnapshot();
     const documentValue = input.paintSession.currentDocument();
     if (!coverage || !documentValue) return;
@@ -324,6 +349,7 @@ export function installM8SelectionLauncherV1(input: {
     reposition();
   });
   const unsubscribeContour = input.contourPresenter.subscribe(() => reposition());
+  const unsubscribeTransform = input.transformController.subscribe(() => reposition());
   const rootObserver = new MutationObserver(() => reposition());
   rootObserver.observe(input.root, {
     attributes: true,
@@ -346,6 +372,7 @@ export function installM8SelectionLauncherV1(input: {
       launcher.removeEventListener('click', onLauncherClick);
       unsubscribeCoverage();
       unsubscribeContour();
+      unsubscribeTransform();
       rootObserver.disconnect();
       globalThis.removeEventListener('resize', onResize);
       launcher.remove();
