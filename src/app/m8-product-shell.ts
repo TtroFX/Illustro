@@ -81,7 +81,11 @@ function createTaskLayerV1(): HTMLElement {
 export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV1 {
   const topbar = requireElementV1<HTMLElement>(app, '.shell-topbar', 'Application / Document Bar');
   const brand = requireElementV1<HTMLElement>(topbar, '.shell-brand', 'Document Bar left cluster');
-  const actions = requireElementV1<HTMLElement>(topbar, '.shell-topbar-actions', 'Document Bar action cluster');
+  const actions = requireElementV1<HTMLElement>(
+    topbar,
+    '.shell-topbar-actions',
+    'Document Bar action cluster',
+  );
   const rail = requireElementV1<HTMLElement>(app, '.shell-tool-rail', 'Primary Tool Rail');
   const canvasWorkspace = requireElementV1<HTMLElement>(app, '.shell-document', 'Canvas Workspace');
   const inspector = requireElementV1<HTMLElement>(app, '.shell-inspector', 'Inspector Dock');
@@ -168,14 +172,12 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
   const onLibraryClose = (): void => hideLibrary();
   const onTaskClose = (): void => closeTaskSurface();
   libraryButton.addEventListener('click', onLibraryButton);
-  library.querySelector<HTMLButtonElement>('[data-m8-library-close]')?.addEventListener(
-    'click',
-    onLibraryClose,
-  );
-  taskLayer.querySelector<HTMLButtonElement>('[data-m8-task-close]')?.addEventListener(
-    'click',
-    onTaskClose,
-  );
+  library
+    .querySelector<HTMLButtonElement>('[data-m8-library-close]')
+    ?.addEventListener('click', onLibraryClose);
+  taskLayer
+    .querySelector<HTMLButtonElement>('[data-m8-task-close]')
+    ?.addEventListener('click', onTaskClose);
 
   app.dataset.m8ShellState = 'provisional';
 
@@ -209,14 +211,12 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
     closeTaskSurface,
     dispose(): void {
       libraryButton?.removeEventListener('click', onLibraryButton);
-      library?.querySelector<HTMLButtonElement>('[data-m8-library-close]')?.removeEventListener(
-        'click',
-        onLibraryClose,
-      );
-      taskLayer?.querySelector<HTMLButtonElement>('[data-m8-task-close]')?.removeEventListener(
-        'click',
-        onTaskClose,
-      );
+      library
+        ?.querySelector<HTMLButtonElement>('[data-m8-library-close]')
+        ?.removeEventListener('click', onLibraryClose);
+      taskLayer
+        ?.querySelector<HTMLButtonElement>('[data-m8-task-close]')
+        ?.removeEventListener('click', onTaskClose);
       hideLibrary();
       closeTaskSurface();
       app.classList.remove('m8-product-shell');

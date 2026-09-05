@@ -22,7 +22,8 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 2) {
     const key = argv[i];
     const value = argv[i + 1];
-    if (!key?.startsWith('--') || !value) throw new Error(`Invalid arguments near ${key ?? '<end>'}`);
+    if (!key?.startsWith('--') || !value)
+      throw new Error(`Invalid arguments near ${key ?? '<end>'}`);
     result[key.slice(2)] = value;
   }
   return result;
