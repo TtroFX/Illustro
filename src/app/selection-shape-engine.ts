@@ -52,7 +52,7 @@ export interface SelectionCoveragePersistencePortV1 {
 
 export interface PreparedSelectionCoverageV1 {
   readonly schema: 'illustro.prepared-selection-coverage/1';
-  readonly defaultCoverage: 0;
+  readonly defaultCoverage: 0 | 1;
   readonly tiles: readonly RasterTileReferenceV1[];
   readonly sourceRevision: Revision;
 }
