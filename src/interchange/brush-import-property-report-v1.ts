@@ -40,10 +40,7 @@ function summarizeSqlValueV1(value: CspSutSqlValueV1): JsonValue {
   return value;
 }
 
-function mappedCspIssueV1(
-  field: string,
-  result: CspBrushMapResultV1,
-): StructuredReportIssueV1 {
+function mappedCspIssueV1(field: string, result: CspBrushMapResultV1): StructuredReportIssueV1 {
   if (field === 'Node.NodeName') {
     return createStructuredReportIssue({
       code: 'BrushImport.Csp.Name.Mapped',
@@ -105,18 +102,24 @@ function ignoredCspIssueV1(parsed: CspSutParsedV1, field: string): StructuredRep
   const key = field.startsWith('Variant.') ? field.slice('Variant.'.length) : null;
   const value = key === null ? null : (parsed.variant[key] ?? null);
   return createStructuredReportIssue({
-    code: field === 'MaterialFile.FileData' ? 'BrushImport.Csp.Material.Ignored' : 'BrushImport.Csp.Property.Ignored',
+    code:
+      field === 'MaterialFile.FileData'
+        ? 'BrushImport.Csp.Material.Ignored'
+        : 'BrushImport.Csp.Property.Ignored',
     severity: 'lossy',
     sourcePath: field,
     sourceFeature:
-      field === 'MaterialFile.FileData' ? 'embedded brush material' : `CSP property ${key ?? field}`,
+      field === 'MaterialFile.FileData'
+        ? 'embedded brush material'
+        : `CSP property ${key ?? field}`,
     mapping: 'ignored',
     resultingPath: null,
     messageKey: 'BrushImport.Property.Unsupported',
     details:
       field === 'MaterialFile.FileData'
         ? {
-            materialCount: parsed.materials.filter((row) => row.FileData instanceof Uint8Array).length,
+            materialCount: parsed.materials.filter((row) => row.FileData instanceof Uint8Array)
+              .length,
             sourcePayloadPreservedByParser: true,
           }
         : { sourceValue: summarizeSqlValueV1(value) },

@@ -8,10 +8,12 @@ import {
 import { mapIbisBrushToIllustroV1 } from '../../src/interchange/ibis-brush-mapper-v1.js';
 import type { IbisBrushPayloadV1 } from '../../src/interchange/ibis-brush-parser-v1.js';
 
-function cspFixtureV1(input: {
-  readonly variant?: CspSutParsedV1['variant'];
-  readonly materialData?: Uint8Array | null;
-} = {}): CspSutParsedV1 {
+function cspFixtureV1(
+  input: {
+    readonly variant?: CspSutParsedV1['variant'];
+    readonly materialData?: Uint8Array | null;
+  } = {},
+): CspSutParsedV1 {
   const materials =
     input.materialData === null
       ? []
@@ -48,11 +50,13 @@ function cspFixtureV1(input: {
   });
 }
 
-function ibisFixtureV1(input: {
-  readonly parameterPrefixBytes?: number;
-  readonly postNameBytes?: number;
-  readonly trailerBytes?: number;
-} = {}): IbisBrushPayloadV1 {
+function ibisFixtureV1(
+  input: {
+    readonly parameterPrefixBytes?: number;
+    readonly postNameBytes?: number;
+    readonly trailerBytes?: number;
+  } = {},
+): IbisBrushPayloadV1 {
   const decodedBytes = new Uint8Array(64);
   new DataView(decodedBytes.buffer).setUint32(16, 4, false);
   new DataView(decodedBytes.buffer).setFloat32(20, 12, false);
