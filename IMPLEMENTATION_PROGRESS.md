@@ -576,7 +576,7 @@ M7A-015 contract selection:完了
 M7A-016 feather selection:完了
 M7A-017 Quick Mask:完了
 M7A-018 alpha/transparency→selection:完了
-M7A-019 selection cut:未完了
+M7A-019 selection cut:完了
 M7A-020 selection copy:未完了
 M7A-021 selection paste:未完了
 M7A-022 selection-scoped transform:未完了
