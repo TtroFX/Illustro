@@ -64,6 +64,30 @@ export interface LinkedObjectRefreshCommitResultV1 {
   readonly handlePersisted: boolean;
 }
 
+export type LinkedObjectRefreshDecisionV1 = 'commit' | 'cancel';
+
+export type LinkedObjectRefreshWorkflowStateV1 =
+  | Exclude<LinkedObjectRefreshStateV1, 'ready'>
+  | 'cancelled'
+  | 'stale'
+  | 'committed';
+
+export type LinkedObjectReadyRefreshStageV1 = LinkedObjectRefreshStageV1 & {
+  readonly state: 'ready';
+  readonly handle: LinkedObjectExternalHandleV1;
+  readonly externalSource: LinkedObjectExternalSourceV1;
+  readonly candidateSnapshot: DocumentV1;
+};
+
+export interface LinkedObjectRefreshWorkflowResultV1 {
+  readonly state: LinkedObjectRefreshWorkflowStateV1;
+  readonly stage: LinkedObjectRefreshStageV1;
+  readonly layer: LinkedObjectLayerV1;
+  readonly committed: boolean;
+  readonly handlePersisted: boolean;
+  readonly message: string | null;
+}
+
 export type LinkedObjectPersistentHandleLinkStateV1 =
   | 'linked'
   | 'untracked'
@@ -214,6 +238,17 @@ function persistentHandleLinkResult(
   message: string | null,
 ): LinkedObjectPersistentHandleLinkResultV1 {
   return Object.freeze({ state, layer, handlePersisted, sourceHash, message });
+}
+
+function refreshWorkflowResult(
+  state: LinkedObjectRefreshWorkflowStateV1,
+  stage: LinkedObjectRefreshStageV1,
+  layer: LinkedObjectLayerV1,
+  committed: boolean,
+  handlePersisted: boolean,
+  message: string | null,
+): LinkedObjectRefreshWorkflowResultV1 {
+  return Object.freeze({ state, stage, layer, committed, handlePersisted, message });
 }
 
 function isMissingFileError(error: unknown): boolean {
@@ -401,6 +436,85 @@ export class LinkedObjectExternalControllerV1 {
       );
     }
     return this.#stageFromHandle(input.layer, handle);
+  }
+
+  async refresh(input: {
+    readonly projectId: ProjectId;
+    readonly layer: LinkedObjectLayerV1;
+    readonly review: (
+      stage: LinkedObjectReadyRefreshStageV1,
+    ) => LinkedObjectRefreshDecisionV1 | Promise<LinkedObjectRefreshDecisionV1>;
+    readonly getCurrentLayer: () =>
+      | LinkedObjectLayerV1
+      | null
+      | Promise<LinkedObjectLayerV1 | null>;
+    readonly commitTransaction: (nextLayer: LinkedObjectLayerV1) => Promise<void>;
+  }): Promise<LinkedObjectRefreshWorkflowResultV1> {
+    const stage = await this.stageRefresh({ projectId: input.projectId, layer: input.layer });
+    if (
+      stage.state !== 'ready' ||
+      stage.handle === null ||
+      stage.externalSource === null ||
+      stage.candidateSnapshot === null
+    ) {
+      const state: LinkedObjectRefreshWorkflowStateV1 =
+        stage.state === 'ready' ? 'invalid' : stage.state;
+      return refreshWorkflowResult(
+        state,
+        stage,
+        input.layer,
+        false,
+        false,
+        stage.state === 'ready'
+          ? 'Refresh stage was incomplete and cannot be committed.'
+          : stage.message,
+      );
+    }
+
+    const readyStage = stage as LinkedObjectReadyRefreshStageV1;
+    const decision = await input.review(readyStage);
+    if (decision !== 'commit') {
+      return refreshWorkflowResult(
+        'cancelled',
+        stage,
+        input.layer,
+        false,
+        false,
+        'External refresh was cancelled; embedded snapshot remains unchanged.',
+      );
+    }
+
+    const currentLayer = await input.getCurrentLayer();
+    if (
+      currentLayer === null ||
+      currentLayer.objectId !== stage.layer.objectId ||
+      currentLayer.revision !== stage.layer.revision
+    ) {
+      return refreshWorkflowResult(
+        'stale',
+        stage,
+        input.layer,
+        false,
+        false,
+        'Linked object changed while the refresh was being reviewed; stage again before committing.',
+      );
+    }
+
+    const result = await this.commit({
+      projectId: input.projectId,
+      stage,
+      commitTransaction: input.commitTransaction,
+    });
+    return refreshWorkflowResult(
+      'committed',
+      stage,
+      result.layer,
+      true,
+      result.handlePersisted,
+      result.handlePersisted
+        ? null
+        : 'Refresh committed, but the optional persistent external handle could not be retained.',
+    );
   }
 
   async stageRelink(input: {
