@@ -2,6 +2,7 @@ import { startProductionBrushTipResourceManagerV1 } from './brush-tip-resource-m
 import { startProductionGrainResourceManagerV1 } from './grain-resource-manager.js';
 import { installM7UiSkeletonV1 } from './m7-ui-shell.js';
 import { installM8ProductShellV1 } from './m8-product-shell.js';
+import { installM8ToolRailV1 } from './m8-tool-rail.js';
 import { startProductionPaperResourceManagerV1 } from './paper-resource-manager.js';
 import { startProductionPatternResourceManagerV1 } from './pattern-resource-manager.js';
 
@@ -35,6 +36,7 @@ export function installFoundationShell(): FoundationShell {
 
   const m7UiSkeleton = installM7UiSkeletonV1(app);
   const m8ProductShell = installM8ProductShellV1(app);
+  const m8ToolRail = installM8ToolRailV1(app);
 
   app.dataset.brushTipResources = 'loading';
   void startProductionBrushTipResourceManagerV1()
@@ -123,6 +125,7 @@ export function installFoundationShell(): FoundationShell {
       observer?.disconnect();
       if (!observer) globalThis.removeEventListener('resize', resize);
       listeners.clear();
+      m8ToolRail.dispose();
       m8ProductShell.dispose();
       m7UiSkeleton.dispose();
       app.dataset.shellState = 'disposed';
