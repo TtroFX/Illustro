@@ -52,7 +52,7 @@ describe('M8C canonical Tool Rail', () => {
   });
 
   it('uses icon-only persistent presentation with accessible identification', () => {
-    expect(source).toContain('button.dataset.m8Tooltip = family.label');
+    expect(source).not.toContain('dataset.m8Tooltip');
     expect(source).toContain("button.setAttribute('aria-label', family.label)");
     expect(source).not.toContain('m8c-family-label');
     expect(css).toContain('width: 22px');
@@ -78,9 +78,19 @@ describe('M8C canonical Tool Rail', () => {
     expect(source).toContain("blend: 'brush-mode-smudge'");
   });
 
-  it('provides family flyout discovery through long press and secondary activation', () => {
-    expect(source).toContain('}, 460)');
+  it('keeps details on deliberate long press or secondary activation only', () => {
+    expect(source).toContain('const longPressDelayMs = 520');
+    expect(source).toContain('const longPressMoveTolerancePx = 10');
+    expect(source).toContain("scroller.addEventListener('pointermove', onPointerMove)");
+    expect(source).toContain('suppressNextClick = true');
+    expect(source).toContain("if (entryId === 'lasso-direct')");
     expect(source).toContain("scroller.addEventListener('contextmenu', onContextMenu)");
     expect(source).toContain("flyout.className = 'm8c-subtool-flyout'");
+  });
+
+  it('closes an already-open detail flyout when the same icon is pressed again', () => {
+    expect(source).toContain('if (!flyout.hidden && openFlyoutEntry === entryId)');
+    expect(source).toContain('openFlyoutEntry = null');
+    expect(source).toContain('openFlyoutEntry = entryId');
   });
 });

@@ -317,7 +317,6 @@ function createFamilyButtonV1(family: M8ToolFamilyV1): HTMLButtonElement {
   button.className = 'm8c-family-button';
   button.dataset.m8cFamily = family.id;
   button.dataset.tone = family.tone;
-  button.dataset.m8Tooltip = family.label;
   button.setAttribute('aria-label', family.label);
   button.setAttribute('aria-pressed', 'false');
   button.innerHTML = `<span class="m8c-family-glyph">${family.icon}</span><span class="m8c-family-affordance" aria-hidden="true"></span>`;
@@ -330,7 +329,6 @@ function createDirectLassoButtonV1(): HTMLButtonElement {
   button.className = 'm8c-family-button m8c-lasso-direct';
   button.dataset.m8cEntry = 'lasso-direct';
   button.dataset.tone = 'magenta';
-  button.dataset.m8Tooltip = '投げ縄選択';
   button.dataset.productionState = 'planned';
   button.setAttribute('aria-label', '投げ縄選択');
   button.setAttribute('aria-pressed', 'false');
@@ -393,8 +391,15 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   rail.append(scroller, resizeHandle, flyout);
 
   let activeFamily: M8ToolFamilyIdV1 | null = null;
+  let openFlyoutEntry: M8ToolRailEntryIdV1 | null = null;
   let longPressTimer: number | null = null;
+  let longPressPointerId: number | null = null;
+  let longPressStartX = 0;
+  let longPressStartY = 0;
   let longPressFired = false;
+  let suppressNextClick = false;
+  const longPressDelayMs = 520;
+  const longPressMoveTolerancePx = 10;
 
   const setActiveFamily = (familyId: M8ToolFamilyIdV1 | null): void => {
     activeFamily = familyId;
@@ -405,6 +410,7 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
 
   const closeFlyout = (): void => {
     flyout.hidden = true;
+    openFlyoutEntry = null;
   };
 
   const openFlyout = (entryId: M8ToolFamilyIdV1 | 'lasso-direct'): void => {
@@ -455,6 +461,15 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
     const top = Math.max(6, Math.min(buttonRect.top - railRect.top - 8, railRect.height - 270));
     flyout.style.setProperty('--m8c-flyout-top', `${top}px`);
     flyout.hidden = false;
+    openFlyoutEntry = entryId;
+  };
+
+  const toggleFlyout = (entryId: M8ToolRailEntryIdV1): void => {
+    if (!flyout.hidden && openFlyoutEntry === entryId) {
+      closeFlyout();
+      return;
+    }
+    openFlyout(entryId);
   };
 
   const activatePrimary = (familyId: M8ToolFamilyIdV1): void => {
@@ -462,12 +477,8 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
     if (!family) return;
     const primaryId = PRIMARY_PROXY_BY_FAMILY_V1[familyId];
     const target = primaryId ? productionProxyV1(primaryId) : null;
-    if (!target) {
-      openFlyout(familyId);
-      return;
-    }
-    if (activeFamily === familyId) {
-      openFlyout(familyId);
+    if (!target || activeFamily === familyId) {
+      closeFlyout();
       return;
     }
     target.click();
@@ -480,19 +491,37 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
     longPressTimer = null;
   };
 
+  const clearLongPressState = (): void => {
+    cancelLongPress();
+    longPressPointerId = null;
+    longPressFired = false;
+  };
+
   const onRailClick = (event: Event): void => {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     const target =
       event.target instanceof Element
         ? event.target.closest<HTMLButtonElement>('.m8c-family-button')
         : null;
     if (!target) return;
-    const direct = target.dataset.m8cEntry;
-    if (direct === 'lasso-direct') {
-      openFlyout('lasso-direct');
+    const entryId = (target.dataset.m8cEntry ?? target.dataset.m8cFamily) as
+      | M8ToolRailEntryIdV1
+      | undefined;
+    if (!entryId) return;
+    if (!flyout.hidden && openFlyoutEntry === entryId) {
+      closeFlyout();
       return;
     }
-    const familyId = target.dataset.m8cFamily as M8ToolFamilyIdV1 | undefined;
-    if (familyId) activatePrimary(familyId);
+    if (entryId === 'lasso-direct') {
+      closeFlyout();
+      return;
+    }
+    activatePrimary(entryId);
   };
 
   const onPointerDown = (event: PointerEvent): void => {
@@ -501,24 +530,50 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
         ? event.target.closest<HTMLButtonElement>('.m8c-family-button')
         : null;
     if (!target || event.button !== 0) return;
-    cancelLongPress();
-    longPressFired = false;
+    clearLongPressState();
+    longPressPointerId = event.pointerId;
+    longPressStartX = event.clientX;
+    longPressStartY = event.clientY;
     const entryId = (target.dataset.m8cEntry ?? target.dataset.m8cFamily) as
       | M8ToolRailEntryIdV1
       | undefined;
     if (!entryId) return;
+    target.setPointerCapture?.(event.pointerId);
     longPressTimer = globalThis.setTimeout(() => {
+      if (longPressPointerId !== event.pointerId) return;
+      longPressTimer = null;
       longPressFired = true;
       openFlyout(entryId);
-    }, 460);
+    }, longPressDelayMs);
+  };
+
+  const onPointerMove = (event: PointerEvent): void => {
+    if (longPressPointerId !== event.pointerId || longPressTimer === null) return;
+    const distance = Math.hypot(event.clientX - longPressStartX, event.clientY - longPressStartY);
+    if (distance > longPressMoveTolerancePx) cancelLongPress();
   };
 
   const onPointerUp = (event: PointerEvent): void => {
+    if (longPressPointerId !== event.pointerId) return;
     cancelLongPress();
-    if (!longPressFired) return;
-    event.preventDefault();
-    event.stopPropagation();
+    if (longPressFired) {
+      suppressNextClick = true;
+      globalThis.setTimeout(() => {
+        suppressNextClick = false;
+      }, 0);
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    longPressPointerId = null;
     longPressFired = false;
+  };
+
+  const onPointerCancel = (): void => {
+    clearLongPressState();
+  };
+
+  const onPointerLeave = (): void => {
+    if (!longPressFired) cancelLongPress();
   };
 
   const onContextMenu = (event: MouseEvent): void => {
@@ -531,13 +586,15 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
     const entryId = (target.dataset.m8cEntry ?? target.dataset.m8cFamily) as
       | M8ToolRailEntryIdV1
       | undefined;
-    if (entryId) openFlyout(entryId);
+    if (entryId) toggleFlyout(entryId);
   };
 
   scroller.addEventListener('click', onRailClick);
   scroller.addEventListener('pointerdown', onPointerDown);
+  scroller.addEventListener('pointermove', onPointerMove);
   scroller.addEventListener('pointerup', onPointerUp);
-  scroller.addEventListener('pointercancel', cancelLongPress);
+  scroller.addEventListener('pointercancel', onPointerCancel);
+  scroller.addEventListener('pointerleave', onPointerLeave);
   scroller.addEventListener('contextmenu', onContextMenu);
 
   const updateWidth = (width: number): void => {
@@ -637,8 +694,10 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
       document.removeEventListener('pointerdown', onDocumentPointerDown, true);
       scroller.removeEventListener('click', onRailClick);
       scroller.removeEventListener('pointerdown', onPointerDown);
+      scroller.removeEventListener('pointermove', onPointerMove);
       scroller.removeEventListener('pointerup', onPointerUp);
-      scroller.removeEventListener('pointercancel', cancelLongPress);
+      scroller.removeEventListener('pointercancel', onPointerCancel);
+      scroller.removeEventListener('pointerleave', onPointerLeave);
       scroller.removeEventListener('contextmenu', onContextMenu);
       resizeHandle.removeEventListener('pointerdown', onResizePointerDown);
       resizeHandle.removeEventListener('pointermove', onResizePointerMove);
