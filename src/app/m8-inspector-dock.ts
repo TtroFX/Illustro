@@ -30,19 +30,110 @@ export const M8_INSPECTOR_WORKSPACE_KEY_V1 = 'illustro.m8.inspector-workspace.v1
 export const M8_INSPECTOR_SAVED_WORKSPACES_KEY_V1 = 'illustro.m8.saved-workspaces.v1';
 
 export const M8_INSPECTOR_BLOCKS_V1: readonly M8InspectorBlockSpecV1[] = Object.freeze([
-  { id: 'tool-properties', title: 'ツールプロパティ', icon: '☷', tone: 'blue', productionState: 'available', defaultExpanded: true },
-  { id: 'brush-presets', title: 'ブラシプリセット', icon: '✎', tone: 'orange', productionState: 'available', defaultExpanded: true },
-  { id: 'brush-studio', title: 'ブラシスタジオ', icon: '⌘', tone: 'violet', productionState: 'available', defaultExpanded: false },
-  { id: 'color', title: 'カラー', icon: '◉', tone: 'rainbow', productionState: 'available', defaultExpanded: true },
-  { id: 'layers', title: 'レイヤー', icon: '▱', tone: 'pink', productionState: 'available', defaultExpanded: true },
-  { id: 'layer-properties', title: 'レイヤープロパティ', icon: '◇', tone: 'cyan', productionState: 'available', defaultExpanded: false },
-  { id: 'effects-adjustments', title: '効果・調整', icon: '✦', tone: 'yellow', productionState: 'planned', defaultExpanded: false },
-  { id: 'navigator', title: 'ナビゲーター', icon: '⌖', tone: 'blue', productionState: 'planned', defaultExpanded: false },
-  { id: 'reference-sub-view', title: 'リファレンス / サブビュー', icon: '▧', tone: 'mint', productionState: 'available', defaultExpanded: false },
-  { id: 'history', title: '履歴', icon: '↶', tone: 'violet', productionState: 'available', defaultExpanded: false },
-  { id: 'quick-access', title: 'クイックアクセス', icon: '☆', tone: 'yellow', productionState: 'planned', defaultExpanded: false },
-  { id: 'assets', title: '素材', icon: '⬡', tone: 'magenta', productionState: 'available', defaultExpanded: false },
-  { id: 'auto-actions-timelapse', title: 'オートアクション / タイムラプス', icon: '◷', tone: 'orange', productionState: 'planned', defaultExpanded: false },
+  {
+    id: 'tool-properties',
+    title: 'ツールプロパティ',
+    icon: '☷',
+    tone: 'blue',
+    productionState: 'available',
+    defaultExpanded: true,
+  },
+  {
+    id: 'brush-presets',
+    title: 'ブラシプリセット',
+    icon: '✎',
+    tone: 'orange',
+    productionState: 'available',
+    defaultExpanded: true,
+  },
+  {
+    id: 'brush-studio',
+    title: 'ブラシスタジオ',
+    icon: '⌘',
+    tone: 'violet',
+    productionState: 'available',
+    defaultExpanded: false,
+  },
+  {
+    id: 'color',
+    title: 'カラー',
+    icon: '◉',
+    tone: 'rainbow',
+    productionState: 'available',
+    defaultExpanded: true,
+  },
+  {
+    id: 'layers',
+    title: 'レイヤー',
+    icon: '▱',
+    tone: 'pink',
+    productionState: 'available',
+    defaultExpanded: true,
+  },
+  {
+    id: 'layer-properties',
+    title: 'レイヤープロパティ',
+    icon: '◇',
+    tone: 'cyan',
+    productionState: 'available',
+    defaultExpanded: false,
+  },
+  {
+    id: 'effects-adjustments',
+    title: '効果・調整',
+    icon: '✦',
+    tone: 'yellow',
+    productionState: 'planned',
+    defaultExpanded: false,
+  },
+  {
+    id: 'navigator',
+    title: 'ナビゲーター',
+    icon: '⌖',
+    tone: 'blue',
+    productionState: 'planned',
+    defaultExpanded: false,
+  },
+  {
+    id: 'reference-sub-view',
+    title: 'リファレンス / サブビュー',
+    icon: '▧',
+    tone: 'mint',
+    productionState: 'available',
+    defaultExpanded: false,
+  },
+  {
+    id: 'history',
+    title: '履歴',
+    icon: '↶',
+    tone: 'violet',
+    productionState: 'available',
+    defaultExpanded: false,
+  },
+  {
+    id: 'quick-access',
+    title: 'クイックアクセス',
+    icon: '☆',
+    tone: 'yellow',
+    productionState: 'planned',
+    defaultExpanded: false,
+  },
+  {
+    id: 'assets',
+    title: '素材',
+    icon: '⬡',
+    tone: 'magenta',
+    productionState: 'available',
+    defaultExpanded: false,
+  },
+  {
+    id: 'auto-actions-timelapse',
+    title: 'オートアクション / タイムラプス',
+    icon: '◷',
+    tone: 'orange',
+    productionState: 'planned',
+    defaultExpanded: false,
+  },
 ]);
 
 interface DetachedStateV1 {
@@ -160,7 +251,9 @@ function readSavedWorkspacesV1(storage: Storage | null): readonly SavedWorkspace
     if (!Array.isArray(value)) return Object.freeze([]);
     return Object.freeze(
       value
-        .filter((entry) => typeof entry === 'object' && entry !== null && typeof entry.name === 'string')
+        .filter(
+          (entry) => typeof entry === 'object' && entry !== null && typeof entry.name === 'string',
+        )
         .map((entry) => ({
           name: String(entry.name),
           state: normalizeStateV1((entry as { state?: unknown }).state),
@@ -189,7 +282,8 @@ function proxyButtonV1(id: string): void {
 }
 
 function renderBodyV1(spec: M8InspectorBlockSpecV1): string {
-  const planned = spec.productionState === 'planned' ? '<span class="m8d-production-badge">接続待ち</span>' : '';
+  const planned =
+    spec.productionState === 'planned' ? '<span class="m8d-production-badge">接続待ち</span>' : '';
   if (spec.id === 'tool-properties') {
     return `<div class="m8d-tool-properties">
       <div class="m8d-property-row"><span>ブラシサイズ</span><div class="m8d-slider"><i style="width:62%"></i></div><strong data-m8d-live="brush-size">—</strong></div>
@@ -199,10 +293,10 @@ function renderBodyV1(spec: M8InspectorBlockSpecV1): string {
     </div>`;
   }
   if (spec.id === 'brush-presets') {
-    return `<div class="m8d-preset-grid">${['鉛筆','ペン','マーカー','水彩','エアブラシ','ぼかし'].map((name, index) => `<button type="button" data-m8d-preset-preview="${index}"><span>${['✎','✒','▰','◒','◌','◍'][index]}</span><small>${name}</small></button>`).join('')}</div>`;
+    return `<div class="m8d-preset-grid">${['鉛筆', 'ペン', 'マーカー', '水彩', 'エアブラシ', 'ぼかし'].map((name, index) => `<button type="button" data-m8d-preset-preview="${index}"><span>${['✎', '✒', '▰', '◒', '◌', '◍'][index]}</span><small>${name}</small></button>`).join('')}</div>`;
   }
   if (spec.id === 'brush-studio') {
-    return `<div class="m8d-chip-grid">${['Tip','Stroke','Ink','Dynamics','Jitter','Spray','Texture','Mixing','Anti-overflow','Stabilization'].map((label) => `<span>${label}</span>`).join('')}</div>`;
+    return `<div class="m8d-chip-grid">${['Tip', 'Stroke', 'Ink', 'Dynamics', 'Jitter', 'Spray', 'Texture', 'Mixing', 'Anti-overflow', 'Stabilization'].map((label) => `<span>${label}</span>`).join('')}</div>`;
   }
   if (spec.id === 'color') {
     return `<div class="m8d-color-body"><div class="m8d-color-wheel" aria-hidden="true"><i></i></div><div class="m8d-color-swatches"><button type="button" aria-label="メインカラー"></button><button type="button" aria-label="サブカラー"></button><button type="button" aria-label="前の色"></button></div></div>`;
@@ -317,7 +411,8 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     const order = Array.from(list.querySelectorAll<HTMLElement>('[data-m8d-block]'))
       .map((element) => element.dataset.m8dBlock)
       .filter(isBlockIdV1);
-    for (const id of M8_INSPECTOR_BLOCKS_V1.map((entry) => entry.id)) if (!order.includes(id)) order.push(id);
+    for (const id of M8_INSPECTOR_BLOCKS_V1.map((entry) => entry.id))
+      if (!order.includes(id)) order.push(id);
     const collapsed = Array.from(blocks.entries())
       .filter(([, block]) => block.classList.contains('is-collapsed'))
       .map(([id]) => id);
@@ -339,7 +434,8 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     return Object.freeze({
       schema: 'illustro.m8.inspector-workspace/1' as const,
       inspectorWidth: clamp(
-        Number.parseFloat(canonicalShell.style.getPropertyValue('--m8-inspector-width')) || state.inspectorWidth,
+        Number.parseFloat(canonicalShell.style.getPropertyValue('--m8-inspector-width')) ||
+          state.inspectorWidth,
         M8_INSPECTOR_WIDTH_V1.min,
         M8_INSPECTOR_WIDTH_V1.max,
       ),
@@ -380,7 +476,11 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     if (shouldPersist) persist();
   };
 
-  const setBlockCollapsed = (id: M8InspectorBlockIdV1, collapsed: boolean, shouldPersist = true): void => {
+  const setBlockCollapsed = (
+    id: M8InspectorBlockIdV1,
+    collapsed: boolean,
+    shouldPersist = true,
+  ): void => {
     const block = blocks.get(id);
     if (!block) return;
     block.classList.toggle('is-collapsed', collapsed);
@@ -509,7 +609,10 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
   const saveCurrentWorkspace = (): void => {
     const current = snapshotState();
     const nextName = `Workspace ${savedWorkspaces.length + 1}`;
-    savedWorkspaces = Object.freeze([...savedWorkspaces, Object.freeze({ name: nextName, state: current })]);
+    savedWorkspaces = Object.freeze([
+      ...savedWorkspaces,
+      Object.freeze({ name: nextName, state: current }),
+    ]);
     try {
       storage?.setItem(M8_INSPECTOR_SAVED_WORKSPACES_KEY_V1, JSON.stringify(savedWorkspaces));
     } catch {
@@ -523,7 +626,11 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
   const resetWorkspace = (): void => {
     for (const id of M8_INSPECTOR_BLOCKS_V1.map((entry) => entry.id)) {
       const block = blocks.get(id);
-      if (block?.classList.contains('is-detached')) redock(id, M8_INSPECTOR_BLOCKS_V1.findIndex((entry) => entry.id === id));
+      if (block?.classList.contains('is-detached'))
+        redock(
+          id,
+          M8_INSPECTOR_BLOCKS_V1.findIndex((entry) => entry.id === id),
+        );
     }
     applyState(defaultStateV1());
     renderPanelManager();
@@ -579,7 +686,10 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
 
   const onBlockPointerDown = (event: PointerEvent): void => {
     if (event.button !== 0) return;
-    const handle = event.target instanceof Element ? event.target.closest<HTMLElement>('.m8d-drag-handle') : null;
+    const handle =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>('.m8d-drag-handle')
+        : null;
     const block = handle?.closest<HTMLElement>('[data-m8d-block]') ?? null;
     const id = block?.dataset.m8dBlock;
     if (!block || !isBlockIdV1(id)) return;
@@ -602,10 +712,15 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
       block.style.left = `${clamp(event.clientX - pointerOffsetX, 0, Math.max(0, innerWidth - M8_PIP_MIN_WIDTH_V1))}px`;
       block.style.top = `${clamp(event.clientY - pointerOffsetY, 64, Math.max(64, innerHeight - M8_PIP_MIN_HEIGHT_V1))}px`;
       const inspectorRect = inspector.getBoundingClientRect();
-      const nearDock = event.clientX >= inspectorRect.left - 72 && event.clientX <= inspectorRect.right + 28;
+      const nearDock =
+        event.clientX >= inspectorRect.left - 72 && event.clientX <= inspectorRect.right + 28;
       if (nearDock) {
         const docked = Array.from(list.querySelectorAll<HTMLElement>('[data-m8d-block]'));
-        dockIndexCandidate = docked.findIndex((candidate) => event.clientY < candidate.getBoundingClientRect().top + candidate.getBoundingClientRect().height / 2);
+        dockIndexCandidate = docked.findIndex(
+          (candidate) =>
+            event.clientY <
+            candidate.getBoundingClientRect().top + candidate.getBoundingClientRect().height / 2,
+        );
         if (dockIndexCandidate < 0) dockIndexCandidate = docked.length;
         const before = docked[dockIndexCandidate] ?? dockCandidate;
         list.insertBefore(dockCandidate, before);
@@ -629,7 +744,8 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     const id = blockDragId;
     const block = blocks.get(id);
     block?.classList.remove('is-dragging');
-    if (block?.classList.contains('is-detached') && dockIndexCandidate !== null) redock(id, dockIndexCandidate);
+    if (block?.classList.contains('is-detached') && dockIndexCandidate !== null)
+      redock(id, dockIndexCandidate);
     else persist();
     dockCandidate.hidden = true;
     dockIndexCandidate = null;
@@ -638,7 +754,8 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
   };
 
   const onInspectorClick = (event: Event): void => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null;
+    const target =
+      event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button') : null;
     if (!target) return;
     const block = target.closest<HTMLElement>('[data-m8d-block]');
     const id = block?.dataset.m8dBlock;
@@ -651,14 +768,18 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
       return;
     }
     if (!isBlockIdV1(id)) return;
-    if (target.matches('.m8d-collapse')) setBlockCollapsed(id, !block?.classList.contains('is-collapsed'));
+    if (target.matches('.m8d-collapse'))
+      setBlockCollapsed(id, !block?.classList.contains('is-collapsed'));
     else if (target.matches('.m8d-detach')) detach(id);
     else if (target.matches('.m8d-pip-return')) redock(id);
     else if (target.dataset.m8dProxy) proxyButtonV1(target.dataset.m8dProxy);
   };
 
   const onPanelClick = (event: Event): void => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLElement>('button,input,select') : null;
+    const target =
+      event.target instanceof Element
+        ? event.target.closest<HTMLElement>('button,input,select')
+        : null;
     if (!target) return;
     if (target.matches('[data-m8d-panel-close]')) closePanelManager();
     else if (target.matches('[data-m8d-workspace-save]')) saveCurrentWorkspace();
@@ -672,7 +793,11 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
   };
 
   const onPanelChange = (event: Event): void => {
-    const select = event.target instanceof HTMLSelectElement && event.target.matches('[data-m8d-workspace-select]') ? event.target : null;
+    const select =
+      event.target instanceof HTMLSelectElement &&
+      event.target.matches('[data-m8d-workspace-select]')
+        ? event.target
+        : null;
     if (!select || select.value === 'current') return;
     const index = Number(select.value);
     const workspace = savedWorkspaces[index];
@@ -692,31 +817,49 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
   panelManager.addEventListener('click', onPanelClick);
   panelManager.addEventListener('change', onPanelChange);
 
-  const resizeObserver = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
-    if (Array.from(blocks.values()).some((block) => block.classList.contains('is-detached'))) persist();
-  }) : null;
+  const resizeObserver =
+    typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => {
+          if (Array.from(blocks.values()).some((block) => block.classList.contains('is-detached')))
+            persist();
+        })
+      : null;
   for (const block of blocks.values()) resizeObserver?.observe(block);
 
   actionStrip.innerHTML = `<button type="button" data-m8d-action="undo" aria-label="元に戻す">↶</button><button type="button" data-m8d-action="redo" aria-label="やり直す">↷</button><button type="button" data-m8d-action="flip-horizontal" aria-label="左右反転表示">⇄</button><button type="button" data-m8d-action="flip-vertical" aria-label="上下反転表示">⇅</button>`;
   const onActionStripClick = (event: Event): void => {
-    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-m8d-action]') : null;
+    const button =
+      event.target instanceof Element
+        ? event.target.closest<HTMLButtonElement>('[data-m8d-action]')
+        : null;
     if (!button) return;
     if (button.dataset.m8dAction === 'undo') proxyButtonV1('history-undo');
     else if (button.dataset.m8dAction === 'redo') proxyButtonV1('history-redo');
     else {
       canonicalShell.dataset.m8dViewCommand = button.dataset.m8dAction ?? '';
-      canonicalShell.dispatchEvent(new CustomEvent('illustro:m8d-view-command', { detail: button.dataset.m8dAction }));
+      canonicalShell.dispatchEvent(
+        new CustomEvent('illustro:m8d-view-command', { detail: button.dataset.m8dAction }),
+      );
     }
   };
   actionStrip.addEventListener('click', onActionStripClick);
 
-  const runtimeObserver = typeof MutationObserver === 'function' ? new MutationObserver(() => {
-    const brushSize = canonicalShell.querySelector<HTMLElement>('[data-m8d-live="brush-size"]');
-    if (brushSize) brushSize.textContent = document.documentElement.dataset.illustroBrushSize ?? '—';
-    const activeLayerId = document.documentElement.dataset.illustroActiveLayerId;
-    const layerName = canonicalShell.querySelector<HTMLElement>('.m8d-layer-row.is-selected .m8d-layer-name');
-    if (layerName && activeLayerId) layerName.textContent = `Layer · ${activeLayerId.slice(0, 6)}`;
-  }) : null;
+  const runtimeObserver =
+    typeof MutationObserver === 'function'
+      ? new MutationObserver(() => {
+          const brushSize = canonicalShell.querySelector<HTMLElement>(
+            '[data-m8d-live="brush-size"]',
+          );
+          if (brushSize)
+            brushSize.textContent = document.documentElement.dataset.illustroBrushSize ?? '—';
+          const activeLayerId = document.documentElement.dataset.illustroActiveLayerId;
+          const layerName = canonicalShell.querySelector<HTMLElement>(
+            '.m8d-layer-row.is-selected .m8d-layer-name',
+          );
+          if (layerName && activeLayerId)
+            layerName.textContent = `Layer · ${activeLayerId.slice(0, 6)}`;
+        })
+      : null;
   runtimeObserver?.observe(document.documentElement, { attributes: true });
 
   applyState(state, false);
