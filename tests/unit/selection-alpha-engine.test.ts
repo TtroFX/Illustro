@@ -156,12 +156,7 @@ describe('M7A alpha/transparency to selection', () => {
       4,
       1,
       'rgba8-unorm',
-      new Uint8Array([
-        10, 20, 30, 0,
-        10, 20, 30, 64,
-        10, 20, 30, 128,
-        10, 20, 30, 255,
-      ]),
+      new Uint8Array([10, 20, 30, 0, 10, 20, 30, 64, 10, 20, 30, 128, 10, 20, 30, 255]),
       { visible: false, opacity: 0.2 },
     );
     const snapshot = snapshotWith(source, 4, 1);
@@ -246,10 +241,14 @@ describe('M7A alpha/transparency to selection', () => {
         color: { space: document.color.workingSpace, rgba: [0, 0, 0, 1] },
       },
     });
-    const opaquePrepared = await prepareLayerAlphaSelectionV1(snapshotWith(opaque, 130, 1), opaque.id, {
-      revision: parseRevision(7),
-      persistence,
-    });
+    const opaquePrepared = await prepareLayerAlphaSelectionV1(
+      snapshotWith(opaque, 130, 1),
+      opaque.id,
+      {
+        revision: parseRevision(7),
+        persistence,
+      },
+    );
     expect(opaquePrepared).toMatchObject({ defaultCoverage: 1, tiles: [] });
   });
 
