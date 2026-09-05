@@ -879,26 +879,26 @@ PUB-M8B M8Bユーザー確認用Preview公開:完了
 USER-M8B M8B UI/UX/Visualユーザー確認PASS:完了
 
 ## M8C — 14-family Tool Rail
-M8C-001 Tool Rail canonical ordering仮完了
-M8C-002 rail resize 56–88 CSS px仮完了
-M8C-003 family/subtool affordance仮完了
-M8C-004 active tool presentation仮完了
-M8C-005 Brush family仮完了
-M8C-006 Eraser family仮完了
-M8C-007 Blend family仮完了
-M8C-008 Fill family仮完了
-M8C-009 Eyedropper family仮完了
-M8C-010 Selection family仮完了
-M8C-011 Transform family仮完了
-M8C-012 Liquify family仮完了
-M8C-013 Gradient family仮完了
-M8C-014 Shape/Path family仮完了
-M8C-015 Text family仮完了
-M8C-016 Repair family仮完了
-M8C-017 Ruler/Guide family仮完了
-M8C-018 Navigation family仮完了
-M8C-019 Lasso direct high-frequency entry in canonical Eyedropper→Lasso→Text interval仮完了
-M8C-検査 M8C内部検査仮完了
+M8C-001 Tool Rail canonical ordering:仮完了
+M8C-002 rail resize 56–88 CSS px:仮完了
+M8C-003 family/subtool affordance:仮完了
+M8C-004 active tool presentation:仮完了
+M8C-005 Brush family:仮完了
+M8C-006 Eraser family:仮完了
+M8C-007 Blend family:仮完了
+M8C-008 Fill family:仮完了
+M8C-009 Eyedropper family:仮完了
+M8C-010 Selection family:仮完了
+M8C-011 Transform family:仮完了
+M8C-012 Liquify family:仮完了
+M8C-013 Gradient family:仮完了
+M8C-014 Shape/Path family:仮完了
+M8C-015 Text family:仮完了
+M8C-016 Repair family:仮完了
+M8C-017 Ruler/Guide family:仮完了
+M8C-018 Navigation family:仮完了
+M8C-019 Lasso direct high-frequency entry in canonical Eyedropper→Lasso→Text interval:仮完了
+M8C-検査 M8C内部検査:仮完了
 
 PUB-M8C M8Cユーザー確認用Preview公開:完了
 USER-M8C M8C UI/UX/Visualユーザー確認PASS:未完了
