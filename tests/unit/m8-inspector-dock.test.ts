@@ -64,6 +64,9 @@ describe('M8D canonical Inspector workspace', () => {
     ])
       expect(source).toContain(token);
     expect(css).toContain('.m8d-inspector-collapsed .m8-inspector-dock');
+    expect(css).toContain('minmax(320px, 1fr) 42px');
+    expect(css).toContain('visibility: visible;');
+    expect(css).toContain('[data-m8d-inspector-toggle]');
     expect(css).not.toContain('.m8d-inspector-collapsed .m8d-floating-layer');
   });
 

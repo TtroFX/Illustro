@@ -619,14 +619,34 @@
 }
 
 .m8d-inspector-collapsed .m8-editor-layout {
-  grid-template-columns: var(--m8-rail-width) minmax(320px, 1fr) 0;
+  grid-template-columns: var(--m8-rail-width) minmax(320px, 1fr) 42px;
 }
 
 .m8d-inspector-collapsed .m8-inspector-dock {
-  visibility: hidden;
-  width: 0;
-  border: 0;
+  visibility: visible;
+  width: 42px;
+  border-left: 1px solid #edf1f6;
   box-shadow: none;
+}
+
+.m8d-inspector-collapsed .m8d-inspector-toolbar {
+  grid-template-columns: 34px;
+  gap: 0;
+  padding: 4px;
+  border-bottom: 0;
+}
+
+.m8d-inspector-collapsed .m8d-inspector-toolbar > span,
+.m8d-inspector-collapsed [data-m8d-panel-manager],
+.m8d-inspector-collapsed .m8d-block-list,
+.m8d-inspector-collapsed .m8d-inspector-resize {
+  display: none !important;
+}
+
+.m8d-inspector-collapsed [data-m8d-inspector-toggle] {
+  display: grid !important;
+  width: 34px;
+  min-width: 34px;
 }
 
 .m8d-inspector-collapsed .m8-inspector-action-strip { display: none; }
