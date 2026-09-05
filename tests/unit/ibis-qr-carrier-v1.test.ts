@@ -33,9 +33,7 @@ describe('M6B-006 ibis QR binary carrier decode', () => {
 
   it('rejects QR payloads that are not an IPBZ brush carrier', () => {
     const payload = [0x68, 0x74, 0x74, 0x70, 0x73, 0x3a, 0x2f, 0x2f];
-    expect(() => decodeIbisBrushQrPixelsV1(pixelsV1(), 2, 2, decoderV1(payload))).toThrow(
-      'magic',
-    );
+    expect(() => decodeIbisBrushQrPixelsV1(pixelsV1(), 2, 2, decoderV1(payload))).toThrow('magic');
   });
 
   it('rejects missing QR results and malformed image buffers fail closed', () => {
@@ -54,9 +52,9 @@ describe('M6B-006 ibis QR binary carrier decode', () => {
       return null;
     };
     const tooWide = IBIS_QR_IMAGE_MAX_DIMENSION_V1 + 1;
-    expect(() =>
-      decodeIbisBrushQrPixelsV1(new Uint8ClampedArray(0), tooWide, 1, decoder),
-    ).toThrow('safety limit');
+    expect(() => decodeIbisBrushQrPixelsV1(new Uint8ClampedArray(0), tooWide, 1, decoder)).toThrow(
+      'safety limit',
+    );
     expect(called).toBe(false);
   });
 });
