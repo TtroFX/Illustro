@@ -1,0 +1,31 @@
+name: Temporary M9D-001 persistent handle
+on:
+  push:
+    branches:
+      - feature/m9d-001-persistent-handle
+permissions:
+  contents: write
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - run: python scripts/tmp-m9d-001.py
+      - run: npm run format
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx vitest run tests/unit/linked-object-external-controller.test.ts
+      - name: Commit verified M9D-001 implementation
+        run: |
+          rm scripts/tmp-m9d-001.py .github/workflows/tmp-m9d-001.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(M9D-001): add optional persistent external handle link"
+          git push
