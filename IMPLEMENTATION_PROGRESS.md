@@ -578,7 +578,7 @@ M7A-017 Quick Mask:完了
 M7A-018 alpha/transparency→selection:完了
 M7A-019 selection cut:完了
 M7A-020 selection copy:完了
-M7A-021 selection paste:未完了
+M7A-021 selection paste:完了
 M7A-022 selection-scoped transform:未完了
 M7A-023 selection-scoped filter:未完了
 M7A-024 selection-scoped fill:未完了
