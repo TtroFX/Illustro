@@ -12,6 +12,7 @@ const main = read('src/app/main.ts');
 const surface = read('src/app/m9a-library-surface.ts');
 const controller = read('src/app/local-project-library-controller.ts');
 const preview = read('src/app/project-preview-store.ts');
+const documentWorkflow = read('src/app/document-workflow-controller.ts');
 const css = read('public/m9a-library.css');
 const canonicalAssets = JSON.parse(read('verification/m8a-canonical-assets.json'));
 
@@ -40,7 +41,15 @@ requireText(preview, 'ProjectPreviewStoreV1', 'persistent preview store');
 requireText(preview, 'directories.previews.getFileHandle', 'OPFS preview directory');
 requireText(main, 'openIllustroOpfsRoot()', 'Library OPFS startup');
 requireText(main, 'installM9aLibrarySurfaceV1', 'production Library surface install');
-requireText(main, 'documentWorkflow.openNewDocument()', 'create from Library');
+const legacyCreateFromLibrary = main.includes('documentWorkflow.openNewDocument()');
+const canonicalCreateFromLibrary =
+  main.includes("shell.productShell.openNamedTaskSurface('new-document')") &&
+  main.includes('shell.productShell.setNewDocumentSubmitHandler') &&
+  main.includes('documentWorkflow.createNewDocument(input)') &&
+  documentWorkflow.includes('paintPersistence.createNewProject');
+if (!legacyCreateFromLibrary && !canonicalCreateFromLibrary) {
+  throw new Error('M9A verification failed: create from Library');
+}
 requireText(main, 'paintPersistence.openProject(projectId)', 'open from Library');
 requireText(main, "openNamedTaskSurface('import-report')", 'Import staging route');
 requireText(main, "localLibrarySurface.show('projects')", 'Library-first startup');
@@ -75,5 +84,6 @@ console.log(
   JSON.stringify({
     event: 'm9a.local-project-library.verified',
     canonicalSha256: canonical.sha256,
+    createFromLibrary: legacyCreateFromLibrary ? 'legacy-direct' : 'canonical-task-surface',
   }),
 );
