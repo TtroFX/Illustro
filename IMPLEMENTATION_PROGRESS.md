@@ -855,27 +855,27 @@ M8B-005 Canvas Workspace:仮完了
 M8B-006 Primary Tool Rail shell:仮完了
 M8B-007 Inspector Dock shell:仮完了
 M8B-008 Inspector Action Strip:仮完了
-M8B-009 contextual action surfaces:未完了
-M8B-010 task/error surfaces:未完了
-M8B-011 persistent data-safety banner:未完了
-M8B-012 non-critical toast:未完了
-M8B-013 menus:未完了
-M8B-014 popovers:未完了
-M8B-015 tooltips:未完了
-M8B-016 tool-family flyouts:未完了
-M8B-017 New Document dialog/sheet:未完了
-M8B-018 Import report surface:未完了
-M8B-019 Export dialog/sheet:未完了
-M8B-020 Preferences surface:未完了
-M8B-021 Settings surface:未完了
-M8B-022 Help surface:未完了
-M8B-023 Compatibility diagnostics surface:未完了
-M8B-024 shortcut customization surface:未完了
-M8B-025 workspace customization surface:未完了
-M8B-026 destructive confirmation surface:未完了
-M8B-検査 M8B内部検査:未完了
+M8B-009 contextual action surfaces:仮完了
+M8B-010 task/error surfaces:仮完了
+M8B-011 persistent data-safety banner:仮完了
+M8B-012 non-critical toast:仮完了
+M8B-013 menus:仮完了
+M8B-014 popovers:仮完了
+M8B-015 tooltips:仮完了
+M8B-016 tool-family flyouts:仮完了
+M8B-017 New Document dialog/sheet:仮完了
+M8B-018 Import report surface:仮完了
+M8B-019 Export dialog/sheet:仮完了
+M8B-020 Preferences surface:仮完了
+M8B-021 Settings surface:仮完了
+M8B-022 Help surface:仮完了
+M8B-023 Compatibility diagnostics surface:仮完了
+M8B-024 shortcut customization surface:仮完了
+M8B-025 workspace customization surface:仮完了
+M8B-026 destructive confirmation surface:仮完了
+M8B-検査 M8B内部検査:仮完了
 
-PUB-M8B M8Bユーザー確認用Preview公開:未完了
+PUB-M8B M8Bユーザー確認用Preview公開:完了
 USER-M8B M8B UI/UX/Visualユーザー確認PASS:未完了
 
 ## M8C — 14-family Tool Rail
