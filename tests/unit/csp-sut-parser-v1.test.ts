@@ -25,14 +25,16 @@ function resultV1(
   return [{ columns, values }];
 }
 
-function fakeModuleV1(input: {
-  readonly tables?: readonly string[];
-  readonly nodeRows?: readonly (readonly CspSutSqlValueV1[])[];
-  readonly variantRows?: readonly (readonly CspSutSqlValueV1[])[];
-  readonly materialRows?: readonly (readonly CspSutSqlValueV1[])[];
-  readonly onSource?: (source: Uint8Array) => void;
-  readonly onClose?: () => void;
-} = {}): CspSutSqlModuleV1 {
+function fakeModuleV1(
+  input: {
+    readonly tables?: readonly string[];
+    readonly nodeRows?: readonly (readonly CspSutSqlValueV1[])[];
+    readonly variantRows?: readonly (readonly CspSutSqlValueV1[])[];
+    readonly materialRows?: readonly (readonly CspSutSqlValueV1[])[];
+    readonly onSource?: (source: Uint8Array) => void;
+    readonly onClose?: () => void;
+  } = {},
+): CspSutSqlModuleV1 {
   const tables = input.tables ?? ['MaterialFile', 'Node', 'Variant'];
   const nodeRows = input.nodeRows ?? [['Synthetic CSP Brush', 42, 7, 1]];
   const variantRows = input.variantRows ?? [[42, 55, 0.75, Uint8Array.from([1, 2, 3, 4])]];
@@ -45,7 +47,10 @@ function fakeModuleV1(input: {
 
     exec(sql: string, params?: readonly CspSutSqlValueV1[]) {
       if (sql.includes('sqlite_master')) {
-        return resultV1(['name'], tables.map((table) => [table]));
+        return resultV1(
+          ['name'],
+          tables.map((table) => [table]),
+        );
       }
       if (sql.includes('FROM "Node"')) {
         return resultV1(['NodeName', 'NodeVariantId', 'NodeInitVariantId', '_PW_ID'], nodeRows);
@@ -125,9 +130,9 @@ describe('M6B-008 CSP SUT parser', () => {
     await expect(parseCspSutV1(new Uint8Array(512), fakeModuleV1())).rejects.toThrow(
       'SQLite header',
     );
-    await expect(
-      parseCspSutV1(sutSourceV1(), fakeModuleV1({ tables: ['Node'] })),
-    ).rejects.toThrow('Node and Variant');
+    await expect(parseCspSutV1(sutSourceV1(), fakeModuleV1({ tables: ['Node'] }))).rejects.toThrow(
+      'Node and Variant',
+    );
   });
 
   it('requires one active brush Node and its current Variant row', async () => {
@@ -143,9 +148,9 @@ describe('M6B-008 CSP SUT parser', () => {
       ),
     ).rejects.toThrow('exactly one active brush Node');
 
-    await expect(
-      parseCspSutV1(sutSourceV1(), fakeModuleV1({ variantRows: [] })),
-    ).rejects.toThrow('Variant row');
+    await expect(parseCspSutV1(sutSourceV1(), fakeModuleV1({ variantRows: [] }))).rejects.toThrow(
+      'Variant row',
+    );
   });
 
   it('rejects oversized source files and material BLOB budgets before unsafe staging', async () => {
