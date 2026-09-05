@@ -37,6 +37,7 @@ describe('M9A production Local Project Library', () => {
     expect(mainSource).toContain('const resourceId = await previews.write(');
     expect(mainSource).toContain('previousPreview ?? undefined');
     expect(mainSource).toContain('await controller.updatePreview(current.projectId, resourceId)');
+    expect(mainSource).toContain('previousPreview ?? undefined');
   });
 
   it('keeps import as an explicit staging route until format milestones provide parsers', () => {
@@ -47,10 +48,11 @@ describe('M9A production Local Project Library', () => {
   });
 
   it('keeps Recently Deleted reversible and Recovery visible without colour-only state', () => {
-    expect(librarySource).toContain("await options.controller.restore(card.projectId)");
-    expect(librarySource).toContain("await options.controller.trash(card.projectId)");
+    expect(librarySource).toContain('await options.controller.restore(card.projectId)');
+    expect(librarySource).toContain('await options.controller.trash(card.projectId)');
     expect(librarySource).toContain("recovery.textContent = 'Recovery'");
     expect(librarySource).toContain("recovery.title = '復元可能なcheckpointがあります'");
+    expect(librarySource).toContain('if (!isActiveProject)');
     expect(librarySource).toContain('if (!isActiveProject)');
   });
 });

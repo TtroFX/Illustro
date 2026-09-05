@@ -84,10 +84,9 @@ describe('M9A project preview store', () => {
     const restoredBytes = new Uint8Array(await restored!.arrayBuffer());
     expect(restoredBytes).toEqual(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
 
-    const replacement = new Blob(
-      [new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1])],
-      { type: PNG_MIME_TYPE },
-    );
+    const replacement = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1])], {
+      type: PNG_MIME_TYPE,
+    });
     const reusedResourceId = await store.write(projectId, replacement, resourceId);
     expect(reusedResourceId).toBe(resourceId);
     expect((await store.read(projectId, resourceId))?.size).toBe(9);

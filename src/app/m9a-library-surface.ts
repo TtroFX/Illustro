@@ -19,6 +19,7 @@ export interface M9aLibrarySurfaceOptionsV1 {
   readonly onOpenProject: (projectId: ProjectId) => Promise<void>;
   readonly onImport: () => void;
   readonly canReturnToEditor: () => boolean;
+  readonly activeProjectId: () => ProjectId | null;
 }
 
 export interface M9aLibrarySurfaceHandleV1 {
@@ -254,6 +255,7 @@ export function installM9aLibrarySurfaceV1(
         article.className = 'm9a-project-card';
         article.dataset.projectId = card.projectId;
         article.tabIndex = 0;
+        const isActiveProject = options.activeProjectId() === card.projectId;
         const preview = document.createElement('div');
         preview.className = 'm9a-project-preview';
         const fallback = document.createElement('span');
@@ -267,6 +269,13 @@ export function installM9aLibrarySurfaceV1(
         const name = document.createElement('strong');
         name.textContent = card.name;
         heading.append(name);
+        if (isActiveProject) {
+          const editing = document.createElement('span');
+          editing.className = 'm9a-recovery-badge';
+          editing.textContent = 'Editing';
+          editing.title = '現在エディターで開いているため削除できません';
+          heading.append(editing);
+        }
         if (card.recovery.coherent) {
           const recovery = document.createElement('span');
           recovery.className = 'm9a-recovery-badge';
@@ -364,20 +373,23 @@ export function installM9aLibrarySurfaceV1(
               setBusy(false);
             }
           });
-          const remove = createButton('削除', 'm9a-card-action is-danger');
-          remove.addEventListener('click', async () => {
-            setBusy(true);
-            try {
-              await options.controller.trash(card.projectId);
-              options.productShell.showToast('Recently Deletedへ移動しました');
-              await refresh();
-            } catch (error) {
-              setError(error);
-            } finally {
-              setBusy(false);
-            }
-          });
-          actions.append(open, rename, duplicate, remove);
+          actions.append(open, rename, duplicate);
+          if (!isActiveProject) {
+            const remove = createButton('削除', 'm9a-card-action is-danger');
+            remove.addEventListener('click', async () => {
+              setBusy(true);
+              try {
+                await options.controller.trash(card.projectId);
+                options.productShell.showToast('Recently Deletedへ移動しました');
+                await refresh();
+              } catch (error) {
+                setError(error);
+              } finally {
+                setBusy(false);
+              }
+            });
+            actions.append(remove);
+          }
           article.addEventListener('dblclick', () => open.click());
         }
         body.append(heading, meta, actions);

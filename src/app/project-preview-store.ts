@@ -48,12 +48,17 @@ export class ProjectPreviewStoreV1 {
     this.#root = root;
   }
 
-  async write(projectIdValue: ProjectId | string, blob: Blob): Promise<ResourceId> {
+  async write(
+    projectIdValue: ProjectId | string,
+    blob: Blob,
+    resourceIdValue?: ResourceId | string,
+  ): Promise<ResourceId> {
     const projectId = parseProjectId(projectIdValue);
     if (blob.type !== PNG_MIME_TYPE || blob.size < 8) {
       throw new TypeError('project preview must be a non-empty PNG blob');
     }
-    const resourceId = createResourceId();
+    const resourceId =
+      resourceIdValue === undefined ? createResourceId() : parseResourceId(resourceIdValue);
     const layout = await ensureProjectDirectoryLayout(this.#root, projectId);
     const file = await layout.directories.previews.getFileHandle(previewFilename(resourceId), {
       create: true,

@@ -258,7 +258,15 @@ async function captureActiveProjectPreview(): Promise<void> {
     const tiles = await paintSession.exportCompositeRasterTiles();
     const png = await encodeCompositeRasterTilesToPngV1(current, tiles);
     const thumbnail = await createProjectThumbnailPngV1(png);
-    const resourceId = await previews.write(current.projectId, thumbnail);
+    const projects = await controller.query({ section: 'projects' });
+    const previousPreview = projects.cards.find(
+      (card) => card.projectId === current.projectId,
+    )?.previewResourceId;
+    const resourceId = await previews.write(
+      current.projectId,
+      thumbnail,
+      previousPreview ?? undefined,
+    );
     await controller.updatePreview(current.projectId, resourceId);
     root.dataset.illustroProjectPreview = resourceId;
   })()
@@ -671,6 +679,7 @@ void renderer
       },
       onImport: () => shell.productShell.openNamedTaskSurface('import-report'),
       canReturnToEditor: () => paintSession.currentDocument() !== null,
+      activeProjectId: () => paintSession.currentDocument()?.projectId ?? null,
     });
     const libraryHost = document.querySelector<HTMLElement>('#m8-library-surface');
     if (libraryHost === null) throw new Error('Library host disappeared during M9A startup');

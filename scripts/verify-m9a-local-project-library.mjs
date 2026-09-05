@@ -25,7 +25,8 @@ for (const [text, label] of [
   ['data-m9a-sort', 'project sorting'],
   ['data-m9a-view="grid"', 'grid view'],
   ['data-m9a-view="list"', 'list view'],
-]) requireText(surface, text, label);
+])
+  requireText(surface, text, label);
 
 requireText(controller, "section === 'recovery'", 'recovery query');
 requireText(controller, "section === 'recently-deleted'", 'Recently Deleted query');
@@ -57,6 +58,7 @@ if (main.includes("name: 'Untitled',\n      document:")) {
 requireText(surface, 'controller.trash(card.projectId)', 'reversible delete');
 requireText(surface, 'controller.restore(card.projectId)', 'restore from Recently Deleted');
 requireText(surface, "recovery.textContent = 'Recovery'", 'non-colour recovery label');
+requireText(surface, 'if (!isActiveProject)', 'active-project delete protection');
 requireText(surface, 'if (!isActiveProject)', 'active-project delete protection');
 requireText(css, '.m9a-project-card', 'project card styling');
 requireText(css, '@media(max-width:599px)', 'compact Library layout');
