@@ -21,7 +21,7 @@ function rawStoredDeflateV1(source: Uint8Array): Uint8Array {
   output[0] = 0x01;
   output[1] = source.byteLength & 0xff;
   output[2] = (source.byteLength >>> 8) & 0xff;
-  const inverseLength = (~source.byteLength) & 0xffff;
+  const inverseLength = ~source.byteLength & 0xffff;
   output[3] = inverseLength & 0xff;
   output[4] = (inverseLength >>> 8) & 0xff;
   output.set(source, 5);
@@ -111,9 +111,7 @@ describe('M6B-005 structured ibis IPBZ brush parser', () => {
     writeU16BigEndian(invalidUtf8, IBIS_BRUSH_NAME_LENGTH_OFFSET_V1, 2);
     invalidUtf8[IBIS_BRUSH_NAME_OFFSET_V1] = 0xc3;
     invalidUtf8[IBIS_BRUSH_NAME_OFFSET_V1 + 1] = 0x28;
-    await expect(parseIbisBrushPayloadV1(fixtureCarrierV1(invalidUtf8))).rejects.toThrow(
-      'UTF-8',
-    );
+    await expect(parseIbisBrushPayloadV1(fixtureCarrierV1(invalidUtf8))).rejects.toThrow('UTF-8');
   });
 
   it('enforces a streaming decoded-size ceiling and rejects malformed raw DEFLATE', async () => {
