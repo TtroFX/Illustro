@@ -394,7 +394,7 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
   compatibilityHost.hidden = true;
   compatibilityHost.setAttribute('aria-hidden', 'true');
   compatibilityHost.dataset.m8Role = 'nonvisual-legacy-controller-bridge';
-  for (const child of [...app.childNodes]) compatibilityHost.append(child);
+  for (const child of Array.from(app.childNodes)) compatibilityHost.append(child);
 
   const canonicalShell = createCanonicalShellV1({ canvas, gridOverlay, brushHover });
   app.prepend(canonicalShell);
@@ -579,7 +579,7 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
       canonicalShell.removeEventListener('click', onCanonicalClick);
       if (toastTimer !== null) globalThis.clearTimeout(toastTimer);
       canonicalShell.remove();
-      for (const child of [...compatibilityHost.childNodes]) app.append(child);
+      for (const child of Array.from(compatibilityHost.childNodes)) app.append(child);
       compatibilityHost.remove();
       app.classList.remove('m8-canonical-host');
       delete app.dataset.m8ShellState;
