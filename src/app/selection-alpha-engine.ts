@@ -60,13 +60,19 @@ export function layerAlphaSelectionEligibilityV1(
     case 'vector':
       return unavailable(layerId, 'vector alpha selection requires the canonical vector renderer');
     case 'gradient':
-      return unavailable(layerId, 'gradient alpha selection requires the canonical gradient renderer');
+      return unavailable(
+        layerId,
+        'gradient alpha selection requires the canonical gradient renderer',
+      );
     case 'adjustment':
       return unavailable(layerId, 'adjustment layers do not expose standalone intrinsic alpha');
     case 'folder':
       return unavailable(layerId, 'folder alpha selection requires the canonical layer compositor');
     case 'linkedObject':
-      return unavailable(layerId, 'linked-object alpha selection requires canonical object rendering');
+      return unavailable(
+        layerId,
+        'linked-object alpha selection requires canonical object rendering',
+      );
     case 'text':
       return unavailable(layerId, 'text alpha selection requires the canonical text renderer');
     case 'lineartBoundary':
@@ -95,7 +101,8 @@ function alphaCoverageByteV1(tile: PaintDecodedRasterTileV1, pixel: number): num
   }
   const view = new DataView(tile.bytes.buffer, tile.bytes.byteOffset, tile.bytes.byteLength);
   const alpha = halfToFloat(view.getUint16(pixel * 8 + 6, true));
-  if (!Number.isFinite(alpha)) throw new Error('RGBA16F alpha selection source contains non-finite alpha');
+  if (!Number.isFinite(alpha))
+    throw new Error('RGBA16F alpha selection source contains non-finite alpha');
   return Math.round(clamp01(alpha) * 255);
 }
 
