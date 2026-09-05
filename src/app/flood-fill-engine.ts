@@ -250,13 +250,7 @@ export function resolveFloodFillRegionV1(
         y: tile.y,
         width: bounds.validWidth,
         height: bounds.validHeight,
-        coverage: coverageTileV1(
-          region,
-          tile.x,
-          tile.y,
-          bounds.validWidth,
-          bounds.validHeight,
-        ),
+        coverage: coverageTileV1(region, tile.x, tile.y, bounds.validWidth, bounds.validHeight),
       });
     })
     .sort((left, right) => left.y - right.y || left.x - right.x);
@@ -343,7 +337,11 @@ export async function prepareFloodFillV1(
   const layer = snapshot.document.layerTree.layers[layerId];
   if (layer?.type !== 'raster') throw new Error('flood-fill source changed');
   const color = freezeRgbUnitColorV1(colorValue);
-  const pixelSource = await prepareRasterLayerSelectionPixelSourceV1(snapshot, layerId, persistence);
+  const pixelSource = await prepareRasterLayerSelectionPixelSourceV1(
+    snapshot,
+    layerId,
+    persistence,
+  );
   const region = resolveFloodFillRegionV1(pixelSource, seed);
   const sourceTiles = await sourceTilesV1(snapshot, layer, persistence);
   const sourceByKey = new Map<string, PreparedRasterMergeTileV1>();

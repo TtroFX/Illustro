@@ -161,11 +161,7 @@ describe('M7B Flood Fill', () => {
 
   it('prepares direct raster replacement tiles and commits one artwork revision', async () => {
     const persistence = new MemoryRasterPersistence();
-    const bytes = new Uint8Array([
-      255, 0, 0, 255,
-      255, 0, 0, 255,
-      0, 0, 255, 255,
-    ]);
+    const bytes = new Uint8Array([255, 0, 0, 255, 255, 0, 0, 255, 0, 0, 255, 255]);
     const layer = await rasterLayerV1(persistence, 3, 1, bytes);
     const snapshot = snapshotWith(layer, 3, 1);
 
@@ -180,18 +176,9 @@ describe('M7B Flood Fill', () => {
     expect(prepared.regionPixelCount).toBe(2);
     expect(prepared.tiles).toHaveLength(1);
     const output = await persistence.readRasterTile(prepared.tiles[0]?.payloadRef ?? '');
-    expect([...output.bytes]).toEqual([
-      0, 255, 0, 255,
-      0, 255, 0, 255,
-      0, 0, 255, 255,
-    ]);
+    expect([...output.bytes]).toEqual([0, 255, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255]);
 
-    const committed = applyPreparedFloodFillV1(
-      snapshot,
-      prepared,
-      parseRevision(12),
-      new Date(20),
-    );
+    const committed = applyPreparedFloodFillV1(snapshot, prepared, parseRevision(12), new Date(20));
     expect(committed.document.revision).toBe(12);
     expect(committed.document.modifiedAt).toBe(new Date(20).toISOString());
     const committedLayer = committed.document.layerTree.layers[layer.id];
