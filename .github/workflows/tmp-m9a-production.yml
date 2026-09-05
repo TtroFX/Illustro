@@ -16,6 +16,7 @@ jobs:
           package-manager-cache: false
       - run: npm install --global npm@11.19.1
       - run: npm ci --ignore-scripts
+      - run: python scripts/tmp-m9a-surface-fix.py
       - run: python scripts/tmp-m9a-production.py
       - run: npm run format
       - run: npm run typecheck
@@ -23,7 +24,7 @@ jobs:
       - run: npm run build
       - name: Commit production wiring
         run: |
-          rm scripts/tmp-m9a-production.py .github/workflows/tmp-m9a-production.yml
+          rm scripts/tmp-m9a-production.py scripts/tmp-m9a-surface-fix.py .github/workflows/tmp-m9a-production.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
