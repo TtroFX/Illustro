@@ -8,6 +8,7 @@ import {
   type TransformNodeV1,
 } from '../domain/layers.js';
 import type { PaintProjectSnapshotV1 } from './paint-session-controller.js';
+import type { PreparedSelectionCoverageV1 } from './selection-shape-engine.js';
 
 export interface RasterSelectionCoverageV1 {
   readonly schema: 'illustro.raster-selection-coverage/1';
@@ -44,6 +45,20 @@ export function rasterSelectionCoverageFromMaskV1(
     transformStack: mask.transformStack,
     effectStack: mask.effectStack ?? Object.freeze([]),
     sourceRevision: mask.revision,
+  });
+}
+
+export function rasterSelectionCoverageFromPreparedV1(
+  prepared: PreparedSelectionCoverageV1,
+): RasterSelectionCoverageV1 {
+  return freezeCoverage({
+    schema: 'illustro.raster-selection-coverage/1',
+    defaultCoverage: prepared.defaultCoverage,
+    tiles: prepared.tiles,
+    inverted: false,
+    transformStack: Object.freeze([]),
+    effectStack: Object.freeze([]),
+    sourceRevision: prepared.sourceRevision,
   });
 }
 
@@ -113,6 +128,11 @@ export class SelectionCoverageControllerV1 {
 
   replaceFromRasterMask(mask: RasterMaskAttachmentV1): SelectionCoverageSnapshotV1 {
     this.#coverage = rasterSelectionCoverageFromMaskV1(mask);
+    return this.snapshot();
+  }
+
+  replacePrepared(prepared: PreparedSelectionCoverageV1): SelectionCoverageSnapshotV1 {
+    this.#coverage = rasterSelectionCoverageFromPreparedV1(prepared);
     return this.snapshot();
   }
 
