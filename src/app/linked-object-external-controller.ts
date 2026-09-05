@@ -74,9 +74,13 @@ function handleKey(projectId: ProjectId, objectId: ObjectId): string {
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.addEventListener('success', () => resolve(request.result), { once: true });
-    request.addEventListener('error', () => reject(request.error ?? new Error('IndexedDB request failed')), {
-      once: true,
-    });
+    request.addEventListener(
+      'error',
+      () => reject(request.error ?? new Error('IndexedDB request failed')),
+      {
+        once: true,
+      },
+    );
   });
 }
 
@@ -98,7 +102,8 @@ export class IndexedDbLinkedObjectExternalHandleStoreV1
         'upgradeneeded',
         () => {
           const database = request.result;
-          if (!database.objectStoreNames.contains(STORE_NAME)) database.createObjectStore(STORE_NAME);
+          if (!database.objectStoreNames.contains(STORE_NAME))
+            database.createObjectStore(STORE_NAME);
         },
         { once: true },
       );
@@ -112,10 +117,15 @@ export class IndexedDbLinkedObjectExternalHandleStoreV1
     return this.#database;
   }
 
-  async load(projectId: ProjectId, objectId: ObjectId): Promise<LinkedObjectExternalHandleV1 | null> {
+  async load(
+    projectId: ProjectId,
+    objectId: ObjectId,
+  ): Promise<LinkedObjectExternalHandleV1 | null> {
     const database = await this.#open();
     const transaction = database.transaction(STORE_NAME, 'readonly');
-    const result = await requestResult(transaction.objectStore(STORE_NAME).get(handleKey(projectId, objectId)));
+    const result = await requestResult(
+      transaction.objectStore(STORE_NAME).get(handleKey(projectId, objectId)),
+    );
     return (result as LinkedObjectExternalHandleV1 | undefined) ?? null;
   }
 
@@ -126,7 +136,9 @@ export class IndexedDbLinkedObjectExternalHandleStoreV1
   ): Promise<void> {
     const database = await this.#open();
     const transaction = database.transaction(STORE_NAME, 'readwrite');
-    await requestResult(transaction.objectStore(STORE_NAME).put(handle, handleKey(projectId, objectId)));
+    await requestResult(
+      transaction.objectStore(STORE_NAME).put(handle, handleKey(projectId, objectId)),
+    );
   }
 
   async remove(projectId: ProjectId, objectId: ObjectId): Promise<void> {
@@ -178,7 +190,10 @@ function unavailableStage(
 }
 
 function isMissingFileError(error: unknown): boolean {
-  return error instanceof DOMException && (error.name === 'NotFoundError' || error.name === 'NotReadableError');
+  return (
+    error instanceof DOMException &&
+    (error.name === 'NotFoundError' || error.name === 'NotReadableError')
+  );
 }
 
 export class LinkedObjectExternalControllerV1 {
@@ -199,10 +214,18 @@ export class LinkedObjectExternalControllerV1 {
   ): Promise<LinkedObjectRefreshStageV1> {
     const permission = await permissionState(handle);
     if (permission === 'denied') {
-      return unavailableStage(layer, 'permission-lost', 'External source permission was lost; embedded snapshot remains active.');
+      return unavailableStage(
+        layer,
+        'permission-lost',
+        'External source permission was lost; embedded snapshot remains active.',
+      );
     }
     if (permission === 'prompt') {
-      return unavailableStage(layer, 'permission-required', 'External source permission must be granted before refresh.');
+      return unavailableStage(
+        layer,
+        'permission-required',
+        'External source permission must be granted before refresh.',
+      );
     }
 
     let file: LinkedObjectExternalFileV1;
@@ -210,7 +233,11 @@ export class LinkedObjectExternalControllerV1 {
       file = await handle.getFile();
     } catch (error) {
       if (isMissingFileError(error)) {
-        return unavailableStage(layer, 'missing', 'External source is missing; embedded snapshot remains active.');
+        return unavailableStage(
+          layer,
+          'missing',
+          'External source is missing; embedded snapshot remains active.',
+        );
       }
       throw error;
     }

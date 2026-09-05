@@ -53,16 +53,26 @@ class MemoryHandleStore implements LinkedObjectExternalHandleStoreV1 {
     return `${projectId}/${objectId}`;
   }
 
-  async load(projectId: Parameters<LinkedObjectExternalHandleStoreV1['load']>[0], objectId: Parameters<LinkedObjectExternalHandleStoreV1['load']>[1]) {
+  async load(
+    projectId: Parameters<LinkedObjectExternalHandleStoreV1['load']>[0],
+    objectId: Parameters<LinkedObjectExternalHandleStoreV1['load']>[1],
+  ) {
     return this.handles.get(this.key(projectId, objectId)) ?? null;
   }
 
-  async save(projectId: Parameters<LinkedObjectExternalHandleStoreV1['save']>[0], objectId: Parameters<LinkedObjectExternalHandleStoreV1['save']>[1], handle: LinkedObjectExternalHandleV1) {
+  async save(
+    projectId: Parameters<LinkedObjectExternalHandleStoreV1['save']>[0],
+    objectId: Parameters<LinkedObjectExternalHandleStoreV1['save']>[1],
+    handle: LinkedObjectExternalHandleV1,
+  ) {
     if (this.failSave) throw new Error('quota');
     this.handles.set(this.key(projectId, objectId), handle);
   }
 
-  async remove(projectId: Parameters<LinkedObjectExternalHandleStoreV1['remove']>[0], objectId: Parameters<LinkedObjectExternalHandleStoreV1['remove']>[1]) {
+  async remove(
+    projectId: Parameters<LinkedObjectExternalHandleStoreV1['remove']>[0],
+    objectId: Parameters<LinkedObjectExternalHandleStoreV1['remove']>[1],
+  ) {
     this.handles.delete(this.key(projectId, objectId));
   }
 }
@@ -159,7 +169,10 @@ describe('M9D linked object external acceleration', () => {
 
   it('keeps a successful canonical refresh committed even if optional handle persistence fails', async () => {
     const projectId = createProjectId();
-    const layer = createLinkedObjectLayer({ name: 'Linked', embeddedSnapshot: documentFixture('old') });
+    const layer = createLinkedObjectLayer({
+      name: 'Linked',
+      embeddedSnapshot: documentFixture('old'),
+    });
     const store = new MemoryHandleStore();
     store.failSave = true;
     const controller = new LinkedObjectExternalControllerV1({
@@ -191,7 +204,10 @@ describe('M9D linked object external acceleration', () => {
 
   it('does not permit an invalid staged import to reach the canonical transaction', async () => {
     const projectId = createProjectId();
-    const layer = createLinkedObjectLayer({ name: 'Linked', embeddedSnapshot: documentFixture('old') });
+    const layer = createLinkedObjectLayer({
+      name: 'Linked',
+      embeddedSnapshot: documentFixture('old'),
+    });
     const store = new MemoryHandleStore();
     const controller = new LinkedObjectExternalControllerV1({
       store,
