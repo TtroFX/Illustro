@@ -21,20 +21,20 @@ function packageBytesV1(bytes: Uint8Array): Uint8Array {
   if (bytes.byteLength < 1 || bytes.byteLength > BRUSH_PACKAGE_ATTACHMENT_MAX_BYTES_V1) {
     throw new RangeError('brush package bytes exceed the persistent attachment limit');
   }
-  return bytes.slice();
+  return Uint8Array.from(bytes);
 }
 
 export function createMemoryBrushPackageAttachmentStoreV1(): BrushPackageAttachmentStoreV1 {
   const entries = new Map<string, Uint8Array>();
   return Object.freeze({
-    async put(presetId, archiveBytes) {
+    async put(presetId: string, archiveBytes: Uint8Array): Promise<void> {
       entries.set(normalizedPresetIdV1(presetId), packageBytesV1(archiveBytes));
     },
-    async get(presetId) {
+    async get(presetId: string): Promise<Uint8Array | null> {
       const bytes = entries.get(normalizedPresetIdV1(presetId));
-      return bytes?.slice() ?? null;
+      return bytes === undefined ? null : Uint8Array.from(bytes);
     },
-    async delete(presetId) {
+    async delete(presetId: string): Promise<void> {
       entries.delete(normalizedPresetIdV1(presetId));
     },
   });
@@ -100,18 +100,18 @@ export function createIndexedDbBrushPackageAttachmentStoreV1(
   if (indexedDb === undefined) throw new Error('IndexedDB is unavailable for brush package persistence');
   const database = openDatabaseV1(indexedDb);
   return Object.freeze({
-    async put(presetId, archiveBytes) {
+    async put(presetId: string, archiveBytes: Uint8Array): Promise<void> {
       const id = normalizedPresetIdV1(presetId);
       const bytes = packageBytesV1(archiveBytes);
       const db = await database;
       const transaction = db.transaction(OBJECT_STORE_V1, 'readwrite');
       transaction.objectStore(OBJECT_STORE_V1).put({
         presetId: id,
-        bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+        bytes: Uint8Array.from(bytes).buffer,
       } satisfies StoredBrushPackageV1);
       await transactionDoneV1(transaction);
     },
-    async get(presetId) {
+    async get(presetId: string): Promise<Uint8Array | null> {
       const id = normalizedPresetIdV1(presetId);
       const db = await database;
       const transaction = db.transaction(OBJECT_STORE_V1, 'readonly');
@@ -120,7 +120,7 @@ export function createIndexedDbBrushPackageAttachmentStoreV1(
       const stored = storedPackageV1(value);
       return stored === null ? null : new Uint8Array(stored.bytes.slice(0));
     },
-    async delete(presetId) {
+    async delete(presetId: string): Promise<void> {
       const id = normalizedPresetIdV1(presetId);
       const db = await database;
       const transaction = db.transaction(OBJECT_STORE_V1, 'readwrite');
