@@ -1,0 +1,79 @@
+name: M7A003004 selection AA once
+
+on:
+  push:
+    branches:
+      - work/m7a-003-004-selection-aa-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - name: Apply Lasso and Freehand fractional coverage remediation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          engine = Path('src/app/selection-shape-engine.ts')
+          text = engine.read_text()
+          old = """function pointInPolygon(x: number, y: number, points: readonly SelectionPointV1[]): boolean {\n  let inside = false;\n  for (\n    let index = 0, previous = points.length - 1;\n    index < points.length;\n    previous = index, index += 1\n  ) {\n    const currentPoint = points[index];\n    const previousPoint = points[previous];\n    if (currentPoint === undefined || previousPoint === undefined) continue;\n    const crosses =\n      currentPoint.y > y !== previousPoint.y > y &&\n      x <\n        ((previousPoint.x - currentPoint.x) * (y - currentPoint.y)) /\n          (previousPoint.y - currentPoint.y) +\n          currentPoint.x;\n    if (crosses) inside = !inside;\n  }\n  return inside;\n}\n"""
+          new = old + """\nconst POLYGON_COVERAGE_GRID_SIZE_V1 = 4;\nconst POLYGON_COVERAGE_SAMPLE_COUNT_V1 =\n  POLYGON_COVERAGE_GRID_SIZE_V1 * POLYGON_COVERAGE_GRID_SIZE_V1;\n\nfunction polygonPixelCoverageV1(\n  centerX: number,\n  centerY: number,\n  points: readonly SelectionPointV1[],\n): number {\n  let insideSamples = 0;\n  const pixelMinX = centerX - 0.5;\n  const pixelMinY = centerY - 0.5;\n  for (let sampleY = 0; sampleY < POLYGON_COVERAGE_GRID_SIZE_V1; sampleY += 1) {\n    const y = pixelMinY + (sampleY + 0.5) / POLYGON_COVERAGE_GRID_SIZE_V1;\n    for (let sampleX = 0; sampleX < POLYGON_COVERAGE_GRID_SIZE_V1; sampleX += 1) {\n      const x = pixelMinX + (sampleX + 0.5) / POLYGON_COVERAGE_GRID_SIZE_V1;\n      if (pointInPolygon(x, y, points)) insideSamples += 1;\n    }\n  }\n  return insideSamples / POLYGON_COVERAGE_SAMPLE_COUNT_V1;\n}\n"""
+          if old not in text:
+              raise SystemExit('pointInPolygon anchor not found')
+          text = text.replace(old, new, 1)
+          old_case = """    case 'lasso':\n    case 'freehand':\n      return pointInPolygon(x, y, shape.points) ? 1 : 0;\n"""
+          new_case = """    case 'lasso':\n    case 'freehand':\n      return polygonPixelCoverageV1(x, y, shape.points);\n"""
+          if old_case not in text:
+              raise SystemExit('polygon coverage case anchor not found')
+          text = text.replace(old_case, new_case, 1)
+          engine.write_text(text)
+
+          test = Path('tests/unit/selection-shape-engine.test.ts')
+          text = test.read_text()
+          anchor = """  it('accepts freehand paths and removes duplicate consecutive points before polygon fill', () => {\n"""
+          insert = """  it('anti-aliases Lasso boundaries into deterministic fractional coverage', () => {\n    const shape = {\n      kind: 'lasso' as const,\n      points: [\n        { x: 1, y: 1 },\n        { x: 7, y: 1 },\n        { x: 1, y: 7 },\n      ],\n    };\n    const input = { tileDocumentX: 0, tileDocumentY: 0, width: 8, height: 8 };\n    const first = rasterizeSelectionShapeTileV1(shape, input);\n    const second = rasterizeSelectionShapeTileV1(shape, input);\n    expect(coverageAt(first, 8, 2, 2)).toBe(255);\n    expect(coverageAt(first, 8, 6, 6)).toBe(0);\n    const edge = coverageAt(first, 8, 5, 2);\n    expect(edge).toBeGreaterThan(0);\n    expect(edge).toBeLessThan(255);\n    expect(second).toEqual(first);\n  });\n\n  it('anti-aliases Freehand polygon boundaries without changing full interior coverage', () => {\n    const bytes = rasterizeSelectionShapeTileV1(\n      {\n        kind: 'freehand',\n        points: [\n          { x: 1, y: 1 },\n          { x: 7, y: 2 },\n          { x: 6, y: 7 },\n          { x: 1, y: 6 },\n        ],\n      },\n      { tileDocumentX: 0, tileDocumentY: 0, width: 8, height: 8 },\n    );\n    expect(coverageAt(bytes, 8, 3, 3)).toBe(255);\n    const coverages: number[] = [];\n    for (let y = 0; y < 8; y += 1) {\n      for (let x = 0; x < 8; x += 1) coverages.push(coverageAt(bytes, 8, x, y));\n    }\n    expect(coverages.some((coverage) => coverage > 0 && coverage < 255)).toBe(true);\n  });\n\n"""
+          if anchor not in text:
+              raise SystemExit('test insertion anchor not found')
+          text = text.replace(anchor, insert + anchor, 1)
+          test.write_text(text)
+          PY
+      - name: Format targeted files
+        run: npx biome format --write src/app/selection-shape-engine.ts tests/unit/selection-shape-engine.test.ts
+      - name: Lint targeted files
+        run: npx biome lint src/app/selection-shape-engine.ts tests/unit/selection-shape-engine.test.ts
+      - name: Typecheck
+        run: npx tsc -p tsconfig.json --noEmit
+      - name: Targeted unit tests
+        run: npx vitest run tests/unit/selection-shape-engine.test.ts
+      - name: Close verified progress items
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          text = p.read_text()
+          for old, new in [
+            ('M7A-003 Lasso Selection:未完了', 'M7A-003 Lasso Selection:完了'),
+            ('M7A-004 Freehand Selection:未完了', 'M7A-004 Freehand Selection:完了'),
+          ]:
+            if old not in text:
+              raise SystemExit(f'progress anchor not found: {old}')
+            text = text.replace(old, new, 1)
+          p.write_text(text)
+          PY
+      - name: Commit verified remediation
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/selection-shape-engine.ts tests/unit/selection-shape-engine.test.ts IMPLEMENTATION_PROGRESS.md
+          git commit -m 'fix(M7A): anti-alias lasso and freehand coverage'
+          git push
