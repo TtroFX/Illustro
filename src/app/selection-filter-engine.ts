@@ -128,7 +128,9 @@ function validateSourceTileV1(
   height: number,
 ): void {
   if (tile.pixelFormat !== format || tile.width !== width || tile.height !== height) {
-    throw new Error('selection-scoped filter source tile does not match the document raster contract');
+    throw new Error(
+      'selection-scoped filter source tile does not match the document raster contract',
+    );
   }
   if (tile.bytes.byteLength !== width * height * bytesPerPixelV1(format)) {
     throw new Error('selection-scoped filter source tile byte length is invalid');
@@ -290,9 +292,7 @@ export function applySelectionScopedRasterFilterBytesV1(
         const source = bytes[offset + channel] ?? 0;
         const filtered = 255 - source;
         const result =
-          selectionByte === 255
-            ? filtered
-            : Math.round(source + (filtered - source) * selection);
+          selectionByte === 255 ? filtered : Math.round(source + (filtered - source) * selection);
         if (result !== source) changed = true;
         output[offset + channel] = result;
       }

@@ -292,8 +292,9 @@ describe('M7A selection-scoped filter', () => {
       { name: 'Alpha locked', locks: { alpha: true } },
     );
     const coverage = fullCoverageV1();
-    expect(selectionScopedFilterEligibilityV1(snapshotWith(alphaLocked, 1, 1), alphaLocked.id, coverage))
-      .toMatchObject({ eligible: true });
+    expect(
+      selectionScopedFilterEligibilityV1(snapshotWith(alphaLocked, 1, 1), alphaLocked.id, coverage),
+    ).toMatchObject({ eligible: true });
 
     const pixelLocked = await rasterLayerV1(
       persistence,
@@ -303,8 +304,9 @@ describe('M7A selection-scoped filter', () => {
       new Uint8Array([10, 20, 30, 255]),
       { name: 'Pixel locked', locks: { pixels: true } },
     );
-    expect(selectionScopedFilterEligibilityV1(snapshotWith(pixelLocked, 1, 1), pixelLocked.id, coverage))
-      .toMatchObject({ eligible: false, reason: expect.stringContaining('pixel lock') });
+    expect(
+      selectionScopedFilterEligibilityV1(snapshotWith(pixelLocked, 1, 1), pixelLocked.id, coverage),
+    ).toMatchObject({ eligible: false, reason: expect.stringContaining('pixel lock') });
 
     const transformed = await rasterLayerV1(
       persistence,
@@ -314,8 +316,9 @@ describe('M7A selection-scoped filter', () => {
       new Uint8Array([10, 20, 30, 255]),
       { name: 'Transformed', transformStack: [createTransformNode('affine')] },
     );
-    expect(selectionScopedFilterEligibilityV1(snapshotWith(transformed, 1, 1), transformed.id, coverage))
-      .toMatchObject({ eligible: false, reason: expect.stringContaining('transform') });
+    expect(
+      selectionScopedFilterEligibilityV1(snapshotWith(transformed, 1, 1), transformed.id, coverage),
+    ).toMatchObject({ eligible: false, reason: expect.stringContaining('transform') });
 
     const effected = await rasterLayerV1(
       persistence,
@@ -325,8 +328,9 @@ describe('M7A selection-scoped filter', () => {
       new Uint8Array([10, 20, 30, 255]),
       { name: 'Effected', effectStack: [createEffectNode('test.effect')] },
     );
-    expect(selectionScopedFilterEligibilityV1(snapshotWith(effected, 1, 1), effected.id, coverage))
-      .toMatchObject({ eligible: false, reason: expect.stringContaining('effect') });
+    expect(
+      selectionScopedFilterEligibilityV1(snapshotWith(effected, 1, 1), effected.id, coverage),
+    ).toMatchObject({ eligible: false, reason: expect.stringContaining('effect') });
   });
 
   it('rejects missing/derived selection coverage and stale prepared commits', async () => {
@@ -348,7 +352,9 @@ describe('M7A selection-scoped filter', () => {
       ...fullCoverageV1(),
       transformStack: Object.freeze([createTransformNode('affine')]),
     });
-    expect(selectionScopedFilterEligibilityV1(snapshot, layer.id, transformedCoverage)).toMatchObject({
+    expect(
+      selectionScopedFilterEligibilityV1(snapshot, layer.id, transformedCoverage),
+    ).toMatchObject({
       eligible: false,
       reason: expect.stringContaining('coverage'),
     });
