@@ -72,6 +72,14 @@ await cp(
   new URL('jsQR.js', vendorDistDir),
 );
 await cp(
+  new URL('../node_modules/sql.js/dist/sql-wasm.js', import.meta.url),
+  new URL('sql-wasm.js', vendorDistDir),
+);
+await cp(
+  new URL('../node_modules/sql.js/dist/sql-wasm.wasm', import.meta.url),
+  new URL('sql-wasm.wasm', vendorDistDir),
+);
+await cp(
   new URL('../.build/meta/build-info.json', import.meta.url),
   new URL('build-info.json', distDir),
 );

@@ -52,6 +52,19 @@
       "reviewStatus": "reviewed",
       "reviewer": "Illustro M6B QR interoperability review",
       "reviewDate": "2026-09-05"
+    },
+    {
+      "name": "sql.js",
+      "version": "1.14.2",
+      "sourceUrl": "https://github.com/sql-js/sql.js",
+      "licenseExpression": "MIT",
+      "usage": "runtime-distributed",
+      "incorporation": "dependency",
+      "modifications": "none",
+      "requiresNotice": false,
+      "reviewStatus": "reviewed",
+      "reviewer": "Illustro M6B CSP SUT interoperability review",
+      "reviewDate": "2026-09-05"
     }
   ]
 }

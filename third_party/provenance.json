@@ -1474,6 +1474,27 @@
       "reviewDate": "2026-08-30"
     },
     {
+      "component": "sql.js",
+      "packageIdentity": "npm:sql.js@1.14.2",
+      "version": "1.14.2",
+      "packagePath": "node_modules/sql.js",
+      "sourceUrl": "https://github.com/sql-js/sql.js",
+      "integrity": "sha512-3ZGPovObMFrdw79zrUHbfdE/DLIsy8jdNdssmMSQuRAymedU6q84asPt0kgiqrdMYlPegDItiIMfmIXzZnYFcw==",
+      "licenseExpression": "MIT",
+      "copyrightAttribution": null,
+      "usage": "runtime-distributed",
+      "incorporation": "dependency",
+      "modifications": "none",
+      "obligations": {
+        "licenseText": true,
+        "notice": false,
+        "attribution": false
+      },
+      "reviewStatus": "reviewed",
+      "reviewer": "Illustro M6B CSP SUT interoperability review",
+      "reviewDate": "2026-09-05"
+    },
+    {
       "component": "stackback",
       "packageIdentity": "npm:stackback@0.0.2",
       "version": "0.0.2",
