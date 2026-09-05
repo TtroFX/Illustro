@@ -549,7 +549,7 @@ M6B-006 ibisPaint brush QR carrier decode:完了
 M6B-007 ibis→Illustro parameter mapper:完了
 M6B-008 CSP `.sut` parser:完了
 M6B-009 CSP→Illustro parameter mapper:完了
-M6B-010 unsupported brush property reporting:未完了
+M6B-010 unsupported brush property reporting:完了
 M6B-011 imported brush canonical normalization:未完了
 M6B-検査 M6B内部検査:未完了
 PUB-02 ユーザー確認2用Preview公開:未完了
