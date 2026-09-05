@@ -1,0 +1,64 @@
+name: Finalize M8C provisional progress once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/m8c-progress-finalize-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Record M8C provisional completion and Preview
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          lines = path.read_text().splitlines()
+          inside = False
+          seen_items = 0
+          seen_pub = False
+          for i, line in enumerate(lines):
+              if line.startswith('## M8C —'):
+                  inside = True
+                  continue
+              if inside and line.startswith('## M8D —'):
+                  inside = False
+              if not inside:
+                  continue
+              if line.startswith('M8C-') and line.endswith(':未完了'):
+                  lines[i] = line[:-4] + '仮完了'
+                  seen_items += 1
+              elif line == 'PUB-M8C M8Cユーザー確認用Preview公開:未完了':
+                  lines[i] = 'PUB-M8C M8Cユーザー確認用Preview公開:完了'
+                  seen_pub = True
+          if seen_items < 20:
+              raise SystemExit(f'expected >=20 M8C progress items, changed {seen_items}')
+          if not seen_pub and 'PUB-M8C M8Cユーザー確認用Preview公開:完了' not in lines:
+              raise SystemExit('PUB-M8C line not found')
+          if 'USER-M8C M8C UI/UX/Visualユーザー確認PASS:未完了' not in lines:
+              raise SystemExit('USER-M8C must remain pending')
+          path.write_text('\n'.join(lines) + '\n')
+          PY
+      - name: Remove temporary helper and trigger
+        run: |
+          rm .github/workflows/m8c-progress-finalize-once.yml
+          rm -f .github/m8c-preview-trigger
+      - name: Commit progress checkpoint
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md .github/workflows/m8c-progress-finalize-once.yml .github/m8c-preview-trigger
+          git commit -m 'chore: checkpoint M8C for user review'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
