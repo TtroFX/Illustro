@@ -876,7 +876,7 @@ M8B-026 destructive confirmation surface:仮完了
 M8B-検査 M8B内部検査:仮完了
 
 PUB-M8B M8Bユーザー確認用Preview公開:完了
-USER-M8B M8B UI/UX/Visualユーザー確認PASS:未完了
+USER-M8B M8B UI/UX/Visualユーザー確認PASS:完了
 
 ## M8C — 14-family Tool Rail
 M8C-001 Tool Rail canonical ordering:未完了
