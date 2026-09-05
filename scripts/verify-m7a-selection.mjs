@@ -33,7 +33,8 @@ const progress = read('IMPLEMENTATION_PROGRESS.md');
 for (let item = 1; item <= 25; item += 1) {
   const id = `M7A-${String(item).padStart(3, '0')}`;
   const line = progress.split('\n').find((entry) => entry.startsWith(`${id} `));
-  if (!line || !line.endsWith(':完了')) throw new Error(`${id} is not complete in canonical progress`);
+  if (!line || !line.endsWith(':完了'))
+    throw new Error(`${id} is not complete in canonical progress`);
 }
 
 const memo = read('ILLUSTRO_DESIGN_MEMO.md');
@@ -58,9 +59,21 @@ for (const token of [
 }
 
 const shapeTest = read('tests/unit/selection-shape-engine.test.ts');
-requireText(shapeTest, 'deterministic fractional coverage', 'Lasso fractional-coverage regression test');
-requireText(shapeTest, 'coverage > 0 && coverage < 255', 'Freehand fractional-coverage regression test');
-requireText(shapeTest, 'exposes all five M7A shape entry points', 'shape entry-point coverage test');
+requireText(
+  shapeTest,
+  'deterministic fractional coverage',
+  'Lasso fractional-coverage regression test',
+);
+requireText(
+  shapeTest,
+  'coverage > 0 && coverage < 255',
+  'Freehand fractional-coverage regression test',
+);
+requireText(
+  shapeTest,
+  'exposes all five M7A shape entry points',
+  'shape entry-point coverage test',
+);
 
 const combine = read('src/app/selection-combine-engine.ts');
 for (const token of ['replace', 'add', 'subtract', 'intersect']) {
