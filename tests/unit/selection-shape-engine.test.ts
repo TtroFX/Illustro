@@ -92,6 +92,47 @@ describe('M7A selection shape engine', () => {
     expect(coverageAt(bytes, 8, 6, 6)).toBe(0);
   });
 
+  it('anti-aliases Lasso boundaries into deterministic fractional coverage', () => {
+    const shape = {
+      kind: 'lasso' as const,
+      points: [
+        { x: 1, y: 1 },
+        { x: 7, y: 1 },
+        { x: 1, y: 7 },
+      ],
+    };
+    const input = { tileDocumentX: 0, tileDocumentY: 0, width: 8, height: 8 };
+    const first = rasterizeSelectionShapeTileV1(shape, input);
+    const second = rasterizeSelectionShapeTileV1(shape, input);
+    expect(coverageAt(first, 8, 2, 2)).toBe(255);
+    expect(coverageAt(first, 8, 6, 6)).toBe(0);
+    const edge = coverageAt(first, 8, 5, 2);
+    expect(edge).toBeGreaterThan(0);
+    expect(edge).toBeLessThan(255);
+    expect(second).toEqual(first);
+  });
+
+  it('anti-aliases Freehand polygon boundaries without changing full interior coverage', () => {
+    const bytes = rasterizeSelectionShapeTileV1(
+      {
+        kind: 'freehand',
+        points: [
+          { x: 1, y: 1 },
+          { x: 7, y: 2 },
+          { x: 6, y: 7 },
+          { x: 1, y: 6 },
+        ],
+      },
+      { tileDocumentX: 0, tileDocumentY: 0, width: 8, height: 8 },
+    );
+    expect(coverageAt(bytes, 8, 3, 3)).toBe(255);
+    const coverages: number[] = [];
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 8; x += 1) coverages.push(coverageAt(bytes, 8, x, y));
+    }
+    expect(coverages.some((coverage) => coverage > 0 && coverage < 255)).toBe(true);
+  });
+
   it('accepts freehand paths and removes duplicate consecutive points before polygon fill', () => {
     const bytes = rasterizeSelectionShapeTileV1(
       {
