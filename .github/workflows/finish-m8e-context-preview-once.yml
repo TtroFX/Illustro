@@ -1,0 +1,54 @@
+name: Finish M8E context preview once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m8e-context-preview-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  finish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Rebase latest main
+        run: git pull --rebase origin main
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Install dependencies
+        run: |
+          npm install --global npm@11.19.1
+          npm ci --ignore-scripts
+      - name: Add vector and text preview styles
+        run: node scripts/finish-m8e-context-preview-once.mjs
+      - name: Format context preview
+        run: npx biome format --write src/app/m8-contextual-canvas-controller.ts tests/unit/m8-contextual-canvas-controller.test.ts
+      - name: Repository format check
+        run: npm run format:check
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Focused M8E context tests
+        run: npx vitest run tests/unit/m8-contextual-canvas-controller.test.ts tests/unit/m8-selection-launcher.test.ts tests/unit/m8-selection-transform-controller.test.ts
+      - name: Production build
+        run: npm run build
+      - name: Remove temporary helpers
+        run: rm .github/workflows/finish-m8e-context-preview-once.yml .github/m8e-context-preview-trigger scripts/finish-m8e-context-preview-once.mjs
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: finish M8E contextual preview surfaces'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
