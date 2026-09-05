@@ -553,7 +553,7 @@ M6B-010 unsupported brush property reporting:完了
 M6B-011 imported brush canonical normalization:完了
 M6B-検査 M6B内部検査:完了
 PUB-02 ユーザー確認2用Preview公開:完了
-USER-02 Layer・Color・Blend・Brush Engine・48 Brushes・筆圧傾き・ibis/CSP brush importユーザー確認PASS:未完了
+USER-02 Layer・Color・Blend・Brush Engine・48 Brushes・筆圧傾き・ibis/CSP brush importユーザー確認PASS:完了
 
 ## M7A — Selection / Mask Workflow
 M7A-001 rectangular selection:未完了
