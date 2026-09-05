@@ -64,6 +64,15 @@ interface BoundsV1 {
   readonly maxY: number;
 }
 
+interface PolygonEdgeV1 {
+  readonly minY: number;
+  readonly maxY: number;
+  readonly xAtMinY: number;
+  readonly inverseSlope: number;
+}
+
+const POLYGON_VERTICAL_SUBSAMPLES_V1 = 4;
+
 function finite(value: number, label: string): number {
   if (!Number.isFinite(value)) throw new TypeError(`${label} must be finite`);
   return value;
@@ -155,47 +164,71 @@ function brushBounds(dabs: readonly SelectionBrushDabV1[]): BoundsV1 {
   return Object.freeze({ minX, minY, maxX, maxY });
 }
 
-function pointInPolygon(x: number, y: number, points: readonly SelectionPointV1[]): boolean {
-  let inside = false;
-  for (
-    let index = 0, previous = points.length - 1;
-    index < points.length;
-    previous = index, index += 1
-  ) {
-    const currentPoint = points[index];
-    const previousPoint = points[previous];
-    if (currentPoint === undefined || previousPoint === undefined) continue;
-    const crosses =
-      currentPoint.y > y !== previousPoint.y > y &&
-      x <
-        ((previousPoint.x - currentPoint.x) * (y - currentPoint.y)) /
-          (previousPoint.y - currentPoint.y) +
-          currentPoint.x;
-    if (crosses) inside = !inside;
+function polygonEdgesV1(points: readonly SelectionPointV1[]): readonly PolygonEdgeV1[] {
+  const edges: PolygonEdgeV1[] = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const first = points[index];
+    const second = points[(index + 1) % points.length];
+    if (!first || !second || first.y === second.y) continue;
+    const lower = first.y < second.y ? first : second;
+    const upper = first.y < second.y ? second : first;
+    edges.push(
+      Object.freeze({
+        minY: lower.y,
+        maxY: upper.y,
+        xAtMinY: lower.x,
+        inverseSlope: (upper.x - lower.x) / (upper.y - lower.y),
+      }),
+    );
   }
-  return inside;
+  return Object.freeze(edges);
 }
 
-const POLYGON_COVERAGE_GRID_SIZE_V1 = 4;
-const POLYGON_COVERAGE_SAMPLE_COUNT_V1 =
-  POLYGON_COVERAGE_GRID_SIZE_V1 * POLYGON_COVERAGE_GRID_SIZE_V1;
+function polygonRowCoverageV1(
+  edges: readonly PolygonEdgeV1[],
+  pixelTopY: number,
+  tileDocumentX: number,
+  width: number,
+): Float64Array {
+  const accumulated = new Float64Array(width);
+  const intersections: number[] = [];
+  const tileEndX = tileDocumentX + width;
 
-function polygonPixelCoverageV1(
-  centerX: number,
-  centerY: number,
-  points: readonly SelectionPointV1[],
-): number {
-  let insideSamples = 0;
-  const pixelMinX = centerX - 0.5;
-  const pixelMinY = centerY - 0.5;
-  for (let sampleY = 0; sampleY < POLYGON_COVERAGE_GRID_SIZE_V1; sampleY += 1) {
-    const y = pixelMinY + (sampleY + 0.5) / POLYGON_COVERAGE_GRID_SIZE_V1;
-    for (let sampleX = 0; sampleX < POLYGON_COVERAGE_GRID_SIZE_V1; sampleX += 1) {
-      const x = pixelMinX + (sampleX + 0.5) / POLYGON_COVERAGE_GRID_SIZE_V1;
-      if (pointInPolygon(x, y, points)) insideSamples += 1;
+  for (let sampleIndex = 0; sampleIndex < POLYGON_VERTICAL_SUBSAMPLES_V1; sampleIndex += 1) {
+    const sampleY = pixelTopY + (sampleIndex + 0.5) / POLYGON_VERTICAL_SUBSAMPLES_V1;
+    intersections.length = 0;
+    for (const edge of edges) {
+      if (sampleY < edge.minY || sampleY >= edge.maxY) continue;
+      intersections.push(edge.xAtMinY + (sampleY - edge.minY) * edge.inverseSlope);
+    }
+    intersections.sort((left, right) => left - right);
+
+    for (let index = 0; index + 1 < intersections.length; index += 2) {
+      const rawStart = intersections[index];
+      const rawEnd = intersections[index + 1];
+      if (rawStart === undefined || rawEnd === undefined) continue;
+      const start = Math.max(tileDocumentX, rawStart);
+      const end = Math.min(tileEndX, rawEnd);
+      if (!(end > start)) continue;
+
+      const firstPixel = Math.max(0, Math.min(width - 1, Math.floor(start - tileDocumentX)));
+      const endRelative = Math.max(start - tileDocumentX, end - tileDocumentX - Number.EPSILON);
+      const lastPixel = Math.max(0, Math.min(width - 1, Math.floor(endRelative)));
+      if (firstPixel === lastPixel) {
+        accumulated[firstPixel] += end - start;
+        continue;
+      }
+
+      accumulated[firstPixel] += tileDocumentX + firstPixel + 1 - start;
+      for (let pixel = firstPixel + 1; pixel < lastPixel; pixel += 1) accumulated[pixel] += 1;
+      accumulated[lastPixel] += end - (tileDocumentX + lastPixel);
     }
   }
-  return insideSamples / POLYGON_COVERAGE_SAMPLE_COUNT_V1;
+
+  for (let pixel = 0; pixel < accumulated.length; pixel += 1) {
+    accumulated[pixel] = clamp01(accumulated[pixel] / POLYGON_VERTICAL_SUBSAMPLES_V1);
+  }
+  return accumulated;
 }
 
 function brushCoverage(x: number, y: number, dabs: readonly SelectionBrushDabV1[]): number {
@@ -210,9 +243,7 @@ function brushCoverage(x: number, y: number, dabs: readonly SelectionBrushDabV1[
       coverage = Math.max(coverage, opacity);
       continue;
     }
-    if (distance < outer) {
-      coverage = Math.max(coverage, opacity * clamp01(outer - distance));
-    }
+    if (distance < outer) coverage = Math.max(coverage, opacity * clamp01(outer - distance));
   }
   return coverage;
 }
@@ -256,7 +287,7 @@ function normalizedShape(input: SelectionShapeV1): {
   }
 }
 
-function coverageAt(shape: SelectionShapeV1, x: number, y: number): number {
+function coverageAtNonPolygonV1(shape: SelectionShapeV1, x: number, y: number): number {
   switch (shape.kind) {
     case 'rectangle': {
       const bounds = rectangularBounds(shape.start, shape.end);
@@ -272,12 +303,73 @@ function coverageAt(shape: SelectionShapeV1, x: number, y: number): number {
       const dy = (y - centerY) / radiusY;
       return dx * dx + dy * dy <= 1 ? 1 : 0;
     }
-    case 'lasso':
-    case 'freehand':
-      return polygonPixelCoverageV1(x, y, shape.points);
     case 'brush':
       return brushCoverage(x, y, shape.dabs);
+    case 'lasso':
+    case 'freehand':
+      throw new Error('polygon coverage must use the scanline rasterizer');
   }
+}
+
+function validateTileInputV1(input: {
+  readonly width: number;
+  readonly height: number;
+}): void {
+  if (!Number.isSafeInteger(input.width) || input.width < 1)
+    throw new RangeError('selection tile width is invalid');
+  if (!Number.isSafeInteger(input.height) || input.height < 1)
+    throw new RangeError('selection tile height is invalid');
+}
+
+function encodeCoverageV1(bytes: Uint8Array, offset: number, coverage: number): void {
+  const encoded = Math.round(clamp01(coverage) * 255);
+  bytes[offset] = encoded;
+  bytes[offset + 1] = encoded;
+  bytes[offset + 2] = encoded;
+  bytes[offset + 3] = 255;
+}
+
+function rasterizeNormalizedSelectionShapeTileV1(
+  shape: SelectionShapeV1,
+  input: {
+    readonly tileDocumentX: number;
+    readonly tileDocumentY: number;
+    readonly width: number;
+    readonly height: number;
+  },
+  compiledPolygonEdges?: readonly PolygonEdgeV1[],
+): Uint8Array<ArrayBuffer> {
+  validateTileInputV1(input);
+  const bytes = new Uint8Array(input.width * input.height * 4);
+
+  if (shape.kind === 'lasso' || shape.kind === 'freehand') {
+    const edges = compiledPolygonEdges ?? polygonEdgesV1(shape.points);
+    for (let localY = 0; localY < input.height; localY += 1) {
+      const row = polygonRowCoverageV1(
+        edges,
+        input.tileDocumentY + localY,
+        input.tileDocumentX,
+        input.width,
+      );
+      for (let localX = 0; localX < input.width; localX += 1) {
+        encodeCoverageV1(bytes, (localY * input.width + localX) * 4, row[localX] ?? 0);
+      }
+    }
+    return bytes;
+  }
+
+  for (let localY = 0; localY < input.height; localY += 1) {
+    const documentY = input.tileDocumentY + localY + 0.5;
+    for (let localX = 0; localX < input.width; localX += 1) {
+      const documentX = input.tileDocumentX + localX + 0.5;
+      encodeCoverageV1(
+        bytes,
+        (localY * input.width + localX) * 4,
+        coverageAtNonPolygonV1(shape, documentX, documentY),
+      );
+    }
+  }
+  return bytes;
 }
 
 export function rasterizeSelectionShapeTileV1(
@@ -290,24 +382,8 @@ export function rasterizeSelectionShapeTileV1(
   },
 ): Uint8Array<ArrayBuffer> {
   const { shape } = normalizedShape(shapeInput);
-  if (!Number.isSafeInteger(input.width) || input.width < 1)
-    throw new RangeError('selection tile width is invalid');
-  if (!Number.isSafeInteger(input.height) || input.height < 1)
-    throw new RangeError('selection tile height is invalid');
-  const bytes = new Uint8Array(input.width * input.height * 4);
-  for (let localY = 0; localY < input.height; localY += 1) {
-    const documentY = input.tileDocumentY + localY + 0.5;
-    for (let localX = 0; localX < input.width; localX += 1) {
-      const documentX = input.tileDocumentX + localX + 0.5;
-      const encoded = Math.round(clamp01(coverageAt(shape, documentX, documentY)) * 255);
-      const offset = (localY * input.width + localX) * 4;
-      bytes[offset] = encoded;
-      bytes[offset + 1] = encoded;
-      bytes[offset + 2] = encoded;
-      bytes[offset + 3] = 255;
-    }
-  }
-  return bytes;
+  const edges = shape.kind === 'lasso' || shape.kind === 'freehand' ? polygonEdgesV1(shape.points) : undefined;
+  return rasterizeNormalizedSelectionShapeTileV1(shape, input, edges);
 }
 
 function hasCoverage(bytes: Uint8Array): boolean {
@@ -317,6 +393,13 @@ function hasCoverage(bytes: Uint8Array): boolean {
   return false;
 }
 
+function throwIfAbortedV1(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  const error = new Error('Selection preparation aborted');
+  error.name = 'AbortError';
+  throw error;
+}
+
 export async function prepareSelectionShapeCoverageV1(
   shapeInput: SelectionShapeV1,
   input: {
@@ -324,10 +407,14 @@ export async function prepareSelectionShapeCoverageV1(
     readonly documentHeight: number;
     readonly revision: Revision;
     readonly persistence: SelectionCoveragePersistencePortV1;
+    readonly signal?: AbortSignal;
   },
 ): Promise<PreparedSelectionCoverageV1> {
+  throwIfAbortedV1(input.signal);
   const grid = tileGridForDocumentV1(input.documentWidth, input.documentHeight);
   const { shape, bounds } = normalizedShape(shapeInput);
+  const polygonEdges =
+    shape.kind === 'lasso' || shape.kind === 'freehand' ? polygonEdgesV1(shape.points) : undefined;
   const clippedMinX = Math.max(0, bounds.minX);
   const clippedMinY = Math.max(0, bounds.minY);
   const clippedMaxX = Math.min(input.documentWidth, bounds.maxX);
@@ -355,23 +442,30 @@ export async function prepareSelectionShapeCoverageV1(
 
   for (let ty = minTy; ty <= maxTy; ty += 1) {
     for (let tx = minTx; tx <= maxTx; tx += 1) {
+      throwIfAbortedV1(input.signal);
       const tileBounds = tileBoundsForDocumentV1(input.documentWidth, input.documentHeight, {
         tx,
         ty,
       });
-      const bytes = rasterizeSelectionShapeTileV1(shape, {
-        tileDocumentX: tileBounds.x,
-        tileDocumentY: tileBounds.y,
-        width: tileBounds.validWidth,
-        height: tileBounds.validHeight,
-      });
+      const bytes = rasterizeNormalizedSelectionShapeTileV1(
+        shape,
+        {
+          tileDocumentX: tileBounds.x,
+          tileDocumentY: tileBounds.y,
+          width: tileBounds.validWidth,
+          height: tileBounds.validHeight,
+        },
+        polygonEdges,
+      );
       if (!hasCoverage(bytes)) continue;
+      throwIfAbortedV1(input.signal);
       const persisted = await input.persistence.persistRasterTile({
         width: tileBounds.validWidth,
         height: tileBounds.validHeight,
         pixelFormat: 'rgba8-unorm',
         bytes,
       });
+      throwIfAbortedV1(input.signal);
       tiles.push(
         Object.freeze({
           x: tx,
