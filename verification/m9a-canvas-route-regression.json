@@ -1,0 +1,10 @@
+{
+  "schema": "illustro.m9a-canvas-route-regression/1",
+  "recordedAt": "2026-09-05",
+  "rule": "Project Library must never remove the route to the Canvas surface solely because no project is currently active.",
+  "behavior": {
+    "withoutActiveProject": "Show a persistent キャンバスへ action that hides the Library surface.",
+    "withActiveProject": "Show エディターへ戻る and hide the Library surface on activation."
+  },
+  "regressionTest": "tests/unit/m9a-library-production.test.ts"
+}
