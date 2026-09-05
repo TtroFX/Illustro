@@ -991,6 +991,27 @@
       "reviewDate": "2026-08-30"
     },
     {
+      "component": "jsqr",
+      "packageIdentity": "npm:jsqr@1.4.0",
+      "version": "1.4.0",
+      "packagePath": "node_modules/jsqr",
+      "sourceUrl": "https://github.com/cozmo/jsQR",
+      "integrity": "sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==",
+      "licenseExpression": "Apache-2.0",
+      "copyrightAttribution": null,
+      "usage": "runtime-distributed",
+      "incorporation": "dependency",
+      "modifications": "none",
+      "obligations": {
+        "licenseText": true,
+        "notice": false,
+        "attribution": false
+      },
+      "reviewStatus": "reviewed",
+      "reviewer": "Illustro M6B QR interoperability review",
+      "reviewDate": "2026-09-05"
+    },
+    {
       "component": "lightningcss-android-arm64",
       "packageIdentity": "npm:lightningcss-android-arm64@1.33.0",
       "version": "1.33.0",

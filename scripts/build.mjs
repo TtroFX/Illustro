@@ -64,6 +64,13 @@ for (const entry of await readdir(publicDir, { withFileTypes: true })) {
   );
 }
 await cp(new URL('../.build/generated-public/', import.meta.url), distDir, { recursive: true });
+
+const vendorDistDir = new URL('vendor/', distDir);
+await mkdir(vendorDistDir, { recursive: true });
+await cp(
+  new URL('../node_modules/jsqr/dist/jsQR.js', import.meta.url),
+  new URL('jsQR.js', vendorDistDir),
+);
 await cp(
   new URL('../.build/meta/build-info.json', import.meta.url),
   new URL('build-info.json', distDir),
