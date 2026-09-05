@@ -1,0 +1,156 @@
+name: Fix M8D drag tear-off once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m8d-drag-tearoff-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Rebase latest main
+        run: git pull --rebase origin main
+      - name: Apply direct drag tear-off correction
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          ts_path = Path('src/app/m8-inspector-dock.ts')
+          ts = ts_path.read_text()
+
+          const_anchor = "export const M8_PIP_MIN_HEIGHT_V1 = 140;\n"
+          const_new = "export const M8_PIP_MIN_HEIGHT_V1 = 140;\nexport const M8_PIP_TEAR_OFF_THRESHOLD_V1 = 28;\n"
+          if const_anchor in ts and 'M8_PIP_TEAR_OFF_THRESHOLD_V1 = 28' not in ts:
+              ts = ts.replace(const_anchor, const_new, 1)
+
+          old_header = '''    <button class="m8d-drag-handle" type="button" aria-label="${spec.title}を移動">⠿</button>\n    <span class="m8d-block-icon" aria-hidden="true">${spec.icon}</span>\n    <strong>${spec.title}</strong>\n    <button class="m8d-detach" type="button" aria-label="${spec.title}を切り離す">↗</button>\n    <button class="m8d-collapse" type="button" aria-label="${spec.title}を折りたたむ" aria-expanded="true">⌄</button>'''
+          new_header = '''    <button class="m8d-drag-handle" type="button" aria-label="${spec.title}を移動。Inspector外へドラッグすると切り離します">⠿</button>\n    <span class="m8d-block-icon" aria-hidden="true">${spec.icon}</span>\n    <strong>${spec.title}</strong>\n    <button class="m8d-collapse" type="button" aria-label="${spec.title}を折りたたむ" aria-expanded="true">⌄</button>'''
+          if old_header in ts:
+              ts = ts.replace(old_header, new_header, 1)
+          elif new_header not in ts:
+              raise SystemExit('block header anchor not found')
+
+          old_detach_sig = "  const detach = (id: M8InspectorBlockIdV1): void => {\n"
+          new_detach_sig = "  const detach = (id: M8InspectorBlockIdV1, dragLeft?: number, dragTop?: number): void => {\n"
+          if old_detach_sig in ts:
+              ts = ts.replace(old_detach_sig, new_detach_sig, 1)
+
+          old_positions = '''    floatingLayer.append(block);\n    block.classList.add('is-detached');\n    block.style.left = `${previous?.x ?? Math.max(20, rect.left - 18)}px`;\n    block.style.top = `${previous?.y ?? Math.max(76, rect.top)}px`;\n    block.style.width = `${previous?.width ?? M8_PIP_DEFAULT_WIDTH_V1}px`;\n    block.style.height = `${previous?.height ?? Math.max(M8_PIP_MIN_HEIGHT_V1, Math.min(360, rect.height))}px`;\n    block.style.zIndex = String(++zCounter);'''
+          new_positions = '''    const detachedX = dragLeft ?? previous?.x ?? Math.max(20, rect.left - 18);\n    const detachedY = dragTop ?? previous?.y ?? Math.max(76, rect.top);\n    floatingLayer.append(block);\n    block.classList.add('is-detached');\n    block.style.left = `${detachedX}px`;\n    block.style.top = `${detachedY}px`;\n    block.style.width = `${previous?.width ?? M8_PIP_DEFAULT_WIDTH_V1}px`;\n    block.style.height = `${previous?.height ?? Math.max(M8_PIP_MIN_HEIGHT_V1, Math.min(360, rect.height))}px`;\n    block.style.zIndex = String(++zCounter);'''
+          if old_positions in ts:
+              ts = ts.replace(old_positions, new_positions, 1)
+          elif new_positions not in ts:
+              raise SystemExit('detach positioning anchor not found')
+
+          ts = ts.replace("          x: previous?.x ?? Math.max(20, rect.left - 18),\n          y: previous?.y ?? Math.max(76, rect.top),", "          x: detachedX,\n          y: detachedY,", 1)
+
+          var_anchor = "  let dockIndexCandidate: number | null = null;\n"
+          var_new = "  let dockIndexCandidate: number | null = null;\n  let suppressRedockUntilClear = false;\n"
+          if var_anchor in ts and 'let suppressRedockUntilClear = false;' not in ts:
+              ts = ts.replace(var_anchor, var_new, 1)
+
+          down_anchor = "    blockPointerId = event.pointerId;\n    blockDragId = id;\n"
+          down_new = "    blockPointerId = event.pointerId;\n    blockDragId = id;\n    suppressRedockUntilClear = false;\n"
+          if down_anchor in ts and down_new not in ts:
+              ts = ts.replace(down_anchor, down_new, 1)
+
+          old_detached_branch = '''      const inspectorRect = inspector.getBoundingClientRect();\n      const nearDock =\n        event.clientX >= inspectorRect.left - 72 && event.clientX <= inspectorRect.right + 28;\n      if (nearDock) {'''
+          new_detached_branch = '''      const inspectorRect = inspector.getBoundingClientRect();\n      const nearDock =\n        event.clientX >= inspectorRect.left - 72 && event.clientX <= inspectorRect.right + 28;\n      if (suppressRedockUntilClear) {\n        if (!nearDock) suppressRedockUntilClear = false;\n        dockIndexCandidate = null;\n        dockCandidate.hidden = true;\n        return;\n      }\n      if (nearDock) {'''
+          if old_detached_branch in ts:
+              ts = ts.replace(old_detached_branch, new_detached_branch, 1)
+          elif new_detached_branch not in ts:
+              raise SystemExit('detached magnetic branch anchor not found')
+
+          reorder_anchor = '''    }\n    const element = document.elementFromPoint(event.clientX, event.clientY);\n    const target = element?.closest<HTMLElement>('[data-m8d-block]') ?? null;'''
+          reorder_new = '''    }\n    const inspectorRect = inspector.getBoundingClientRect();\n    const leftDockBoundary = inspectorRect.left - M8_PIP_TEAR_OFF_THRESHOLD_V1;\n    const rightDockBoundary = inspectorRect.right + M8_PIP_TEAR_OFF_THRESHOLD_V1;\n    if (event.clientX < leftDockBoundary || event.clientX > rightDockBoundary) {\n      detach(\n        blockDragId,\n        clamp(event.clientX - pointerOffsetX, 0, Math.max(0, innerWidth - M8_PIP_MIN_WIDTH_V1)),\n        clamp(event.clientY - pointerOffsetY, 64, Math.max(64, innerHeight - M8_PIP_MIN_HEIGHT_V1)),\n      );\n      suppressRedockUntilClear = true;\n      dockIndexCandidate = null;\n      dockCandidate.hidden = true;\n      return;\n    }\n    const element = document.elementFromPoint(event.clientX, event.clientY);\n    const target = element?.closest<HTMLElement>('[data-m8d-block]') ?? null;'''
+          if reorder_anchor in ts:
+              ts = ts.replace(reorder_anchor, reorder_new, 1)
+          elif reorder_new not in ts:
+              raise SystemExit('reorder/tear-off anchor not found')
+
+          end_anchor = "    blockDragId = null;\n  };\n"
+          end_new = "    blockDragId = null;\n    suppressRedockUntilClear = false;\n  };\n"
+          if end_anchor in ts and end_new not in ts:
+              ts = ts.replace(end_anchor, end_new, 1)
+
+          click_detach = "    else if (target.matches('.m8d-detach')) detach(id);\n"
+          ts = ts.replace(click_detach, '')
+          ts_path.write_text(ts)
+
+          css_path = Path('public/m8-inspector.css')
+          css = css_path.read_text()
+          css = css.replace('  grid-template-columns: 26px 27px minmax(0, 1fr) 30px 30px;\n', '  grid-template-columns: 26px 27px minmax(0, 1fr) 30px;\n', 1)
+          floating_anchor = '''.m8d-floating-layer .m8d-block-header {\n  position: sticky;\n  z-index: 2;\n  top: 0;\n  grid-template-columns: 26px 27px minmax(0, 1fr) 30px 30px;'''
+          floating_new = '''.m8d-floating-layer .m8d-block-header {\n  position: sticky;\n  z-index: 2;\n  top: 0;\n  grid-template-columns: 26px 27px minmax(0, 1fr) 30px 30px;'''
+          if floating_anchor not in css and floating_new not in css:
+              raise SystemExit('floating header grid anchor not found')
+          css = css.replace('.m8d-floating-layer .m8d-detach { display: none !important; }\n', '')
+          css_path.write_text(css)
+
+          test_path = Path('tests/unit/m8-inspector-dock.test.ts')
+          test = test_path.read_text()
+          test = test.replace('  M8_PIP_MIN_HEIGHT_V1,\n  M8_PIP_MIN_WIDTH_V1,', '  M8_PIP_MIN_HEIGHT_V1,\n  M8_PIP_MIN_WIDTH_V1,\n  M8_PIP_TEAR_OFF_THRESHOLD_V1,')
+          geom_anchor = "    expect(M8_PIP_MIN_HEIGHT_V1).toBe(140);\n"
+          geom_new = "    expect(M8_PIP_MIN_HEIGHT_V1).toBe(140);\n    expect(M8_PIP_TEAR_OFF_THRESHOLD_V1).toBe(28);\n"
+          if geom_anchor in test and 'M8_PIP_TEAR_OFF_THRESHOLD_V1).toBe(28)' not in test:
+              test = test.replace(geom_anchor, geom_new, 1)
+          support_anchor = "      'M8_INSPECTOR_WORKSPACE_KEY_V1',\n"
+          support_new = "      'M8_INSPECTOR_WORKSPACE_KEY_V1',\n      'M8_PIP_TEAR_OFF_THRESHOLD_V1',\n      'suppressRedockUntilClear',\n"
+          if support_anchor in test and "'suppressRedockUntilClear'" not in test:
+              test = test.replace(support_anchor, support_new, 1)
+          marker = "    expect(css).not.toContain('.m8d-inspector-collapsed .m8d-floating-layer');\n"
+          marker_new = marker + "    expect(source).not.toContain('class=\\\"m8d-detach\\\"');\n    expect(source).not.toContain(\"target.matches('.m8d-detach')\");\n    expect(css).not.toContain('.m8d-floating-layer .m8d-detach');\n"
+          if marker in test and "class=\\\"m8d-detach\\\"" not in test:
+              test = test.replace(marker, marker_new, 1)
+          test_path.write_text(test)
+
+          memo_path = Path('ILLUSTRO_DESIGN_MEMO.md')
+          memo = memo_path.read_text()
+          old_bullet = '- Dragging a block away from the right inspector can tear it off into a floating **PiP panel** without changing the tool\'s underlying state.\n'
+          new_bullets = '''- Dragging a block away from the right inspector can tear it off into a floating **PiP panel** without changing the tool's underlying state.\n- **There is no dedicated docked-state Detach button.** The same direct drag gesture used to reorder a block becomes the tear-off gesture when the block is pulled beyond the inspector boundary.\n- Tear-off and magnetic re-docking are intentionally symmetric direct-manipulation operations: drag out to detach, drag back near the inspector to preview an insertion target and drop to re-dock.\n'''
+          if old_bullet in memo:
+              memo = memo.replace(old_bullet, new_bullets, 1)
+          elif new_bullets not in memo:
+              raise SystemExit('canonical tear-off memo anchor not found')
+          memo_path.write_text(memo)
+          PY
+      - name: Pin npm toolchain
+        run: npm install --global npm@11.19.1
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Format changed TypeScript
+        run: npx biome format --write src/app/m8-inspector-dock.ts tests/unit/m8-inspector-dock.test.ts
+      - name: Verify formatting
+        run: npm run format:check
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Focused M8D tests
+        run: npx vitest run tests/unit/m8-inspector-dock.test.ts tests/unit/m8-product-shell.test.ts tests/unit/m8-tool-rail.test.ts
+      - name: Production build
+        run: npm run build
+      - name: Remove temporary workflow
+        run: rm .github/workflows/fix-m8d-drag-tearoff-once.yml .github/m8d-drag-tearoff-trigger
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: make M8D PiP tear-off direct manipulation'
+          for attempt in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep $((attempt * 2))
+          done
+          exit 1
