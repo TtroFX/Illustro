@@ -1,0 +1,48 @@
+name: Close M7A selection cut once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m7a-selection-cut-progress-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  close-m7a-selection-cut:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Mark M7A-019 complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('IMPLEMENTATION_PROGRESS.md')
+          text = path.read_text()
+          before = 'M7A-019 selection cut:未完了'
+          after = 'M7A-019 selection cut:完了'
+          if before in text:
+              if text.count(before) != 1:
+                  raise SystemExit(f'expected exactly one progress line: {before}')
+              text = text.replace(before, after, 1)
+              path.write_text(text)
+          elif after not in text:
+              raise SystemExit(f'progress line missing: {before}')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md
+          if git diff --cached --quiet; then
+            echo 'M7A-019 already complete.'
+            exit 0
+          fi
+          git commit -m 'chore: close M7A selection cut'
+          git pull --rebase origin main
+          git push origin HEAD:main
