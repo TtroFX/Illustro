@@ -343,7 +343,7 @@ export async function prepareFloodFillV1(
     persistence,
   );
   const region = resolveFloodFillRegionV1(pixelSource, seed);
-  const sourceTiles = await sourceTilesV1(snapshot, layer, persistence);
+  const sourceTiles = await sourceTilesV1(snapshot, layer as RasterLayerV1, persistence);
   const sourceByKey = new Map<string, PreparedRasterMergeTileV1>();
   for (const tile of sourceTiles) {
     const key = tileKeyV1(tile.x, tile.y);
