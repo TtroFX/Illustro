@@ -569,11 +569,11 @@ M7A-008 selection Replace mode:完了
 M7A-009 selection Add mode:完了
 M7A-010 selection Subtract mode:完了
 M7A-011 selection Intersect mode:完了
-M7A-012 deselect:未完了
-M7A-013 invert selection:未完了
-M7A-014 expand selection:未完了
-M7A-015 contract selection:未完了
-M7A-016 feather selection:未完了
+M7A-012 deselect:完了
+M7A-013 invert selection:完了
+M7A-014 expand selection:完了
+M7A-015 contract selection:完了
+M7A-016 feather selection:完了
 M7A-017 Quick Mask:未完了
 M7A-018 alpha/transparency→selection:未完了
 M7A-019 selection cut:未完了
