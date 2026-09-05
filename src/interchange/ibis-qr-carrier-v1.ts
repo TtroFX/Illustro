@@ -14,7 +14,9 @@ export type JsQrDecoderV1 = (
   rgba: Uint8ClampedArray,
   width: number,
   height: number,
-  options?: { readonly inversionAttempts?: 'attemptBoth' | 'dontInvert' | 'onlyInvert' | 'invertFirst' },
+  options?: {
+    readonly inversionAttempts?: 'attemptBoth' | 'dontInvert' | 'onlyInvert' | 'invertFirst';
+  },
 ) => JsQrBinaryResultV1 | null;
 
 export interface IbisQrCarrierV1 {
@@ -36,7 +38,8 @@ function checkedPixelsV1(
   width: number,
   height: number,
 ): Uint8ClampedArray {
-  if (!(rgba instanceof Uint8ClampedArray)) throw new TypeError('QR pixels must be RGBA Uint8ClampedArray');
+  if (!(rgba instanceof Uint8ClampedArray))
+    throw new TypeError('QR pixels must be RGBA Uint8ClampedArray');
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
     throw new RangeError('QR image dimensions are invalid');
   }
@@ -47,7 +50,8 @@ function checkedPixelsV1(
   if (pixels > IBIS_QR_IMAGE_MAX_PIXELS_V1) {
     throw new RangeError('QR image pixel count exceeds the safety limit');
   }
-  if (rgba.byteLength !== pixels * 4) throw new RangeError('QR RGBA byte length does not match dimensions');
+  if (rgba.byteLength !== pixels * 4)
+    throw new RangeError('QR RGBA byte length does not match dimensions');
   return rgba;
 }
 
@@ -60,7 +64,8 @@ export function decodeIbisBrushQrPixelsV1(
   const pixels = checkedPixelsV1(rgba, width, height);
   const decoded = decoder(pixels, width, height, { inversionAttempts: 'attemptBoth' });
   if (decoded === null) throw new TypeError('QR code was not found in the image');
-  if (decoded.binaryData === undefined) throw new TypeError('QR decoder did not return binary payload bytes');
+  if (decoded.binaryData === undefined)
+    throw new TypeError('QR decoder did not return binary payload bytes');
 
   const payload = Uint8Array.from(decoded.binaryData);
   parseIbisBrushEnvelopeV1(payload);
