@@ -1,0 +1,39 @@
+name: Fix M8 inspector width type once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/fix-m8-inspector-width-type-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Widen resize state to number
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/app/m8-inspector-dock.ts')
+          text = path.read_text(encoding='utf-8')
+          old = 'let resizeStartWidth = M8_INSPECTOR_WIDTH_V1.default;'
+          new = 'let resizeStartWidth: number = M8_INSPECTOR_WIDTH_V1.default;'
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f'expected exact resize width declaration once, found {count}')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Commit type-only correction
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/m8-inspector-dock.ts
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: widen M8 inspector resize width state'
+          git push origin HEAD:main
