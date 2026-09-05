@@ -31,10 +31,21 @@ function viewport(overrides: Partial<ViewportSnapshotV1> = {}): ViewportSnapshot
 describe('M8E lasso gesture contract', () => {
   it('defaults to additive union behavior while retaining explicit Set/Subtract/Intersect modes', () => {
     expect(M8_SELECTION_DEFAULT_MODE_V1).toBe('add');
-    expect(resolveSelectionModeForPointerV1(M8_SELECTION_DEFAULT_MODE_V1, { shiftKey: false, altKey: false })).toBe('add');
-    expect(resolveSelectionModeForPointerV1('replace', { shiftKey: true, altKey: false })).toBe('add');
-    expect(resolveSelectionModeForPointerV1('add', { shiftKey: false, altKey: true })).toBe('subtract');
-    expect(resolveSelectionModeForPointerV1('add', { shiftKey: true, altKey: true })).toBe('intersect');
+    expect(
+      resolveSelectionModeForPointerV1(M8_SELECTION_DEFAULT_MODE_V1, {
+        shiftKey: false,
+        altKey: false,
+      }),
+    ).toBe('add');
+    expect(resolveSelectionModeForPointerV1('replace', { shiftKey: true, altKey: false })).toBe(
+      'add',
+    );
+    expect(resolveSelectionModeForPointerV1('add', { shiftKey: false, altKey: true })).toBe(
+      'subtract',
+    );
+    expect(resolveSelectionModeForPointerV1('add', { shiftKey: true, altKey: true })).toBe(
+      'intersect',
+    );
   });
 
   it('invalidates older asynchronous commits as soon as a newer lasso starts', () => {
@@ -74,7 +85,10 @@ describe('M8E lasso gesture contract', () => {
 
   it('maps captured stage samples into stable document coordinates through viewport transforms', () => {
     expect(mapStagePointToDocumentV1(25, 75, viewport())).toEqual({ x: 25, y: 75 });
-    expect(mapStagePointToDocumentV1(75, 50, viewport({ mirrored: true }))).toEqual({ x: 25, y: 50 });
+    expect(mapStagePointToDocumentV1(75, 50, viewport({ mirrored: true }))).toEqual({
+      x: 25,
+      y: 50,
+    });
     const rotated = mapStagePointToDocumentV1(50, 25, viewport({ rotationDegrees: 90 }));
     expect(rotated.x).toBeCloseTo(25, 8);
     expect(rotated.y).toBeCloseTo(50, 8);

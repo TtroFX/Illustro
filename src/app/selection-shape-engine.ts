@@ -311,10 +311,7 @@ function coverageAtNonPolygonV1(shape: SelectionShapeV1, x: number, y: number): 
   }
 }
 
-function validateTileInputV1(input: {
-  readonly width: number;
-  readonly height: number;
-}): void {
+function validateTileInputV1(input: { readonly width: number; readonly height: number }): void {
   if (!Number.isSafeInteger(input.width) || input.width < 1)
     throw new RangeError('selection tile width is invalid');
   if (!Number.isSafeInteger(input.height) || input.height < 1)
@@ -382,7 +379,8 @@ export function rasterizeSelectionShapeTileV1(
   },
 ): Uint8Array<ArrayBuffer> {
   const { shape } = normalizedShape(shapeInput);
-  const edges = shape.kind === 'lasso' || shape.kind === 'freehand' ? polygonEdgesV1(shape.points) : undefined;
+  const edges =
+    shape.kind === 'lasso' || shape.kind === 'freehand' ? polygonEdgesV1(shape.points) : undefined;
   return rasterizeNormalizedSelectionShapeTileV1(shape, input, edges);
 }
 

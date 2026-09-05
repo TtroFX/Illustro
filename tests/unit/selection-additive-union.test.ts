@@ -39,7 +39,13 @@ function memoryStorageV1(): {
       const objectHash = sequence.toString(16).padStart(64, '0');
       sequence += 1;
       const payloadRef = `sha256:${objectHash}`;
-      tiles.set(payloadRef, { payloadRef, objectHash, width: input.width, height: input.height, bytes });
+      tiles.set(payloadRef, {
+        payloadRef,
+        objectHash,
+        width: input.width,
+        height: input.height,
+        bytes,
+      });
       return Object.freeze({
         schema: 'illustro.paint-persisted-raster-tile/1' as const,
         payloadRef,

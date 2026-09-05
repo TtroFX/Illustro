@@ -296,6 +296,7 @@ export function installM8SelectionGestureControllerV1(input: {
     if (activeTool === null || event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest('.m8e-selection-launcher')) return;
     commitGate.invalidate();
+    delete input.root.dataset.illustroSelectionCommit;
     gestureStageRect = stage.getBoundingClientRect();
     configurePreview();
     clearPreview();

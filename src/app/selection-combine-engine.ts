@@ -216,7 +216,8 @@ export async function prepareCombinedSelectionCoverageV1(
     (left, right) => left[1] - right[1] || left[0] - right[0],
   );
   const outputTiles: RasterTileReferenceV1[] = [];
-  const mayReuseExisting = existing.inverted === false && existing.defaultCoverage === outputDefault;
+  const mayReuseExisting =
+    existing.inverted === false && existing.defaultCoverage === outputDefault;
 
   for (const [tx, ty] of ordered) {
     throwIfAbortedV1(input.signal);
@@ -290,12 +291,7 @@ export async function applyPreparedSelectionModeV1(
   },
 ): Promise<SelectionCoverageSnapshotV1> {
   const before = controller.snapshot();
-  const prepared = await prepareCombinedSelectionCoverageV1(
-    before.coverage,
-    incoming,
-    mode,
-    input,
-  );
+  const prepared = await prepareCombinedSelectionCoverageV1(before.coverage, incoming, mode, input);
   throwIfAbortedV1(input.signal);
   if (preparedMatchesCoverageV1(before.coverage, prepared)) return before;
   return controller.replacePrepared(prepared);
