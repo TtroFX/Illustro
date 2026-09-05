@@ -30,8 +30,6 @@ describe('M7 UI shell catalog', () => {
     expect(M7_TOOL_FAMILIES_V1.find((family) => family.id === 'selection')?.progress).toContain(
       'M7A',
     );
-    expect(M7_TOOL_FAMILIES_V1.find((family) => family.id === 'fill')?.progress).toContain(
-      'M7B',
-    );
+    expect(M7_TOOL_FAMILIES_V1.find((family) => family.id === 'fill')?.progress).toContain('M7B');
   });
 });
