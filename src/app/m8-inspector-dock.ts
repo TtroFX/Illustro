@@ -26,6 +26,7 @@ export const M8_INSPECTOR_WIDTH_V1 = Object.freeze({ min: 260, default: 320, max
 export const M8_PIP_DEFAULT_WIDTH_V1 = 280;
 export const M8_PIP_MIN_WIDTH_V1 = 220;
 export const M8_PIP_MIN_HEIGHT_V1 = 140;
+export const M8_PIP_TEAR_OFF_THRESHOLD_V1 = 28;
 export const M8_INSPECTOR_WORKSPACE_KEY_V1 = 'illustro.m8.inspector-workspace.v1';
 export const M8_INSPECTOR_SAVED_WORKSPACES_KEY_V1 = 'illustro.m8.saved-workspaces.v1';
 
@@ -340,10 +341,9 @@ function createBlockV1(spec: M8InspectorBlockSpecV1): HTMLElement {
   block.dataset.tone = spec.tone;
   block.dataset.productionState = spec.productionState;
   block.innerHTML = `<header class="m8d-block-header">
-    <button class="m8d-drag-handle" type="button" aria-label="${spec.title}を移動">⠿</button>
+    <button class="m8d-drag-handle" type="button" aria-label="${spec.title}を移動。Inspector外へドラッグすると切り離します">⠿</button>
     <span class="m8d-block-icon" aria-hidden="true">${spec.icon}</span>
     <strong>${spec.title}</strong>
-    <button class="m8d-detach" type="button" aria-label="${spec.title}を切り離す">↗</button>
     <button class="m8d-collapse" type="button" aria-label="${spec.title}を折りたたむ" aria-expanded="true">⌄</button>
     <button class="m8d-pip-return" type="button" aria-label="Inspectorへ戻す">×</button>
   </header><div class="m8d-block-body">${renderBodyV1(spec)}</div>`;
@@ -513,17 +513,19 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
   };
 
   let zCounter = 30;
-  const detach = (id: M8InspectorBlockIdV1): void => {
+  const detach = (id: M8InspectorBlockIdV1, dragLeft?: number, dragTop?: number): void => {
     const block = blocks.get(id);
     if (!block || block.classList.contains('is-detached')) return;
     const docked = Array.from(list.querySelectorAll<HTMLElement>('[data-m8d-block]'));
     const dockIndex = Math.max(0, docked.indexOf(block));
     const rect = block.getBoundingClientRect();
     const previous = state.detached[id];
+    const detachedX = dragLeft ?? previous?.x ?? Math.max(20, rect.left - 18);
+    const detachedY = dragTop ?? previous?.y ?? Math.max(76, rect.top);
     floatingLayer.append(block);
     block.classList.add('is-detached');
-    block.style.left = `${previous?.x ?? Math.max(20, rect.left - 18)}px`;
-    block.style.top = `${previous?.y ?? Math.max(76, rect.top)}px`;
+    block.style.left = `${detachedX}px`;
+    block.style.top = `${detachedY}px`;
     block.style.width = `${previous?.width ?? M8_PIP_DEFAULT_WIDTH_V1}px`;
     block.style.height = `${previous?.height ?? Math.max(M8_PIP_MIN_HEIGHT_V1, Math.min(360, rect.height))}px`;
     block.style.zIndex = String(++zCounter);
@@ -532,8 +534,8 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
       detached: Object.freeze({
         ...snapshotState().detached,
         [id]: Object.freeze({
-          x: previous?.x ?? Math.max(20, rect.left - 18),
-          y: previous?.y ?? Math.max(76, rect.top),
+          x: detachedX,
+          y: detachedY,
           width: previous?.width ?? M8_PIP_DEFAULT_WIDTH_V1,
           height: previous?.height ?? Math.max(M8_PIP_MIN_HEIGHT_V1, Math.min(360, rect.height)),
           dockIndex,
@@ -683,6 +685,7 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
   let pointerOffsetX = 0;
   let pointerOffsetY = 0;
   let dockIndexCandidate: number | null = null;
+  let suppressRedockUntilClear = false;
 
   const onBlockPointerDown = (event: PointerEvent): void => {
     if (event.button !== 0) return;
@@ -695,6 +698,7 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     if (!block || !isBlockIdV1(id)) return;
     blockPointerId = event.pointerId;
     blockDragId = id;
+    suppressRedockUntilClear = false;
     const rect = block.getBoundingClientRect();
     pointerOffsetX = event.clientX - rect.left;
     pointerOffsetY = event.clientY - rect.top;
@@ -714,6 +718,12 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
       const inspectorRect = inspector.getBoundingClientRect();
       const nearDock =
         event.clientX >= inspectorRect.left - 72 && event.clientX <= inspectorRect.right + 28;
+      if (suppressRedockUntilClear) {
+        if (!nearDock) suppressRedockUntilClear = false;
+        dockIndexCandidate = null;
+        dockCandidate.hidden = true;
+        return;
+      }
       if (nearDock) {
         const docked = Array.from(list.querySelectorAll<HTMLElement>('[data-m8d-block]'));
         dockIndexCandidate = docked.findIndex(
@@ -729,6 +739,20 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
         dockIndexCandidate = null;
         dockCandidate.hidden = true;
       }
+      return;
+    }
+    const inspectorRect = inspector.getBoundingClientRect();
+    const leftDockBoundary = inspectorRect.left - M8_PIP_TEAR_OFF_THRESHOLD_V1;
+    const rightDockBoundary = inspectorRect.right + M8_PIP_TEAR_OFF_THRESHOLD_V1;
+    if (event.clientX < leftDockBoundary || event.clientX > rightDockBoundary) {
+      detach(
+        blockDragId,
+        clamp(event.clientX - pointerOffsetX, 0, Math.max(0, innerWidth - M8_PIP_MIN_WIDTH_V1)),
+        clamp(event.clientY - pointerOffsetY, 64, Math.max(64, innerHeight - M8_PIP_MIN_HEIGHT_V1)),
+      );
+      suppressRedockUntilClear = true;
+      dockIndexCandidate = null;
+      dockCandidate.hidden = true;
       return;
     }
     const element = document.elementFromPoint(event.clientX, event.clientY);
@@ -751,6 +775,7 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     dockIndexCandidate = null;
     blockPointerId = null;
     blockDragId = null;
+    suppressRedockUntilClear = false;
   };
 
   const onInspectorClick = (event: Event): void => {
@@ -770,7 +795,6 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     if (!isBlockIdV1(id)) return;
     if (target.matches('.m8d-collapse'))
       setBlockCollapsed(id, !block?.classList.contains('is-collapsed'));
-    else if (target.matches('.m8d-detach')) detach(id);
     else if (target.matches('.m8d-pip-return')) redock(id);
     else if (target.dataset.m8dProxy) proxyButtonV1(target.dataset.m8dProxy);
   };

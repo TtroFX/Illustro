@@ -611,6 +611,8 @@ The right inspector is not a fixed monolithic sidebar. It is a **reorderable doc
 ### Tear-off / PiP behavior
 
 - Dragging a block away from the right inspector can tear it off into a floating **PiP panel** without changing the tool's underlying state.
+- **There is no dedicated docked-state Detach button.** The same direct drag gesture used to reorder a block becomes the tear-off gesture when the block is pulled beyond the inspector boundary.
+- Tear-off and magnetic re-docking are intentionally symmetric direct-manipulation operations: drag out to detach, drag back near the inspector to preview an insertion target and drop to re-dock.
 - A detached PiP is an alternate presentation of the same block, not a duplicated tool instance.
 - Detached PiPs remain visible and usable even if the entire right inspector is collapsed, allowing the user to keep only the controls needed for the current task on the canvas/workspace.
 - Collapsing or reopening the right inspector does not implicitly re-dock detached PiPs.

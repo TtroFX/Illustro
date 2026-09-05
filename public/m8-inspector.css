@@ -90,7 +90,7 @@
 .m8d-block-header {
   display: grid;
   height: 36px;
-  grid-template-columns: 26px 27px minmax(0, 1fr) 30px 30px;
+  grid-template-columns: 26px 27px minmax(0, 1fr) 30px;
   align-items: center;
   gap: 2px;
   padding: 0 4px;
@@ -496,7 +496,6 @@
   backdrop-filter: blur(12px);
 }
 
-.m8d-floating-layer .m8d-detach { display: none !important; }
 .m8d-floating-layer .m8d-pip-return { display: grid !important; }
 .m8d-floating-layer .m8d-block-body { overflow: auto; }
 

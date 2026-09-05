@@ -6,6 +6,7 @@ import {
   M8_PIP_DEFAULT_WIDTH_V1,
   M8_PIP_MIN_HEIGHT_V1,
   M8_PIP_MIN_WIDTH_V1,
+  M8_PIP_TEAR_OFF_THRESHOLD_V1,
 } from '../../src/app/m8-inspector-dock.js';
 import {
   M8_TOOL_RAIL_WIDTH_STORAGE_KEY_V1,
@@ -44,6 +45,7 @@ describe('M8D canonical Inspector workspace', () => {
     expect(M8_PIP_DEFAULT_WIDTH_V1).toBe(280);
     expect(M8_PIP_MIN_WIDTH_V1).toBe(220);
     expect(M8_PIP_MIN_HEIGHT_V1).toBe(140);
+    expect(M8_PIP_TEAR_OFF_THRESHOLD_V1).toBe(28);
     expect(css).toContain('height: 36px');
     expect(css).toContain('.m8d-floating-layer');
     expect(css).toContain('.m8d-dock-candidate');
@@ -61,6 +63,8 @@ describe('M8D canonical Inspector workspace', () => {
       'resetWorkspace',
       'data-m8d-workspace-select',
       'M8_INSPECTOR_WORKSPACE_KEY_V1',
+      'M8_PIP_TEAR_OFF_THRESHOLD_V1',
+      'suppressRedockUntilClear',
     ])
       expect(source).toContain(token);
     expect(css).toContain('.m8d-inspector-collapsed .m8-inspector-dock');
@@ -68,6 +72,9 @@ describe('M8D canonical Inspector workspace', () => {
     expect(css).toContain('visibility: visible;');
     expect(css).toContain('[data-m8d-inspector-toggle]');
     expect(css).not.toContain('.m8d-inspector-collapsed .m8d-floating-layer');
+    expect(source).not.toContain('class=\"m8d-detach\"');
+    expect(source).not.toContain("target.matches('.m8d-detach')");
+    expect(css).not.toContain('.m8d-floating-layer .m8d-detach');
   });
 
   it('uses the exact fixed Inspector action strip and a production horizontal mirror proxy', () => {
