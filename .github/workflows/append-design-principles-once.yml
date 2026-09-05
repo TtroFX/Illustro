@@ -1,4 +1,4 @@
-name: Mark phone UX remediation complete once
+name: Format and verify M7A region batch once
 
 on:
   push:
@@ -10,48 +10,42 @@ permissions:
   contents: write
 
 jobs:
-  mark-phone-ux-remediation:
+  verify-m7a-region:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Mark implemented phone UX items complete
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Format M7A region sources
+        run: npx biome format --write src/app/selection-region-engine.ts src/app/selection-combine-engine.ts tests/unit/selection-region-combine-engine.test.ts
+
+      - name: Commit formatting
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('IMPLEMENTATION_PROGRESS.md')
-          text = path.read_text()
-          replacements = {
-              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
-                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
-              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
-                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
-              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
-                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
-          }
-          changed = False
-          for before, after in replacements.items():
-              if before in text:
-                  if text.count(before) != 1:
-                      raise SystemExit(f'expected one progress line: {before}')
-                  text = text.replace(before, after, 1)
-                  changed = True
-              elif after not in text:
-                  raise SystemExit(f'progress line missing: {before}')
-          if changed:
-              path.write_text(text)
-          PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add IMPLEMENTATION_PROGRESS.md
+          git add src/app/selection-region-engine.ts src/app/selection-combine-engine.ts tests/unit/selection-region-combine-engine.test.ts
           if git diff --cached --quiet; then
-            echo 'Phone UX remediation progress already complete.'
-            exit 0
+            echo 'M7A region sources already formatted.'
+          else
+            git commit -m 'style: format M7A region selection batch'
+            git push origin HEAD:main
           fi
-          git commit -m 'chore: close phone UX remediation'
-          git push origin HEAD:main
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Focused M7A tests
+        run: npx vitest run tests/unit/selection-shape-engine.test.ts tests/unit/selection-region-combine-engine.test.ts
