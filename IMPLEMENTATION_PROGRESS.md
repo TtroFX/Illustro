@@ -6,6 +6,7 @@ Design baseline: `IMPLEMENTATION READY — DESIGN FREEZE` / 2026-08-30
 Canonical specification: `ILLUSTRO_DESIGN_MEMO.md`
 Status values: `未完了` / `仮完了` / `完了`
 M8 status rule: M8は先行UI/UX実装を許可するが、M7等の依存機能とのproduction path接続・History/Persistence/Command接続・必要な最終検査が未完了の項目は `仮完了` とする。`完了` へ昇格できるのは依存機能を含む本接続と最終検証まで成立した場合のみ。
+M8 user-review rule: M8B〜M8Jは各サブセクションを独立したUI確認区切りとする。各区切りは内部実装・内部検査が成立してもユーザー確認前は `仮完了` のままとし、Previewを公開してユーザーから明示的なPASSを得るまで次のM8 UIサブセクションへ進まない。ユーザーPASSはUI/UX/Visualの受入れであり、production path等が未接続なら個別実装項目を `完了` には昇格しない。M8Aはcanonical素材準備のため、このUI確認ゲートの対象外とする。
 
 ## M0 — Repository / Build / Engineering Foundation
 M0-001 Web/PWAプロジェクト初期化:完了
@@ -874,6 +875,9 @@ M8B-025 workspace customization surface:未完了
 M8B-026 destructive confirmation surface:未完了
 M8B-検査 M8B内部検査:未完了
 
+PUB-M8B M8Bユーザー確認用Preview公開:未完了
+USER-M8B M8B UI/UX/Visualユーザー確認PASS:未完了
+
 ## M8C — 14-family Tool Rail
 M8C-001 Tool Rail canonical ordering:未完了
 M8C-002 rail resize 56–88 CSS px:未完了
@@ -895,6 +899,9 @@ M8C-017 Ruler/Guide family:未完了
 M8C-018 Navigation family:未完了
 M8C-019 Lasso direct high-frequency entry in canonical Eyedropper→Lasso→Text interval:未完了
 M8C-検査 M8C内部検査:未完了
+
+PUB-M8C M8Cユーザー確認用Preview公開:未完了
+USER-M8C M8C UI/UX/Visualユーザー確認PASS:未完了
 
 ## M8D — 13-block Inspector / PiP / Workspace Customization
 M8D-001 Tool Properties block:未完了
@@ -930,6 +937,9 @@ M8D-030 Tool Rail thickness persistence:未完了
 M8D-031 Inspector width persistence:未完了
 M8D-検査 M8D内部検査:未完了
 
+PUB-M8D M8Dユーザー確認用Preview公開:未完了
+USER-M8D M8D UI/UX/Visualユーザー確認PASS:未完了
+
 ## M8E — Selection Launcher / Contextual Canvas UI
 M8E-001 Selection Launcher creation:未完了
 M8E-002 non-empty selection only visibility:未完了
@@ -948,6 +958,9 @@ M8E-014 transform on-canvas handles:未完了
 M8E-015 ruler contextual controls:未完了
 M8E-016 Lineart contextual overlay:未完了
 M8E-検査 M8E内部検査:未完了
+
+PUB-M8E M8Eユーザー確認用Preview公開:未完了
+USER-M8E M8E UI/UX/Visualユーザー確認PASS:未完了
 
 ## M8F — Quick Hole Controller
 M8F-001 canvas-derived anchor:未完了
@@ -973,6 +986,9 @@ M8F-020 same Command Registry invocation path:未完了
 M8F-021 reset-to-default:未完了
 M8F-検査 M8F内部検査:未完了
 
+PUB-M8F M8Fユーザー確認用Preview公開:未完了
+USER-M8F M8F UI/UX/Visualユーザー確認PASS:未完了
+
 ## M8G — Keyboard / Pen / Touch / Mouse Interaction
 M8G-001 keyboard shortcut editor:未完了
 M8G-002 Undo shortcut:未完了
@@ -995,6 +1011,9 @@ M8G-018 Touch one-finger draw / two-or-more navigation arbitration:未完了
 M8G-019 Mouse=desktop precision arbitration:未完了
 M8G-020 Keyboard=fast/temporary action arbitration:未完了
 M8G-検査 M8G内部検査:未完了
+
+PUB-M8G M8Gユーザー確認用Preview公開:未完了
+USER-M8G M8G UI/UX/Visualユーザー確認PASS:未完了
 
 ## M8H — Visual Design / Iconography / Motion
 M8H-001 F/G design tokens:未完了
@@ -1029,6 +1048,9 @@ M8H-029 local command feedback:未完了
 M8H-030 Reduced Motion:未完了
 M8H-検査 M8H内部検査:未完了
 
+PUB-M8H M8Hユーザー確認用Preview公開:未完了
+USER-M8H M8H UI/UX/Visualユーザー確認PASS:未完了
+
 ## M8I — Responsive / Accessibility / Localization
 M8I-001 Wide layout:未完了
 M8I-002 Compact layout:未完了
@@ -1057,6 +1079,9 @@ M8I-024 `Intl` date/time formatting:未完了
 M8I-025 `Intl` locale-facing number formatting:未完了
 M8I-026 dynamic text overflow handling:未完了
 M8I-検査 M8I内部検査:未完了
+
+PUB-M8I M8Iユーザー確認用Preview公開:未完了
+USER-M8I M8I UI/UX/Visualユーザー確認PASS:未完了
 
 ## M8J — Canonical Input / Parameter Interaction System
 M8J-001 Direct / Quick / Detail 3-layer input hierarchy:未完了
@@ -1127,6 +1152,9 @@ M8J-065 Canonical Input System component/integration regression suite:未完了
 M8J-066 Touch/Pen/Mouse/Keyboard physical-device interaction verification:未完了
 M8J-検査 M8J内部検査:未完了
 M8-検査 M8全体内部検査:未完了
+
+PUB-M8J M8Jユーザー確認用Preview公開:未完了
+USER-M8J M8J UI/UX/Visualユーザー確認PASS:未完了
 
 ## M9A — Local Project Library
 M9A-001 local Project Library:未完了

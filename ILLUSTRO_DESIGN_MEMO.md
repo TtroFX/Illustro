@@ -6071,3 +6071,18 @@ M6A-077 owns deterministic 256×256 representative thumbnails and will finalize 
 - failure count: `0`.
 
 The renderer follows the accepted light Canvas-First Brush Presets presentation and representative asset-board convention: isolated material strokes/swatches, neutral high-contrast stroke presentation, pressure differentiation only where the canonical preset actually maps pressure, material breakup for sampled/texture presets, analytic clean strokes for procedural-first presets, and explicit erase/blend/blur visual semantics. These thumbnails are presentation-only assets and do not change brush behavior. Production build generation, service-worker precache inclusion and Brush Presets list display are connected to the application path.
+
+
+## M8 staged user UI acceptance — 2026-09-05 — AUTHORITATIVE
+
+**Status: AUTHORITATIVE / IMPLEMENTATION PROCESS RULE.**
+
+M8 UI implementation is reviewed by the user at each major UI sub-section boundary rather than only once after the entire milestone.
+
+- M8B through M8J are separate user-review boundaries.
+- Within one boundary, implementation may proceed to a coherent previewable state and internal verification may run.
+- A boundary remains provisionally complete (`仮完了`) until its user-review Preview is published and the user explicitly gives PASS for the UI/UX/Visual result.
+- The next M8 UI boundary must not begin before that explicit PASS.
+- User PASS accepts the presented UI/UX/Visual direction; it does not falsely mark production wiring complete. Items whose M7/M9/Command/History/Persistence or other production dependencies remain incomplete stay `仮完了` until those dependencies and final verification are actually satisfied.
+- M8A is canonical-reference materialization rather than a product UI review boundary and therefore is excluded from this staged user UI gate.
+- At each review, canonical visual reference and all later AUTHORITATIVE F/G/H/V refinements remain the design authority. Legacy UI that conflicts with them is replacement/removal material, not a styling baseline to preserve.
