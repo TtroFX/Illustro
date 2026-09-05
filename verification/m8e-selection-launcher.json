@@ -1,0 +1,25 @@
+{
+  "schema": "illustro.verification.m8e-selection-launcher/1",
+  "verifiedAt": "2026-09-05",
+  "scope": "M8E Selection Launcher / Contextual Canvas UI staged preview",
+  "integrationCommit": "99cd399d6010ab2295a2e84b2ad1e8435c32ab43",
+  "canonicalVisualReference": "ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png",
+  "implemented": [
+    "non-empty selection gated launcher",
+    "rectangle and lasso production selection entry from the canonical Tool Rail",
+    "viewport-aware placement clamped to the canvas workspace",
+    "hide during active paint stroke",
+    "dismiss launcher without clearing selection",
+    "production copy, clear, invert, feather, expand and shrink paths where current M7A dependencies exist",
+    "planned non-fake Transform, Cut and Fill entries for unresolved production dependencies",
+    "reserved contextual hosts for transform handles, ruler controls and Lineart overlays"
+  ],
+  "focusedVerification": {
+    "typecheck": "pass",
+    "m8eTests": "pass",
+    "m8cRegression": "pass",
+    "m8dRegression": "pass",
+    "productionBuild": "pass"
+  },
+  "statusRule": "M8E items remain provisional; USER-M8E remains pending until explicit user PASS"
+}
