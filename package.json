@@ -40,7 +40,8 @@
     "verify:m5c": "node scripts/verify-m5c-compositor.mjs",
     "verify:m5d": "node scripts/verify-m5d-color.mjs",
     "verify:m6a": "node scripts/verify-m6a-brush.mjs && node scripts/verify-m6a-performance.mjs",
-    "verify:m6b": "node scripts/verify-m6b-brush-interchange.mjs"
+    "verify:m6b": "node scripts/verify-m6b-brush-interchange.mjs",
+    "verify:m9a": "node scripts/verify-m9a-local-project-library.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",
