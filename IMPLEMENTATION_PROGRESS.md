@@ -941,26 +941,27 @@ PUB-M8D M8Dユーザー確認用Preview公開:完了
 USER-M8D M8D UI/UX/Visualユーザー確認PASS:完了
 
 ## M8E — Selection Launcher / Contextual Canvas UI
-M8E-001 Selection Launcher creation:仮完了
-M8E-002 non-empty selection only visibility:仮完了
-M8E-003 Transform launcher command:仮完了
-M8E-004 Cut/Copy launcher commands:仮完了
-M8E-005 Clear launcher command:仮完了
-M8E-006 Invert launcher command:仮完了
-M8E-007 Feather/Expand/Shrink launcher commands:仮完了
-M8E-008 Fill launcher command:仮完了
-M8E-009 Selection Launcher placement:仮完了
-M8E-010 workspace boundary avoidance:仮完了
-M8E-011 handle/Inspector avoidance:仮完了
-M8E-012 hide during active drawing:仮完了
-M8E-013 dismissal without clearing selection:仮完了
-M8E-014 transform on-canvas handles:仮完了
-M8E-015 ruler contextual controls:仮完了
-M8E-016 Lineart contextual overlay:仮完了
-M8E-検査 M8E内部検査:仮完了
+M8E-001 Selection Launcher creation:未完了
+M8E-002 non-empty selection only visibility:未完了
+M8E-003 Transform launcher command:未完了
+M8E-004 Cut/Copy launcher commands:未完了
+M8E-005 Clear launcher command:未完了
+M8E-006 Invert launcher command:未完了
+M8E-007 Feather/Expand/Shrink launcher commands:未完了
+M8E-008 Fill launcher command:未完了
+M8E-009 Selection Launcher placement:未完了
+M8E-010 workspace boundary avoidance:未完了
+M8E-011 handle/Inspector avoidance:未完了
+M8E-012 hide during active drawing:未完了
+M8E-013 dismissal without clearing selection:未完了
+M8E-014 transform on-canvas handles:未完了
+M8E-015 ruler contextual controls:未完了
+M8E-016 Lineart contextual overlay:未完了
+M8E-検査 M8E内部検査:未完了
 
-PUB-M8E M8Eユーザー確認用Preview公開:完了
+PUB-M8E M8Eユーザー確認用Preview公開:未完了
 USER-M8E M8E UI/UX/Visualユーザー確認PASS:未完了
+再開メモ: M8Eは2026-09-05のLasso Selection再監査でproduction-visible上層を再構築対象と判定。現行m8-selection-launcherの矩形AABB表示・combine mode bypass・source-token中心検査は不採用。正本のLasso Selection/Lasso Fill/Lasso Eraser authoritative contractに従い、gesture controller / coverage contour presenter / launcher command surfaceを分離して置換する。M7Aのselection coverage/combine/modifier等の正しい下層は保持し、M8FへはUSER-M8E PASSまで進まない。
 
 ## M8F — Quick Hole Controller
 M8F-001 canvas-derived anchor:未完了

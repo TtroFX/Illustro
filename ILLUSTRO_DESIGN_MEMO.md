@@ -6088,3 +6088,154 @@ M8 UI implementation is reviewed by the user at each major UI sub-section bounda
 - User PASS accepts the presented UI/UX/Visual direction; it does not falsely mark production wiring complete. Items whose M7/M9/Command/History/Persistence or other production dependencies remain incomplete stay `仮完了` until those dependencies and final verification are actually satisfied.
 - M8A is canonical-reference materialization rather than a product UI review boundary and therefore is excluded from this staged user UI gate.
 - At each review, canonical visual reference and all later AUTHORITATIVE F/G/H/V refinements remain the design authority. Legacy UI that conflicts with them is replacement/removal material, not a styling baseline to preserve.
+
+## Lasso Selection / Lasso Fill / Lasso Eraser semantic and implementation contract — 2026-09-05 — AUTHORITATIVE
+
+This section is authoritative and supersedes any M8E implementation behavior that treated a sparse-tile bounding rectangle as the visible selection, bypassed canonical selection-combine modes, or conflated Lasso Selection with direct paint/erase operations.
+
+### Reference behavior audited
+
+The behavior model was checked against current official documentation for ibisPaint, CLIP STUDIO PAINT, and Krita. Common semantics are adopted where they improve Illustro's single-illustration workflow:
+
+- ibisPaint Lasso selects the portion surrounded by a freehand stroke and exposes Set/Add/Subtract selection modes.
+- CLIP STUDIO PAINT Lasso creates an arbitrary freehand selection and supports New/Add/Remove/Intersect modes; its Selection Launcher exposes selection-mask and selected-content commands as distinct operations.
+- Krita Freehand Selection creates a selection by freely drawing its outline and supports replace/add/subtract/intersect.
+- ibisPaint/CSP Lasso Fill is a separate direct-paint tool: the freehand enclosed shape is filled with the current drawing color. It does not mean "create a selection".
+- Lasso Eraser is likewise a separate direct-erase operation over the enclosed geometry.
+
+### Canonical terminology — never conflate these tools
+
+1. **Lasso Selection / 投げ縄選択**
+   - A Selection-family tool.
+   - The user draws a freehand closed outline.
+   - Releasing the pointer commits a Selection Coverage mask only.
+   - It does not mutate artwork pixels merely by creating the selection.
+
+2. **Lasso Fill / Lasso Paint / 投げ縄塗り**
+   - A direct raster-paint operation, separate from Selection.
+   - The user draws a freehand closed outline and the enclosed geometry is filled with the current drawing color/opacity on the active editable raster target.
+   - It does not leave a new persistent selection behind.
+
+3. **Lasso Eraser / 投げ縄消し**
+   - A direct raster-erase operation, separate from Selection.
+   - The user draws a freehand closed outline and the enclosed geometry is erased from the active editable raster target.
+   - Multi-layer erase is not implied unless separately adopted by an explicit product decision.
+
+The Tool Rail, flyouts, Quick Hole, Command Registry, tooltips and accessibility labels must use these semantics consistently. A Lasso Selection icon must never invoke Lasso Fill/Paint, and vice versa.
+
+### Lasso Selection gesture contract
+
+- Pointer Events are the canonical input path. Consume coalesced samples where supported.
+- Each accepted pointer sample is mapped to **document coordinates at acquisition time** through the current viewport transform; committed geometry is therefore independent of later pan/zoom/rotation/mirror changes.
+- The live gesture is shown as the actual freehand path. Pointer-up connects the final point back to the start automatically; the user is not required to hit the start point exactly.
+- Degenerate gestures with fewer than three distinct points or zero enclosed area cancel without replacing the current selection.
+- The gesture may travel outside the document; committed Selection Coverage is clipped to document bounds.
+- Self-intersecting paths use the **even-odd fill rule**, matching the existing canonical polygon-inside semantics.
+- Point reduction/simplification is allowed only as a bounded performance optimization. It must preserve the visually drawn outline within a screen-space error tolerance and must never change topology, closure, or self-intersection semantics.
+
+### Canonical Selection Coverage contract
+
+- The established selection is a sparse, tile-backed **coverage mask**, not a rectangle and not merely the original gesture path.
+- Coverage is fractional 0..255 so antialiased and feathered selection edges are representable.
+- Lasso Selection anti-aliasing is **ON by default**. A future hard-edge option may disable fractional edge coverage, but the default implementation must not remain center-sampled binary-only at the edge.
+- Existing canonical 128×128 selection tiles remain the storage unit.
+- Replace/Add/Subtract/Intersect must resolve through the canonical selection-combine engine. M8/M9 UI is forbidden from bypassing it with unconditional `replacePrepared()` when another mode is active.
+- Canonical combine semantics remain: Replace=incoming, Add=max(existing,incoming), Subtract=existing×(1-incoming), Intersect=min(existing,incoming), all over fractional coverage.
+- Selection Invert changes the **selection mask**. It is not image/color inversion.
+- Image/color Invert is a separate filter/effect command. When selection-scoped filters are connected, that command modifies artwork only where Selection Coverage is non-zero.
+
+### Established-selection visualization contract
+
+The previous M8E `.m8e-selection-bounds` rectangular presentation is rejected and must be removed, not cosmetically improved.
+
+- An established selection must display the contour of the **effective Selection Coverage mask** (marching ants), including after Add/Subtract/Intersect, Invert, Feather, Expand/Shrink, or other mask operations.
+- The contour is derived from effective coverage after default-coverage/inversion semantics, not from sparse tile extents and not solely from the last lasso path.
+- Use tile-aware **Marching Squares** contour extraction at the 0.5 / 128 coverage boundary. Read a one-pixel neighbor halo at tile edges so contours join across 128×128 tile seams without cracks.
+- Cache contour geometry by selection-coverage identity and tile coordinate. Pan/zoom/rotation/mirror may reproject cached document-space contour geometry; they must not rerasterize or reread the entire selection mask every frame.
+- Marching-ant dash animation changes dash phase only. It must not recompute contour topology every animation frame.
+- For fractional/feathered masks, the visible marching-ants contour remains the 50% boundary while underlying fractional coverage continues to control actual edits.
+- Selection contour presentation is transient UI. It is excluded from artwork rendering, export, document pixels, and canonical raster persistence.
+- Selection Launcher placement uses the exact effective selection contour/bounds projected through the viewport, not 128px tile AABBs. It must remain inside usable workspace and avoid transform handles and other contextual surfaces.
+- The Selection Launcher hides during obstructive active drawing as already specified. The selection mask remains valid; hiding UI never clears it.
+
+### Selection modes and modifiers
+
+Selection-family tools, including Lasso Selection, must expose persistent Replace/Add/Subtract/Intersect mode state through Tool Properties and shared command state.
+
+- Replace: new lasso replaces the current selection.
+- Add: new lasso union-adds to the current selection.
+- Subtract: new lasso removes from the current selection.
+- Intersect: result is only the overlap of current and new selection.
+- Keyboard modifiers follow the common desktop convention where available without conflicting with platform-reserved gestures: Shift=Add, Alt=Subtract, Shift+Alt=Intersect; explicit visible mode controls remain available for pen/touch-first use.
+- The effective mode is latched when the in-progress gesture begins, so releasing a modifier mid-stroke does not unexpectedly change the operation.
+
+### Selection Launcher command semantics
+
+The Launcher must distinguish **selection-mask commands** from **selected-content commands**.
+
+Selection-mask commands include Deselect/Clear Selection, Invert Selection, Feather, Expand, and Shrink. These modify Selection Coverage only.
+
+Selected-content commands include Cut, Copy, Delete Pixels, Fill, Transform/Move/Scale/Rotate/Flip, and selection-scoped filters/effects. These operate on artwork constrained by Selection Coverage and must use the normal History/Persistence/Command path. A visible Launcher button must not imply production support if that selected-content command is not actually wired.
+
+Horizontal/vertical flip of selected artwork belongs to selected-content Transform/Flip. It is not Selection Invert.
+
+### Lasso Fill / Lasso Paint implementation contract
+
+Lasso Fill is intentionally built from the same geometric coverage primitive but follows a different command path:
+
+1. Acquire the freehand closed polygon using the same pointer/viewport geometry contract as Lasso Selection.
+2. Rasterize a temporary antialiased geometric coverage mask for the lasso interior.
+3. If an established selection exists, effective write coverage is `lassoCoverage ∩ selectionCoverage`.
+4. Composite the current foreground color and tool opacity through that effective coverage into only affected canonical raster tiles of the active editable raster target.
+5. Commit dirty tile patches as **one normal artwork History transaction** with normal persistence/autosave semantics.
+6. Discard temporary lasso coverage after commit; do not silently replace or create the user's persistent selection.
+7. Lasso Fill is geometric fill, not flood-fill/reference-layer region detection. Gap closing, color tolerance, and Lineart Boundary flood semantics belong to Fill/Enclose Fill, not basic Lasso Fill.
+
+### Lasso Eraser implementation contract
+
+Lasso Eraser shares the same temporary geometric coverage path as Lasso Fill but applies erase/alpha-removal compositing to the active editable raster target. If an established selection exists, erase is clipped by its coverage. The operation is one normal tile-based History transaction and does not mutate persistent selection state.
+
+### Architecture and rebuild decision
+
+**KEEP / reuse as valid foundation**
+
+- `selection-coverage-controller.ts` sparse Selection Coverage state contract.
+- `selection-combine-engine.ts` Replace/Add/Subtract/Intersect fractional coverage algebra.
+- `selection-modifier-engine.ts` selection-mask modification architecture.
+- selection copy/cut/paste engines where their production semantics remain valid.
+- `selection-shape-engine.ts` document-space polygon/freehand geometry and sparse tile preparation contract, but its binary edge rasterization must be upgraded to antialiased fractional edge coverage.
+- canonical Tool Rail ordering/glyph identity; only command/controller wiring changes.
+
+**REWRITE / remove rather than patch**
+
+- The current `m8-selection-launcher.ts` monolith is rejected as the production architecture because it mixes gesture acquisition, selection rendering, and command-launcher behavior, bypasses selection combine modes, and presents sparse tile AABBs as the selected shape.
+- Remove `.m8e-selection-bounds` rectangular selection visualization entirely.
+- Replace source-token-presence tests as the primary M8E acceptance mechanism; behavioral tests must verify actual geometry, coverage, contour, and constrained edits.
+
+**Replacement module boundaries**
+
+1. `m8-selection-gesture-controller` — tool/mode state, pointer capture, coalesced input, live path, and commit/cancel semantics.
+2. `selection-contour-presenter` — effective-coverage contour extraction/cache, marching-ants rendering, and viewport reprojection.
+3. `m8-selection-launcher` — contextual command surface only; it consumes selection state and Command Registry capability but does not own selection rasterization.
+4. selection command adapters — connect mask commands and selected-content commands to existing M7/History/Persistence production paths without private fake implementations.
+5. later Lasso Fill / Lasso Eraser controllers — reuse lasso geometry generation but commit artwork tile transactions, never Selection state transactions.
+
+This is a **targeted upper-layer rebuild**, not an application-wide or M7A foundation rewrite. The current M8E production-visible selection interaction is to be replaced as a unit. Retaining correct lower-level selection engines is reuse of valid architecture, not a patch over the rejected UI path.
+
+### Acceptance gates before M8E user review can reopen
+
+M8E is not review-ready again until all of the following are behaviorally verified:
+
+1. Freehand lasso creates the exact enclosed arbitrary-shape selection, automatically closed at pointer-up.
+2. Established selection display follows the actual mask contour, never only a bounding rectangle/tile AABB.
+3. Replace/Add/Subtract/Intersect produce visibly and numerically correct coverage.
+4. Selection Invert visibly selects the complement within document bounds.
+5. Feather/Expand/Shrink update both actual mask behavior and visible contour consistently.
+6. Painting/fill/filter/transform commands that claim selection support are demonstrably clipped to selection coverage; unsupported commands remain unavailable rather than faked.
+7. Pan/zoom/rotation/mirror preserve contour registration with artwork.
+8. Cross-tile contours have no 128px seam breaks.
+9. Pen/mouse/touch-supported drawing paths produce the same committed document-space geometry for equivalent input.
+10. Tests exercise rendered/decoded selection coverage and user-observable behavior rather than merely asserting that function names exist in source.
+
+Until these gates pass, `USER-M8E` must remain `未完了` and M8F must not begin under the staged M8 user-review rule.
+
