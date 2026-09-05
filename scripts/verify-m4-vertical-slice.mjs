@@ -25,11 +25,19 @@ for (const contract of [
 
 const legacyPersistenceStartup = main.includes('paintPersistence.initialize');
 const documentWorkflowSource = fs.readFileSync('src/app/document-workflow-controller.ts', 'utf8');
-const libraryFirstPersistenceStartup =
+const libraryOpenPersistenceStartup =
   main.includes('installM9aLibrarySurfaceV1') &&
-  main.includes('paintPersistence.openProject(projectId)') &&
+  main.includes('paintPersistence.openProject(projectId)');
+const canonicalNewDocumentPersistenceStartup =
+  main.includes('shell.productShell.setNewDocumentSubmitHandler') &&
+  main.includes('documentWorkflow.createNewDocument(input)') &&
+  documentWorkflowSource.includes('paintPersistence.createNewProject');
+const legacyLibraryFirstNewDocumentStartup =
   main.includes('documentWorkflow.openNewDocument()') &&
   documentWorkflowSource.includes('paintPersistence.createNewProject');
+const libraryFirstPersistenceStartup =
+  libraryOpenPersistenceStartup &&
+  (canonicalNewDocumentPersistenceStartup || legacyLibraryFirstNewDocumentStartup);
 if (!legacyPersistenceStartup && !libraryFirstPersistenceStartup) {
   throw new Error(
     'M4 production wiring missing a valid persisted document startup path (legacy initialize or Library-first create/open)',
