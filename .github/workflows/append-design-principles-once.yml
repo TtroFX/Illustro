@@ -25,100 +25,24 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          def replace_once(path_text: str, before: str, after: str) -> None:
+          def replace_once(path_text, before, after):
               path = Path(path_text)
               text = path.read_text()
               if before in text:
                   if text.count(before) != 1:
-                      raise SystemExit(f'expected exactly one target in {path_text}')
+                      raise SystemExit(f'expected exactly one target in {path_text}: {before}')
                   path.write_text(text.replace(before, after, 1))
                   return
               if after not in text:
-                  raise SystemExit(f'patch target missing in {path_text}')
+                  raise SystemExit(f'patch target missing in {path_text}: {before}')
 
-          replace_once(
-              'src/workers/render.worker.ts',
-              """    const tipShape = candidate.tipShape === undefined ? undefined : candidate.tipShape;
-    if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square') return null;
-""",
-              """    const tipShape = candidate.tipShape === undefined ? undefined : candidate.tipShape;
-    if (
-      tipShape !== undefined &&
-      tipShape !== 'round' &&
-      tipShape !== 'square' &&
-      tipShape !== 'sampled-image'
-    ) {
-      return null;
-    }
-""",
-          )
-
-          replace_once(
-              'src/app/brush-preset-controller.ts',
-              """    search.value = state.query;
-    name.value = selected.preset.name;
-    list.replaceChildren();
-    const visible = filteredBrushPresetItemsV1(state);
-""",
-              """    search.value = state.query;
-    name.value = selected.preset.name;
-    const listScrollTop = list.scrollTop;
-    list.replaceChildren();
-    const visible = filteredBrushPresetItemsV1(state);
-""",
-          )
-          replace_once(
-              'src/app/brush-preset-controller.ts',
-              """      empty.textContent = '一致するブラシがありません';
-      list.append(empty);
-    }
-    const limits = brushParameterLimitsV1(selected.preset);
-""",
-              """      empty.textContent = '一致するブラシがありません';
-      list.append(empty);
-    }
-    list.scrollTop = listScrollTop;
-    const limits = brushParameterLimitsV1(selected.preset);
-""",
-          )
-
-          replace_once(
-              'src/app/m7-ui-shell.ts',
-              """.m7-inspector-surface[data-m7-inspector-surface=\"layers\"] { grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
-.m7-inspector-tabs { display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; padding: 5px 6px; border-bottom: 1px solid #e7eaf0; background: #fff; }
-""",
-              """.m7-inspector-surface[data-m7-inspector-surface=\"layers\"] { grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }
-.m7-layer-create-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 7px 8px; border-bottom: 1px solid #e7eaf0; background: #fff; }
-.m7-layer-create-bar button { min-height: 44px; border: 1px solid #e1e6ef; border-radius: 9px; background: #f8faff; color: #46536c; font: 700 10px/1 system-ui, sans-serif; cursor: pointer; }
-.m7-layer-create-bar button:hover, .m7-layer-create-bar button:focus-visible { border-color: #f2c58c; background: #fff4e5; outline: none; }
-.m7-inspector-tabs { display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; padding: 5px 6px; border-bottom: 1px solid #e7eaf0; background: #fff; }
-""",
-          )
-          replace_once(
-              'src/app/m7-ui-shell.ts',
-              """  moveInto('.shell-reference-panel', 'reference');
-  moveInto('.shell-layer-search, #layer-list, #layer-actions', 'layers');
-
-  surfaceNodes.get('effects')?.append(createEffectsPanelV1(cleanup));
-""",
-              """  moveInto('.shell-reference-panel', 'reference');
-  moveInto('.shell-layer-search, #layer-list, #layer-actions', 'layers');
-
-  const layerSurface = surfaceNodes.get('layers');
-  if (layerSurface) {
-    const createBar = document.createElement('div');
-    createBar.className = 'm7-layer-create-bar';
-    createBar.setAttribute('aria-label', 'レイヤー追加');
-    createBar.append(
-      createProxyActionV1('＋ レイヤー', 'layer-add-raster', cleanup),
-      createProxyActionV1('＋ フォルダ', 'layer-add-folder', cleanup),
-    );
-    layerSurface.prepend(createBar);
-  }
-
-  surfaceNodes.get('effects')?.append(createEffectsPanelV1(cleanup));
-""",
-          )
+          replace_once('src/workers/render.worker.ts', "    if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square') return null;", "    if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square' && tipShape !== 'sampled-image') return null;")
+          replace_once('src/app/brush-preset-controller.ts', "    name.value = selected.preset.name;", "    name.value = selected.preset.name;\n    const listScrollTop = list.scrollTop;")
+          replace_once('src/app/brush-preset-controller.ts', "    const limits = brushParameterLimitsV1(selected.preset);", "    list.scrollTop = listScrollTop;\n    const limits = brushParameterLimitsV1(selected.preset);")
+          replace_once('src/app/m7-ui-shell.ts', '.m7-inspector-surface[data-m7-inspector-surface="layers"] { grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }', '.m7-inspector-surface[data-m7-inspector-surface="layers"] { grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }\n.m7-layer-create-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 7px 8px; border-bottom: 1px solid #e7eaf0; background: #fff; }\n.m7-layer-create-bar button { min-height: 44px; border: 1px solid #e1e6ef; border-radius: 9px; background: #f8faff; color: #46536c; font: 700 10px/1 system-ui, sans-serif; cursor: pointer; }\n.m7-layer-create-bar button:hover, .m7-layer-create-bar button:focus-visible { border-color: #f2c58c; background: #fff4e5; outline: none; }')
+          marker = "  surfaceNodes.get('effects')?.append(createEffectsPanelV1(cleanup));"
+          insertion = "  const layerSurface = surfaceNodes.get('layers');\n  if (layerSurface) {\n    const createBar = document.createElement('div');\n    createBar.className = 'm7-layer-create-bar';\n    createBar.setAttribute('aria-label', 'レイヤー追加');\n    createBar.append(\n      createProxyActionV1('＋ レイヤー', 'layer-add-raster', cleanup),\n      createProxyActionV1('＋ フォルダ', 'layer-add-folder', cleanup),\n    );\n    layerSurface.prepend(createBar);\n  }\n\n" + marker
+          replace_once('src/app/m7-ui-shell.ts', marker, insertion)
           PY
 
       - name: Format touched sources
