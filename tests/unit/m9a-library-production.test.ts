@@ -37,7 +37,11 @@ describe('M9A production Local Project Library', () => {
   });
 
   it('routes New and Open through canonical production persistence rather than mock state', () => {
-    expect(mainSource).toContain('onNewProject: () => documentWorkflow.openNewDocument()');
+    expect(mainSource).toContain(
+      "onNewProject: () => shell.productShell.openNamedTaskSurface('new-document')",
+    );
+    expect(mainSource).toContain('setNewDocumentSubmitHandler');
+    expect(mainSource).toContain('documentWorkflow.createNewDocument(input)');
     expect(mainSource).toContain('await paintPersistence.openProject(projectId)');
     expect(mainSource).toContain("await localLibrarySurface.show('projects')");
     expect(mainSource).not.toContain("name: 'Untitled',\n      document:");

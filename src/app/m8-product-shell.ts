@@ -1,3 +1,7 @@
+import type { CanvasBackgroundSpec } from '../domain/document.js';
+import { DEFAULT_DOCUMENT_PRESETS_V1 } from '../domain/document-presets.js';
+import type { NewDocumentRequestV1 } from './document-workflow-controller.js';
+
 export const M8_PRODUCT_REGIONS_V1 = Object.freeze([
   'document-bar',
   'tool-rail',
@@ -25,6 +29,7 @@ export type M8TaskSurfaceIdV1 = (typeof M8_TASK_SURFACES_V1)[number];
 export interface M8ProductShellHandleV1 {
   showLibrary(): void;
   hideLibrary(): void;
+  setNewDocumentSubmitHandler(handler: (input: NewDocumentRequestV1) => void): void;
   setDocumentIdentity(name: string): void;
   setSaveState(state: M8SaveStateV1, label?: string): void;
   openTaskSurface(title: string, body: string): void;
@@ -92,6 +97,34 @@ const TASK_SURFACE_COPY_V1: Readonly<
     tone: 'danger',
   },
 });
+
+function colorToHexV1(background: CanvasBackgroundSpec): string {
+  if (background.kind === 'transparent') return '#ffffff';
+  const [red, green, blue] = background.rgba;
+  return `#${[red, green, blue]
+    .map((component) =>
+      Math.round(component * 255)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
+
+function backgroundFromHexV1(value: string, alphaPercent: number): CanvasBackgroundSpec {
+  const match = /^#([0-9a-f]{6})$/i.exec(value);
+  if (match === null || match[1] === undefined) throw new TypeError('background color is invalid');
+  const digits = match[1];
+  const alpha = Math.min(100, Math.max(0, alphaPercent)) / 100;
+  return Object.freeze({
+    kind: 'solid' as const,
+    rgba: Object.freeze([
+      Number.parseInt(digits.slice(0, 2), 16) / 255,
+      Number.parseInt(digits.slice(2, 4), 16) / 255,
+      Number.parseInt(digits.slice(4, 6), 16) / 255,
+      alpha,
+    ]) as readonly [number, number, number, number],
+  });
+}
 
 function requireElementV1<T extends Element>(root: ParentNode, selector: string, label: string): T {
   const element = root.querySelector<T>(selector);
@@ -432,6 +465,13 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
   const toast = requireElementV1<HTMLElement>(canonicalShell, `#${TOAST_ID}`, 'toast');
 
   let toastTimer: number | null = null;
+  let newDocumentSubmitHandler: ((input: NewDocumentRequestV1) => void) | null = null;
+  const taskBody = requireElementV1<HTMLElement>(taskSurface, '.m8-task-body', 'Task body');
+  const taskPrimary = requireElementV1<HTMLButtonElement>(
+    taskSurface,
+    '.m8-task-primary',
+    'Task primary action',
+  );
 
   const showLibrary = (): void => {
     library.hidden = false;
@@ -441,26 +481,219 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
     library.hidden = true;
     canonicalShell.classList.remove('is-library-open');
   };
+  const resetTaskPrimary = (): void => {
+    taskPrimary.disabled = true;
+    taskPrimary.textContent = '適用';
+    delete taskPrimary.dataset.m8NewDocumentSubmit;
+  };
   const closeTaskSurface = (): void => {
     taskLayer.hidden = true;
     taskSurface.removeAttribute('data-tone');
+    taskSurface.removeAttribute('data-surface');
     const title = taskSurface.querySelector<HTMLElement>('#m8-task-title');
-    const body = taskSurface.querySelector<HTMLElement>('.m8-task-body');
     if (title) title.textContent = '';
-    if (body) body.textContent = '';
+    taskBody.textContent = '';
+    resetTaskPrimary();
   };
   const openTaskSurface = (title: string, body: string): void => {
     const titleNode = taskSurface.querySelector<HTMLElement>('#m8-task-title');
-    const bodyNode = taskSurface.querySelector<HTMLElement>('.m8-task-body');
     if (titleNode) titleNode.textContent = title;
-    if (bodyNode) bodyNode.textContent = body;
+    taskBody.textContent = body;
+    resetTaskPrimary();
     taskLayer.hidden = false;
   };
+
+  const renderNewDocumentTask = (): void => {
+    const presetOptions = [
+      ...DEFAULT_DOCUMENT_PRESETS_V1.map(
+        (entry) => `<option value="${entry.id}">${entry.label}</option>`,
+      ),
+      '<option value="custom">カスタム</option>',
+    ].join('');
+    taskBody.innerHTML = `
+      <form id="m8-new-document-form" class="m8-new-document-form" data-m8-new-document-form>
+        <label class="m8-new-document-wide"><span>名前</span><input name="name" type="text" maxlength="120" value="Untitled" required /></label>
+        <label class="m8-new-document-wide"><span>プリセット</span><select name="preset">${presetOptions}</select></label>
+        <div class="m8-new-document-grid">
+          <label><span>幅</span><input name="width" type="number" min="1" max="32768" step="1" required /></label>
+          <label><span>高さ</span><input name="height" type="number" min="1" max="32768" step="1" required /></label>
+          <label><span>PPI</span><input name="ppi" type="number" min="0.01" step="0.01" required /></label>
+        </div>
+        <div class="m8-new-document-grid">
+          <label><span>背景</span><select name="backgroundMode"><option value="transparent">透明</option><option value="solid">単色</option></select></label>
+          <label><span>背景色</span><input name="backgroundColor" type="color" value="#ffffff" /></label>
+          <label><span>背景不透明度</span><input name="backgroundAlpha" type="number" min="0" max="100" step="1" value="100" /></label>
+        </div>
+        <div class="m8-new-document-grid m8-new-document-grid-two">
+          <label><span>色空間</span><select name="workingSpace"><option value="srgb">sRGB</option><option value="display-p3">Display-P3</option></select></label>
+          <label><span>精度</span><select name="precision"><option value="rgba8-unorm">RGBA8</option><option value="rgba16-float">RGBA16F</option></select></label>
+        </div>
+        <output class="m8-new-document-status" data-m8-new-document-status aria-live="polite"></output>
+        <button type="submit" hidden aria-hidden="true"></button>
+      </form>`;
+
+    const form = requireElementV1<HTMLFormElement>(
+      taskBody,
+      '[data-m8-new-document-form]',
+      'New Document form',
+    );
+    const preset = requireElementV1<HTMLSelectElement>(
+      form,
+      '[name="preset"]',
+      'New Document preset',
+    );
+    const width = requireElementV1<HTMLInputElement>(form, '[name="width"]', 'New Document width');
+    const height = requireElementV1<HTMLInputElement>(
+      form,
+      '[name="height"]',
+      'New Document height',
+    );
+    const ppi = requireElementV1<HTMLInputElement>(form, '[name="ppi"]', 'New Document PPI');
+    const backgroundMode = requireElementV1<HTMLSelectElement>(
+      form,
+      '[name="backgroundMode"]',
+      'New Document background mode',
+    );
+    const backgroundColor = requireElementV1<HTMLInputElement>(
+      form,
+      '[name="backgroundColor"]',
+      'New Document background color',
+    );
+    const backgroundAlpha = requireElementV1<HTMLInputElement>(
+      form,
+      '[name="backgroundAlpha"]',
+      'New Document background alpha',
+    );
+    const workingSpace = requireElementV1<HTMLSelectElement>(
+      form,
+      '[name="workingSpace"]',
+      'New Document working space',
+    );
+    const precision = requireElementV1<HTMLSelectElement>(
+      form,
+      '[name="precision"]',
+      'New Document precision',
+    );
+
+    const syncBackgroundAvailability = (): void => {
+      const solid = backgroundMode.value === 'solid';
+      backgroundColor.disabled = !solid;
+      backgroundAlpha.disabled = !solid;
+    };
+    const applyPreset = (): void => {
+      const entry = DEFAULT_DOCUMENT_PRESETS_V1.find((candidate) => candidate.id === preset.value);
+      if (!entry) return;
+      width.value = String(entry.width);
+      height.value = String(entry.height);
+      ppi.value = String(entry.ppi);
+      backgroundMode.value = entry.background.kind;
+      backgroundColor.value = colorToHexV1(entry.background);
+      backgroundAlpha.value =
+        entry.background.kind === 'solid' ? String(entry.background.rgba[3] * 100) : '100';
+      workingSpace.value = entry.workingSpace;
+      precision.value = entry.precision;
+      syncBackgroundAvailability();
+    };
+    const markCustom = (): void => {
+      preset.value = 'custom';
+    };
+    preset.addEventListener('change', applyPreset);
+    backgroundMode.addEventListener('change', () => {
+      markCustom();
+      syncBackgroundAvailability();
+    });
+    for (const control of [
+      width,
+      height,
+      ppi,
+      backgroundColor,
+      backgroundAlpha,
+      workingSpace,
+      precision,
+    ]) {
+      control.addEventListener('change', markCustom);
+    }
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      taskPrimary.click();
+    });
+    preset.value = DEFAULT_DOCUMENT_PRESETS_V1[0]?.id ?? 'custom';
+    applyPreset();
+    taskPrimary.textContent = '作成';
+    taskPrimary.dataset.m8NewDocumentSubmit = 'true';
+    taskPrimary.disabled = newDocumentSubmitHandler === null;
+    requireElementV1<HTMLInputElement>(form, '[name="name"]', 'New Document name').focus();
+  };
+
+  const submitNewDocumentTask = (): void => {
+    const handler = newDocumentSubmitHandler;
+    if (handler === null) return;
+    const form = taskBody.querySelector<HTMLFormElement>('[data-m8-new-document-form]');
+    if (form === null || !form.reportValidity()) return;
+    const name = requireElementV1<HTMLInputElement>(form, '[name="name"]', 'New Document name');
+    const width = requireElementV1<HTMLInputElement>(form, '[name="width"]', 'New Document width');
+    const height = requireElementV1<HTMLInputElement>(
+      form,
+      '[name="height"]',
+      'New Document height',
+    );
+    const ppi = requireElementV1<HTMLInputElement>(form, '[name="ppi"]', 'New Document PPI');
+    const backgroundMode = requireElementV1<HTMLSelectElement>(
+      form,
+      '[name="backgroundMode"]',
+      'New Document background mode',
+    );
+    const backgroundColor = requireElementV1<HTMLInputElement>(
+      form,
+      '[name="backgroundColor"]',
+      'New Document background color',
+    );
+    const backgroundAlpha = requireElementV1<HTMLInputElement>(
+      form,
+      '[name="backgroundAlpha"]',
+      'New Document background alpha',
+    );
+    const workingSpace = requireElementV1<HTMLSelectElement>(
+      form,
+      '[name="workingSpace"]',
+      'New Document working space',
+    );
+    const precision = requireElementV1<HTMLSelectElement>(
+      form,
+      '[name="precision"]',
+      'New Document precision',
+    );
+    const status = requireElementV1<HTMLOutputElement>(
+      form,
+      '[data-m8-new-document-status]',
+      'New Document status',
+    );
+    const background: CanvasBackgroundSpec =
+      backgroundMode.value === 'transparent'
+        ? Object.freeze({ kind: 'transparent' as const })
+        : backgroundFromHexV1(backgroundColor.value, Number(backgroundAlpha.value));
+    const input: NewDocumentRequestV1 = {
+      name: name.value,
+      width: Number(width.value),
+      height: Number(height.value),
+      ppi: Number(ppi.value),
+      background,
+      workingSpace: workingSpace.value as NewDocumentRequestV1['workingSpace'],
+      precision: precision.value as NewDocumentRequestV1['precision'],
+    };
+    status.value = '作成中…';
+    taskPrimary.disabled = true;
+    taskPrimary.textContent = '作成中…';
+    handler(input);
+  };
+
   const openNamedTaskSurface = (surfaceId: M8TaskSurfaceIdV1): void => {
     const copy = TASK_SURFACE_COPY_V1[surfaceId];
     taskSurface.dataset.surface = surfaceId;
     if (copy.tone) taskSurface.dataset.tone = copy.tone;
-    openTaskSurface(copy.title, copy.body);
+    openTaskSurface(copy.title, surfaceId === 'new-document' ? '' : copy.body);
+    taskSurface.dataset.surface = surfaceId;
+    if (surfaceId === 'new-document') renderNewDocumentTask();
   };
   const showToast = (message: string): void => {
     toast.textContent = message;
@@ -488,6 +721,10 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
     }
     if (target.hasAttribute('data-m8-task-close')) {
       closeTaskSurface();
+      return;
+    }
+    if (target.hasAttribute('data-m8-new-document-submit')) {
+      submitNewDocumentTask();
       return;
     }
     const taskId = target.dataset.m8Task as M8TaskSurfaceIdV1 | undefined;
@@ -522,6 +759,16 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
     if (undo) undo.disabled = undoState !== 'enabled';
     if (redo) redo.disabled = redoState !== 'enabled';
 
+    if (taskSurface.dataset.surface === 'new-document') {
+      const workflowError = root.dataset.illustroDocumentWorkflowError;
+      const status = taskBody.querySelector<HTMLOutputElement>('[data-m8-new-document-status]');
+      if (status && workflowError) {
+        status.value = workflowError;
+        taskPrimary.textContent = '作成';
+        taskPrimary.disabled = newDocumentSubmitHandler === null;
+      }
+    }
+
     const persistence = root.dataset.illustroPersistence;
     if (persistence === 'error') {
       saveState.dataset.state = 'warning';
@@ -548,6 +795,7 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
       'data-illustro-history-undo',
       'data-illustro-history-redo',
       'data-illustro-persistence',
+      'data-illustro-document-workflow-error',
     ],
   });
   syncRuntimeState();
@@ -555,6 +803,12 @@ export function installM8ProductShellV1(app: HTMLElement): M8ProductShellHandleV
   return {
     showLibrary,
     hideLibrary,
+    setNewDocumentSubmitHandler(handler: (input: NewDocumentRequestV1) => void): void {
+      newDocumentSubmitHandler = handler;
+      if (taskSurface.dataset.surface === 'new-document') {
+        taskPrimary.disabled = false;
+      }
+    },
     setDocumentIdentity(name: string): void {
       const normalized = name.trim();
       documentIdentity.value = normalized || 'Untitled';

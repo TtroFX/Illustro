@@ -43,6 +43,15 @@ describe('M8 canonical product shell', () => {
     expect(shellSource).toContain('type="search" disabled');
   });
 
+  it('connects the canonical New Document surface to production creation without exposing legacy UI', () => {
+    expect(shellSource).toContain('data-m8-new-document-form');
+    expect(shellSource).toContain('setNewDocumentSubmitHandler');
+    expect(shellSource).toContain('handler(input)');
+    expect(shellSource).toContain('DEFAULT_DOCUMENT_PRESETS_V1');
+    expect(shellSource).not.toContain("proxyLegacyCommandV1('new-document')");
+    expect(shellCss).toContain('.m8-new-document-form');
+  });
+
   it('provides the complete M8B task-surface taxonomy as shells', () => {
     expect([...M8_TASK_SURFACES_V1]).toEqual([
       'new-document',

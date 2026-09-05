@@ -291,9 +291,13 @@ const documentWorkflow = installDocumentWorkflowControllerV1({
   onHistoryChanged: publishPaintHistory,
   onProjectCreated(documentValue) {
     activatePaintDocument(documentValue, 'created');
+    shell.productShell.closeTaskSurface();
     shell.productShell.hideLibrary();
   },
 });
+shell.productShell.setNewDocumentSubmitHandler((input) =>
+  documentWorkflow.createNewDocument(input),
+);
 
 const documentGeometryWorkflow = installDocumentGeometryWorkflowControllerV1({
   root,
@@ -663,7 +667,7 @@ void renderer
       controller: localLibraryController,
       previews: projectPreviewStore,
       productShell: shell.productShell,
-      onNewProject: () => documentWorkflow.openNewDocument(),
+      onNewProject: () => shell.productShell.openNamedTaskSurface('new-document'),
       async onOpenProject(projectId) {
         const persistence = await paintPersistence.openProject(projectId);
         const documentValue = paintSession.currentDocument();

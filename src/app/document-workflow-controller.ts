@@ -10,9 +10,20 @@ import type { PaintHistoryControllerV1 } from './paint-history-controller.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
 
+export interface NewDocumentRequestV1 {
+  readonly name: string;
+  readonly width: number;
+  readonly height: number;
+  readonly ppi: number;
+  readonly background: CanvasBackgroundSpec;
+  readonly workingSpace: DocumentColorSpace;
+  readonly precision: DocumentPrecision;
+}
+
 export interface DocumentWorkflowControllerV1 {
   readonly schema: 'illustro.document-workflow-controller/1';
   openNewDocument(): void;
+  createNewDocument(input: NewDocumentRequestV1): void;
   openDocumentSettings(): void;
   dispose(): void;
 }
@@ -189,6 +200,60 @@ export function installDocumentWorkflowControllerV1(
     showDialog();
   };
 
+  const performNewDocumentCreation = async (input: NewDocumentRequestV1): Promise<void> => {
+    if (!Number.isSafeInteger(input.width) || input.width < 1) {
+      throw new RangeError('width must be a positive integer');
+    }
+    if (!Number.isSafeInteger(input.height) || input.height < 1) {
+      throw new RangeError('height must be a positive integer');
+    }
+    if (!Number.isFinite(input.ppi) || input.ppi <= 0) {
+      throw new RangeError('PPI must be a positive finite number');
+    }
+    if (input.workingSpace !== 'srgb' && input.workingSpace !== 'display-p3') {
+      throw new TypeError('unsupported document working space');
+    }
+    if (input.precision !== 'rgba8-unorm' && input.precision !== 'rgba16-float') {
+      throw new TypeError('unsupported document precision');
+    }
+    const admission = await options.canvasAdmission.preflightDocumentCreate({
+      width: input.width,
+      height: input.height,
+      precision: input.precision,
+    });
+    if (!admission.allowed) {
+      throw new Error(`作成できません: ${admission.reasons.join(', ')}`);
+    }
+    await options.paintPersistence.createNewProject({
+      name: input.name.trim() || 'Untitled',
+      document: {
+        width: input.width,
+        height: input.height,
+        ppi: input.ppi,
+        background: input.background,
+        workingSpace: input.workingSpace,
+        precision: input.precision,
+      },
+    });
+    const current = options.paintSession.currentDocument();
+    if (current === null) throw new Error('new document creation lost the active document');
+    options.onDocumentChanged(current);
+    options.onHistoryChanged();
+    options.onProjectCreated?.(current);
+  };
+
+  const createNewDocument = (input: NewDocumentRequestV1): void => {
+    root.dataset.illustroDocumentWorkflowError = '';
+    options.schedule(async () => {
+      try {
+        await performNewDocumentCreation(input);
+      } catch (error) {
+        root.dataset.illustroDocumentWorkflowError =
+          error instanceof Error ? error.message : String(error);
+      }
+    });
+  };
+
   const onPresetChange = (): void => applyPreset(presetSelect.value);
   const onBackgroundModeChange = (): void => updateBackgroundControls();
   const onNewClick = (): void => {
@@ -220,34 +285,15 @@ export function installDocumentWorkflowControllerV1(
           options.onDocumentChanged(current);
           options.onHistoryChanged();
         } else {
-          const width = integerInput(widthInput, 'width');
-          const height = integerInput(heightInput, 'height');
-          const workingSpace = workingSpaceSelect.value as DocumentColorSpace;
-          const precision = precisionSelect.value as DocumentPrecision;
-          if (workingSpace !== 'srgb' && workingSpace !== 'display-p3') {
-            throw new TypeError('unsupported document working space');
-          }
-          if (precision !== 'rgba8-unorm' && precision !== 'rgba16-float') {
-            throw new TypeError('unsupported document precision');
-          }
-          const admission = await options.canvasAdmission.preflightDocumentCreate({
-            width,
-            height,
-            precision,
+          await performNewDocumentCreation({
+            name: nameInput.value,
+            width: integerInput(widthInput, 'width'),
+            height: integerInput(heightInput, 'height'),
+            ppi,
+            background,
+            workingSpace: workingSpaceSelect.value as DocumentColorSpace,
+            precision: precisionSelect.value as DocumentPrecision,
           });
-          if (!admission.allowed) {
-            status.value = `作成できません: ${admission.reasons.join(', ')}`;
-            return;
-          }
-          await options.paintPersistence.createNewProject({
-            name: nameInput.value.trim() || 'Untitled',
-            document: { width, height, ppi, background, workingSpace, precision },
-          });
-          const current = options.paintSession.currentDocument();
-          if (current === null) throw new Error('new document creation lost the active document');
-          options.onDocumentChanged(current);
-          options.onHistoryChanged();
-          options.onProjectCreated?.(current);
         }
         status.value = '';
         dialog.close();
@@ -271,6 +317,7 @@ export function installDocumentWorkflowControllerV1(
   return Object.freeze({
     schema: 'illustro.document-workflow-controller/1' as const,
     openNewDocument,
+    createNewDocument,
     openDocumentSettings,
     dispose(): void {
       presetSelect.removeEventListener('change', onPresetChange);
