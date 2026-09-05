@@ -6,17 +6,10 @@ import {
   type LocalProjectMetadataV1,
   type LocalProjectOpenResultV1,
 } from '../storage/project-library.js';
-import {
-  ensureProjectDirectoryLayout,
-  type IllustroOpfsRootV1,
-} from '../storage/opfs-layout.js';
+import { ensureProjectDirectoryLayout, type IllustroOpfsRootV1 } from '../storage/opfs-layout.js';
 import { readDualRecoveryState } from '../storage/recovery-head.js';
 
-export type LocalProjectLibrarySectionV1 =
-  | 'projects'
-  | 'recent'
-  | 'recovery'
-  | 'recently-deleted';
+export type LocalProjectLibrarySectionV1 = 'projects' | 'recent' | 'recovery' | 'recently-deleted';
 
 export type LocalProjectLibrarySortV1 =
   | 'modified-desc'
@@ -142,17 +135,18 @@ export class LocalProjectLibraryControllerV1 {
     const limit = assertLimit(input.limit);
     const metadata = await this.#library.list({ includeTrashed: true });
     const cards = await Promise.all(
-      metadata.map(async (project): Promise<LocalProjectLibraryCardV1> =>
-        Object.freeze({
-          projectId: project.projectId,
-          name: project.name,
-          createdAt: project.createdAt,
-          modifiedAt: project.modifiedAt,
-          lifecycle: project.lifecycle,
-          deletedAt: project.deletedAt,
-          previewResourceId: project.previewResourceId,
-          recovery: await this.#recoverySummary(project.projectId),
-        }),
+      metadata.map(
+        async (project): Promise<LocalProjectLibraryCardV1> =>
+          Object.freeze({
+            projectId: project.projectId,
+            name: project.name,
+            createdAt: project.createdAt,
+            modifiedAt: project.modifiedAt,
+            lifecycle: project.lifecycle,
+            deletedAt: project.deletedAt,
+            previewResourceId: project.previewResourceId,
+            recovery: await this.#recoverySummary(project.projectId),
+          }),
       ),
     );
 
@@ -165,7 +159,9 @@ export class LocalProjectLibraryControllerV1 {
     if (search.length > 0) {
       filtered = filtered.filter((card) => card.name.toLocaleLowerCase().includes(search));
     }
-    filtered.sort(compareCards(section === 'recent' && input.sort === undefined ? 'modified-desc' : sort));
+    filtered.sort(
+      compareCards(section === 'recent' && input.sort === undefined ? 'modified-desc' : sort),
+    );
     const total = filtered.length;
     const visible = limit === null ? filtered : filtered.slice(0, limit);
     return Object.freeze({

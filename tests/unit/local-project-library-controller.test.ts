@@ -80,7 +80,10 @@ class MemoryFileHandle implements FileHandleLike {
 class MemoryDirectoryHandle implements DirectoryHandleLike {
   readonly directories = new Map<string, MemoryDirectoryHandle>();
   readonly files = new Map<string, MemoryFileHandle>();
-  async getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<MemoryDirectoryHandle> {
+  async getDirectoryHandle(
+    name: string,
+    options?: { create?: boolean },
+  ): Promise<MemoryDirectoryHandle> {
     const existing = this.directories.get(name);
     if (existing) return existing;
     if (options?.create !== true) throw new DOMException('missing', 'NotFoundError');
@@ -171,7 +174,9 @@ describe('M9A local project library controller', () => {
     expect(imported.snapshot).toEqual({ imported: true });
 
     const recovery = await controller.query({ section: 'recovery' });
-    expect(recovery.cards.some((card) => card.projectId === imported.metadata.projectId)).toBe(true);
+    expect(recovery.cards.some((card) => card.projectId === imported.metadata.projectId)).toBe(
+      true,
+    );
   });
 
   it('rejects invalid limits rather than silently producing unstable pagination', async () => {
