@@ -937,7 +937,7 @@ M8D-030 Tool Rail thickness persistence:仮完了
 M8D-031 Inspector width persistence:仮完了
 M8D-検査 M8D内部検査:仮完了
 
-PUB-M8D M8Dユーザー確認用Preview公開:未完了
+PUB-M8D M8Dユーザー確認用Preview公開:完了
 USER-M8D M8D UI/UX/Visualユーザー確認PASS:未完了
 
 ## M8E — Selection Launcher / Contextual Canvas UI
