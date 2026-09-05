@@ -1,0 +1,52 @@
+name: Verify M7A selection modifiers once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/m7a-modifier-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-m7a-modifiers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Format M7A modifier sources
+        run: npx biome format --write src/app/selection-modifier-engine.ts tests/unit/selection-modifier-engine.test.ts
+
+      - name: Commit formatting safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/selection-modifier-engine.ts tests/unit/selection-modifier-engine.test.ts
+          if git diff --cached --quiet; then
+            echo 'M7A modifier sources already formatted.'
+          else
+            git commit -m 'style: format M7A selection modifiers'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Focused M7A tests
+        run: npx vitest run tests/unit/selection-shape-engine.test.ts tests/unit/selection-region-combine-engine.test.ts tests/unit/selection-modifier-engine.test.ts
