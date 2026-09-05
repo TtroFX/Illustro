@@ -901,41 +901,41 @@ M8C-019 Lasso direct high-frequency entry in canonical Eyedropper→Lasso→Text
 M8C-検査 M8C内部検査:仮完了
 
 PUB-M8C M8Cユーザー確認用Preview公開:完了
-USER-M8C M8C UI/UX/Visualユーザー確認PASS:未完了
+USER-M8C M8C UI/UX/Visualユーザー確認PASS:完了
 
 ## M8D — 13-block Inspector / PiP / Workspace Customization
-M8D-001 Tool Properties block:未完了
-M8D-002 Brush Presets block:未完了
-M8D-003 Brush Studio block:未完了
-M8D-004 Color block:未完了
-M8D-005 Layers block:未完了
-M8D-006 Layer Properties block:未完了
-M8D-007 Effects/Adjustments block:未完了
-M8D-008 Navigator block:未完了
-M8D-009 Reference/Sub View block:未完了
-M8D-010 History block:未完了
-M8D-011 Quick Access block:未完了
-M8D-012 Assets block:未完了
-M8D-013 Auto Actions/Timelapse block:未完了
-M8D-014 block collapse:未完了
-M8D-015 block reorder:未完了
-M8D-016 block detach:未完了
-M8D-017 floating PiP creation:未完了
-M8D-018 PiP positioning:未完了
-M8D-019 PiP persistence:未完了
-M8D-020 magnetic redocking:未完了
-M8D-021 close detached block→Inspector return:未完了
-M8D-022 Inspector collapse:未完了
-M8D-023 detached PiP remains visible on Inspector collapse:未完了
-M8D-024 Inspector width resize:未完了
-M8D-025 Panel Manager:未完了
-M8D-026 right-inspector block visibility settings:未完了
-M8D-027 workspace reset:未完了
-M8D-028 workspace save:未完了
-M8D-029 workspace switching:未完了
-M8D-030 Tool Rail thickness persistence:未完了
-M8D-031 Inspector width persistence:未完了
-M8D-検査 M8D内部検査:未完了
+M8D-001 Tool Properties block:仮完了
+M8D-002 Brush Presets block:仮完了
+M8D-003 Brush Studio block:仮完了
+M8D-004 Color block:仮完了
+M8D-005 Layers block:仮完了
+M8D-006 Layer Properties block:仮完了
+M8D-007 Effects/Adjustments block:仮完了
+M8D-008 Navigator block:仮完了
+M8D-009 Reference/Sub View block:仮完了
+M8D-010 History block:仮完了
+M8D-011 Quick Access block:仮完了
+M8D-012 Assets block:仮完了
+M8D-013 Auto Actions/Timelapse block:仮完了
+M8D-014 block collapse:仮完了
+M8D-015 block reorder:仮完了
+M8D-016 block detach:仮完了
+M8D-017 floating PiP creation:仮完了
+M8D-018 PiP positioning:仮完了
+M8D-019 PiP persistence:仮完了
+M8D-020 magnetic redocking:仮完了
+M8D-021 close detached block→Inspector return:仮完了
+M8D-022 Inspector collapse:仮完了
+M8D-023 detached PiP remains visible on Inspector collapse:仮完了
+M8D-024 Inspector width resize:仮完了
+M8D-025 Panel Manager:仮完了
+M8D-026 right-inspector block visibility settings:仮完了
+M8D-027 workspace reset:仮完了
+M8D-028 workspace save:仮完了
+M8D-029 workspace switching:仮完了
+M8D-030 Tool Rail thickness persistence:仮完了
+M8D-031 Inspector width persistence:仮完了
+M8D-検査 M8D内部検査:仮完了
 
 PUB-M8D M8Dユーザー確認用Preview公開:未完了
 USER-M8D M8D UI/UX/Visualユーザー確認PASS:未完了

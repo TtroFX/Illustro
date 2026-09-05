@@ -31,6 +31,7 @@ export interface M8ToolFamilyV1 {
 }
 
 export const M8_TOOL_RAIL_WIDTH_V1 = Object.freeze({ min: 56, default: 64, max: 88 });
+export const M8_TOOL_RAIL_WIDTH_STORAGE_KEY_V1 = 'illustro.m8.tool-rail-width.v1' as const;
 
 const iconV1 = (body: string): string =>
   `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${body}</svg>`;
@@ -352,6 +353,29 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   const rail = app.querySelector<HTMLElement>('.m8-tool-rail');
   if (!canonicalShell || !rail) throw new Error('M8C requires the canonical M8B shell.');
 
+  const storage = (() => {
+    try {
+      return globalThis.localStorage;
+    } catch {
+      return null;
+    }
+  })();
+  const persistWidth = (width: number): void => {
+    try {
+      storage?.setItem(M8_TOOL_RAIL_WIDTH_STORAGE_KEY_V1, String(width));
+    } catch {
+      // Workspace density persistence is best-effort and never blocks drawing.
+    }
+  };
+  const readPersistedWidth = (): number => {
+    try {
+      const value = Number(storage?.getItem(M8_TOOL_RAIL_WIDTH_STORAGE_KEY_V1));
+      return Number.isFinite(value) ? clampWidthV1(value) : M8_TOOL_RAIL_WIDTH_V1.default;
+    } catch {
+      return M8_TOOL_RAIL_WIDTH_V1.default;
+    }
+  };
+
   rail.replaceChildren();
   rail.classList.add('m8c-tool-rail');
   rail.dataset.m8cState = 'provisional';
@@ -597,12 +621,13 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   scroller.addEventListener('pointerleave', onPointerLeave);
   scroller.addEventListener('contextmenu', onContextMenu);
 
-  const updateWidth = (width: number): void => {
+  const updateWidth = (width: number, shouldPersist = true): void => {
     const next = clampWidthV1(width);
     canonicalShell.style.setProperty('--m8-rail-width', `${next}px`);
     resizeHandle.setAttribute('aria-valuemin', String(M8_TOOL_RAIL_WIDTH_V1.min));
     resizeHandle.setAttribute('aria-valuemax', String(M8_TOOL_RAIL_WIDTH_V1.max));
     resizeHandle.setAttribute('aria-valuenow', String(next));
+    if (shouldPersist) persistWidth(next);
   };
 
   let dragPointerId: number | null = null;
@@ -620,12 +645,14 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   };
   const onResizePointerMove = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
-    updateWidth(dragStartWidth + event.clientX - dragStartX);
+    updateWidth(dragStartWidth + event.clientX - dragStartX, false);
   };
   const finishResize = (event: PointerEvent): void => {
     if (dragPointerId !== event.pointerId) return;
     dragPointerId = null;
     resizeHandle.classList.remove('is-dragging');
+    const current = Number(resizeHandle.getAttribute('aria-valuenow'));
+    if (Number.isFinite(current)) persistWidth(current);
   };
   const onResizeKeyDown = (event: KeyboardEvent): void => {
     const current =
@@ -680,7 +707,7 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   };
   document.addEventListener('pointerdown', onDocumentPointerDown, true);
 
-  resetWidth();
+  updateWidth(readPersistedWidth(), false);
   syncFromProduction();
   app.dataset.m8ToolRail = 'provisional';
 

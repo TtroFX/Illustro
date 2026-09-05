@@ -835,6 +835,7 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
     if (!button) return;
     if (button.dataset.m8dAction === 'undo') proxyButtonV1('history-undo');
     else if (button.dataset.m8dAction === 'redo') proxyButtonV1('history-redo');
+    else if (button.dataset.m8dAction === 'flip-horizontal') proxyButtonV1('view-mirror');
     else {
       canonicalShell.dataset.m8dViewCommand = button.dataset.m8dAction ?? '';
       canonicalShell.dispatchEvent(
