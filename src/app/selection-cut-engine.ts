@@ -92,7 +92,10 @@ export function selectionCutEligibilityV1(
   }
   if (coverage === null) return unavailable(layerId, 'selection cut requires an active selection');
   if (coverage.transformStack.length > 0) {
-    return unavailable(layerId, 'selection cut requires transformed selection coverage to be baked');
+    return unavailable(
+      layerId,
+      'selection cut requires transformed selection coverage to be baked',
+    );
   }
   if (coverage.effectStack.length > 0) {
     return unavailable(layerId, 'selection cut requires effected selection coverage to be baked');
