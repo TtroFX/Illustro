@@ -104,6 +104,16 @@ replaceOnce(
 
 replaceOnce(
   'tests/unit/m8-selection-transform-controller.test.ts',
+  `    expect(source).toContain("commitSnapshotTransform(\\n            'selection.transform'");
+`,
+  `    expect(source).toContain('input.paintHistory.commitSnapshotTransform(');
+    expect(source).toContain("'selection.transform'");
+`,
+  'transform transaction expectation',
+);
+
+replaceOnce(
+  'tests/unit/m8-selection-transform-controller.test.ts',
   `    expect(source).not.toContain('pointermove') || expect(source).not.toContain('prepareSelectionAffineTransformV1(event');
 `,
   `    const moveStart = source.indexOf('const onPointerMove');
