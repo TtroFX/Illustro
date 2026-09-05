@@ -580,7 +580,7 @@ M7A-019 selection cut:完了
 M7A-020 selection copy:完了
 M7A-021 selection paste:完了
 M7A-022 selection-scoped transform:完了
-M7A-023 selection-scoped filter:未完了
+M7A-023 selection-scoped filter:完了
 M7A-024 selection-scoped fill:未完了
 M7A-025 selection-scoped layer operations:未完了
 M7A-検査 M7A内部検査:未完了
