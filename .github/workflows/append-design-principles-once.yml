@@ -1,4 +1,4 @@
-name: Mark phone UX remediation complete once
+name: Integrate CSP SUT SQLite runtime once
 
 on:
   push:
@@ -10,48 +10,109 @@ permissions:
   contents: write
 
 jobs:
-  mark-phone-ux-remediation:
+  integrate-csp-sut-sqlite-runtime:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Mark implemented phone UX items complete
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - name: Pin npm
+        run: npm install --global npm@11.19.1
+      - name: Integrate reviewed sql.js runtime
         shell: bash
         run: |
           set -euo pipefail
+          npm install --save-exact sql.js@1.14.2
           python - <<'PY'
+          import json
           from pathlib import Path
-          path = Path('IMPLEMENTATION_PROGRESS.md')
-          text = path.read_text()
-          replacements = {
-              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
-                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
-              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
-                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
-              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
-                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
-          }
-          changed = False
-          for before, after in replacements.items():
-              if before in text:
-                  if text.count(before) != 1:
-                      raise SystemExit(f'expected one progress line: {before}')
-                  text = text.replace(before, after, 1)
-                  changed = True
-              elif after not in text:
-                  raise SystemExit(f'progress line missing: {before}')
-          if changed:
-              path.write_text(text)
+
+          reviewed_path = Path('third_party/reviewed-components.json')
+          reviewed = json.loads(reviewed_path.read_text())
+          if not any(item.get('name') == 'sql.js' for item in reviewed['components']):
+              reviewed['components'].append({
+                  'name': 'sql.js',
+                  'version': '1.14.2',
+                  'sourceUrl': 'https://github.com/sql-js/sql.js',
+                  'licenseExpression': 'MIT',
+                  'usage': 'runtime-distributed',
+                  'incorporation': 'dependency',
+                  'modifications': 'none',
+                  'requiresNotice': False,
+                  'reviewStatus': 'reviewed',
+                  'reviewer': 'Illustro M6B CSP SUT interoperability review',
+                  'reviewDate': '2026-09-05',
+              })
+              reviewed_path.write_text(json.dumps(reviewed, ensure_ascii=False, indent=2) + '\n')
+
+          build_path = Path('scripts/build.mjs')
+          build = build_path.read_text()
+          marker = """await cp(\n  new URL('../node_modules/jsqr/dist/jsQR.js', import.meta.url),\n  new URL('jsQR.js', vendorDistDir),\n);\n"""
+          addition = marker + """await cp(\n  new URL('../node_modules/sql.js/dist/sql-wasm.js', import.meta.url),\n  new URL('sql-wasm.js', vendorDistDir),\n);\nawait cp(\n  new URL('../node_modules/sql.js/dist/sql-wasm.wasm', import.meta.url),\n  new URL('sql-wasm.wasm', vendorDistDir),\n);\n"""
+          if "node_modules/sql.js/dist/sql-wasm.js" not in build:
+              if marker not in build:
+                  raise SystemExit('jsQR vendor copy marker missing')
+              build_path.write_text(build.replace(marker, addition, 1))
+
+          html_path = Path('src/index.html')
+          html = html_path.read_text()
+          marker = '    <script src="./vendor/jsQR.js"></script>\n'
+          addition = '    <script src="./vendor/sql-wasm.js"></script>\n' + marker
+          if './vendor/sql-wasm.js' not in html:
+              if marker not in html:
+                  raise SystemExit('jsQR script marker missing')
+              html_path.write_text(html.replace(marker, addition, 1))
           PY
+          npm run prepare:legal
+          npm run format
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+          npm run build
+          npm run test:integration
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { resolve } from 'node:path';
+          import initSqlJs from 'sql.js';
+          import { parseCspSutV1 } from './.build/app/interchange/csp-sut-parser-v1.js';
+
+          const SQL = await initSqlJs({
+            locateFile: (file) => resolve('node_modules/sql.js/dist', file),
+          });
+          const db = new SQL.Database();
+          db.run(`
+            CREATE TABLE Node (NodeName TEXT, NodeVariantId INTEGER, NodeInitVariantId INTEGER, _PW_ID INTEGER);
+            CREATE TABLE Variant (VariantId INTEGER, BrushSize REAL, Opacity REAL, SizeEffector BLOB);
+            CREATE TABLE MaterialFile (_PW_ID INTEGER, MaterialName TEXT, FileData BLOB);
+            INSERT INTO Node VALUES ('Runtime CSP Fixture', 42, 7, 1);
+            INSERT INTO Variant VALUES (42, 55.0, 0.75, X'01020304');
+            INSERT INTO MaterialFile VALUES (1, 'tip', X'090807');
+          `);
+          const bytes = db.export();
+          db.close();
+          const parsed = await parseCspSutV1(bytes, SQL);
+          assert.equal(parsed.nodeName, 'Runtime CSP Fixture');
+          assert.equal(parsed.nodeVariantId, 42);
+          assert.equal(parsed.variant.BrushSize, 55);
+          assert.deepEqual([...parsed.materials[0].FileData], [9, 8, 7]);
+          console.log('CSP SUT sql.js runtime integration PASS');
+          NODE
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add IMPLEMENTATION_PROGRESS.md
+          git add package.json package-lock.json third_party scripts/build.mjs src/index.html THIRD_PARTY_NOTICES.md NOTICE bom.cdx.json
           if git diff --cached --quiet; then
-            echo 'Phone UX remediation progress already complete.'
+            echo 'sql.js runtime already integrated.'
             exit 0
           fi
-          git commit -m 'chore: close phone UX remediation'
+          git commit -m 'feat: distribute CSP SUT SQLite runtime'
           git push origin HEAD:main
