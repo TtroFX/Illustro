@@ -188,6 +188,30 @@ export class LocalProjectLibraryControllerV1 {
     return this.#library.open(projectId);
   }
 
+  async rename(
+    projectId: ProjectId | string,
+    name: string,
+    now?: Date,
+  ): Promise<LocalProjectMetadataV1> {
+    return now === undefined
+      ? this.#library.rename(projectId, name)
+      : this.#library.rename(projectId, name, now);
+  }
+
+  async duplicate(
+    projectId: ProjectId | string,
+    options: { readonly name?: string; readonly now?: Date } = {},
+  ): Promise<LocalProjectCreateResultV1> {
+    return this.#library.duplicate(projectId, options);
+  }
+
+  async updatePreview(
+    projectId: ProjectId | string,
+    previewResourceId: ResourceId | null,
+  ): Promise<LocalProjectMetadataV1> {
+    return this.#library.updatePreview(projectId, previewResourceId);
+  }
+
   async trash(projectId: ProjectId | string, now?: Date): Promise<LocalProjectMetadataV1> {
     return now === undefined ? this.#library.trash(projectId) : this.#library.trash(projectId, now);
   }
