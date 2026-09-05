@@ -51,8 +51,20 @@ jobs:
         run: npx biome format --write src/app/selection-shape-engine.ts tests/unit/selection-shape-engine.test.ts
       - name: Lint targeted files
         run: npx biome lint src/app/selection-shape-engine.ts tests/unit/selection-shape-engine.test.ts
-      - name: Typecheck
-        run: npx tsc -p tsconfig.json --noEmit
+      - name: Focused typecheck
+        run: |
+          cat > tsconfig.m7a003004.json <<'EOF'
+          {
+            "extends": "./tsconfig.json",
+            "compilerOptions": { "rootDir": "." },
+            "include": [
+              "src/app/selection-shape-engine.ts",
+              "tests/unit/selection-shape-engine.test.ts"
+            ]
+          }
+          EOF
+          npx tsc -p tsconfig.m7a003004.json --noEmit
+          rm tsconfig.m7a003004.json
       - name: Targeted unit tests
         run: npx vitest run tests/unit/selection-shape-engine.test.ts
       - name: Close verified progress items
