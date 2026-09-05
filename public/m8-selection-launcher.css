@@ -1,0 +1,209 @@
+.m8-canvas-stage {
+  position: relative;
+}
+
+.m8e-context-layer {
+  position: absolute;
+  z-index: 72;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.m8e-selection-bounds {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgb(216 55 137 / 78%);
+  border-radius: 3px;
+  background: rgb(255 82 164 / 2%);
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 72%);
+  pointer-events: none;
+}
+
+.m8e-selection-bounds[hidden],
+.m8e-selection-launcher[hidden],
+.m8e-selection-drag-preview[hidden],
+.m8e-context-host[hidden] {
+  display: none !important;
+}
+
+.m8e-selection-drag-preview {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.m8e-selection-drag-preview path {
+  fill: rgb(255 79 156 / 5%);
+  stroke: #dc398e;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.m8e-selection-launcher {
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid rgb(225 226 235 / 96%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 97%);
+  box-shadow: 0 10px 28px rgb(40 44 70 / 16%), 0 2px 7px rgb(50 55 80 / 8%);
+  backdrop-filter: blur(14px);
+  pointer-events: auto;
+  transform-origin: 50% 100%;
+  animation: m8e-launcher-enter 120ms cubic-bezier(.2, .75, .25, 1) both;
+}
+
+.m8e-selection-launcher > button,
+.m8e-selection-more > summary,
+.m8e-selection-more-panel button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #50596b;
+  font: 700 16px/1 system-ui, sans-serif;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.m8e-selection-launcher > button:hover:not(:disabled),
+.m8e-selection-launcher > button:focus-visible,
+.m8e-selection-more > summary:hover,
+.m8e-selection-more > summary:focus-visible,
+.m8e-selection-more-panel button:hover,
+.m8e-selection-more-panel button:focus-visible {
+  background: #fff0f7;
+  color: #c82b79;
+  outline: none;
+}
+
+.m8e-selection-launcher > button:active:not(:disabled),
+.m8e-selection-more-panel button:active:not(:disabled) {
+  transform: scale(.94);
+}
+
+.m8e-selection-launcher button[data-production-state="planned"] {
+  color: #adb3bf;
+  cursor: default;
+}
+
+.m8e-selection-launcher button[data-production-state="partial"]:not(:disabled)::after {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  margin: 24px 0 0 24px;
+  border-radius: 50%;
+  background: #c6609a;
+  content: "";
+}
+
+.m8e-selection-launcher[data-busy="true"] {
+  cursor: progress;
+}
+
+.m8e-selection-launcher[data-busy="true"] button,
+.m8e-selection-launcher[data-busy="true"] summary {
+  pointer-events: none;
+}
+
+.m8e-selection-more {
+  position: relative;
+}
+
+.m8e-selection-more > summary {
+  list-style: none;
+  font-size: 14px;
+}
+
+.m8e-selection-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.m8e-selection-more-panel {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 9px);
+  right: 0;
+  display: flex;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid #e4e5eb;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 98%);
+  box-shadow: 0 9px 24px rgb(43 48 74 / 15%);
+}
+
+.m8e-selection-more:not([open]) .m8e-selection-more-panel {
+  display: none;
+}
+
+.m8e-selection-dismiss {
+  margin-left: 2px;
+  border-left: 1px solid #ececf1 !important;
+  border-radius: 0 10px 10px 0 !important;
+  color: #7c8390 !important;
+  font-size: 18px !important;
+}
+
+.m8e-context-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.m8e-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes m8e-launcher-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m8e-selection-launcher {
+    animation: none;
+  }
+}
+
+@media (max-width: 799px), (pointer: coarse) {
+  .m8e-selection-launcher {
+    max-width: calc(100% - 16px);
+    gap: 1px;
+    padding: 4px 3px;
+  }
+
+  .m8e-selection-launcher > button,
+  .m8e-selection-more > summary,
+  .m8e-selection-more-panel button {
+    width: 40px;
+    height: 40px;
+  }
+}
