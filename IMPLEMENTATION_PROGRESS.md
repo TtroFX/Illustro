@@ -1157,17 +1157,17 @@ PUB-M8J M8Jユーザー確認用Preview公開:未完了
 USER-M8J M8J UI/UX/Visualユーザー確認PASS:未完了
 
 ## M9A — Local Project Library
-M9A-001 local Project Library:未完了
-M9A-002 project thumbnails:未完了
-M9A-003 project search:未完了
-M9A-004 project sorting:未完了
-M9A-005 project organization:未完了
-M9A-006 create from Library:未完了
-M9A-007 open from Library:未完了
-M9A-008 import from Library:未完了
-M9A-009 recovery-project visibility:未完了
-M9A-010 Recently Deleted Library surface:未完了
-M9A-検査 M9A内部検査:未完了
+M9A-001 local Project Library:完了
+M9A-002 project thumbnails:完了
+M9A-003 project search:完了
+M9A-004 project sorting:完了
+M9A-005 project organization:完了
+M9A-006 create from Library:完了
+M9A-007 open from Library:完了
+M9A-008 import from Library:完了
+M9A-009 recovery-project visibility:完了
+M9A-010 Recently Deleted Library surface:完了
+M9A-検査 M9A内部検査:完了
 
 ## M9B — Native `.illustro` Format
 M9B-001 `.illustro` archive writer:未完了
