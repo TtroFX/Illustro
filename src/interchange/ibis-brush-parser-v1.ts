@@ -1,7 +1,4 @@
-import {
-  parseIbisBrushEnvelopeV1,
-  type IbisBrushEnvelopeV1,
-} from './ibis-brush-envelope-v1.js';
+import { parseIbisBrushEnvelopeV1, type IbisBrushEnvelopeV1 } from './ibis-brush-envelope-v1.js';
 
 export const IBIS_BRUSH_PARSER_SCHEMA_V1 = 'illustro.ibis-brush-parser/1' as const;
 export const IBIS_BRUSH_CARRIER_HEADER_BYTES_V1 = 4;
@@ -38,12 +35,14 @@ function viewOf(bytes: Uint8Array): DataView {
 }
 
 function readU32BigEndian(bytes: Uint8Array, offset: number): number {
-  if (offset < 0 || offset + 4 > bytes.byteLength) throw new RangeError('ibis brush uint32 is truncated');
+  if (offset < 0 || offset + 4 > bytes.byteLength)
+    throw new RangeError('ibis brush uint32 is truncated');
   return viewOf(bytes).getUint32(offset, false);
 }
 
 function readU16BigEndian(bytes: Uint8Array, offset: number): number {
-  if (offset < 0 || offset + 2 > bytes.byteLength) throw new RangeError('ibis brush uint16 is truncated');
+  if (offset < 0 || offset + 2 > bytes.byteLength)
+    throw new RangeError('ibis brush uint16 is truncated');
   return viewOf(bytes).getUint16(offset, false);
 }
 
@@ -59,7 +58,10 @@ function normalizedDecodedLimitV1(value: number | undefined): number {
   return limit;
 }
 
-async function inflateRawLimitedV1(source: Uint8Array, maxDecodedBytes: number): Promise<Uint8Array> {
+async function inflateRawLimitedV1(
+  source: Uint8Array,
+  maxDecodedBytes: number,
+): Promise<Uint8Array> {
   if (typeof DecompressionStream !== 'function') {
     throw new TypeError('raw deflate is unsupported in this runtime');
   }
@@ -153,7 +155,10 @@ export async function parseIbisBrushPayloadV1(
     decodedBytes: decodedBytes.slice(),
     innerSignature: decodedBytes.slice(0, IBIS_BRUSH_INNER_SIGNATURE_V1.length),
     declaredPayloadByteLength,
-    parameterPrefix: decodedBytes.slice(IBIS_BRUSH_INNER_HEADER_BYTES_V1, IBIS_BRUSH_NAME_LENGTH_OFFSET_V1),
+    parameterPrefix: decodedBytes.slice(
+      IBIS_BRUSH_INNER_HEADER_BYTES_V1,
+      IBIS_BRUSH_NAME_LENGTH_OFFSET_V1,
+    ),
     name,
     nameBytes,
     postNamePayload: decodedBytes.slice(nameEnd, payloadEnd),
