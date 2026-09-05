@@ -556,11 +556,11 @@ PUB-02 ユーザー確認2用Preview公開:完了
 USER-02 Layer・Color・Blend・Brush Engine・48 Brushes・筆圧傾き・ibis/CSP brush importユーザー確認PASS:完了
 
 ## M7A — Selection / Mask Workflow
-M7A-001 rectangular selection:未完了
-M7A-002 elliptical selection:未完了
-M7A-003 Lasso selection:未完了
-M7A-004 freehand selection:未完了
-M7A-005 brush-painted selection:未完了
+M7A-001 rectangular selection:完了
+M7A-002 elliptical selection:完了
+M7A-003 Lasso selection:完了
+M7A-004 freehand selection:完了
+M7A-005 brush-painted selection:完了
 M7A-006 Magic Wand/Auto Select:未完了
 M7A-007 color-range selection:未完了
 M7A-008 selection Replace mode:未完了
