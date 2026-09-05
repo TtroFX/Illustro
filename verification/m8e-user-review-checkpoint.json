@@ -1,0 +1,64 @@
+{
+  "schema": "illustro.m8e-user-review-checkpoint/1",
+  "boundary": "M8E",
+  "status": "provisional-awaiting-user-review",
+  "implementation": {
+    "selectionTransformCommit": "993041011333d3684966e6172ce909e7833c0da8",
+    "contextualCanvasCommit": "dbea70aef16ebe668e591a495bb5a0071f806797",
+    "vectorTextPreviewCommit": "d2491133d6f4b4e5d02ac5bc612d867d378a23ba"
+  },
+  "selectionLauncher": {
+    "nonEmptySelectionOnly": true,
+    "hideDuringActiveDrawing": true,
+    "dismissWithoutClearing": true,
+    "workspaceClamped": true,
+    "transformMutuallyExclusive": true,
+    "commands": {
+      "transform": "production",
+      "cut": "production",
+      "copy": "production",
+      "clear": "production",
+      "invert": "production",
+      "feather": "production",
+      "expand": "production",
+      "shrink": "production",
+      "fill": "production"
+    }
+  },
+  "transform": {
+    "move": true,
+    "scaleHandles": 8,
+    "rotate": true,
+    "pivot": true,
+    "previewIsGeometricOnly": true,
+    "commitCommand": "selection.transform",
+    "historyTransaction": true,
+    "persistenceDirtyMark": true,
+    "cancelLeavesDocumentUnchanged": true
+  },
+  "contextualPreviews": {
+    "normalProductionSurfaceHidden": true,
+    "vector": "pending M7D",
+    "text": "pending M7E",
+    "ruler": "pending M7D",
+    "lineart": "pending M7F",
+    "documentMutation": false,
+    "reviewQueries": [
+      "?m8e-preview=vector",
+      "?m8e-preview=text",
+      "?m8e-preview=ruler",
+      "?m8e-preview=lineart"
+    ]
+  },
+  "verification": {
+    "repositoryFormat": "pass",
+    "typecheck": "pass",
+    "focusedM8eTests": "pass",
+    "selectionCutTests": "pass",
+    "selectionFillTests": "pass",
+    "productionBuild": "pass"
+  },
+  "publication": "pending-pages-verification",
+  "userReview": "pending",
+  "nextBoundaryStarted": false
+}
