@@ -100,9 +100,9 @@ describe('M6B-011 imported brush canonical normalization', () => {
     expect(() => commitImportedBrushStageV1({ stage })).toThrow(
       ImportedBrushAcceptanceRequiredErrorV1,
     );
-    expect(
-      commitImportedBrushStageV1({ stage, acceptLossyMapping: true }).preset.schema,
-    ).toBe('illustro.brush/1');
+    expect(commitImportedBrushStageV1({ stage, acceptLossyMapping: true }).preset.schema).toBe(
+      'illustro.brush/1',
+    );
   });
 
   it('fails closed when a staged report is forged for another source family', () => {
@@ -124,8 +124,8 @@ describe('M6B-011 imported brush canonical normalization', () => {
   });
 
   it('rejects empty imported preset ids before source mapping', () => {
-    expect(() =>
-      stageCspBrushImportV1({ parsed: cspFixtureV1(false), presetId: '   ' }),
-    ).toThrow('preset id must contain');
+    expect(() => stageCspBrushImportV1({ parsed: cspFixtureV1(false), presetId: '   ' })).toThrow(
+      'preset id must contain',
+    );
   });
 });
