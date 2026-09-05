@@ -108,7 +108,7 @@ export function installM9aLibrarySurfaceV1(
       </div>
       <div class="m9a-library-header-actions">
         <button type="button" class="m9a-library-button m9a-secondary-action" data-m9a-settings>設定</button>
-        <button type="button" class="m9a-library-button" data-m9a-return hidden>エディターへ戻る</button>
+        <button type="button" class="m9a-library-button" data-m9a-return>キャンバスへ</button>
         <button type="button" class="m9a-library-button is-primary" data-m9a-new>新規作成</button>
       </div>
     </header>
@@ -220,7 +220,9 @@ export function installM9aLibrarySurfaceV1(
     clearPreviewUrls();
     setError(null);
     setBusy(true);
-    returnButton.hidden = !options.canReturnToEditor();
+    const hasActiveEditor = options.canReturnToEditor();
+    returnButton.hidden = false;
+    returnButton.textContent = hasActiveEditor ? 'エディターへ戻る' : 'キャンバスへ';
     try {
       const navButtons = surface.querySelectorAll<HTMLButtonElement>('[data-section]');
       for (const button of Array.from(navButtons)) {
@@ -455,7 +457,7 @@ export function installM9aLibrarySurfaceV1(
       options.productShell.openNamedTaskSurface('settings');
       return;
     }
-    if (target?.closest('[data-m9a-return]') && options.canReturnToEditor()) {
+    if (target?.closest('[data-m9a-return]')) {
       options.productShell.hideLibrary();
     }
   };

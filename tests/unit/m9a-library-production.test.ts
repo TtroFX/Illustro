@@ -24,6 +24,18 @@ describe('M9A production Local Project Library', () => {
     expect(libraryCss).toContain('.m9a-projects[data-view="list"]');
   });
 
+  it('always keeps a route from Library back to the Canvas surface', () => {
+    expect(librarySource).toContain('data-m9a-return>キャンバスへ</button>');
+    expect(librarySource).toContain('returnButton.hidden = false');
+    expect(librarySource).toContain(
+      "returnButton.textContent = hasActiveEditor ? 'エディターへ戻る' : 'キャンバスへ'",
+    );
+    expect(librarySource).toContain("if (target?.closest('[data-m9a-return]'))");
+    expect(librarySource).not.toContain(
+      "target?.closest('[data-m9a-return]') && options.canReturnToEditor()",
+    );
+  });
+
   it('routes New and Open through canonical production persistence rather than mock state', () => {
     expect(mainSource).toContain('onNewProject: () => documentWorkflow.openNewDocument()');
     expect(mainSource).toContain('await paintPersistence.openProject(projectId)');
