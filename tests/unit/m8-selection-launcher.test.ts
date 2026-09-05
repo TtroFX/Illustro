@@ -113,7 +113,9 @@ describe('M8E rebuilt selection interaction', () => {
         }),
       ]),
     });
-    expect(selectionContourKeyV1(first)).not.toBe(selectionContourKeyV1({ ...first, inverted: true }));
+    expect(selectionContourKeyV1(first)).not.toBe(
+      selectionContourKeyV1({ ...first, inverted: true }),
+    );
     expect(selectionContourKeyV1(first)).not.toBe(
       selectionContourKeyV1({
         ...first,
