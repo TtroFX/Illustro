@@ -1,0 +1,49 @@
+name: Fix M8C progress syntax once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/m8c-progress-colon-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Restore M8C progress delimiters
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('IMPLEMENTATION_PROGRESS.md')
+          lines = p.read_text().splitlines()
+          inside = False
+          fixed = 0
+          for i, line in enumerate(lines):
+              if line.startswith('## M8C —'):
+                  inside = True
+                  continue
+              if inside and line.startswith('## M8D —'):
+                  break
+              if inside and line.startswith('M8C-') and line.endswith('仮完了') and not line.endswith(':仮完了'):
+                  lines[i] = line[:-3] + ':仮完了'
+                  fixed += 1
+          if fixed != 20:
+              raise SystemExit(f'expected 20 M8C lines, fixed {fixed}')
+          p.write_text('\n'.join(lines) + '\n')
+          PY
+      - name: Remove helper
+        run: rm .github/workflows/m8c-progress-colon-fix-once.yml
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add IMPLEMENTATION_PROGRESS.md .github/workflows/m8c-progress-colon-fix-once.yml
+          git commit -m 'chore: fix M8C progress syntax'
+          git pull --rebase origin main
+          git push origin HEAD:main
