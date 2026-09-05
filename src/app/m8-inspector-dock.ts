@@ -638,7 +638,7 @@ export function installM8InspectorDockV1(app: HTMLElement): M8InspectorDockHandl
 
   let resizePointerId: number | null = null;
   let resizeStartX = 0;
-  let resizeStartWidth = M8_INSPECTOR_WIDTH_V1.default;
+  let resizeStartWidth: number = M8_INSPECTOR_WIDTH_V1.default;
   const onResizeDown = (event: PointerEvent): void => {
     if (event.button !== 0) return;
     resizePointerId = event.pointerId;
