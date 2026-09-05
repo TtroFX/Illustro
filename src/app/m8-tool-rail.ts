@@ -82,94 +82,183 @@ const lassoIconV1 = iconV1(
   '<path d="M5.2 8.8c2.4-4.5 9.8-5.2 13.2-1.1 3 3.6.1 8.2-4.6 8.8-5 .7-9.2-1.4-8.9-4.5.2-2 2.3-2.8 4-1.6 1.5 1 1.4 3.3-.2 4.2-1.2.7-2.4.3-3.3-.4"/><path d="M5.4 14.2c-.8 1.7-.8 3.3.1 4.9"/>',
 );
 
-export const M8_TOOL_FAMILIES_V1: readonly M8ToolFamilyV1[] = Object.freeze([
-  { id: 'brush', label: 'ブラシ', tone: 'pink', icon: FAMILY_ICONS_V1.brush, subtools: [
-    { id: 'raster-brush', label: 'ブラシ', proxyId: 'brush-mode-raster' },
-    { id: 'lasso-paint', label: '投げ縄塗り', proxyId: null },
-  ] },
-  { id: 'eraser', label: '消しゴム', tone: 'cyan', icon: FAMILY_ICONS_V1.eraser, subtools: [
-    { id: 'raster-eraser', label: '消しゴム', proxyId: 'brush-mode-eraser' },
-    { id: 'lasso-erase', label: '投げ縄消去', proxyId: null },
-    { id: 'enclose-erase', label: '囲って消去', proxyId: null },
-  ] },
-  { id: 'blend', label: 'ブレンド', tone: 'violet', icon: FAMILY_ICONS_V1.blend, subtools: [
-    { id: 'smudge', label: '指先 / Smudge', proxyId: 'brush-mode-smudge' },
-    { id: 'blur-brush', label: 'ぼかし', proxyId: 'brush-mode-blur' },
-  ] },
-  { id: 'fill', label: '塗りつぶし', tone: 'mint', icon: FAMILY_ICONS_V1.fill, subtools: [
-    { id: 'flood-fill', label: '塗りつぶし', proxyId: null },
-    { id: 'continuous-fill', label: '連続塗り', proxyId: null },
-    { id: 'enclose-fill', label: '囲って塗る', proxyId: null },
-    { id: 'pattern-fill', label: 'パターン塗り', proxyId: null },
-    { id: 'flatting-seed', label: '自動色分けシード', proxyId: null },
-  ] },
-  { id: 'selection', label: '選択', tone: 'magenta', icon: FAMILY_ICONS_V1.selection, subtools: [
-    { id: 'rectangle', label: '矩形選択', proxyId: null },
-    { id: 'ellipse', label: '楕円選択', proxyId: null },
-    { id: 'lasso', label: '投げ縄選択', proxyId: null },
-    { id: 'polygon', label: '多角形選択', proxyId: null },
-    { id: 'brush-selection', label: 'ブラシ選択', proxyId: null },
-    { id: 'auto-selection', label: '自動 / Magic選択', proxyId: null },
-    { id: 'color-range', label: '色域選択', proxyId: null },
-    { id: 'magnetic-selection', label: 'マグネット選択', proxyId: null },
-    { id: 'enclose-selection', label: '囲って選択', proxyId: null },
-  ] },
-  { id: 'transform', label: '変形', tone: 'orange', icon: FAMILY_ICONS_V1.transform, subtools: [
-    { id: 'move', label: '移動', proxyId: null },
-    { id: 'scale-rotate', label: '拡大縮小 / 回転', proxyId: null },
-    { id: 'free-transform', label: '自由変形', proxyId: null },
-    { id: 'perspective', label: '遠近変形', proxyId: null },
-    { id: 'mesh', label: 'メッシュ変形', proxyId: null },
-    { id: 'puppet', label: 'パペットワープ', proxyId: null },
-    { id: 'repeat-transform', label: '反復 / ミラー変形', proxyId: null },
-  ] },
-  { id: 'liquify', label: 'ゆがみ', tone: 'aqua', icon: FAMILY_ICONS_V1.liquify, subtools: [
-    { id: 'local-warp', label: 'ローカルワープ', proxyId: null },
-  ] },
-  { id: 'gradient', label: 'グラデーション', tone: 'gradient', icon: FAMILY_ICONS_V1.gradient, subtools: [
-    { id: 'linear', label: '線形', proxyId: null },
-    { id: 'radial', label: '放射', proxyId: null },
-    { id: 'sweep', label: '円錐 / Sweep', proxyId: null },
-    { id: 'freeform', label: 'フリーフォーム', proxyId: null },
-  ] },
-  { id: 'eyedropper', label: 'スポイト', tone: 'violet', icon: FAMILY_ICONS_V1.eyedropper, subtools: [
-    { id: 'canvas-sample', label: 'キャンバスから取得', proxyId: null },
-    { id: 'merged-sample', label: '統合 / 参照込み取得', proxyId: null },
-    { id: 'reference-sample', label: '参照画像から取得', proxyId: null },
-  ] },
-  { id: 'text', label: 'テキスト', tone: 'text', icon: FAMILY_ICONS_V1.text, subtools: [
-    { id: 'point-text', label: 'ポイントテキスト', proxyId: null },
-    { id: 'box-text', label: 'ボックステキスト', proxyId: null },
-  ] },
-  { id: 'shape-path', label: '図形 / パス', tone: 'coral', icon: FAMILY_ICONS_V1['shape-path'], subtools: [
-    { id: 'line', label: '直線', proxyId: null },
-    { id: 'rectangle', label: '長方形', proxyId: null },
-    { id: 'rounded-rectangle', label: '角丸長方形', proxyId: null },
-    { id: 'ellipse', label: '楕円', proxyId: null },
-    { id: 'polygon', label: '正多角形', proxyId: null },
-    { id: 'polyline', label: '折れ線', proxyId: null },
-    { id: 'bezier', label: 'ベジェ', proxyId: null },
-    { id: 'node-edit', label: 'ノード / パス編集', proxyId: null },
-  ] },
-  { id: 'repair', label: '修復', tone: 'orange', icon: FAMILY_ICONS_V1.repair, subtools: [
-    { id: 'clone', label: 'クローン / コピーペン', proxyId: null },
-    { id: 'smart-patch', label: 'スマートパッチ', proxyId: null },
-  ] },
-  { id: 'ruler-guide', label: '定規 / ガイド', tone: 'yellow', icon: FAMILY_ICONS_V1['ruler-guide'], subtools: [
-    { id: 'straight', label: '直線定規', proxyId: null },
-    { id: 'ellipse', label: '円 / 楕円定規', proxyId: null },
-    { id: 'radial', label: '放射 / 集中線', proxyId: null },
-    { id: 'symmetry', label: '対称定規', proxyId: null },
-    { id: 'kaleidoscope', label: '万華鏡', proxyId: null },
-    { id: 'array', label: '配列', proxyId: null },
-    { id: 'perspective', label: '1 / 2 / 3点透視', proxyId: null },
-    { id: 'hatching', label: 'ハッチングガイド', proxyId: null },
-  ] },
-  { id: 'navigation', label: 'ナビゲーション', tone: 'blue', icon: FAMILY_ICONS_V1.navigation, subtools: [
-    { id: 'hand-pan', label: '手のひら / Pan', proxyId: null },
-    { id: 'fit', label: '画面に合わせる', proxyId: 'view-fit' },
-  ] },
-].map((family) => Object.freeze({ ...family, subtools: Object.freeze(family.subtools.map((item) => Object.freeze(item))) })));
+export const M8_TOOL_FAMILIES_V1: readonly M8ToolFamilyV1[] = Object.freeze(
+  [
+    {
+      id: 'brush',
+      label: 'ブラシ',
+      tone: 'pink',
+      icon: FAMILY_ICONS_V1.brush,
+      subtools: [
+        { id: 'raster-brush', label: 'ブラシ', proxyId: 'brush-mode-raster' },
+        { id: 'lasso-paint', label: '投げ縄塗り', proxyId: null },
+      ],
+    },
+    {
+      id: 'eraser',
+      label: '消しゴム',
+      tone: 'cyan',
+      icon: FAMILY_ICONS_V1.eraser,
+      subtools: [
+        { id: 'raster-eraser', label: '消しゴム', proxyId: 'brush-mode-eraser' },
+        { id: 'lasso-erase', label: '投げ縄消去', proxyId: null },
+        { id: 'enclose-erase', label: '囲って消去', proxyId: null },
+      ],
+    },
+    {
+      id: 'blend',
+      label: 'ブレンド',
+      tone: 'violet',
+      icon: FAMILY_ICONS_V1.blend,
+      subtools: [
+        { id: 'smudge', label: '指先 / Smudge', proxyId: 'brush-mode-smudge' },
+        { id: 'blur-brush', label: 'ぼかし', proxyId: 'brush-mode-blur' },
+      ],
+    },
+    {
+      id: 'fill',
+      label: '塗りつぶし',
+      tone: 'mint',
+      icon: FAMILY_ICONS_V1.fill,
+      subtools: [
+        { id: 'flood-fill', label: '塗りつぶし', proxyId: null },
+        { id: 'continuous-fill', label: '連続塗り', proxyId: null },
+        { id: 'enclose-fill', label: '囲って塗る', proxyId: null },
+        { id: 'pattern-fill', label: 'パターン塗り', proxyId: null },
+        { id: 'flatting-seed', label: '自動色分けシード', proxyId: null },
+      ],
+    },
+    {
+      id: 'selection',
+      label: '選択',
+      tone: 'magenta',
+      icon: FAMILY_ICONS_V1.selection,
+      subtools: [
+        { id: 'rectangle', label: '矩形選択', proxyId: null },
+        { id: 'ellipse', label: '楕円選択', proxyId: null },
+        { id: 'lasso', label: '投げ縄選択', proxyId: null },
+        { id: 'polygon', label: '多角形選択', proxyId: null },
+        { id: 'brush-selection', label: 'ブラシ選択', proxyId: null },
+        { id: 'auto-selection', label: '自動 / Magic選択', proxyId: null },
+        { id: 'color-range', label: '色域選択', proxyId: null },
+        { id: 'magnetic-selection', label: 'マグネット選択', proxyId: null },
+        { id: 'enclose-selection', label: '囲って選択', proxyId: null },
+      ],
+    },
+    {
+      id: 'transform',
+      label: '変形',
+      tone: 'orange',
+      icon: FAMILY_ICONS_V1.transform,
+      subtools: [
+        { id: 'move', label: '移動', proxyId: null },
+        { id: 'scale-rotate', label: '拡大縮小 / 回転', proxyId: null },
+        { id: 'free-transform', label: '自由変形', proxyId: null },
+        { id: 'perspective', label: '遠近変形', proxyId: null },
+        { id: 'mesh', label: 'メッシュ変形', proxyId: null },
+        { id: 'puppet', label: 'パペットワープ', proxyId: null },
+        { id: 'repeat-transform', label: '反復 / ミラー変形', proxyId: null },
+      ],
+    },
+    {
+      id: 'liquify',
+      label: 'ゆがみ',
+      tone: 'aqua',
+      icon: FAMILY_ICONS_V1.liquify,
+      subtools: [{ id: 'local-warp', label: 'ローカルワープ', proxyId: null }],
+    },
+    {
+      id: 'gradient',
+      label: 'グラデーション',
+      tone: 'gradient',
+      icon: FAMILY_ICONS_V1.gradient,
+      subtools: [
+        { id: 'linear', label: '線形', proxyId: null },
+        { id: 'radial', label: '放射', proxyId: null },
+        { id: 'sweep', label: '円錐 / Sweep', proxyId: null },
+        { id: 'freeform', label: 'フリーフォーム', proxyId: null },
+      ],
+    },
+    {
+      id: 'eyedropper',
+      label: 'スポイト',
+      tone: 'violet',
+      icon: FAMILY_ICONS_V1.eyedropper,
+      subtools: [
+        { id: 'canvas-sample', label: 'キャンバスから取得', proxyId: null },
+        { id: 'merged-sample', label: '統合 / 参照込み取得', proxyId: null },
+        { id: 'reference-sample', label: '参照画像から取得', proxyId: null },
+      ],
+    },
+    {
+      id: 'text',
+      label: 'テキスト',
+      tone: 'text',
+      icon: FAMILY_ICONS_V1.text,
+      subtools: [
+        { id: 'point-text', label: 'ポイントテキスト', proxyId: null },
+        { id: 'box-text', label: 'ボックステキスト', proxyId: null },
+      ],
+    },
+    {
+      id: 'shape-path',
+      label: '図形 / パス',
+      tone: 'coral',
+      icon: FAMILY_ICONS_V1['shape-path'],
+      subtools: [
+        { id: 'line', label: '直線', proxyId: null },
+        { id: 'rectangle', label: '長方形', proxyId: null },
+        { id: 'rounded-rectangle', label: '角丸長方形', proxyId: null },
+        { id: 'ellipse', label: '楕円', proxyId: null },
+        { id: 'polygon', label: '正多角形', proxyId: null },
+        { id: 'polyline', label: '折れ線', proxyId: null },
+        { id: 'bezier', label: 'ベジェ', proxyId: null },
+        { id: 'node-edit', label: 'ノード / パス編集', proxyId: null },
+      ],
+    },
+    {
+      id: 'repair',
+      label: '修復',
+      tone: 'orange',
+      icon: FAMILY_ICONS_V1.repair,
+      subtools: [
+        { id: 'clone', label: 'クローン / コピーペン', proxyId: null },
+        { id: 'smart-patch', label: 'スマートパッチ', proxyId: null },
+      ],
+    },
+    {
+      id: 'ruler-guide',
+      label: '定規 / ガイド',
+      tone: 'yellow',
+      icon: FAMILY_ICONS_V1['ruler-guide'],
+      subtools: [
+        { id: 'straight', label: '直線定規', proxyId: null },
+        { id: 'ellipse', label: '円 / 楕円定規', proxyId: null },
+        { id: 'radial', label: '放射 / 集中線', proxyId: null },
+        { id: 'symmetry', label: '対称定規', proxyId: null },
+        { id: 'kaleidoscope', label: '万華鏡', proxyId: null },
+        { id: 'array', label: '配列', proxyId: null },
+        { id: 'perspective', label: '1 / 2 / 3点透視', proxyId: null },
+        { id: 'hatching', label: 'ハッチングガイド', proxyId: null },
+      ],
+    },
+    {
+      id: 'navigation',
+      label: 'ナビゲーション',
+      tone: 'blue',
+      icon: FAMILY_ICONS_V1.navigation,
+      subtools: [
+        { id: 'hand-pan', label: '手のひら / Pan', proxyId: null },
+        { id: 'fit', label: '画面に合わせる', proxyId: 'view-fit' },
+      ],
+    },
+  ].map((family) =>
+    Object.freeze({
+      ...family,
+      subtools: Object.freeze(family.subtools.map((item) => Object.freeze(item))),
+    }),
+  ),
+);
 
 export const M8_TOOL_RAIL_ORDER_V1: readonly M8ToolRailEntryIdV1[] = Object.freeze([
   'brush',
@@ -198,11 +287,12 @@ export interface M8ToolRailHandleV1 {
 
 const STYLE_LINK_ID = 'm8-tool-rail-style';
 const FAMILY_BY_ID_V1 = new Map(M8_TOOL_FAMILIES_V1.map((family) => [family.id, family]));
-const PRIMARY_PROXY_BY_FAMILY_V1: Readonly<Partial<Record<M8ToolFamilyIdV1, string>>> = Object.freeze({
-  brush: 'brush-mode-raster',
-  eraser: 'brush-mode-eraser',
-  blend: 'brush-mode-smudge',
-});
+const PRIMARY_PROXY_BY_FAMILY_V1: Readonly<Partial<Record<M8ToolFamilyIdV1, string>>> =
+  Object.freeze({
+    brush: 'brush-mode-raster',
+    eraser: 'brush-mode-eraser',
+    blend: 'brush-mode-smudge',
+  });
 
 function ensureStyleLinkV1(): HTMLLinkElement {
   const existing = document.getElementById(STYLE_LINK_ID);
@@ -216,7 +306,10 @@ function ensureStyleLinkV1(): HTMLLinkElement {
 }
 
 function clampWidthV1(value: number): number {
-  return Math.min(M8_TOOL_RAIL_WIDTH_V1.max, Math.max(M8_TOOL_RAIL_WIDTH_V1.min, Math.round(value)));
+  return Math.min(
+    M8_TOOL_RAIL_WIDTH_V1.max,
+    Math.max(M8_TOOL_RAIL_WIDTH_V1.min, Math.round(value)),
+  );
 }
 
 function productionProxyV1(proxyId: string | null): HTMLButtonElement | null {
@@ -257,7 +350,8 @@ function createFlyoutV1(): HTMLElement {
   flyout.className = 'm8c-subtool-flyout';
   flyout.hidden = true;
   flyout.setAttribute('aria-label', 'サブツール');
-  flyout.innerHTML = '<header><strong></strong><span></span></header><div class="m8c-subtool-list"></div>';
+  flyout.innerHTML =
+    '<header><strong></strong><span></span></header><div class="m8c-subtool-list"></div>';
   return flyout;
 }
 
@@ -397,7 +491,10 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   };
 
   const onRailClick = (event: Event): void => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.m8c-family-button') : null;
+    const target =
+      event.target instanceof Element
+        ? event.target.closest<HTMLButtonElement>('.m8c-family-button')
+        : null;
     if (!target) return;
     const direct = target.dataset.m8cEntry;
     if (direct === 'lasso-direct') {
@@ -409,11 +506,16 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   };
 
   const onPointerDown = (event: PointerEvent): void => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.m8c-family-button') : null;
+    const target =
+      event.target instanceof Element
+        ? event.target.closest<HTMLButtonElement>('.m8c-family-button')
+        : null;
     if (!target || event.button !== 0) return;
     cancelLongPress();
     longPressFired = false;
-    const entryId = (target.dataset.m8cEntry ?? target.dataset.m8cFamily) as M8ToolRailEntryIdV1 | undefined;
+    const entryId = (target.dataset.m8cEntry ?? target.dataset.m8cFamily) as
+      | M8ToolRailEntryIdV1
+      | undefined;
     if (!entryId) return;
     longPressTimer = globalThis.setTimeout(() => {
       longPressFired = true;
@@ -430,10 +532,15 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   };
 
   const onContextMenu = (event: MouseEvent): void => {
-    const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.m8c-family-button') : null;
+    const target =
+      event.target instanceof Element
+        ? event.target.closest<HTMLButtonElement>('.m8c-family-button')
+        : null;
     if (!target) return;
     event.preventDefault();
-    const entryId = (target.dataset.m8cEntry ?? target.dataset.m8cFamily) as M8ToolRailEntryIdV1 | undefined;
+    const entryId = (target.dataset.m8cEntry ?? target.dataset.m8cFamily) as
+      | M8ToolRailEntryIdV1
+      | undefined;
     if (entryId) openFlyout(entryId);
   };
 
@@ -474,7 +581,8 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
     resizeHandle.classList.remove('is-dragging');
   };
   const onResizeKeyDown = (event: KeyboardEvent): void => {
-    const current = Number(resizeHandle.getAttribute('aria-valuenow')) || M8_TOOL_RAIL_WIDTH_V1.default;
+    const current =
+      Number(resizeHandle.getAttribute('aria-valuenow')) || M8_TOOL_RAIL_WIDTH_V1.default;
     if (event.key === 'ArrowLeft') {
       updateWidth(current - 4);
       event.preventDefault();
@@ -499,17 +607,22 @@ export function installM8ToolRailV1(app: HTMLElement): M8ToolRailHandleV1 {
   resizeHandle.addEventListener('dblclick', resetWidth);
 
   const observedTargets = Array.from(
-    document.querySelectorAll<HTMLButtonElement>('#brush-mode-raster, #brush-mode-eraser, #brush-mode-smudge, #brush-mode-blur'),
+    document.querySelectorAll<HTMLButtonElement>(
+      '#brush-mode-raster, #brush-mode-eraser, #brush-mode-smudge, #brush-mode-blur',
+    ),
   );
   const syncFromProduction = (): void => {
     const active = observedTargets.find((target) => target.getAttribute('aria-pressed') === 'true');
     if (!active) return;
     if (active.id === 'brush-mode-raster') setActiveFamily('brush');
     else if (active.id === 'brush-mode-eraser') setActiveFamily('eraser');
-    else if (active.id === 'brush-mode-smudge' || active.id === 'brush-mode-blur') setActiveFamily('blend');
+    else if (active.id === 'brush-mode-smudge' || active.id === 'brush-mode-blur')
+      setActiveFamily('blend');
   };
-  const observer = typeof MutationObserver === 'function' ? new MutationObserver(syncFromProduction) : null;
-  for (const target of observedTargets) observer?.observe(target, { attributes: true, attributeFilter: ['aria-pressed', 'class'] });
+  const observer =
+    typeof MutationObserver === 'function' ? new MutationObserver(syncFromProduction) : null;
+  for (const target of observedTargets)
+    observer?.observe(target, { attributes: true, attributeFilter: ['aria-pressed', 'class'] });
 
   const onDocumentPointerDown = (event: PointerEvent): void => {
     if (flyout.hidden) return;

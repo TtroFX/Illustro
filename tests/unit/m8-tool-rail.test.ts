@@ -52,7 +52,7 @@ describe('M8C canonical Tool Rail', () => {
   });
 
   it('uses icon-only persistent presentation with accessible identification', () => {
-    expect(source).toContain("button.dataset.m8Tooltip = family.label");
+    expect(source).toContain('button.dataset.m8Tooltip = family.label');
     expect(source).toContain("button.setAttribute('aria-label', family.label)");
     expect(source).not.toContain('m8c-family-label');
     expect(css).toContain('width: 22px');
@@ -67,7 +67,9 @@ describe('M8C canonical Tool Rail', () => {
   });
 
   it('does not fake production paths for unfinished families', () => {
-    expect(source).toContain("button.dataset.productionState = hasProductionPath ? 'partial' : 'planned'");
+    expect(source).toContain(
+      "button.dataset.productionState = hasProductionPath ? 'partial' : 'planned'",
+    );
     expect(source).toContain("button.dataset.productionState = proxy ? 'available' : 'planned'");
     expect(source).toContain('button.disabled = true');
     expect(source).toContain('production接続待ち');
