@@ -268,7 +268,11 @@ describe('M7A selection-scoped fill', () => {
       1,
       1,
     );
-    const view = new DataView(result.bytes.buffer, result.bytes.byteOffset, result.bytes.byteLength);
+    const view = new DataView(
+      result.bytes.buffer,
+      result.bytes.byteOffset,
+      result.bytes.byteLength,
+    );
     expect(halfToFloat(view.getUint16(0, true))).toBeCloseTo(0, 3);
     expect(halfToFloat(view.getUint16(2, true))).toBeCloseTo(1, 3);
     expect(halfToFloat(view.getUint16(4, true))).toBeCloseTo(0, 3);
@@ -325,15 +329,19 @@ describe('M7A selection-scoped fill', () => {
     });
     const pixelLocked = createRasterLayer({ name: 'Locked', locks: { pixels: true } });
     expect(
-      selectionScopedFillEligibilityV1(snapshotWith(pixelLocked, 1, 1), pixelLocked.id, fullCoverageV1()),
+      selectionScopedFillEligibilityV1(
+        snapshotWith(pixelLocked, 1, 1),
+        pixelLocked.id,
+        fullCoverageV1(),
+      ),
     ).toMatchObject({ eligible: false, reason: expect.stringContaining('pixel lock') });
     const transformedCoverage = Object.freeze({
       ...fullCoverageV1(),
       transformStack: Object.freeze([createTransformNode('affine')]),
     });
-    expect(
-      selectionScopedFillEligibilityV1(snapshot, layer.id, transformedCoverage),
-    ).toMatchObject({ eligible: false, reason: expect.stringContaining('coverage') });
+    expect(selectionScopedFillEligibilityV1(snapshot, layer.id, transformedCoverage)).toMatchObject(
+      { eligible: false, reason: expect.stringContaining('coverage') },
+    );
 
     const changedSnapshot = Object.freeze({
       ...snapshot,

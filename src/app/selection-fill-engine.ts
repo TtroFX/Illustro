@@ -65,7 +65,8 @@ export function selectionScopedFillEligibilityV1(
   coverage: RasterSelectionCoverageV1 | null,
 ): SelectionScopedFillEligibilityV1 {
   const layer = snapshot.document.layerTree.layers[layerId];
-  if (layer === undefined) return unavailable(layerId, 'selection-scoped fill target layer is missing');
+  if (layer === undefined)
+    return unavailable(layerId, 'selection-scoped fill target layer is missing');
   if (layer.type !== 'raster') {
     return unavailable(layerId, 'selection-scoped fill currently requires a Raster Layer');
   }
@@ -127,7 +128,9 @@ function validateSourceTileV1(
   height: number,
 ): void {
   if (tile.pixelFormat !== format || tile.width !== width || tile.height !== height) {
-    throw new Error('selection-scoped fill source tile does not match the document raster contract');
+    throw new Error(
+      'selection-scoped fill source tile does not match the document raster contract',
+    );
   }
   if (tile.bytes.byteLength !== width * height * bytesPerPixelV1(format)) {
     throw new Error('selection-scoped fill source tile byte length is invalid');
@@ -251,11 +254,7 @@ function clamp01V1(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-function coverageAtV1(
-  coverage: Uint8Array | null,
-  pixel: number,
-  defaultCoverage: 0 | 1,
-): number {
+function coverageAtV1(coverage: Uint8Array | null, pixel: number, defaultCoverage: 0 | 1): number {
   return coverage?.[pixel] ?? (defaultCoverage === 1 ? 255 : 0);
 }
 
@@ -338,9 +337,7 @@ export function applySelectionScopedRasterFillBytesV1(
     const sourceAlpha = clamp01V1(rawSourceAlpha);
     const paintAlpha = (selectionByte / 255) * opacity;
     if (alphaLocked && sourceAlpha <= 0) continue;
-    const targetAlpha = alphaLocked
-      ? sourceAlpha
-      : paintAlpha + sourceAlpha * (1 - paintAlpha);
+    const targetAlpha = alphaLocked ? sourceAlpha : paintAlpha + sourceAlpha * (1 - paintAlpha);
 
     for (let channel = 0; channel < 3; channel += 1) {
       const channelOffset = offset + channel * 2;
@@ -387,7 +384,10 @@ function modificationCoordinatesV1(
   }
   for (const coverage of coverageTiles.values()) {
     if (coverage.values.some((value) => value !== 0)) {
-      coordinates.set(tileKeyV1(coverage.x, coverage.y), Object.freeze({ x: coverage.x, y: coverage.y }));
+      coordinates.set(
+        tileKeyV1(coverage.x, coverage.y),
+        Object.freeze({ x: coverage.x, y: coverage.y }),
+      );
     }
   }
   return coordinates;
@@ -435,8 +435,10 @@ export async function prepareSelectionScopedFillV1(
 
   const allCoordinates = new Map<string, Readonly<{ x: number; y: number }>>();
   for (const reference of sources.values()) {
-    allCoordinates.set(tileKeyV1(reference.x, reference.y),
-      Object.freeze({ x: reference.x, y: reference.y }));
+    allCoordinates.set(
+      tileKeyV1(reference.x, reference.y),
+      Object.freeze({ x: reference.x, y: reference.y }),
+    );
   }
   for (const [key, coordinate] of modificationCoordinates) allCoordinates.set(key, coordinate);
 
@@ -458,7 +460,9 @@ export async function prepareSelectionScopedFillV1(
     });
     let sourceBytes: Uint8Array<ArrayBuffer>;
     if (sourceReference === undefined) {
-      sourceBytes = new Uint8Array(bounds.validWidth * bounds.validHeight * bytesPerPixelV1(pixelFormat));
+      sourceBytes = new Uint8Array(
+        bounds.validWidth * bounds.validHeight * bytesPerPixelV1(pixelFormat),
+      );
     } else {
       const decoded = await persistence.readRasterTile(sourceReference.payloadRef);
       validateSourceTileV1(decoded, pixelFormat, bounds.validWidth, bounds.validHeight);
