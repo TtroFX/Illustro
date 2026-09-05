@@ -565,7 +565,13 @@ function parseBaselineDabs(value: unknown): readonly BaselineBrushDabV1[] | null
       return null;
     }
     const tipShape = candidate.tipShape === undefined ? undefined : candidate.tipShape;
-    if (tipShape !== undefined && tipShape !== 'round' && tipShape !== 'square') return null;
+    if (
+      tipShape !== undefined &&
+      tipShape !== 'round' &&
+      tipShape !== 'square' &&
+      tipShape !== 'sampled-image'
+    )
+      return null;
     let color: readonly [number, number, number] | undefined;
     if (candidate.color !== undefined) {
       if (!Array.isArray(candidate.color)) return null;

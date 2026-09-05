@@ -175,7 +175,10 @@ const M7_UI_SHELL_CSS = `
 .m7-inspector-body { min-height: 0; overflow: hidden; }
 .m7-inspector-surface { display: grid; min-height: 0; height: 100%; align-content: start; overflow: auto; }
 .m7-inspector-surface[hidden] { display: none !important; }
-.m7-inspector-surface[data-m7-inspector-surface="layers"] { grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.m7-inspector-surface[data-m7-inspector-surface="layers"] { grid-template-rows: auto auto minmax(0, 1fr) auto; overflow: hidden; }
+.m7-layer-create-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 7px 8px; border-bottom: 1px solid #e7eaf0; background: #fff; }
+.m7-layer-create-bar button { min-height: 44px; border: 1px solid #e1e6ef; border-radius: 9px; background: #f8faff; color: #46536c; font: 700 10px/1 system-ui, sans-serif; cursor: pointer; }
+.m7-layer-create-bar button:hover, .m7-layer-create-bar button:focus-visible { border-color: #f2c58c; background: #fff4e5; outline: none; }
 .m7-inspector-tabs { display: grid !important; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; padding: 5px 6px; border-bottom: 1px solid #e7eaf0; background: #fff; }
 .m7-inspector-tabs button { min-width: 0; min-height: 32px; padding: 3px 2px; border: 0; border-radius: 8px; background: transparent; color: #667084; font: 700 9px/1.1 system-ui, sans-serif; white-space: nowrap; cursor: pointer; }
 .m7-inspector-tabs button[aria-selected="true"] { background: #fff0dc; color: #8a4b08; box-shadow: inset 0 0 0 1px #f2cc96; }
@@ -423,6 +426,18 @@ function installInspectorV1(
   moveInto('.shell-color-panel', 'color');
   moveInto('.shell-reference-panel', 'reference');
   moveInto('.shell-layer-search, #layer-list, #layer-actions', 'layers');
+
+  const layerSurface = surfaceNodes.get('layers');
+  if (layerSurface) {
+    const createBar = document.createElement('div');
+    createBar.className = 'm7-layer-create-bar';
+    createBar.setAttribute('aria-label', 'レイヤー追加');
+    createBar.append(
+      createProxyActionV1('＋ レイヤー', 'layer-add-raster', cleanup),
+      createProxyActionV1('＋ フォルダ', 'layer-add-folder', cleanup),
+    );
+    layerSurface.prepend(createBar);
+  }
 
   surfaceNodes.get('effects')?.append(createEffectsPanelV1(cleanup));
   surfaceNodes.get('navigator')?.append(createNavigatorPanelV1(cleanup));

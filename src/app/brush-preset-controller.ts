@@ -736,6 +736,7 @@ export function installBrushPresetControllerV1(input: {
     category.value = previousCategory ?? '';
     search.value = state.query;
     name.value = selected.preset.name;
+    const listScrollTop = list.scrollTop;
     list.replaceChildren();
     const visible = filteredBrushPresetItemsV1(state);
     for (const item of visible) {
@@ -780,6 +781,7 @@ export function installBrushPresetControllerV1(input: {
       empty.textContent = '一致するブラシがありません';
       list.append(empty);
     }
+    list.scrollTop = listScrollTop;
     const limits = brushParameterLimitsV1(selected.preset);
     const parameters = brushParameterValuesV1(selected.preset);
     const configurePair = (
