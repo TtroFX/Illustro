@@ -14,7 +14,11 @@ import {
 import type { SelectionTransferPayloadV1 } from '../../src/app/selection-cut-engine.js';
 import { createDocumentV1 } from '../../src/domain/document.js';
 import { parseRevision } from '../../src/domain/identity.js';
-import { createRasterLayer, createRasterTileReference, type RasterLayerV1 } from '../../src/domain/layers.js';
+import {
+  createRasterLayer,
+  createRasterTileReference,
+  type RasterLayerV1,
+} from '../../src/domain/layers.js';
 
 class MemoryRasterPersistence implements RasterMergePersistencePortV1 {
   readonly tiles = new Map<string, PaintDecodedRasterTileV1>();
@@ -144,13 +148,21 @@ describe('M7A selection paste', () => {
     const transfer = transferV1(source, payloadRef);
     const writesBeforePrepare = persistence.writes.length;
 
-    expect(selectionPasteEligibilityV1(snapshot, transfer)).toEqual({ eligible: true, reason: null });
+    expect(selectionPasteEligibilityV1(snapshot, transfer)).toEqual({
+      eligible: true,
+      reason: null,
+    });
     const prepared = await prepareSelectionPasteV1(snapshot, transfer, persistence, {
       anchorLayerId: source.id,
     });
     expect(persistence.writes.length).toBe(writesBeforePrepare);
 
-    const committed = applyPreparedSelectionPasteV1(snapshot, prepared, parseRevision(9), new Date(10));
+    const committed = applyPreparedSelectionPasteV1(
+      snapshot,
+      prepared,
+      parseRevision(9),
+      new Date(10),
+    );
     expect(committed.document.revision).toBe(9);
     expect(committed.document.modifiedAt).toBe(new Date(10).toISOString());
     expect(committed.document.layerTree.rootLayerIds).toEqual([source.id, prepared.outputLayerId]);
@@ -177,7 +189,11 @@ describe('M7A selection paste', () => {
     const existingPaste = createRasterLayer({ name: 'Pasted Selection' });
     const snapshot = snapshotWith([source, existingPaste], 2, 1);
     const payloadRef = await persistedTileV1(persistence, 2, 1, 'rgba8-unorm');
-    const prepared = await prepareSelectionPasteV1(snapshot, transferV1(source, payloadRef), persistence);
+    const prepared = await prepareSelectionPasteV1(
+      snapshot,
+      transferV1(source, payloadRef),
+      persistence,
+    );
 
     expect(prepared.anchorLayerId).toBe(source.id);
     expect(prepared.outputLayerName).toBe('Pasted Selection 2');
@@ -195,17 +211,24 @@ describe('M7A selection paste', () => {
     const other = createRasterLayer({ name: 'Other' });
     const snapshot = snapshotWith([source, other], 2, 1);
     const payloadRef = await persistedTileV1(persistence, 2, 1, 'rgba8-unorm');
-    const prepared = await prepareSelectionPasteV1(snapshot, transferV1(source, payloadRef), persistence, {
-      anchorLayerId: null,
-      outputLayerName: 'Clipboard Pixels',
-    });
+    const prepared = await prepareSelectionPasteV1(
+      snapshot,
+      transferV1(source, payloadRef),
+      persistence,
+      {
+        anchorLayerId: null,
+        outputLayerName: 'Clipboard Pixels',
+      },
+    );
     const committed = applyPreparedSelectionPasteV1(snapshot, prepared, 6);
     expect(committed.document.layerTree.rootLayerIds).toEqual([
       source.id,
       other.id,
       prepared.outputLayerId,
     ]);
-    expect(committed.document.layerTree.layers[prepared.outputLayerId]?.name).toBe('Clipboard Pixels');
+    expect(committed.document.layerTree.layers[prepared.outputLayerId]?.name).toBe(
+      'Clipboard Pixels',
+    );
   });
 
   it('accepts canonical RGBA16F transfer tiles without rewriting their payloads', async () => {
@@ -233,7 +256,9 @@ describe('M7A selection paste', () => {
     const snapshot = snapshotWith([source], 2, 1);
     const payloadRef = await persistedTileV1(persistence, 2, 1, 'rgba8-unorm');
 
-    expect(selectionPasteEligibilityV1(snapshot, transferV1(source, payloadRef, { width: 3 }))).toMatchObject({
+    expect(
+      selectionPasteEligibilityV1(snapshot, transferV1(source, payloadRef, { width: 3 })),
+    ).toMatchObject({
       eligible: false,
       reason: expect.stringContaining('dimensions'),
     });
@@ -314,7 +339,11 @@ describe('M7A selection paste', () => {
     const source = createRasterLayer({ name: 'Source' });
     const snapshot = snapshotWith([source], 2, 1);
     const payloadRef = await persistedTileV1(persistence, 2, 1, 'rgba8-unorm');
-    const prepared = await prepareSelectionPasteV1(snapshot, transferV1(source, payloadRef), persistence);
+    const prepared = await prepareSelectionPasteV1(
+      snapshot,
+      transferV1(source, payloadRef),
+      persistence,
+    );
 
     const changed = Object.freeze({
       ...snapshot,
