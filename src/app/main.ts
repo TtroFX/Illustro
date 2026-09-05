@@ -43,6 +43,7 @@ import { installBrushPresetControllerV1 } from './brush-preset-controller.js';
 import { installBrushInterchangeControllerV1 } from './brush-interchange-controller.js';
 import { installBrushHoverOutlineControllerV1 } from './brush-hover-outline-controller.js';
 import { SelectionCoverageControllerV1 } from './selection-coverage-controller.js';
+import { installM8SelectionLauncherV1 } from './m8-selection-launcher.js';
 import { installPointerInputControllerV1 } from './pointer-input-controller.js';
 import { installViewportControllerV1 } from './viewport-controller.js';
 import { startRendererController } from './renderer-controller.js';
@@ -153,6 +154,14 @@ const paintPersistence = new PaintPersistenceControllerV1(
     },
   },
 );
+const selectionLauncher = installM8SelectionLauncherV1({
+  root,
+  paintSession,
+  paintPersistence,
+  selectionCoverage,
+  viewport,
+});
+void selectionLauncher;
 let localLibraryController: LocalProjectLibraryControllerV1 | null = null;
 let localLibrarySurface: M9aLibrarySurfaceHandleV1 | null = null;
 let projectPreviewStore: ProjectPreviewStoreV1 | null = null;

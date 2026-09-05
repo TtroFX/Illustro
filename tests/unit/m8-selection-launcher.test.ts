@@ -11,9 +11,7 @@ import {
 } from '../../src/app/m8-selection-launcher.js';
 import type { ViewportSnapshotV1 } from '../../src/app/viewport-controller.js';
 
-function coverage(
-  input: Partial<RasterSelectionCoverageV1> = {},
-): RasterSelectionCoverageV1 {
+function coverage(input: Partial<RasterSelectionCoverageV1> = {}): RasterSelectionCoverageV1 {
   return Object.freeze({
     schema: 'illustro.raster-selection-coverage/1' as const,
     defaultCoverage: 0 as const,
@@ -91,10 +89,7 @@ describe('M8E Selection Launcher', () => {
 
   it('projects selection bounds into stage coordinates through the viewport transform', () => {
     expect(
-      projectSelectionBoundsToStageV1(
-        { minX: 20, minY: 30, maxX: 40, maxY: 60 },
-        identityViewport,
-      ),
+      projectSelectionBoundsToStageV1({ minX: 20, minY: 30, maxX: 40, maxY: 60 }, identityViewport),
     ).toEqual({ minX: 20, minY: 30, maxX: 40, maxY: 60 });
   });
 

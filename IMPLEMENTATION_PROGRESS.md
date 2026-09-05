@@ -938,26 +938,26 @@ M8D-031 Inspector width persistence:仮完了
 M8D-検査 M8D内部検査:仮完了
 
 PUB-M8D M8Dユーザー確認用Preview公開:完了
-USER-M8D M8D UI/UX/Visualユーザー確認PASS:未完了
+USER-M8D M8D UI/UX/Visualユーザー確認PASS:完了
 
 ## M8E — Selection Launcher / Contextual Canvas UI
-M8E-001 Selection Launcher creation:未完了
-M8E-002 non-empty selection only visibility:未完了
-M8E-003 Transform launcher command:未完了
-M8E-004 Cut/Copy launcher commands:未完了
-M8E-005 Clear launcher command:未完了
-M8E-006 Invert launcher command:未完了
-M8E-007 Feather/Expand/Shrink launcher commands:未完了
-M8E-008 Fill launcher command:未完了
-M8E-009 Selection Launcher placement:未完了
-M8E-010 workspace boundary avoidance:未完了
-M8E-011 handle/Inspector avoidance:未完了
-M8E-012 hide during active drawing:未完了
-M8E-013 dismissal without clearing selection:未完了
-M8E-014 transform on-canvas handles:未完了
-M8E-015 ruler contextual controls:未完了
-M8E-016 Lineart contextual overlay:未完了
-M8E-検査 M8E内部検査:未完了
+M8E-001 Selection Launcher creation:仮完了
+M8E-002 non-empty selection only visibility:仮完了
+M8E-003 Transform launcher command:仮完了
+M8E-004 Cut/Copy launcher commands:仮完了
+M8E-005 Clear launcher command:仮完了
+M8E-006 Invert launcher command:仮完了
+M8E-007 Feather/Expand/Shrink launcher commands:仮完了
+M8E-008 Fill launcher command:仮完了
+M8E-009 Selection Launcher placement:仮完了
+M8E-010 workspace boundary avoidance:仮完了
+M8E-011 handle/Inspector avoidance:仮完了
+M8E-012 hide during active drawing:仮完了
+M8E-013 dismissal without clearing selection:仮完了
+M8E-014 transform on-canvas handles:仮完了
+M8E-015 ruler contextual controls:仮完了
+M8E-016 Lineart contextual overlay:仮完了
+M8E-検査 M8E内部検査:仮完了
 
 PUB-M8E M8Eユーザー確認用Preview公開:未完了
 USER-M8E M8E UI/UX/Visualユーザー確認PASS:未完了

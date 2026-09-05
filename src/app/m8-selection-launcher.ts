@@ -14,10 +14,7 @@ import {
   prepareRectangularSelectionV1,
   type SelectionPointV1,
 } from './selection-shape-engine.js';
-import {
-  prepareSelectionCopyV1,
-  selectionCopyEligibilityV1,
-} from './selection-copy-engine.js';
+import { prepareSelectionCopyV1, selectionCopyEligibilityV1 } from './selection-copy-engine.js';
 import type { SelectionTransferPayloadV1 } from './selection-cut-engine.js';
 import type { PaintPersistenceControllerV1 } from './paint-persistence-controller.js';
 import type { PaintSessionControllerV1 } from './paint-session-controller.js';
@@ -194,7 +191,7 @@ export function installM8SelectionLauncherV1(input: {
   const dragPreview = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   dragPreview.classList.add('m8e-selection-drag-preview');
   dragPreview.setAttribute('aria-hidden', 'true');
-  dragPreview.hidden = true;
+  dragPreview.setAttribute('hidden', '');
   const dragPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   dragPreview.append(dragPath);
 
@@ -370,7 +367,7 @@ export function installM8SelectionLauncherV1(input: {
     dragCurrent = dragStart;
     lassoClientPoints.length = 0;
     lassoClientPoints.push(Object.freeze({ x: event.clientX, y: event.clientY }));
-    dragPreview.hidden = false;
+    dragPreview.removeAttribute('hidden');
     stage.setPointerCapture?.(event.pointerId);
     input.root.dataset.illustroSelectionGesture = 'active';
     event.preventDefault();
@@ -385,16 +382,11 @@ export function installM8SelectionLauncherV1(input: {
       const minY = Math.min(dragStart.y, dragCurrent.y);
       const maxX = Math.max(dragStart.x, dragCurrent.x);
       const maxY = Math.max(dragStart.y, dragCurrent.y);
-      dragPath.setAttribute(
-        'd',
-        `M ${minX} ${minY} H ${maxX} V ${maxY} H ${minX} Z`,
-      );
+      dragPath.setAttribute('d', `M ${minX} ${minY} H ${maxX} V ${maxY} H ${minX} Z`);
       return;
     }
     const rect = stage.getBoundingClientRect();
-    const points = lassoClientPoints.map(
-      (point) => `${point.x - rect.left} ${point.y - rect.top}`,
-    );
+    const points = lassoClientPoints.map((point) => `${point.x - rect.left} ${point.y - rect.top}`);
     dragPath.setAttribute('d', points.length === 0 ? '' : `M ${points.join(' L ')}`);
   };
 
@@ -423,7 +415,7 @@ export function installM8SelectionLauncherV1(input: {
     activePointerId = null;
     dragStart = null;
     dragCurrent = null;
-    dragPreview.hidden = true;
+    dragPreview.setAttribute('hidden', '');
     dragPath.setAttribute('d', '');
     input.root.dataset.illustroSelectionGesture = 'idle';
     event.preventDefault();
@@ -479,7 +471,7 @@ export function installM8SelectionLauncherV1(input: {
     dragStart = null;
     dragCurrent = null;
     lassoClientPoints.length = 0;
-    dragPreview.hidden = true;
+    dragPreview.setAttribute('hidden', '');
     dragPath.setAttribute('d', '');
     input.root.dataset.illustroSelectionGesture = 'idle';
   };
@@ -518,7 +510,12 @@ export function installM8SelectionLauncherV1(input: {
         const snapshot = input.paintSession.projectSnapshot();
         const layerId = input.paintSession.snapshot().activeLayerId;
         if (!snapshot || !layerId) throw new Error('コピー対象のレイヤーがありません');
-        clipboard = await prepareSelectionCopyV1(snapshot, layerId, coverage, input.paintPersistence);
+        clipboard = await prepareSelectionCopyV1(
+          snapshot,
+          layerId,
+          coverage,
+          input.paintPersistence,
+        );
         input.root.dataset.illustroSelectionClipboard = 'ready';
         announce('選択範囲をコピーしました');
       } else if (command === 'feather' || command === 'expand' || command === 'shrink') {
@@ -572,7 +569,10 @@ export function installM8SelectionLauncherV1(input: {
   lassoButton?.addEventListener('click', onLassoToolClick);
   stage.addEventListener('pointerdown', beginSelection, true);
   stage.addEventListener('pointermove', moveSelection, true);
-  stage.addEventListener('pointerup', (event) => void completeSelection(event), true);
+  const onStagePointerUp = (event: PointerEvent): void => {
+    void completeSelection(event);
+  };
+  stage.addEventListener('pointerup', onStagePointerUp, true);
   stage.addEventListener('pointercancel', cancelSelection, true);
 
   const unsubscribeCoverage = input.selectionCoverage.subscribe((snapshot) => {
@@ -607,6 +607,7 @@ export function installM8SelectionLauncherV1(input: {
       lassoButton?.removeEventListener('click', onLassoToolClick);
       stage.removeEventListener('pointerdown', beginSelection, true);
       stage.removeEventListener('pointermove', moveSelection, true);
+      stage.removeEventListener('pointerup', onStagePointerUp, true);
       stage.removeEventListener('pointercancel', cancelSelection, true);
       unsubscribeCoverage();
       unsubscribeViewport();
