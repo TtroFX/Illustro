@@ -34,7 +34,8 @@ describe('M9A production Local Project Library', () => {
   it('persists real preview PNGs and publishes their resource IDs into Library metadata', () => {
     expect(previewSource).toContain('layout.directories.previews.getFileHandle');
     expect(mainSource).toContain('createProjectThumbnailPngV1(png)');
-    expect(mainSource).toContain('await previews.write(current.projectId, thumbnail)');
+    expect(mainSource).toContain('const resourceId = await previews.write(');
+    expect(mainSource).toContain('previousPreview ?? undefined');
     expect(mainSource).toContain('await controller.updatePreview(current.projectId, resourceId)');
   });
 
@@ -50,5 +51,6 @@ describe('M9A production Local Project Library', () => {
     expect(librarySource).toContain("await options.controller.trash(card.projectId)");
     expect(librarySource).toContain("recovery.textContent = 'Recovery'");
     expect(librarySource).toContain("recovery.title = '復元可能なcheckpointがあります'");
+    expect(librarySource).toContain('if (!isActiveProject)');
   });
 });
