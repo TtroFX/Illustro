@@ -1,4 +1,4 @@
-name: Mark phone UX remediation complete once
+name: Integrate jsQR runtime once
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  mark-phone-ux-remediation:
+  integrate-jsqr-runtime:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,40 +18,83 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Mark implemented phone UX items complete
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Pin npm
+        run: npm install --global npm@11.19.1
+
+      - name: Integrate reviewed QR runtime
         shell: bash
         run: |
           set -euo pipefail
+          npm install --save-exact jsqr@1.4.0 --ignore-scripts
           python - <<'PY'
+          import json
           from pathlib import Path
-          path = Path('IMPLEMENTATION_PROGRESS.md')
-          text = path.read_text()
-          replacements = {
-              'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:未完了':
-                  'MOBILE-008 phone single-finger draw → multi-touch navigation arbitration:完了',
-              'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:未完了':
-                  'MOBILE-009 smartphone Canvas First operation shell（compact top / bottom actions / Inspector sheet）:完了',
-              'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:未完了':
-                  'MOBILE-010 smartphone safe-area・44px touch target responsive hardening:完了',
-          }
-          changed = False
-          for before, after in replacements.items():
-              if before in text:
-                  if text.count(before) != 1:
-                      raise SystemExit(f'expected one progress line: {before}')
-                  text = text.replace(before, after, 1)
-                  changed = True
-              elif after not in text:
-                  raise SystemExit(f'progress line missing: {before}')
-          if changed:
-              path.write_text(text)
+
+          review_path = Path('third_party/reviewed-components.json')
+          review = json.loads(review_path.read_text())
+          components = review['components']
+          if not any(item.get('name') == 'jsqr' and item.get('version') == '1.4.0' for item in components):
+              components.append({
+                  'name': 'jsqr',
+                  'version': '1.4.0',
+                  'sourceUrl': 'https://github.com/cozmo/jsQR',
+                  'licenseExpression': 'Apache-2.0',
+                  'usage': 'runtime-distributed',
+                  'incorporation': 'dependency',
+                  'modifications': 'none',
+                  'requiresNotice': False,
+                  'reviewStatus': 'reviewed',
+                  'reviewer': 'Illustro M6B QR interoperability review',
+                  'reviewDate': '2026-09-05',
+              })
+          review_path.write_text(json.dumps(review, ensure_ascii=False, indent=2) + '\n')
+
+          build_path = Path('scripts/build.mjs')
+          build = build_path.read_text()
+          build_anchor = "await cp(new URL('../.build/generated-public/', import.meta.url), distDir, { recursive: true });\n"
+          build_insert = build_anchor + "\nconst vendorDistDir = new URL('vendor/', distDir);\nawait mkdir(vendorDistDir, { recursive: true });\nawait cp(\n  new URL('../node_modules/jsqr/dist/jsQR.js', import.meta.url),\n  new URL('jsQR.js', vendorDistDir),\n);\n"
+          if "node_modules/jsqr/dist/jsQR.js" not in build:
+              if build.count(build_anchor) != 1:
+                  raise SystemExit('build copy anchor mismatch')
+              build = build.replace(build_anchor, build_insert, 1)
+              build_path.write_text(build)
+
+          html_path = Path('src/index.html')
+          html = html_path.read_text()
+          html_anchor = '    <script type="module" src="./app/main.js"></script>\n'
+          html_insert = '    <script src="./vendor/jsQR.js"></script>\n' + html_anchor
+          if './vendor/jsQR.js' not in html:
+              if html.count(html_anchor) != 1:
+                  raise SystemExit('index script anchor mismatch')
+              html = html.replace(html_anchor, html_insert, 1)
+              html_path.write_text(html)
           PY
+          npm run format
+          npm run prepare:legal
+          npm run format:check
+          npm run lint
+          npm run typecheck
+          npm run test:unit
+          npm run build
+          npm run test:integration
+          git diff --check
+
+      - name: Commit and push
+        shell: bash
+        run: |
+          set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add IMPLEMENTATION_PROGRESS.md
+          git add package.json package-lock.json third_party scripts/build.mjs src/index.html NOTICE THIRD_PARTY_NOTICES.md bom.cdx.json
           if git diff --cached --quiet; then
-            echo 'Phone UX remediation progress already complete.'
+            echo 'jsQR runtime integration already present.'
             exit 0
           fi
-          git commit -m 'chore: close phone UX remediation'
+          git commit -m 'feat: distribute byte-preserving QR decoder runtime'
           git push origin HEAD:main
