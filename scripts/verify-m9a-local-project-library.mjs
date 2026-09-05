@@ -16,11 +16,11 @@ const css = read('public/m9a-library.css');
 const canonicalAssets = JSON.parse(read('verification/m8a-canonical-assets.json'));
 
 for (const [text, label] of [
-  ["data-section=\"projects\"", 'Projects navigation'],
-  ["data-section=\"recent\"", 'Recent navigation'],
-  ["data-section=\"recovery\"", 'Recovery navigation'],
-  ["data-section=\"recently-deleted\"", 'Recently Deleted navigation'],
-  ["data-section=\"import\"", 'Import navigation'],
+  ['data-section="projects"', 'Projects navigation'],
+  ['data-section="recent"', 'Recent navigation'],
+  ['data-section="recovery"', 'Recovery navigation'],
+  ['data-section="recently-deleted"', 'Recently Deleted navigation'],
+  ['data-section="import"', 'Import navigation'],
   ['data-m9a-search', 'project search'],
   ['data-m9a-sort', 'project sorting'],
   ['data-m9a-view="grid"', 'grid view'],
@@ -44,23 +44,34 @@ requireText(main, 'paintPersistence.openProject(projectId)', 'open from Library'
 requireText(main, "openNamedTaskSurface('import-report')", 'Import staging route');
 requireText(main, "localLibrarySurface.show('projects')", 'Library-first startup');
 requireText(main, 'createProjectThumbnailPngV1(png)', 'thumbnail generation');
-requireText(main, 'controller.updatePreview(current.projectId, resourceId)', 'thumbnail metadata publication');
+requireText(
+  main,
+  'controller.updatePreview(current.projectId, resourceId)',
+  'thumbnail metadata publication',
+);
+requireText(main, 'previousPreview ?? undefined', 'stable preview resource reuse');
 if (main.includes("name: 'Untitled',\n      document:")) {
   throw new Error('M9A verification failed: startup still auto-creates Untitled project');
 }
 
-requireText(surface, "controller.trash(card.projectId)", 'reversible delete');
-requireText(surface, "controller.restore(card.projectId)", 'restore from Recently Deleted');
+requireText(surface, 'controller.trash(card.projectId)', 'reversible delete');
+requireText(surface, 'controller.restore(card.projectId)', 'restore from Recently Deleted');
 requireText(surface, "recovery.textContent = 'Recovery'", 'non-colour recovery label');
+requireText(surface, 'if (!isActiveProject)', 'active-project delete protection');
 requireText(css, '.m9a-project-card', 'project card styling');
 requireText(css, '@media(max-width:599px)', 'compact Library layout');
 
-const canonical = canonicalAssets?.canonicalVisualReference;
-if (canonical?.file !== 'ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png') {
+const canonical = canonicalAssets?.canonicalUiVisualTarget;
+if (canonical?.primaryFileName !== 'ILLUSTRO_UI_VISUAL_TARGET_2026-08-30.png') {
   throw new Error('M9A verification failed: canonical visual reference file changed');
 }
 if (canonical?.sha256 !== '32a6cb3991c9baa5b5e097943ce0550a3968d2dcde1be68e132f30ce03341a13') {
   throw new Error('M9A verification failed: canonical visual reference SHA changed');
 }
 
-console.log(JSON.stringify({ event: 'm9a.local-project-library.verified', canonicalSha256: canonical.sha256 }));
+console.log(
+  JSON.stringify({
+    event: 'm9a.local-project-library.verified',
+    canonicalSha256: canonical.sha256,
+  }),
+);
