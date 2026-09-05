@@ -74,8 +74,8 @@ jobs:
           p = Path('IMPLEMENTATION_PROGRESS.md')
           text = p.read_text()
           for old, new in [
-            ('M7A-003 Lasso Selection:未完了', 'M7A-003 Lasso Selection:完了'),
-            ('M7A-004 Freehand Selection:未完了', 'M7A-004 Freehand Selection:完了'),
+            ('M7A-003 Lasso selection:未完了', 'M7A-003 Lasso selection:完了'),
+            ('M7A-004 freehand selection:未完了', 'M7A-004 freehand selection:完了'),
           ]:
             if old not in text:
               raise SystemExit(f'progress anchor not found: {old}')
