@@ -3,6 +3,10 @@ from pathlib import Path
 p = Path('src/app/m9a-library-surface.ts')
 s = p.read_text()
 s = s.replace(
+    "for (const button of navButtons) {",
+    "for (const button of Array.from(navButtons)) {",
+)
+s = s.replace(
     "for (const button of surface.querySelectorAll<HTMLButtonElement>('[data-section]')) {",
     "for (const button of Array.from(\n        surface.querySelectorAll<HTMLButtonElement>('[data-section]'),\n      )) {",
 )
