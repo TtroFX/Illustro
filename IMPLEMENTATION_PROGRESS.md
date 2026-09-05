@@ -561,12 +561,12 @@ M7A-002 elliptical selection:完了
 M7A-003 Lasso selection:完了
 M7A-004 freehand selection:完了
 M7A-005 brush-painted selection:完了
-M7A-006 Magic Wand/Auto Select:未完了
-M7A-007 color-range selection:未完了
-M7A-008 selection Replace mode:未完了
-M7A-009 selection Add mode:未完了
-M7A-010 selection Subtract mode:未完了
-M7A-011 selection Intersect mode:未完了
+M7A-006 Magic Wand/Auto Select:完了
+M7A-007 color-range selection:完了
+M7A-008 selection Replace mode:完了
+M7A-009 selection Add mode:完了
+M7A-010 selection Subtract mode:完了
+M7A-011 selection Intersect mode:完了
 M7A-012 deselect:未完了
 M7A-013 invert selection:未完了
 M7A-014 expand selection:未完了
