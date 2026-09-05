@@ -959,7 +959,7 @@ M8E-015 ruler contextual controls:仮完了
 M8E-016 Lineart contextual overlay:仮完了
 M8E-検査 M8E内部検査:仮完了
 
-PUB-M8E M8Eユーザー確認用Preview公開:未完了
+PUB-M8E M8Eユーザー確認用Preview公開:完了
 USER-M8E M8E UI/UX/Visualユーザー確認PASS:未完了
 
 ## M8F — Quick Hole Controller
