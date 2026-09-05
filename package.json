@@ -41,6 +41,7 @@
     "verify:m5d": "node scripts/verify-m5d-color.mjs",
     "verify:m6a": "node scripts/verify-m6a-brush.mjs && node scripts/verify-m6a-performance.mjs",
     "verify:m6b": "node scripts/verify-m6b-brush-interchange.mjs",
+    "verify:m7a": "node scripts/verify-m7a-selection.mjs",
     "verify:m9a": "node scripts/verify-m9a-local-project-library.mjs"
   },
   "devDependencies": {

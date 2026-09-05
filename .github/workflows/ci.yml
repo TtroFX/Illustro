@@ -66,6 +66,8 @@ jobs:
         run: npm run build
       - name: M6B brush interchange inspection
         run: npm run verify:m6b
+      - name: M7A selection inspection
+        run: npm run verify:m7a
       - name: M9A Local Project Library inspection
         run: npm run verify:m9a
       - name: Integration tests
