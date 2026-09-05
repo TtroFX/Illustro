@@ -1,4 +1,14 @@
 import type { BrushPresetV1 } from '../domain/brush-schema.js';
+import type { BrushImportPropertyReportV1 } from '../interchange/brush-import-property-report-v1.js';
+import { parseCspSutV1 } from '../interchange/csp-sut-parser-v1.js';
+import { decodeIbisBrushQrBlobV1 } from '../interchange/ibis-qr-carrier-v1.js';
+import { parseIbisBrushPayloadV1 } from '../interchange/ibis-brush-parser-v1.js';
+import {
+  commitImportedBrushStageV1,
+  stageCspBrushImportV1,
+  stageIbisBrushImportV1,
+  type ImportedBrushStageV1,
+} from '../interchange/imported-brush-normalizer-v1.js';
 import {
   parseIllbrushPackageV1,
   writeIllbrushPackageV1,
@@ -17,6 +27,13 @@ export interface NativeBrushImportResultV1 {
   readonly package: IllbrushPackageV1;
 }
 
+export interface ExternalBrushImportResultV1 {
+  readonly presetId: string;
+  readonly preset: BrushPresetV1;
+  readonly report: BrushImportPropertyReportV1;
+  readonly acceptedLossyMapping: boolean;
+}
+
 export async function importNativeBrushPackageV1(input: {
   readonly archiveBytes: Uint8Array;
   readonly brushPresets: NativeBrushPresetPortV1;
@@ -31,6 +48,41 @@ export async function importNativeBrushPackageV1(input: {
     throw new Error('imported brush could not persist its package attachments', { cause: error });
   }
   return Object.freeze({ presetId, package: parsed });
+}
+
+export async function stageCspSutBrushFileV1(input: {
+  readonly sourceBytes: Uint8Array;
+  readonly presetId: string;
+}): Promise<ImportedBrushStageV1> {
+  const parsed = await parseCspSutV1(input.sourceBytes.slice());
+  return stageCspBrushImportV1({ parsed, presetId: input.presetId });
+}
+
+export async function stageIbisQrBrushFileV1(input: {
+  readonly sourceBlob: Blob;
+  readonly presetId: string;
+}): Promise<ImportedBrushStageV1> {
+  const carrier = await decodeIbisBrushQrBlobV1(input.sourceBlob.slice());
+  const payload = await parseIbisBrushPayloadV1(carrier.payload);
+  return stageIbisBrushImportV1({ payload, presetId: input.presetId });
+}
+
+export function commitExternalBrushImportV1(input: {
+  readonly stage: ImportedBrushStageV1;
+  readonly brushPresets: NativeBrushPresetPortV1;
+  readonly acceptLossyMapping?: boolean;
+}): ExternalBrushImportResultV1 {
+  const committed = commitImportedBrushStageV1({
+    stage: input.stage,
+    acceptLossyMapping: input.acceptLossyMapping,
+  });
+  const presetId = input.brushPresets.importPreset(committed.preset);
+  return Object.freeze({
+    presetId,
+    preset: committed.preset,
+    report: committed.report,
+    acceptedLossyMapping: committed.acceptedLossyMapping,
+  });
 }
 
 export async function exportNativeBrushPackageV1(input: {
