@@ -342,11 +342,7 @@ describe('M7A selection copy', () => {
       },
     );
     expect(
-      selectionCopyEligibilityV1(
-        snapshotWith(transformed, 1, 1),
-        transformed.id,
-        allSelectionV1(),
-      ),
+      selectionCopyEligibilityV1(snapshotWith(transformed, 1, 1), transformed.id, allSelectionV1()),
     ).toMatchObject({ eligible: false, reason: expect.stringContaining('transform') });
 
     const zeroCoverage = await coverageV1(persistence, [0]);
