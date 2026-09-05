@@ -14,8 +14,10 @@ const canonical = read('src/app/canonical-raster-brush.ts');
 const session = read('src/app/paint-session-controller.ts');
 const main = read('src/app/main.ts');
 const rendererController = read('src/app/renderer-controller.ts');
+const realtimePresenter = read('src/app/realtime-paint-presenter.ts');
 const paintRenderer = read('src/gpu/baseline-paint-renderer.ts');
 const workloadTest = read('tests/unit/m6a-performance-invariants.test.ts');
+const realtimePresenterTest = read('tests/unit/realtime-paint-presenter.test.ts');
 
 requireText(
   canonical,
@@ -64,8 +66,28 @@ requireText(
 );
 requireText(
   rendererController,
+  'this.#realtimePaintPresenter.enqueue(',
+  'interactive paint does not enter the realtime backpressure boundary',
+);
+requireText(
+  rendererController,
+  'await this.#realtimePaintPresenter.flush();',
+  'transactional renderer operations do not wait on the realtime presentation barrier',
+);
+requireText(
+  rendererController,
   "type: 'renderer.paint.present'",
   'Render Worker protocol does not expose incremental paint presentation',
+);
+requireText(
+  realtimePresenter,
+  'this.#pending.length >= this.#maximumPendingSegments',
+  'realtime paint pending stream count is not bounded',
+);
+requireText(
+  realtimePresenter,
+  'lastPending.dabs.push(...presentation.dabs)',
+  'realtime paint batches are not coalesced under backpressure',
 );
 requireText(
   paintRenderer,
@@ -117,6 +139,16 @@ requireText(
   workloadTest,
   'reprocessedStableDabCount',
   'stable-prefix replay regression coverage is missing',
+);
+requireText(
+  realtimePresenterTest,
+  'pendingDabCount: 100',
+  'high-frequency realtime backlog coalescing regression coverage is missing',
+);
+requireText(
+  realtimePresenterTest,
+  'submittedBatchCount: 2',
+  'realtime render request count is not asserted under backpressure',
 );
 
 console.log('M6A performance verification passed.');

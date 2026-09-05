@@ -31,6 +31,10 @@ import {
 } from '../gpu/renderer-device-resources.js';
 import { RendererTileStateV1 } from '../gpu/renderer-tile-state.js';
 import { CompatibilityRasterPresenterV1 } from './compatibility-raster-presenter.js';
+import {
+  RealtimePaintPresenterV1,
+  type RealtimePaintPresenterMetricsV1,
+} from './realtime-paint-presenter.js';
 import type { FoundationShell } from './shell.js';
 
 type RendererOwnerV1 = 'pending' | 'worker' | 'main' | 'compatibility';
@@ -248,6 +252,10 @@ export class RendererControllerV1 {
   readonly #mainBaselinePaint = new BaselinePaintRendererV1();
   readonly #compatibilityPresenter: CompatibilityRasterPresenterV1;
   readonly #compatibilityActiveTiles = new Map<string, TileCoordinateV1>();
+  readonly #realtimePaintPresenter: RealtimePaintPresenterV1<
+    BaselineBrushDabV1,
+    BaselineBrushCompositeOperationV1
+  >;
   #owner: RendererOwnerV1 = 'pending';
   #deviceState: RendererDeviceStateV1 = 'idle';
   #generation = 0;
@@ -274,6 +282,16 @@ export class RendererControllerV1 {
     this.#worker = worker;
     this.#root = root;
     this.#compatibilityPresenter = new CompatibilityRasterPresenterV1(shell.canvas);
+    this.#realtimePaintPresenter = new RealtimePaintPresenterV1({
+      submit: async (presentation) => {
+        await this.#presentBaselineStrokeDirect(
+          presentation.strokeId,
+          presentation.dabs,
+          presentation.layerId,
+          presentation.operation,
+        );
+      },
+    });
     this.#workerStateListener = (event) => {
       if (this.#owner !== 'worker' || !isRecord(event.data)) return;
       if (event.data.type !== 'renderer.device-state') return;
@@ -295,6 +313,10 @@ export class RendererControllerV1 {
       deviceState: this.#deviceState,
       generation: this.#generation,
     });
+  }
+
+  realtimePaintSnapshot(): RealtimePaintPresenterMetricsV1 {
+    return this.#realtimePaintPresenter.snapshot();
   }
 
   start(): Promise<RendererControllerSnapshotV1> {
@@ -408,47 +430,29 @@ export class RendererControllerV1 {
     });
   }
 
-  async presentBaselineStroke(
+  presentBaselineStroke(
     strokeId: string,
     dabs: readonly BaselineBrushDabV1[],
     layerId: string,
     operation: BaselineBrushCompositeOperationV1 = 'paint',
-  ): Promise<BaselinePaintRendererSnapshotV1> {
-    const snapshot = await this.#requirePaintReady();
-    if (snapshot.owner === 'worker') {
-      const requestId = crypto.randomUUID();
-      const response = await requestWorker(this.#worker, {
-        type: 'renderer.paint.present',
-        requestId,
+  ): Promise<void> {
+    this.#realtimePaintPresenter.enqueue(
+      Object.freeze({
         strokeId,
         dabs,
         layerId,
         operation,
-      });
-      const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
-      if (paint === null) throw new Error('Render Worker failed to present baseline stroke');
-      return paint;
-    }
-    const paint = this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId, operation);
-    if (snapshot.owner === 'compatibility') {
-      this.#trackCompatibilityDabs(dabs);
-      if (operation !== 'paint' || dabs.some((dab) => dab.tipShape === 'square')) {
-        const documentValue = this.#canonicalDocument;
-        if (documentValue !== null) {
-          this.#syncCompatibilityTiles(
-            planBaselineBrushTilesV1(dabs, documentValue.width, documentValue.height).map(
-              (plan) => plan.coordinate,
-            ),
-          );
-        }
-      } else {
-        this.#compatibilityPresenter.presentDabs(dabs);
-      }
-    }
-    return paint;
+      }),
+    );
+    return Promise.resolve();
+  }
+
+  async flushBaselineStrokePresentation(): Promise<void> {
+    await this.#realtimePaintPresenter.flush();
   }
 
   async cancelBaselineStroke(strokeId: string): Promise<BaselinePaintRendererSnapshotV1> {
+    await this.#realtimePaintPresenter.flush();
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
       const requestId = crypto.randomUUID();
@@ -474,6 +478,7 @@ export class RendererControllerV1 {
     layerId: string,
     operation: BaselineBrushCompositeOperationV1 = 'paint',
   ): Promise<BaselinePaintFinalizationV1> {
+    await this.#realtimePaintPresenter.flush();
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
       const requestId = crypto.randomUUID();
@@ -502,6 +507,7 @@ export class RendererControllerV1 {
   async restoreBaselineStrokes(
     strokes: readonly BaselinePaintCommittedStrokeV1[],
   ): Promise<BaselinePaintRendererSnapshotV1> {
+    await this.#realtimePaintPresenter.flush();
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
       const requestId = crypto.randomUUID();
@@ -524,6 +530,7 @@ export class RendererControllerV1 {
     tiles: readonly BaselineRasterTileImageV1[],
     rasterLayers: readonly BaselineRasterLayerDescriptorV1[],
   ): Promise<BaselinePaintRendererSnapshotV1> {
+    await this.#realtimePaintPresenter.flush();
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
       const requestId = crypto.randomUUID();
@@ -549,6 +556,7 @@ export class RendererControllerV1 {
   }
 
   async exportBaselineCanonicalTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    await this.#realtimePaintPresenter.flush();
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
       const requestId = crypto.randomUUID();
@@ -565,6 +573,7 @@ export class RendererControllerV1 {
   }
 
   async exportBaselineCompositeTiles(): Promise<readonly BaselineRasterTileImageV1[]> {
+    await this.#realtimePaintPresenter.flush();
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
       const requestId = crypto.randomUUID();
@@ -585,6 +594,7 @@ export class RendererControllerV1 {
     patches: readonly BaselineRasterTilePatchV1[],
     direction: BaselineRasterTilePatchDirectionV1,
   ): Promise<BaselinePaintRendererSnapshotV1> {
+    await this.#realtimePaintPresenter.flush();
     const snapshot = await this.#requirePaintReady();
     if (snapshot.owner === 'worker') {
       const requestId = crypto.randomUUID();
@@ -641,6 +651,46 @@ export class RendererControllerV1 {
     this.#worker.postMessage({ type: 'renderer.dispose' });
     this.#deviceState = 'disposed';
     this.#publish();
+  }
+
+  async #presentBaselineStrokeDirect(
+    strokeId: string,
+    dabs: readonly BaselineBrushDabV1[],
+    layerId: string,
+    operation: BaselineBrushCompositeOperationV1,
+  ): Promise<BaselinePaintRendererSnapshotV1> {
+    const snapshot = await this.#requirePaintReady();
+    if (snapshot.owner === 'worker') {
+      const requestId = crypto.randomUUID();
+      const response = await requestWorker(this.#worker, {
+        type: 'renderer.paint.present',
+        requestId,
+        strokeId,
+        dabs,
+        layerId,
+        operation,
+      });
+      const paint = response?.ok === true ? parsePaintSnapshot(response.result) : null;
+      if (paint === null) throw new Error('Render Worker failed to present baseline stroke');
+      return paint;
+    }
+    const paint = this.#mainBaselinePaint.presentStroke(strokeId, dabs, layerId, operation);
+    if (snapshot.owner === 'compatibility') {
+      this.#trackCompatibilityDabs(dabs);
+      if (operation !== 'paint' || dabs.some((dab) => dab.tipShape === 'square')) {
+        const documentValue = this.#canonicalDocument;
+        if (documentValue !== null) {
+          this.#syncCompatibilityTiles(
+            planBaselineBrushTilesV1(dabs, documentValue.width, documentValue.height).map(
+              (plan) => plan.coordinate,
+            ),
+          );
+        }
+      } else {
+        this.#compatibilityPresenter.presentDabs(dabs);
+      }
+    }
+    return paint;
   }
 
   async #requirePaintReady(): Promise<RendererControllerSnapshotV1> {
