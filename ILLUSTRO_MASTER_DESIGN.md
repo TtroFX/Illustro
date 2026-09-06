@@ -1278,676 +1278,871 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
 
 ## 3. 基本概念・データモデル — 確定
 
-### 3.0 この章の位置づけ
+### 3.0 この章の位置づけと最上位原則
 
-本章は、Section 2で確定した機能群を共通の概念・データ構造で成立させるための基礎モデルを定義する。
+本章は、Section 2で確定した機能群を共通の概念・状態モデルで成立させるための基礎設計を定義する。UIの最終配置、保存形式の物理構造、GPU API、具体的なTile / Chunk構成、Scheduler、Cache Eviction、Stable Prefix / Bounded Mutable Tail等の具体Algorithmは後続章で確定する。
 
-UIの最終配置、内部実装言語、GPU API、保存フォーマットの物理構造、具体的アルゴリズムは後続章で決定する。本章では、機能間で意味が食い違わないための概念境界、所有関係、座標、識別、依存関係、状態モデルを確定する。
+Section 3の最上位判断基準は、内部モデルの美しさではなく、ユーザー体験、一貫した意味、直接操作の体感0ラグである。
+
+Canonical Data ModelとRealtime Runtime Modelは同一の物理構造である必要はない。ただし意味論は一致しなければならない。Interaction中だけTransient Mutable Stateを許可し、Commit時には変更Working SetをLogical Canonical Revisionへ原子的に採用する。Commit後に遅延してよいのはCanonical化そのものではなく、Persistence、Recovery補助、Derived Data更新、Indexing、Collaboration送信、Maintenance等である。
+
+直接操作の基準経路は概念上、次とする。
+
+```text
+Idle / Hover
+  ↓
+Prepared Interaction Context
+  ↓
+Input
+  ↓
+Resolved Runtime Context
+  ↓
+Minimum Necessary Exact Computation
+  ↓
+Retained Interactive State
+  ↓
+Visible Result
+  ↓
+Atomic Logical Commit / Cancel
+```
+
+以下をSection 3共通の不変条件とする。
+
+1. Pointer Sample / DabごとにProject、Visual Tree、Dependency Graph、History全体を走査しない。
+2. Pointer Downを重いContext構築の開始点にしない。高頻度Toolでは可能な範囲で事前解決したPrepared Contextを利用する。
+3. Pointer Up / ReleaseをCanvas全面Rasterize、全Document Composite、History Serialization、Persistence等の重処理開始点にし、その完了を表示や次操作開始の条件にしない。
+4. Commit / Cancelの必須処理をCanvas面積、総Layer数、History長、Dependency Graph規模、総Instance数へ比例させない。原則として今回変更したWorking Set / Bounded Workに比例させる。
+5. Interactive StateはFake Previewではなく、その場で継続操作できる第一級の作業状態とする。
+6. Logical Commit済みの変更は直後のInteractionから必ず観測可能とする。Commit済み結果をPending Overlayとして意味的に保留しない。
+7. Active / Visible / Next-needed Dataを優先し、非表示・画面外・未使用Derived DataはLazy評価を許可する。ただしLazy化によって次の直接操作へ大きな遅延を単純移送しない。
+8. Dependency、History、Persistence、Boundary / Region、Source propagation等の高度機能をBrush、Lasso、Transform等の直接操作Latency悪化の当然の理由にしない。
+9. Background Work、Input backlog、Derived recomputation等を無制限Queueとして蓄積しない。Work種別ごとにCoalesce / Merge / Demand-driven化できる意味を持たせる。
+10. Realtime PathとExport / Recovery等の別Pathは実装を共有する必要はないが、Brush、Blend、Selection Coverage、Mask、Modifier等のCanonical Semanticsは一致させる。
+
+---
 
 ### 3.1 Project / Document / Canvas / View — 確定
 
 #### 3.1.1 基本分離
 
-Illustroでは、Project、Document、Document Space、Canvas Rect、Frame Variant、Viewを別概念とする。
+IllustroではProject、Document、Document Space、Canvas Rect、Frame Variant、Viewを別概念とする。
 
-- **Project**: `.illustro`として保存される作品パッケージ全体。Document本体に加え、履歴、Branch、Checkpoint、埋め込みResource、Reference、Export設定、Recovery metadata等を収容できる。
-- **Document**: 一枚の作品の編集可能な正本。Layer構造、色空間、Canvas、非破壊情報等を所有する。
-- **Document Space**: Artworkが存在できる共通座標空間。Canvas境界より広く存在できる。
-- **Canvas Rect**: Document Space上にある有限矩形。通常の作品表示・標準Exportの基準領域。
-- **Frame Variant**: Canvasを破壊せず保存する追加の出力矩形。
+- **Project**: `.illustro`として保存される作品パッケージ全体。Document、History、Branch、Checkpoint、埋め込みResource、Reference、Export設定、Recovery metadata等を収容できる。
+- **Document**: 一枚の作品のCanonical Editable State。Layer構造、色空間、Canvas、Selection、非破壊編集状態等を所有する。
+- **Document Space**: Artworkが存在できる共通の安定World Space。Canvas境界より広く存在できる。
+- **Canvas Rect**: Document Space上の有限矩形。標準表示・標準Exportの基準領域。
+- **Frame Variant**: Artworkを破壊せず保存する追加出力矩形。
 - **View**: Pan、Zoom、Rotation、Mirror等のArtworkを変更しない表示状態。
 
-1 Project : 1 Documentを基本とする。UI上はProjectとDocumentを強く意識させる必要はないが、データモデル上は分離する。
+基本関係は `1 Project : 1 Document` とする。UI上でProject / Documentの区別を常時意識させる必要はない。
 
 #### 3.1.2 Canvas外Artwork
 
-Document SpaceはCanvas Rectに制限されない。Layer、Object、Pixel等はCanvas外にも存在でき、Canvas外へ移動しただけでは破棄しない。
+Document SpaceはCanvas Rectに制限されない。Layer、Object、Raster Content等はCanvas外にも存在でき、Canvas外へ移動しただけでは破棄しない。
 
-Canvas縮小、非破壊Crop、Frame変更ではCanvas外Artworkを保持する。Canvas外Dataを本当に削除する場合は、「キャンバス外データをトリミング」等の明示的な破壊操作として扱う。
+Canvas縮小、非破壊Crop、Frame変更ではCanvas外Artworkを保持する。Canvas外Dataを削除する場合は明示的な破壊Commandとする。Canvas Size変更をArtwork Dataの破壊的Cropと同義にしない。
 
-Canvas Size変更はArtwork DataのCropと同義にしない。
+Canvas外を保持することは、Canvas外全域へ巨大な透明Rasterを常時割り当てることを意味しない。物理Storage方式はSection 8 / 9で決定する。
 
 #### 3.1.3 Viewの独立
 
-View TransformはDocument Dataから完全に分離する。Zoom、Pan、View Rotation、Mirrorを変更しても、Pixel座標、Layer位置、Selection、Mask、Export結果等のCanonical Artworkは変更しない。
+View TransformはArtwork Dataから分離する。Zoom、Pan、View Rotation、Mirrorを変更してもPixel座標、Layer位置、Selection Value、Mask、Export結果等のCanonical Artworkは変更しない。
 
-View StateはUndo / Redo対象とは原則分離するが、作業状態としてProject metadataへ保存可能とする。
+View Stateは原則Artwork Undo / Redo対象に含めないが、作業状態としてProject metadataへ保存可能とする。
 
-### 3.2 座標系 — 確定
+#### 3.1.4 Working Set
+
+ProjectがDataを所有することと、起動時・操作時に全DataをLoad / Evaluateすることを同義にしない。
+
+Active Document、Active Target、Current Viewport、Current Tool、現在必要なSelection / Mask / Source / Modifier等をWorking Setとして優先できる。Cold History、非表示Branch、未使用Reference、画面外Derived Data等は必要時にLoad / Resolve可能とする。
+
+---
+
+### 3.2 Coordinate Systems — 確定
 
 #### 3.2.1 Document Space
 
-Document Spaceを作品全体の唯一の安定した世界座標系とする。
+Document Spaceを作品全体の唯一の安定World Spaceとする。
 
-- 初期原点は新規Canvas左上 `(0, 0)` とする。
+- 初期Canvas左上をDocument座標 `(0, 0)` とする。
 - +Xは右、+Yは下とする。
 - 単位はDocument Pixel相当とする。
-- 整数だけでなく連続値・小数座標を正式に許可する。
-- Canvasを左・上へ拡張した場合、Canvas Rectを負座標へ伸ばし、既存ArtworkのDocument座標は書き換えない。
+- 整数だけでなく連続値・Subpixel座標を正式に許可する。
+- Canvasを左・上へ拡張してもDocument原点や既存Artwork座標を移動しない。
 
-例: 初期Canvas `(0, 0, 4000, 3000)` を左へ500px拡張する場合、Canvas Rectは `(-500, 0, 4500, 3000)` となる。Document原点と既存Artwork座標は動かさない。
+例として初期Canvas `(0, 0, 4000, 3000)` を左へ500px拡張する場合、Canvas Rectを `(-500, 0, 4500, 3000)` とし、既存Artwork座標は維持する。
 
-#### 3.2.2 Canvas座標
+#### 3.2.2 Canvas / Frame
 
-CanvasをDocument Spaceと別の恒久座標系にはしない。CanvasはDocument Space上のRectである。
+Canvasを別の恒久World Spaceにはしない。CanvasはDocument Space上のRectである。Canvas相対座標が必要な場合だけ派生値として求める。
 
-UI等でCanvas相対座標が必要な場合は、`canvasX = documentX - canvasRect.x`、`canvasY = documentY - canvasRect.y` のような派生座標として求める。
+Frame VariantもDocument Space上のRectとして扱う。
 
-Frame VariantもDocument Space上のRectとしてCanvas Rectと同列に扱う。
+#### 3.2.3 Local Space
 
-#### 3.2.3 Local Spaceと親子Transform
+Layer、Object、Text、Vector、Material、Embedded Object、Lineart Group等は必要に応じてLocal Spaceを持つ。
 
-Layer、Object、Text、Vector、Image Material、Embedded Object、Lineart Group等は必要に応じて自身のLocal Spaceを持つ。
+```text
+Local Space
+  ↓ Owner Transform
+Parent Space
+  ↓
+Document Space
+```
 
-Source Dataの座標とDocument上の配置を分離し、Local → Parent → DocumentのTransform連鎖で位置を求める。子は所有者のLocal Spaceで表現できる。
-
-具体的なMatrix表現や数値型は技術設計で決める。
+Source Geometry / ContentとDocument上の配置Transformを分離する。具体Matrix表現や数値型はSection 8で決定する。
 
 #### 3.2.4 Raster Pixel規約
 
-Raster Pixel `(x, y)` は `[x, x+1) × [y, y+1)` の1×1セルとして扱い、Pixel中心は `(x+0.5, y+0.5)` とする。
+Raster Pixel `(x, y)` は `[x, x+1) × [y, y+1)` の1×1セル、Pixel中心は `(x+0.5, y+0.5)` とする。
 
-Stroke、Selection、Vector、Transform等の座標は早期に整数丸めしない。連続座標を保持し、Rasterize時にPixel Coverageへ変換する。
-
-これにより1px線、Vector→Raster、Selection Edge、Snap、Subpixel Transform等での0.5pxずれを避ける。
+Stroke、Selection、Vector、Transform等を早期整数丸めしない。Rasterize時にCoverageへ変換することで、1px線、Vector→Raster、Selection Edge、Snap、Subpixel Transform等の0.5pxずれを避ける。
 
 #### 3.2.5 View / Workspace / Device Space
 
-- **View Transform**: Document SpaceからWorkspace上のCanvas表示へ変換する。Pan、Zoom、Rotation、Mirrorを含む。
-- **Workspace / UI Space**: Tool Rail、Inspector、Floating PiP、Quick Hole、Popup、Selection Launcher等のアプリUIを配置する座標系。
-- **Device Pixel Space**: Workspace logical pixelをdevicePixelRatio等で物理Display pixelへ変換した最終表示座標。
+```text
+Document Space
+  ↓ View Transform
+Workspace / UI Space
+  ↓ Device Scale
+Device Pixel Space
+```
 
-PiPやQuick HoleのUI GeometryはWorkspace Spaceに置き、CanvasのZoom / Rotationと一緒に拡大・回転させない。Quick HoleはDocument / Canvas interactionをAnchor情報として利用できるが、UI本体はWorkspace Spaceに存在する。
+- **Workspace / UI Space**: Tool Rail、Inspector、Floating PiP、Quick Hole、Popup、Selection Launcher等を配置する。
+- **Device Pixel Space**: 最終表示端末の物理Pixel座標。
 
-Device Pixel値は端末依存であるためCanonical Artwork Dataへ保存しない。
+PiPやQuick HoleはWorkspace Spaceに存在し、Canvas Zoom / Rotationと一緒に回転・拡縮しない。Device Pixel値はCanonical Artworkへ保存しない。
 
-#### 3.2.6 入力座標
+#### 3.2.6 Input Mapping / Prepared Transform Context
 
-Pen / Touch / Mouse入力はWorkspace側のPointer positionと、timestamp、pressure、tilt、orientation、pointer type等の利用可能な情報を保持する。
+Pen / Touch / Mouse入力はWorkspace側の位置とtimestamp、pressure、tilt、orientation、pointer type等の利用可能情報を保持する。
 
-描画対象に応じて、Workspace → inverse View → Document → inverse Owner Transform → Local Spaceへ変換する。
+Artwork入力は原則、受信時点で対応するView Generationを用いてDocument / Owner Local Spaceへ解決し、過去SampleのArtwork座標が後続Pan / Zoomによって変化しないようにする。
 
-座標変換の都合でRaw / Coalesced Input Sampleを早期に捨てない。
+Active Tool、Active Target、View、Selection等が変化した際、高頻度操作で必要なTransformやRuntime HandleをPrepared Interaction Contextとして事前解決可能とする。Pointer Down時はContext全再構築ではなくGeneration整合確認と必要差分のPatchを基本とする。
 
 #### 3.2.7 Selection / Mask / Boundary / Ruler
 
-- Selection MaskのCanonical結果は原則Document Spaceに置く。
-- Selection RecipeのSourceはLayer Alpha等のOwner Local Spaceを参照できる。Source変更時は最終SelectionをDocument Spaceへ再評価する。
-- Layer MaskはOwner LayerのLocal Spaceを基本とし、Link / Unlink時は独自Transformを追加できる。
-- Lineart BoundaryとStable Region topologyはLineart Group Local Spaceを基本とする。Group TransformのみではRegion Identityを変更しない。
+- Active / Saved Selection Valueは原則Document Space上の意味を持つ。
+- Selection Recipe SourceはOwner Local Space等をDynamic参照できる。
+- Layer MaskはOwner Local Spaceを基本とし、Unlink時は独立Transformを持てる。
+- Lineart Boundary / Stable Region topologyはLineart Group Local Spaceを基本とする。
 - Global Ruler / GuideはDocument Spaceを基本とする。
-- Layer-linked RulerはOwner Local Spaceへ関連付けられる。
+- Layer-linked RulerはOwner Local Spaceへ関連付け可能とする。
 
-#### 3.2.8 共同編集の座標
+#### 3.2.8 Collaboration
 
-共同編集でCanonical Dataとして同期する座標はDocument Spaceまたは明示されたOwner Local Spaceとする。Screen / Workspace / Device依存座標を作品データとして同期しない。
+Canonical Collaboration Dataとして同期するArtwork座標はDocument Spaceまたは明示されたOwner Local Spaceとし、Screen / Workspace / Device依存座標をArtwork Dataとして同期しない。
 
-異なる端末、Zoom、画面解像度でも同じStroke / Objectを再現できることを前提とする。
+---
 
 ### 3.3 Layer Tree / Node Model — 確定
 
-#### 3.3.1 Tree + Dependency Graph
+#### 3.3.1 Visual Tree + Typed Relations
 
-DocumentのArtwork構造はVisual Treeを基本とする。ただし、Visual TreeはContainmentとStack順のみを担当し、Reference、Sharing、Constraint、Source / Instance等の非親子関係はDependency Graphとして別管理する。
+DocumentのContainmentとVisual Stack順はVisual Treeを基本とする。一方、Source sharing、Reference、Persistent relation、Parameter sharing、Constraint等の非親子関係はTyped Relation / Dependency Systemとして分離する。
 
-つまり、Illustroの基本構造は「Visual Tree + Dependency Graph」とする。
+日常的な見た目を理解するために巨大Dependency Graphの理解を必要とする設計は避ける。見た目を決める主要関係は可能な限りTree / Stack semanticsで理解可能にする。
 
-#### 3.3.2 共通Node基盤
+#### 3.3.2 Common Node
 
-Visual Tree上の編集対象は共通Node基盤を持つ。
+Visual Tree上のNodeは少なくとも以下の概念を持つ。
 
-Nodeは少なくとも以下の概念を持つ。
+- Identity
+- Type
+- Name
+- Parent
+- Sibling Order
+- Visibility
+- Lock State
+- Local Transform
+- Metadata
 
-- identity
-- type
-- name
-- parent
-- sibling order
-- visibility
-- lock state
-- local transform
-- metadata
-- optional capabilities
+Tool capabilityはNode Type + Stateから導出しRuntime Cache可能とする。`canPaint`等の大量BooleanをCanonical Dataへ冗長に常設することを必須にしない。
 
-Tool側はNode Typeの列挙だけに強く依存せず、`canPaint`、`canTransform`、`canMask`、`canClip`、`canHaveChildren`、`canRasterize`、`canProvideBoundary`、`canBeReference`、`canExportVector`等のCapabilityによって操作可否を判断できる構造を前提とする。
+#### 3.3.3 Content / Container
 
-#### 3.3.3 Content Node
+主なContent NodeにはRaster、Vector、Text、Fill、Gradient、Image Material、External / Embedded Object等を含む。
 
-Artwork内容を生成・保持するNode系をContent Nodeとして扱う。
+主なContainer NodeにはFolderとLineart Groupを含む。Lineart Groupは単なるFolderではなく、Visible Lineart ChildrenとBoundary topology / Stable Region関連Dataを所有する特殊Semantic Containerとする。
 
-主な種類:
+#### 3.3.4 Attachment
 
-- RasterNode
-- VectorNode
-- TextNode
-- FillNode
-- GradientNode
-- ImageMaterialNode
-- FileObjectNode
-- EmbeddedObjectNode
+常に明確なOwnerへ付属するDataは普通のSibling Layerとして無理にVisual Stackへ置かずAttachmentとして扱える。
 
-RasterNodeはPixel Dataを、VectorNodeはPath / Shape Geometryを、TextNodeは文字列とTypography状態を保持する。Fill / Gradient等は固定RasterではなくParameterから描画結果を生成できる。
+- Layer Mask
+- Effect Mask
+- Attached Modifier
+- Lineart Boundary / Region Table等
 
-#### 3.3.4 Container Node
+UI上Layer Panelに表示する場合でも、内部Ownershipを曖昧にしない。
 
-複数Nodeを所有するNodeをContainer Nodeとして扱う。
+#### 3.3.5 Modifier
 
-- FolderNode
-- LineartGroupNode
+非破壊処理では少なくとも次を区別する。
 
-Folderは子Nodeを階層化し、Visibility、Transform、Mask等をまとめて扱える。
+- **Attached Modifier**: 特定Ownerへ付く。
+- **Stack Modifier**: Visual Stack位置によって下位Compositeへ作用する。
+- **Shared Modifier**: Shared Definitionを複数Applicationが参照する。
 
-LineartGroupは単なるFolderではなく、Folder的Container能力に加えてLineart固有Semanticを持つ特殊Containerとする。Visible Lineart Childrenと、Boundary topology、Stable Region Table等を同じGroupへ所属させる。
+詳細は3.8で定義する。
 
-#### 3.3.5 Attachment
+#### 3.3.6 Auxiliary Registry
 
-MaskやLineart Boundary等、常に明確なOwnerへ付属するDataを普通のSibling Layerとして無理にVisual Stackへ置かず、Attachmentとして扱える構造にする。
+Compositeへ直接参加しないDataはVisual Treeへ無理に混在させず、Saved Selection、Global Ruler、Guide、Frame Variant等のRegistryとして管理可能とする。
 
-- Layer MaskはOwner NodeのMask Attachmentとする。
-- Maskは将来複数Stackを許可できる内部モデルとする。
-- Lineart Boundary / Stable Region TableはLineart Groupの非描画Attachmentとする。
+#### 3.3.7 Composite Participation
 
-UI上で「Layer」「Boundary Layer」等として見せる場合でも、内部の所有関係を曖昧にしない。
+Layer Panelに見えることとColor Compositeへ参加することを同義にしない。Raster、Vector、Text等は描画内容として参加し、Mask、Selection、Boundary、Ruler、Guide等は通常Color Compositeへ直接参加しない。
 
-#### 3.3.6 Modifier
+FolderはIsolated CompositeとPass-through Compositeをサポートする。
 
-非破壊処理にはStack ModifierとAttached Modifierを区別する。
+#### 3.3.8 Clipping
 
-- **Stack Modifier**: Visual Stack上の位置によって下位Compositeへ作用する。Adjustment Layer等。
-- **Attached Modifier**: 特定Owner Nodeへ直接付く。Non-destructive Filter、Transform等。
+ClippingのCanonical UX Semanticsは成熟アプリ同様のLayer Stack / adjacency基準とする。連続したClipped Layer群とBase Layerの関係をLayer順から理解できることを優先する。
 
-1 Nodeへ複数Modifierを順序付きModifier Stackとして保持でき、個別Edit、Disable、Reorder、Removeを可能にする。
+内部ではBase解決、Invalidation、Render preparation等のためにDerived Dependency / Runtime Cacheを持てるが、Layerを並べ替えても残り続ける不可視の永続Base tetherをClippingのCanonical意味にはしない。
 
-Shared Modifierは同じEffectをTreeへ複製するのではなく、一つのModifier Sourceを複数NodeがDependency Edgeで参照するモデルを前提とする。
+#### 3.3.9 Role / Metadata
 
-Adjustment LayerとShared Modifierは別概念とし、前者はStack位置、後者は明示Referenceで対象を決める。
+Lineart、Base Color、Shadow、Reference、Draft、Private / Shared等のRole / StateはNode Typeと分離する。
 
-#### 3.3.7 Source / Instance対応
+Semantic Roleは便利なDynamic Reference補助であり、Role未設定でも基本編集機能が成立することを要求する。
 
-Linked Shape、Image / Material Source、Embedded Object等のために、Source DataとInstance Nodeを分離できる構造を前提とする。
+#### 3.3.10 Tree Invariants / Realtime
 
-InstanceはSource Referenceに加え、独自Transform、Override、Mask、Effect等を持てる。詳細はSource / Instance Modelで確定する。
+- Visual Treeの1 Nodeは同時に複数Parentを持たない。
+- Visual Tree Cycleは禁止する。
+- Source共有はReference / Instanceを使う。
+- Dependency Cycle PolicyはRelation Typeごとに定義する。
+- 通常Raster PaintingではActive Raster Runtimeへ直接到達可能とし、汎用Tree / Node traversalをDabごとの関所にしない。
 
-#### 3.3.8 Auxiliary Registry
+---
 
-Compositeへ直接参加しないDocument DataはVisual Treeへ無理に混在させず、必要に応じRegistryとして管理する。
+### 3.4 Identity / Revision / Stable ID — 確定
 
-- Saved Selection Registry
-- Global Ruler Registry
-- Guide Registry
-- Frame Variant Registry
+#### 3.4.1 Identity、Revision、Transactionを分離する
 
-Layer-linked Ruler等はOwner NodeへのDependencyを持てる。
+Illustroでは次を明確に別概念とする。
 
-#### 3.3.9 Composite参加
+- **Entity ID**: Layer、Object、Mask、Modifier、Source、Saved Selection等の論理Entityを永続識別する。
+- **Entity Revision**: 同一Entityの特定時点のState / Content Version。
+- **Document Logical Revision Root**: ある瞬間のDocument全体の正しい論理状態を不変に指すRoot。
+- **Transaction ID**: ユーザーが1回のUndoで戻したい論理操作を識別する。
+- **Runtime Handle**: Session中の高速参照用。一時的でCanonical Identityではない。
+- **Runtime Generation**: Prepared Context、Cache、Derived Data等のFreshness確認に使える軽量世代。
+- **Stable Region ID**: Lineart topology内Region追跡用の特殊Identity。
 
-「Layer Panelに見えること」と「画像Compositeへ参加すること」を同義にしない。
-
-Raster、Vector、Text等は描画内容としてCompositeへ参加する。AdjustmentはEffectとして参加する。Mask、Selection、Boundary、Ruler、Guide等は通常のColor Compositeには直接参加しない。
-
-FolderはIsolated CompositeとPass-through Compositeの両方式を正式サポートする。
-
-#### 3.3.10 Clipping / Reference / Metadata
-
-Clippingは単純な名前や現在順序の暗黙推測だけに依存せず、Source NodeとClip Base Nodeの関係を追跡可能なDependencyとして扱えるようにする。UX上は大手アプリと同様の「下のLayerへClip」という操作を維持する。
-
-Layer Role、Draft、Reference、Private / Shared等はNode Typeとは分離したMetadata / Stateとする。
+Document RevisionとTransactionは同一ではない。1 Transactionは1つ以上のAtomic Logical Revision更新を内包できる。
 
 例:
 
-- RasterNode + role=lineart
-- VectorNode + role=lineart
-- RasterNode + visibilityScope=private
-- TextNode + role=reference
+```text
+R100
+  ↓ Canvas Drag
+R101
+  ↓ Inspector adjustment
+R102
+  ↓ Numeric adjustment
+R103
 
-描画方式、意味的役割、共同編集範囲を混同しない。
+Transaction T
+base = R100
+final = R103
+```
 
-#### 3.3.11 Tree不変条件
+User History上はTを1 Undo単位として扱える。
 
-- Visual Tree内の1 Nodeは同時に複数Parentを持たない。
-- Visual TreeのCycleは禁止する。
-- 同じSourceを複数箇所で利用したい場合はReference / Instanceを用いる。
-- Dependency GraphのCycle可否はDependency Typeごとに明示規則を持つ。無限再評価を起こすCycleを許可しない。
+#### 3.4.2 Document Revision Root
 
-次項では、名前変更、並べ替え、Undo / Redo、Branch、共同編集等を跨いでも同じEntityを追跡するIdentity / Stable ID Modelを定義する。
+Document Logical Revision Rootは、その時点のNode Revision、Source Revision、Selection Revision、Relation State等を論理的に束ねる不変Rootとする。
 
-### 3.4 Identity / Stable ID — 確定
+変更されていないEntity / Contentを次Revisionで共有できる概念を許可し、Revision生成のためのDocument全体物理Copyを要求しない。Copy-on-Write、Structural Sharing、Immutable Block等の具体方式はSection 8 / 9で決定する。
 
-#### 3.4.1 IdentityとStateの分離
+#### 3.4.3 Immutable Semantics
 
-Illustroでは、EntityそのもののIdentityと、その時点のState / Revisionを分離する。
+Logical Revisionから参照されるContent Versionは、そのRevisionの意味を後から変更してはならない。GPU上に存在するかCPU上に存在するかは問わないが、後続Interactionが過去Revisionの見た目を暗黙に書き換えてはならない。
 
-同一Entityの内容、名前、位置、順序、表示状態等が変化しても、論理的に同じEntityである限りEntity IDは維持する。State変更はRevision / Versionとして扱う。
+Canonical correctnessを「同期CPU Readback済みPixelが存在すること」と同義にしない。
 
-Identity体系では少なくとも次を区別する。
+#### 3.4.4 Persistent ID対象
 
-- **Entity ID**: Layer、Object、Mask、Modifier、Source、Selection等の論理Entityを永続識別する。
-- **Revision ID / Version**: 同一Entityのある時点の内容・状態を識別する。
-- **Operation / Transaction ID**: Stroke、Transform、Fill等の1つの論理編集操作を識別する。
-- **Runtime Handle**: 起動中の高速参照等に利用できる一時識別子。Native保存のCanonical Identityとはしない。
-- **Stable Region ID**: Lineart topology内のRegionを追跡するための特殊Identity。
+後で他Entityから参照される可能性があるProject、Document、Visual Node、Object、Mask、Modifier、Source、Instance、Saved Selection、Selection Recipe、Ruler、Guide、Frame Variant、Material、Palette、Boundary、Stable Region、Constraint等にはStable Entity IDを付与できる。
 
-IDの具体的なbit幅、UUID / ULID等の形式は技術設計で決める。
+名前、Layer index、座標、現在Stack位置をIdentity代わりに使わない。
 
-#### 3.4.2 永続IDを持つ対象
+#### 3.4.5 Rename / Reorder / Duplicate / Merge
 
-他Entityから後で参照される可能性があるEntityには永続IDを与える。
+- Rename、Move、Reorder、Visibility、Parameter変更では論理的に同じEntityならID維持。
+- 通常Duplicateは新Entity ID。
+- Shared Sourceでは各Instanceが別IDを持ち、Source IDのみ共有。
+- Undo / Redoで復元するEntityは元IDを復元。
+- Text→Rasterize等で意味的に同じNodeを表現方式変更する場合はNode ID維持可能。
+- 複数Entityを統合して新しい論理Entityを作るMergeは新IDを発行し、元EntityとのLineageを保持可能。
 
-対象には少なくともProject、Document、Visual Node、Object、Mask、Modifier、Source、Instance、Saved Selection、Selection Recipe、Ruler、Guide、Frame Variant、Material、Palette、Boundary、Stable Region、Constraint等を含む。
+削除済みIDを別Entityへ再利用しない。Tombstone / Cold History上の保持方式はHistory / Storage設計で決める。
 
-名前、Layer index、座標、現在のStack位置等をIdentity代わりに使用しない。
+#### 3.4.6 Stable Region ID
 
-Dependency Graphは原則としてEntity IDで参照する。Layer Role等による参照はIdentityではなくSemantic Queryとして扱う。
+- 1対1で同一Regionと追跡できるShape ChangeではID維持。
+- Splitでは元Regionをretireし、新Regionへ新ID + `derivedFrom`。
+- Mergeでは新Regionへ新ID + parent lineage。
 
-#### 3.4.3 名前変更・並べ替え・編集
+Region identity / lineage整合のためにLineart直接操作の表示を待たせない。使用時に必要領域のFreshnessを保証するモデルを採る。
 
-Nodeの名前変更、移動、並べ替え、Visibility変更、Parameter変更等ではEntity IDを変更しない。
+#### 3.4.7 Offline / Runtime
 
-これによりClipping、Reference、Selection Recipe、Persistent Fill、Shared Modifier、Linked Shape等の関係がUI上の名前や順序変更によって破損しないようにする。
+Stable ID生成にServerを必要としない。IDはSecretやPermissionの代替にしない。
 
-#### 3.4.4 Duplicate / Source共有
+Realtime hot loopではStable IDの文字列 / hash lookup等を毎Sample行うことを要求せず、解決済みRuntime Handleを利用可能とする。
 
-通常のDuplicateでは新しいEntity IDを付与する。同一IDを持つ独立Entityを複数作成しない。
-
-Source / Instance型の共有では、各Instanceは別Entity IDを持ち、参照先Source IDのみ共有する。
-
-例:
-
-- Shape Instance A: Node ID = A, Source ID = S
-- Shape Instance B: Node ID = B, Source ID = S
-
-#### 3.4.5 Undo / Redo / Delete
-
-Undo / RedoでEntityを復元する場合は、元のEntity IDを復元する。
-
-削除済みIDを後から別Entityへ再利用しない。履歴・Branch等から削除済みEntityを参照できる必要があるため、必要に応じTombstone / lineage情報を保持できるモデルとする。具体的保持方式はHistory Modelで確定する。
-
-#### 3.4.6 表現方式変更とMerge
-
-Text → Rasterize等、ユーザーから見て同じNodeが表現方式だけを変更する操作では、意味的連続性が保てる場合は同じNode Entity IDを維持し、Type / Content Revisionを更新できる。
-
-一方、複数Entityを統合して新しい論理Entityを生成するMergeでは新Entity IDを発行する。元Entityとの関係はprovenance / derived-from情報として保持できる。
-
-Undo時には元Entityを元のIDで復元する。
-
-#### 3.4.7 Stable Region ID
-
-Stable Region IDは一般Entity IDよりTopology変化を意識した追跡規則を持つ。
-
-- Regionが形状変化しても1対1で同一領域と追跡できる場合は同じRegion IDを維持する。
-- 1 Regionが複数RegionへSplitした場合、元Regionをretireし、新Regionへ新IDを付与し、`derivedFrom`で元Regionを記録する。
-- 複数RegionがMergeした場合、新Regionへ新IDを付与し、複数元Regionをlineageとして記録する。
-
-Persistent Fill、Topology Diff等はこのLineageを利用して色や関連状態の引継ぎ候補を判断できる。曖昧なMerge等で意味が一意に決まらない場合は、勝手にIdentityを流用しない。
-
-#### 3.4.8 Branch / Revision
-
-Branching Historyでは、共通祖先の同一Entity IDを維持しつつ、Branchごとに異なるRevisionを持てる。
-
-つまり「同じEntityだがStateが異なる」を表現可能にする。
-
-これをBranch Compare、Copy-on-Write、Checkpoint、Diff等の基礎とする。
-
-#### 3.4.9 Copy / PasteとProject Duplicate
-
-別DocumentへのCopy / Pasteでは、新Document側で新Entity IDへRemapすることを基本とする。ただし、同時にコピーされた複数Entity同士の内部Referenceは新ID同士へ一括Remapして関係を維持する。
-
-通常の完全Project Duplicateと、共通Lineageを意図するCopy-on-Write Project Variantは同じIdentity規則として扱わない。Variant側の共有範囲はHistory / Snapshot Modelで確定する。
-
-#### 3.4.10 Offline生成
-
-Entity IDの生成にServerを必要としない。通常制作を完全Offlineで成立させられるよう、Offlineで衝突確率を実用上無視できるIdentityを生成可能とする。
-
-IDはアクセス権限やSecretとして扱わない。共同編集のPermissionはIdentityの秘匿性に依存させない。
-
-#### 3.4.11 Section 3横断: UX / 体感0ラグ優先規約
-
-本項は3.1以降のSection 3全体へ優先適用する。
-
-Illustroの目的は美しい内部モデルを作ることではなく、ユーザーが直感的に操作でき、直接操作が体感0ラグで反映される製品を作ることである。
-
-Canonical Data ModelとRealtime Runtime Modelは同一構造である必要はない。Brush、Pen、Lasso、Transform、Pan / Zoom等の直接操作では、必要ならResolved Runtime Handle、Active Interaction Context、Retained Interactive State、Runtime Cache等を用い、Canonical Modelの汎用性のためにHot Pathを遅くしてはならない。
-
-直接操作Hot Pathは原則として `Input → Active Interaction Context → Minimum Necessary Calculation → Interactive State更新 → Present` の最短経路とする。
-
-以下を直接操作の1 Sample / 1 Dabごとの同期必須処理にしない。
-
-- Project全体Load / Scan
-- Visual Tree / Dependency Graph全走査
-- History Serialization
-- Canonical Revision生成
-- Autosave / Persistence
-- Collaboration送信
-- Source全Instance再計算
-- Boundary / Stable Region全体再解析
-- 全Document Composite
-- Export / Health Check
-
-Interactive Stateは単なる偽Previewではなく、ユーザーが直ちに継続操作できる第一級の作業状態とする。後続のCanonical Reconciliation、History、Persistence、Dependency Propagation等は直接操作を阻害しない形で追従させる。
-
-3.1のProject所有関係は全Resourceの常時Loadを意味しない。Active Document / Active Layer / 現在必要なResourceをWorking Setとして優先し、Auxiliary Stateは必要時に評価可能とする。
-
-3.2ではInteraction開始時にTarget、Transform、Mask、Reference等を解決したActive Interaction Contextを構築できるようにし、Pointer SampleごとのTree探索やTransform再解決を避ける。
-
-3.3のDependency Graphは構造・無効化・伝播管理に利用するが、通常Brush Rasterizationの関所にはしない。Capabilityは必要に応じType / Stateから導出・Cache可能とし、冗長なCanonical Boolean群を必須としない。
-
-ClippingのCanonical UX SemanticsはLayer Stack基準とする。連続したClipped Layer群とBase Layerの関係をユーザーがLayer順から理解できることを優先し、内部Dependency Edgeは高速な追跡・無効化用の派生情報として利用できる。
-
-3.4のCanonical RevisionはPointer Sample単位ではなく論理Transaction単位を基本とする。1 Strokeに多数Sampleが存在しても、Sampleごとの永続Revision生成を要求しない。Realtime内部ではStable IDを毎回重く解決せずRuntime Handleを利用できる。
-
-Stable Region / Boundary更新はLineart操作の表示を待たせず、Dirty Region中心の局所更新とし、全Topology再計算を直接操作Hot Pathへ置かない。具体的Algorithmは後続章で確定する。
+---
 
 ### 3.5 Source / Instance Model — 確定
 
-#### 3.5.1 基本分離
+#### 3.5.1 Selective Source / Instance
 
-共有する意味を持つDataについて、SourceとInstanceを別Entityとする。
+Source / Instanceを全Contentへ強制しない。共有する意味があるDataだけに利用する。
 
-- **Source**: 共有されるCanonical Content / DefinitionとそのRevisionを持つ。
-- **Instance**: SourceをDocument内で利用する個々のEntity。独自Transform、Override、Mask、Modifier等を持てる。
+主な対象:
 
-SourceはVisual Tree上のLayerである必要はなく、Project内のSource / Resource Registry等で管理できる。Visual TreeにはInstanceが参加できる。
+- Linked Shape
+- Image / Smart / Procedural Material
+- Embedded Object / External File Object
+- Linked Text Style
+- Shared Modifier
 
-通常Raster Layer等、共有する意味がないContentまで一律Source / Instance化しない。通常Painting Pathを単純に保つことを優先する。
+通常Raster Layer等、共有Semanticが不要なContentは直接Contentを持てる。
 
-#### 3.5.2 Identity
+#### 3.5.2 Source / Instance State
 
-各Instanceは独立Entity IDを持ち、参照先Source IDのみ共有する。
+- **Source**: 共有されるCanonical Content / DefinitionとRevision。
+- **Instance**: SourceをDocument内で利用するEntity。独自Entity ID、Transform、許可されたOverride、Mask、Modifier等を持てる。
 
-例:
+Instance OverrideはSource全Copyではなく差分として保持可能とし、Override可能項目はSource Typeごとに定義する。
 
-- Shape Source ID = S
-- Instance A: Entity ID = A, Source ID = S
-- Instance B: Entity ID = B, Source ID = S
+#### 3.5.3 Edit Scope
 
-Instance Aの移動・回転等はBへ伝播しない。Source Geometry等の共有内容変更はSource Revision更新としてDependent Instanceへ伝播する。
+高頻度なMove、Scale、Rotate、許可されたInstance Override等では毎回Source編集確認を要求しない。
 
-#### 3.5.3 Source State / Instance State / Override
+一方、共有内容そのものを変更するときはEdit Scopeを `Shared Source` として明確に区別する。同じGestureが状況によって無言でInstance Local編集とShared Source編集を切り替えることを避ける。具体UIはSection 4 / 5で決定する。
 
-Source側には共有すべきContent / Parameterを置き、Instance側には配置・個別状態を置く。
+#### 3.5.4 Duplicate / Linked Instance / Make Unique
 
-Instance OverrideはSource Dataの完全Copyではなく差分として保持できる。Sourceの非Override部分が更新された場合はInstanceへ追従する。
+通常DuplicateとLinked Instance生成は別操作とする。通常Duplicateしただけで意図しない共有関係を作らない。
 
-Override可能項目はSource Typeごとに明示する。すべてを無制限にOverride可能にして共有の意味を失わせない。
+Make UniqueではSourceを複製して新Source IDを作り、対象Instanceを新SourceへRebindする。Instance自身のEntity IDと配置は原則維持する。
 
-例:
+Detach / Rasterize等で通常Local Contentへ変換する場合は3.4のIdentity規則に従う。
 
-- Linked Shape: GeometryをSource共有、Transform / Color等をInstance側でOverride可能。
-- Image Material: 元画像をSource共有、Transform / Tiling等をInstance側へ保持。
-- Procedural Material: Generator DefinitionをSource共有、Scale / Rotation / Color / Random State等をInstance側へ保持。
-- Linked Text Style: Typography StyleをSource共有し、Text本文は各Text Entityが保持。
-- Shared Modifier: Effect DefinitionをSource共有し、Enabled / Mask / 許可されたLocal Override等を適用側へ保持。
+#### 3.5.5 Internal / External Source
 
-#### 3.5.4 Source編集とInstance編集
-
-通常操作ではInstance固有状態を直接編集できることを優先する。Move、Scale、Rotate、許可されたColor / Parameter Override等の高頻度操作でSource編集確認を毎回要求しない。
-
-共有内容そのものを変更するときだけSource編集として明示し、複数Instanceへ影響することがユーザーに理解可能なUIを後続UX設計で提供する。
-
-#### 3.5.5 Duplicate / Linked Instance / Make Unique
-
-通常DuplicateとLinked Instance生成を別操作とする。通常Duplicateしただけで意図せず共有関係を作らない。
-
-Make Uniqueでは現在Sourceを複製して新Source IDを作成し、対象InstanceのSource Referenceを新Sourceへ付け替える。Instance自身のEntity IDは原則維持できる。
-
-Source / Instance関係を通常Local Contentへ変換するDetach / Rasterize等も可能とする。ユーザーから見て同じNodeの表現方式変更として扱える場合は3.4のIdentity規則に従う。
-
-#### 3.5.6 Internal / External Source
-
-SourceはInternal SourceとExternal Sourceを区別する。
-
-- **Internal Source**: `.illustro` Project内部にCanonical Dataを保持し、Project単体で完全再現可能。
+- **Internal Source**: Project内部にCanonical Dataを保持する。
 - **External Source**: 外部File等をCanonical Originとして参照する。
 
-External Sourceはlocator、last-known content / cache、last-known revision、status等を保持できる。外部Fileがmissing / unavailableになっても、最後に正常取得した表示状態を保持し、作品全体を開けなくしない。
+External SourceはLocator、Last-known Content / Revision、Status等を保持可能とし、外部SourceがMissingでも最後に正常取得した状態を利用して作品全体を開けなくしない。
 
-External Sourceの欠落・更新状態はProject Health Check等から確認できるようにする。
+外部Source更新検出とArtworkへの即時適用を同義にしない。自動更新Policy等の具体UXはSection 4 / 5 / 6で決定する。
 
-#### 3.5.7 Source Revision / Snapshot
+#### 3.5.6 Source Revision / Snapshot
 
-SourceはEntity IDとRevisionを分離する。
+通常InstanceはSourceのCurrent Revisionへ追従できる。一方、History、Checkpoint、Snapshot、Branch等で過去状態を正確に再現するため、Document Revision Rootから特定Source Revisionを不変参照できる。
 
-通常編集ではInstanceはSourceの最新Revisionへ追従できる。一方、History、Checkpoint、Export Snapshot、Branch等で過去状態を正確に再現するため、特定Source Revisionを固定参照できるモデルを許可する。
+#### 3.5.7 Propagation
 
-#### 3.5.8 Propagationと体感0ラグ
+Source変更時に全Dependent Instanceを同期再計算してから操作を返さない。Source Generation / Revision更新によってFreshnessを判定し、Active / Visible / Next-needed Instanceを優先してResolveできる。
 
-Source → Instance関係はDependency Graph上の明示関係として追跡できる。ただしSource更新時に全Dependent Instanceの完全再計算完了をユーザー操作の返答条件にしない。
+Source更新時の大量Fan-outを直接操作Latencyへ乗せない。
 
-基本原則は `Invalidationは即時、Recomputationは需要駆動・局所優先` とする。
+#### 3.5.8 Source削除
 
-Source変更時はDependentをDirty化し、Visible / Active / Interaction上必要なInstanceを優先評価できる。多数の非表示Instanceや画面外Instanceの再評価のために直接操作を待たせない。
+参照中Internal Sourceを暗黙削除してDangling Referenceを作らない。Delete、Make Unique、Local Content化等の解決Semanticを用意する。External MissingはInternal Dangling Referenceとは別概念とする。
 
-#### 3.5.9 Procedural Random State
+---
 
-Procedural Material等、Randomnessを含むSource / InstanceではProject再Openや再評価で見た目が意図せず変化しないよう、再現可能なRandom State / SeedをInstance Stateとして保持できる。
+### 3.6 Dependency / Relation Model — 確定
 
-具体的な乱数方式はAlgorithm設計で決定する。
+#### 3.6.1 万能Graphを作らない
 
-#### 3.5.10 Source削除とDangling Reference
+概念上Dependency Systemを持つが、すべてを1個の巨大General-purpose Graph Engineへ押し込むことを要求しない。Relation Typeごとに専用Index / Runtime表現を持てる。
 
-参照中のInternal Sourceを暗黙削除してDangling Referenceを発生させない。
+主な系統:
 
-必要に応じてSource削除前に、Dependent Instance削除、Make Unique、Local Content化等の解決操作を提供する。具体的UXは後続章で決定する。
+- Source relations
+- Render dependencies
+- Derived-data dependencies
+- Semantic references
+- Parameter sharing
+- Constraint relations
+- External-resource relations
 
-External SourceのMissing状態は、Internal Sourceの不正なDangling Referenceとは別概念として扱う。
+Containment、Ownership、Dependencyを分離する。
 
-### 3.6 Dependency Graph Model — 確定
+#### 3.6.2 Relation Semantics
 
-#### 3.6.1 基本原則
-Dependency GraphはCanonicalな依存関係を表現するが、すべての操作を通す単一の万能Graph実装を要求しない。Relation Typeごとに専用Index / Runtime表現を持てる。
+Dependencyは少なくともHard / Soft / Derived / Semantic(Query)等の性質を区別できる。
 
-Containment、Ownership、Dependencyを分離する。Dependencyは少なくともHard / Soft / Derived / Semantic(Query)の性質を区別できる。
+- **Hard**: Sourceが失われるとTargetの意味が成立しない。
+- **Soft**: Missing時もLast-known / degraded stateで作品を維持できる。
+- **Derived**: Layer Stack等のCanonical semanticsから計算可能なRuntime relation。
+- **Semantic / Query**: `role=lineart`等のDynamic relation。
 
-ClippingのCanonical SemanticsはLayer Stack基準とし、内部Dependency Edgeは追跡・無効化用の派生Cacheとして利用できる。
+Semantic QueryはQuery + Resolution Policy + Resolved Setとして意味を明確にし、暗黙のfirst-matchを禁止する。例えば `all role=lineart`、`active role=lineart`、明示Set等を区別できる。
 
-#### 3.6.2 Realtime解決
-Brush、Lasso、Transform等の直接操作ではGraph全探索を行わない。Interaction開始時にTarget、Transform、Selection、Mask、Clip、Ruler、必要なReference等をActive Interaction Contextへ解決し、その後のInput Sampleは解決済みRuntime状態を利用する。
+#### 3.6.3 Generation-based Freshness
 
-現在のVisible Resultに必要なMask / Clip等はRealtime Pathへ含め、正確性を犠牲にしない。一方、非表示Layer、画面外Instance、Export Cache、Storage、全体Topology解析等は直接操作の同期完了条件にしない。
+大規模Fan-out relationではSource側Generationを進め、Consumerが利用時に `lastSeenGeneration` と比較してFreshnessを確認するPull方式を基本にできる。
 
-#### 3.6.3 ChangeSet / Invalidation
-変更は単なる「Document changed」ではなく、changed entity、change kind、affected bounds、generation / revision等を表現できるChangeSetとして伝播可能とする。
+Small / latency-critical relationでは軽量なPush notificationを許可する。ただし、**Push notificationは許可してもPush recursive computationは原則禁止**する。
 
-InvalidationとRecomputationを分離する。依存元変更時はDependentを軽量にDirty化し、Active / Visible / Next-needed Dataを優先して需要駆動で再評価できる。
+```text
+Mutation
+  ↓
+Generation / ChangeSet update
+  ↓
+Optional bounded notification
+  ↓
+Return
 
-Lineart → Boundary → Stable Region → Persistent Fillの依存Chainは局所Change propagationを前提とし、全Topology再解析をBrush Hot Pathへ置かない。
+Consumer demand
+  ↓
+Freshness check
+  ↓
+Needed region / result resolve
+```
 
-Selection Recipeも現在利用中の場合だけInteractive更新を優先し、未使用Recipeの再評価で直接操作を待たせない。
+#### 3.6.4 ChangeSet
 
-#### 3.6.4 Cycle Policy
-Evaluation系依存（Source→Instance、Modifier evaluation、Selection Recipe、Derived Data等）は無限再評価Cycleを許さない。
+変更は単なる `Document changed` だけでなく、少なくとも次を表現可能とする。
 
-Parameter LinkはA↔BのEvent連鎖ではなくShared Parameterを複数Consumerが参照するモデルを基本とする。
+- changed entity
+- change kind
+- affected bounds / scope
+- generation / revision
+- relation-specific metadata
 
-Geometric Constraintは通常Evaluation Graphとは分離したConstraint Solver Networkとして扱い、Relation意味ごとにCycle Policyを定義する。
+これにより後続章でDirty Region中心の局所処理を可能にする。
 
-#### 3.6.5 UX利用
-Dependency情報は影響関係ビュー等へ利用可能とする。ただし内部Graphの複雑さを日常UIへそのまま露出しない。
+#### 3.6.5 Demand Priority
+
+Dependency recomputationは概念上、Active Interaction、Current Viewport、Next-needed Dataを優先し、非表示・画面外・未使用Derived Dataを後回しにできる。
+
+具体Scheduler / Resource BudgetはSection 8 / 9で決定する。
+
+#### 3.6.6 Lineart Dependency
+
+Lineart → Boundary → Stable Region → Persistent Fill等のChainは局所Change propagationを前提とし、全Topology再解析をBrush Hot Pathへ置かない。
+
+ユーザーがFill / Selection等で現在利用しようとしているRegionについては、その利用範囲のFreshnessを確認してから正しい結果を返す。古いTopologyを黙って利用しない。
+
+#### 3.6.7 Parameter / Constraint / Cycle
+
+Parameter LinkはA→B→AのEvent連鎖ではなくShared Parameterを複数Consumerが参照するモデルを基本とする。
+
+Geometric Constraintは通常Evaluation Graphとは分離したConstraint Solver Networkとして扱える。Cycle PolicyはRelation Typeごとに定め、Source→Instance、Modifier evaluation、Selection Recipe等で無限再評価を許さない。
+
+---
 
 ### 3.7 Selection / Mask / Region Model — 確定
 
-#### 3.7.1 Selection体系
-Active Selection、Selection Construction、Quick Mask Edit State、Saved Selection、Selection Recipe、Stable Regionを別概念とする。
+#### 3.7.1 Selection ValueとSelection Recipeを分離する
 
-Active SelectionはDocument単位の現在の編集Coverageで、原則Document Spaceに存在する。Selectionは1bitだけでなく0.0〜1.0相当の連続Coverageを表現可能とし、Feather、Anti-alias、Soft Brush Selection等を共通に扱える。
+Illustroでは以下を別概念とする。
 
-Selection Geometry / Input ConstructionとRaster Coverageを分離できる。Lasso、Rectangle、Ellipse、Brush、Magic Wand等はSelection Construction Stateを持ち、New / Add / Subtract / Intersectを同じInteraction / Transaction原則へ載せる。
+- Active Selection Value
+- Selection Construction State
+- Quick Mask Edit State
+- Saved Selection Value
+- Selection Recipe
+- Stable Region
 
-#### 3.7.2 Lasso / Interactive Construction
-投げ縄のPointer Releaseを重いSelection生成処理の開始点にしない。Pointer Move中にGeometryと必要な派生状態を逐次構築し、Release時は残りのBounded Tailを閉じて即Commit可能であることをモデル要件とする。
+**Active Selection / Saved Selectionは原則Frozen Valueであり、Selection RecipeはDynamic Procedureである。**
 
-Selection Construction中の結果は単なる偽Previewではなく、そのInteractionで利用可能な第一級Interactive Stateとする。Release後にCanvas全面再Scan、全Polygon再Raster、History Serialization、Dependency全評価等を待ってからSelection表示する構造は禁止する。
+例えばLayer AlphaからSelectionを作成した場合、その時点のLayer Revisionに基づくSelection Valueを成立させ、元Layerが後から変化しても通常Selectionが勝手に変形しない。一方Selection RecipeはSourceのCurrent Revisionを再評価してLive rebuildできる。
 
-Magic Wand / Live Tolerance等もInteractive Construction → Commit規約へ統一する。
+#### 3.7.2 Logical SelectionとMaterialized Coverage
 
-#### 3.7.3 Quick Mask / Saved Selection / Recipe
-Quick MaskはActive SelectionをBrush等で直接編集するInteraction Modeであり、別の恒久Entityとはしない。巨大なFull Mask Copyを開始条件にしない。
+Selection Valueは必ずしもCanvas全面Raster Maskとして物理化する必要はない。意味を固定したまま、次のようなLogical Representationを利用可能とする。
 
-Saved SelectionはStable IDを持つ永続EntityとしてSaved Selection Registryへ保存し、Visual Composite Treeへ普通のArtwork Layerとして無理に混在させない。
+- closed lasso / geometric representation
+- rectangle / ellipse geometry
+- immutable source revisionに基づくvalue representation
+- sparse / partial coverage representation
+- selection expression
+- materialized coverage
 
-Selection Recipeは生成手順、Selection Coverageは結果として分離する。RecipeはInput / Operation / ParameterとCached Resultを持て、未使用RecipeはDirtyのまま遅延再評価可能とする。
+Toolが実際に必要とする領域だけExact CoverageへMaterializeできる。
 
-#### 3.7.4 Mask / Region
-Selection、Layer Mask、Effect Mask等は共通Coverage表現を利用可能だが、Semantic Entity、Ownership、Lifetimeは別とする。
+Logical representationを採用してもSelection Valueの意味はFrozenであり、元SourceのCurrent Stateへ自動追従してはならない。
 
-Layer MaskはOwner Local Spaceを基本とし、内部モデルとして複数Mask Stackを許容できる。
+#### 3.7.3 Selection Coverage
 
-Stable RegionはSelectionとは別Entityで、Lineart GroupのBoundary Topology / Region Tableに属する。Region IdentityとRaster Coverageを分離し、RegionごとにCanvas-size Maskを恒常保持することを要求しない。Regionは必要時にSelection / Fill用CoverageへResolveできる。
+Selectionは1bitだけでなく連続Coverageを表現可能とし、Feather、Anti-alias、Soft Brush Selection、Quick Mask等を共通に扱える。
 
-#### 3.7.5 History / Latency
-Selection変更は原則Undo対象だが、Pointer Sampleごとではなく1 Selection Interactionを1論理Transactionとする。Selection HistoryはDocument Historyとは別のRecent Selection Registryとして保持可能とする。
+Selection、Layer Mask、Effect MaskはCoverage技術を共有可能だが、Semantic Entity、Ownership、Lifetimeは別とする。
 
-Selection機能の高機能化をLasso Release latency悪化の理由にしてはならない。
+#### 3.7.4 Lasso / Construction
+
+LassoのPointer Releaseを重いCanvas全面Selection生成の開始点にしない。
+
+```text
+Pointer Move
+  ↓
+Geometry / Constructionを逐次更新
+  ↓
+Pointer Up
+  ↓
+Bounded Tail close
+  ↓
+Frozen Logical Selection ValueをCommit
+```
+
+Release後にCanvas全面Polygon Rasterization、History Serialization、全Dependency評価等を完了してからSelectionを成立させる構造は禁止する。
+
+必要なMaterialized CoverageはActive / likely-needed範囲を優先して準備可能とするが、その準備自体がForeground Interactionを奪わないことを要求する。
+
+#### 3.7.5 Add / Subtract / Intersect
+
+New / Add / Subtract / Intersectを同じTransaction semanticsへ載せる。内部的にSelection Expressionとして保持可能だが、Expressionが無制限に深くなり次操作を重くすることを許容しない。Compaction / Materializationの具体方式はSection 9で決定する。
+
+#### 3.7.6 Quick Mask / Saved Selection
+
+Quick MaskはActive Selection ValueをBrush等で編集するInteraction Modeであり、別の恒久Artwork Entityではない。開始時のFull Canvas Copyを要求しない。
+
+Saved SelectionはStable IDを持つFrozen Selection ValueとしてRegistryへ保存する。Visual Composite Treeへ普通のColor Layerとして無理に混在させない。
+
+#### 3.7.7 Selection Recipe
+
+Selection RecipeはInput、Operation、Parameter等からSelection Valueを生成する再評価可能Procedureとする。Cached Resultを持てるが、未使用Recipeの再評価を直接操作の同期条件にしない。
+
+RecipeをActive Selectionとして適用する場合は、適用時点でFrozen Valueを生成する方式と、明示的にLive-bound Selectionとして利用する方式をUX上区別できるようにし、普通のSelectionを意図せずDynamic化しない。具体UXはSection 5で確定する。
+
+#### 3.7.8 Stable Region / Persistent Fill
+
+Stable RegionはSelectionとは別Entityで、Lineart GroupのBoundary Topology / Region Tableに属する。
+
+通常の `Select Region` は、その時点のRegion形状をFrozen Selection Valueとして取得する。Lineart変更後に既存Selectionが勝手に変形しない。
+
+一方Persistent Fill、Boundary-based paint restriction等、明示的にRegion追従を目的とする機能はStable Region IDへのLive Referenceを利用できる。
+
+Region IdentityとRaster Coverageを分離し、RegionごとにCanvas-size Maskを恒常保持することを要求しない。
+
+#### 3.7.9 Layer Mask
+
+Layer MaskはOwner Local Spaceを基本とし、Link / Unlinkに応じて独立Transformを持てる。内部モデルとして複数Mask Stackを許容できるが、初期UI露出はSection 4 / 5で決める。
+
+#### 3.7.10 Selection History / Latency
+
+Selection変更は原則Undo対象だがPointer Sampleごとではなく論理Selection操作単位で扱う。Selection HistoryはDocument Historyとは別のRecent Selection Registryとして保持可能とする。
+
+Selection高機能化をLasso Release latencyや次Brush開始latency悪化の当然の理由にしない。
+
+---
 
 ### 3.8 Effect / Modifier Model — 確定
 
 #### 3.8.1 Modifier分類
-Modifierは元Dataを直接破壊せず、Parameterに従って派生結果を生成する処理Entityとする。
 
-- **Attached Modifier**: 特定Owner Nodeへ付く。Filter、Transform、Displacement等。
+Modifierは元Dataを直接破壊せずParameterに従って派生結果を生成する処理Entityとする。
+
+- **Attached Modifier**: 特定Ownerへ付く。Filter、Transform、Displacement等。
 - **Stack Modifier**: Visual Stack位置によって下位Compositeへ作用する。Adjustment等。
 - **Shared Modifier**: Shared Definitionを複数Applicationが参照する。
 
-Effect DefinitionとModifier Applicationを分離可能とし、Modifier Stackの順序、Enabled state、Parameter、Mask等をCanonical Stateとして保持する。
+Effect DefinitionとModifier Applicationを分離可能とし、順序、Enabled state、Parameter、Mask等をCanonical Stateとして保持する。
 
 #### 3.8.2 Interactive Parameter Editing
-Slider、Canvas Handle、Transform等の高頻度Parameter操作はActive Modifier Interactionとして即時反映し、1 Drag / 1論理操作を1TransactionとしてCommitする。
 
-Canonical History生成、全Modifier再評価、全Document CompositeをParameter Sampleごとの同期必須処理にしない。
+Slider、Canvas Handle、Transform等の高頻度Parameter操作はInteractive Stateとして即時反映し、Logical RevisionへAtomic Commitする。Parameter SampleごとにHistory Serialization、全Modifier再評価、全Document Compositeを同期必須にしない。
 
-低品質Previewで本処理の遅さを隠すことを0ラグ達成とはみなさない。本来必要な処理自体をInteractiveに成立させることを目標とする。
+低品質Previewへ別Algorithmを切り替えて本処理の遅さを隠すことを0ラグ達成とはみなさない。目標は必要な現在領域へSemanticに正しい結果を効率よく求めることである。
 
-#### 3.8.3 Influence / Derived Cache
-EffectはLocal / Bounded Expansion / Global等のInfluence特性を表現可能とし、Input Bounds / Output Bounds / Influence Boundsを区別できる。
+#### 3.8.3 Influence Semantics
 
-中間Render結果はDerived CacheでありCanonical Artwork Dataではない。有効な中間結果、Resolved Input、Cached Bounds等を保持・再利用し、変更のたびに必ずChain先頭から再計算することを要求しない。
+EffectはLocal / Bounded Expansion / Global等のInfluence特性を表現可能とし、Input Bounds、Output Bounds、Influence Boundsを区別できる。
 
-Effect MaskはModifier ApplicationのAttachmentとし、Coverage Field系を利用可能とする。
+これにより後続Algorithmで変更範囲中心の評価を可能にする。Global Effectであっても毎Sample全CanvasをゼロからScanする実装を当然とはしない。具体的なhierarchical summary等はSection 9で決定する。
 
-#### 3.8.4 Transform / Liquify / Shared Parameter
-TransformはModifier概念へ統合できるが、非常に高頻度な直接操作のため専用Realtime Fast Pathを許可する。Canonical Conceptの統一を理由に汎用Modifier EngineをHot Pathの関所にしない。
+#### 3.8.4 Derived State / Evaluation Preparation
+
+Modifierの中間Render結果、Resolved Input、Cached Bounds、Evaluation preparation等はDerived Runtime StateでありCanonical Artwork Dataではない。
+
+Modifier Stack / Structureが変わった際にResolved Evaluation Plan等を準備・Cache可能とするが、Parameter変更だけで毎回全Structureを再構築することを要求しない。具体的Compile / Cache方式はSection 8 / 9で決定する。
+
+#### 3.8.5 Visible Exactness
+
+Current Viewport / Active TargetではCurrent Logical Revisionに対して意味的に正しい結果を最優先する。Document全域を常に事前計算済みにする必要はなく、画面外はDirty / Lazy状態を許可する。
+
+これは品質を落とすApproximationではなく、計算対象を必要領域へ限定する考え方である。
+
+#### 3.8.6 Mask / Transform / Liquify
+
+Effect MaskはModifier ApplicationのAttachmentとし、3.7のCoverage semanticsを利用可能とする。
+
+TransformはModifier概念へ統合可能だが、高頻度直接操作であるためRuntime専用Fast Pathを許可する。Canonical Conceptの統一を理由に汎用Modifier engineをHot Pathの関所にしない。
 
 Non-destructive LiquifyはDisplacement Modifierとして扱える。Restore BrushはDisplacement Stateを局所的に戻す操作として設計可能とする。
 
-Parameter LinkはShared Parameterを複数Modifierが参照するモデルを基本とする。
+#### 3.8.7 Recipe / Variant / Sweep / Bake
 
-#### 3.8.5 Recipe / Variant / Sweep / Bake
-Effect Recipeは再利用可能なModifier Chain Templateとし、適用後の過去作品をPreset変更で暗黙更新しない。共有が必要な場合はShared Modifierを使う。
+- Effect Recipe: 再利用可能なModifier Chain Template。Preset変更で既適用作品を暗黙更新しない。
+- Shared Modifier: 明示的な共有Definition。
+- Effect Variant: 保存されたParameter候補状態。
+- Parameter Sweep: 一時Interactive比較状態。
 
-Effect Variantは保存されたParameter候補状態、Parameter Sweepは一時的なInteractive比較状態として区別する。
+DisableではModifier Stateを保持する。Bake / Rasterizeは明示的な破壊操作とし、性能都合だけで勝手に実行しない。
 
-DisableではModifier Stateを保持する。Bake / Rasterizeは明示的な破壊操作とし、性能都合で勝手に実行しない。
+#### 3.8.8 Fast Path Consistency
 
-Modifier Chainの長さや高コストEffectの存在をBrush / Penの直接操作Latency悪化の当然の理由にしない。
+Realtime Fast PathとExport / Background Pathは実装が異なってよいが、Blend、Mask、Sampling、Modifier Parameter等のCanonical Semanticsを共有する。Fast Pathだけ結果が変わることを許容しない。
+
+Modifier Chainの長さや高度Effectの存在をBrush / Pen latency悪化の当然の理由にしない。
+
+---
 
 ### 3.9 History / Snapshot / Branch Model — 確定
 
-#### 3.9.1 Operation / Transaction / State
-Operation、Transaction、History State、Snapshot、Checkpoint、Branchを別概念とする。
+#### 3.9.1 Operation / Revision / Transaction / History State
 
-Undo単位は内部処理都合ではなく、ユーザーが「今の操作を戻したい」と認識する論理操作を基準とする。多数のPointer Sampleを含む1 Stroke / 1 Selection / 1 Parameter Drag等を原則1Transactionとして扱い、SampleごとのHistory State生成を要求しない。
+Operation、Document Logical Revision、Transaction、History State、Snapshot、Checkpoint、Branchを別概念とする。
 
-Continuous Transactionにより、Canvas Drag、Inspector微調整、数値入力等が同一論理操作である場合は1Undo単位へまとめられる。
+Pointer Sample単位でHistory Stateや永続Revisionを作らない。一方、Continuous Transaction中でも意味的に成立した直接操作結果はAtomic Logical Revisionへ採用できる。
 
-#### 3.9.2 HistoryとRealtimeの分離
-History生成のためのFull Document Copy、History Serialization、Autosave、Recovery書き込み等を直接操作の表示・次操作開始条件にしない。
+1 Transactionは複数Logical Revisionを束ねられる。
 
-Undo / RedoはHistory State切替後のVisible Resultを最優先し、StorageやThumbnail、Index更新を待たせない。
+```text
+base R100
+  ↓ Interaction A
+R101
+  ↓ Interaction B
+R102
+  ↓ Interaction C
+final R103
 
-Transaction Commit後、History Indexing、Recovery、Autosave、Timelapse metadata、Storage compaction等は直接操作を阻害しない形で追従可能とする。
+Transaction T = R100 → R103
+```
 
-#### 3.9.3 Branching History
-Undo後に新規編集した場合、旧Redo経路を捨てずBranchとして保持する。通常UIでは現在Branchを普通のUndo/Redo履歴として見せ、内部のBranch Graph複雑性を常時ユーザーへ押し付けない。
+UndoではTのBaseへ戻り、RedoではFinalへ進める。
 
-Branch間では共通祖先の同一Entity IDを維持し、異なるRevisionを持てる。Branch MergeはCommon Ancestorを基準とし、安全に統合できる変更のみ自動統合し、意味が曖昧なConflictを勝手に破壊的解決しない。
+#### 3.9.2 Change Capture
 
-History PreviewとRestoreを分離する。過去Stateを見るだけで現在作業を破壊せず、Restore後も元の現在経路をBranchとして保持可能とする。
+Commit後にBefore / AfterのCanvas全体を比較してHistory差分を探すことを要求しない。Interaction中に既に判明しているAffected Entity、Affected Bounds、Operation semantics等を軽量にCapture可能とする。
 
-#### 3.9.4 Snapshot / Checkpoint
-Snapshotは特定の論理Document Stateを不変の読み取り対象として固定する概念であり、Full Physical Copyを意味しない。Document / Node / Source Revision等を共有参照しつつ論理的不変性を保証できる。
+History生成のためのFull Document Copy、History Serialization、Thumbnail、Search Index更新等を直接操作の表示・次操作開始条件にしない。
 
-SnapshotをBackground Export、Compare、Variant Base等の共通基盤とする。描きながらExportではSnapshot作成後もCurrent Document編集を継続できる。
+#### 3.9.3 Immutable Revision / Structural Sharing
 
-Named CheckpointはStable ID、対象History State、Name等を持つ永続地点とし、Projectを閉じても保持する。
+Logical Revisionは不変の意味を持ち、変更されていないEntity / Content Revisionを共有可能とする。Branch、Snapshot、UndoのためにDocument全体を毎回物理Copyすることを要求しない。
 
-Autosave / Recovery CheckpointはユーザーUndo Historyと分離し、Undo一覧をMaintenance項目で汚さない。
+物理的なCopy-on-Write、Tile versioning、Immutable Block等はSection 8 / 9で決定する。
 
-#### 3.9.5 Variant / Search / Timelapse / Compaction
-Copy-on-Write Project VariantはProject Library上で独立して扱える作品案、History Branchは一つのProject内の編集履歴経路として区別する。Variantは共通Baseから開始し、未変更Dataを論理共有可能とする。
+#### 3.9.4 Undo / Redo
 
-History EntryはTool、affected Entity、Command、Timestamp、Affected Bounds等の検索用Metadataを持てるが、Index更新をInput Hot Pathへ入れない。
+Undo / RedoはTarget History StateのVisible Resultを最優先する。Storage、Indexing、Thumbnail等を待たせない。
 
-TimelapseはMeaningful Operation Streamと必要なVisual Checkpointを利用でき、内部Maintenance操作を含めない。
+直近Historyを高速に再利用するためRuntime上Recent State / Derived Cacheを優先保持可能とするが、Hot / Warm / Coldの具体PolicyはSection 8 / 9で決定する。
 
-長時間制作でHistoryが巨大化しても現在のBrush / Lasso等を遅くしない。History Compaction、Cold Storage、Derived Cache eviction等を可能にするが、ユーザーが認識するUndo / Checkpoint / Branch semanticsを勝手に変更しない。
+古いHistoryへ移動した瞬間だけ無制限Replayが必要になる構造を避け、Snapshot / Checkpoint等によって復元距離をBound可能とする。
 
-View / Workspace操作は原則Artwork Undoへ混在させない。
+#### 3.9.5 Branching History
+
+Undo後に新規編集した場合、旧Redo経路をただちに破棄せずBranchとして保持できる。
+
+```text
+      R100
+      /  \
+   R101A R101B
+```
+
+Branch作成のためにDocument全体をCopyすることを要求しない。通常UIでは内部Graph複雑性を常時露出せず、現在Branchを普通のUndo / Redoとして扱える。
+
+Branch MergeはCommon Ancestorを基準とし、安全に統合可能な変更だけを自動統合する。意味が曖昧なConflictを勝手に破壊的解決しない。
+
+#### 3.9.6 Snapshot / Checkpoint
+
+Snapshotは特定Document Logical Revision Rootを不変に参照する概念であり、Full Physical Copyを意味しない。
+
+Background Export、Compare、Variant Base等の共通基盤とする。
+
+Named CheckpointはStable ID、対象Revision / History State、Name等を持つ永続地点とし、Project再Open後も保持可能とする。
+
+Autosave / Recovery CheckpointはUser Undo Historyと分離し、Undo一覧をMaintenance項目で汚さない。
+
+#### 3.9.7 Project Variant
+
+Copy-on-Write Project VariantはProject Library上で独立して扱える作品案、History Branchは1 Project内の編集履歴経路として区別する。Variantは共通Base Revisionから開始し、未変更Dataを論理共有可能とする。
+
+#### 3.9.8 Recent Stroke Re-edit
+
+直前Stroke再編集は過去Revisionを破壊的に書き換えない。再編集結果は新しいLogical Revisionとして生成する。
+
+同じContinuous Transaction内であればUndo上は元Stroke作成と再編集を1 Transactionへ束ねられる。別の論理操作を挟んだ後の再編集は通常新Transactionとして扱う。
+
+#### 3.9.9 Timelapse / Search / Compaction
+
+History EntryはTool、Command、Affected Entity / Bounds、Timestamp等のMetadataを持てるが、IndexingをInput Hot Pathへ入れない。
+
+TimelapseはMeaningful Operation Stream / Visual Checkpointを利用でき、Storage compaction等のMaintenanceを作品操作として扱わない。
+
+History規模増大を現在のBrush / Lasso latency悪化の理由にしない。CompactionやCold Storageの物理方式は後続章で決定する。
+
+---
 
 ### 3.10 Transaction / Interactive State / Commit / Cancel Model — 確定
 
-#### 3.10.1 共通Lifecycle
-Brush、Lasso、Transform、Fill、Gradient、Effect Parameter、Liquify、Shape Editing等の直接操作を、原則 `Idle → Begin → Interactive Update → Commit / Cancel → Idle` の共通Lifecycleへ載せる。
+#### 3.10.1 Common Lifecycle
 
-Interaction Begin時にTarget、Base Revision、Coordinate Transform、Selection、Mask、Clipping、Ruler / Constraint、必要Dependency、Parameter、Transaction Identity等を解決したActive Interaction Contextを構築できる。Pointer SampleごとにVisual Tree / Dependency Graph全探索を繰り返さない。
+Brush、Lasso、Transform、Fill、Gradient、Effect Parameter、Liquify、Shape Editing等の直接操作を原則として次のLifecycleへ載せる。
 
-#### 3.10.2 Interactive State
-Interactive Stateは単なる見た目だけのFake Previewではなく、その場で継続操作できる第一級の作業状態とする。
+```text
+Idle
+  ↓
+Begin
+  ↓
+Interactive Update
+  ↓
+Atomic Logical Commit / Cancel
+  ↓
+Idle or next Interaction
+```
 
-Section 2のPreview → Commit規約は、内部モデル上はInteractive State → Canonical Commitとして解釈する。低品質仮表示で本処理の遅さを隠すことを0ラグ達成とはみなさない。
+Toolごとに実装は異なってよいが、Begin / Interactive / Commit / Cancelの意味を可能な限り統一する。
 
-Updateは `Input → Resolved Interaction Context → Minimum Necessary Update → Interactive State → Present` の最短経路を基本とする。
+#### 3.10.2 Prepared Interaction Context
 
-#### 3.10.3 Commit / Release
-Commitは現在のInteractive Resultを正式なDocument Stateとして採用する論理境界であり、重い本処理を開始する瞬間とはしない。
+Active Tool、Active Target、Selection、Mask、Clip、Ruler、Modifier relation等が変化した時点で、高頻度操作に必要なPrepared Contextを事前解決可能とする。
 
-Pointer Up / Release時にCanvas全面Rasterize、全Document Composite、History Serialization、Autosave、Persistence、Dependency全評価等を開始して、その完了を表示や次操作開始の条件にする設計は禁止する。
+Prepared Contextには各SubsystemのGeneration Stamp等を保持できる。Pointer Down時はCurrent Generationとの軽量比較を行い、有効なら即利用し、一部だけStaleなら必要部分だけPatchする。
 
-操作中から実際のInteractive Stateを形成し、Release時は残りのBounded WorkだけでLogical Commitできる構造を目標とする。Commit後のHistory、Persistence、Recovery、Dependency Propagation、Boundary / Region更新、Collaboration、Maintenance等は直接操作を阻害しない形で追従可能とする。
+Prepared ContextのValidity確認のためにGraph全走査を行わない。
 
-#### 3.10.4 Cancel
-CancelはBegin直前のCanonical意味状態へ高速に復元する。CancelのためにInteraction Begin時のFull Canvas Copyを要求しない。
+#### 3.10.3 First Sample / Sustained Interaction
 
-Retained Base、Reversible Delta、Copy-on-Write、Transient Surface等の具体方式は技術・アルゴリズム設計で決定する。Cancel自体も待ち時間を伴う操作にしない。
+Pointer Down直後のFirst Visible Sampleを優先し、前InteractionのMaintenance、Thumbnail、Offscreen Derived Work等がFirst Sampleを遅らせないことを要求する。
 
-#### 3.10.5 Transaction / Continuous Transaction
-Transaction境界は内部処理単位ではなく、ユーザーが1回のUndoで戻したいと認識する論理操作を基準とする。
+同時にFirst Sampleだけ速く後続が詰まることを許容しない。長尺Stroke等でもInteraction処理量が無制限に過去入力へ比例しない構造を要求する。Stable Prefix、Bounded Mutable Tail、Frame-aligned batching等の具体AlgorithmはSection 9で確定する。
 
-多くの場合1 Interaction = 1 Transactionとするが、Canvas Handle、Inspector、Slider、Numeric Input等を跨いで同一意味の編集を継続する場合はContinuous Transactionとして1 Undo単位へまとめられる。
+#### 3.10.4 Interactive Working State
+
+Interaction中だけTransient Mutable Stateを持てる。
+
+例:
+
+```text
+Base Logical Revision R100
++
+Active Transaction Working State
++
+Current Interactive Result
+```
+
+Interactive StateはFake Previewではなく、そのInteractionで継続利用できる第一級状態とする。
+
+#### 3.10.5 Atomic Logical Commit
+
+CommitはInteractive Resultを新しいDocument Logical Revisionへ原子的に採用する境界である。
+
+```text
+R100
+  ↓ Interactive Working State
+Commit
+  ↓
+R101 = Current Logical Revision
+```
+
+Commitされた瞬間、R101が作品の正しい現在状態となる。Commit後に「Canonical化待ち」の意味的Pending Stateを残さない。
+
+Commit後に遅延してよいのはPersistence、Recovery補助、Derived Data更新、History Index、Collaboration送信、Maintenance等であり、Canonical Reconciliationという概念を通常経路に置かない。
+
+次Interactionは直前Commit済みRevisionを必ずBaseとして観測できる。このRead-your-writes保証をSection 3不変条件とする。
+
+#### 3.10.6 Commit Complexity
+
+Pointer Up / Release / Commit時に、Canvas全面Rasterize、全Document Composite、全History Serialize、全Graph Evaluate等を行い、その完了を次操作開始条件にしない。
+
+Commit必須処理は原則として今回変更したWorking Set / Bounded Tailに比例させる。Canvas Area、総Layer数、History長、Graph規模、総Instance数への比例を避ける。
+
+#### 3.10.7 Cancel
+
+CancelはTransaction Begin直前の意味状態へ高速に戻す。CancelのためにBegin時Full Canvas Copyを要求しない。
+
+Transient Working StateをdiscardしBase Logical Revisionを再びCurrentとして利用できる概念を基本とする。具体的COW / Reversible Delta等はSection 8 / 9で決定する。
+
+Cancel可能ToolはTransaction確定前に不可逆な破壊Mutationを完了させない。
+
+#### 3.10.8 Continuous Transaction
+
+多くの場合1 Interaction = 1 Transactionとするが、Canvas Handle、Inspector、Slider、Numeric Input等を跨いで同じ意味の編集を継続する場合はContinuous Transactionとして複数Atomic Logical Revisionを1 Undo単位へ束ねられる。
 
 Temporary / Spring-loaded Tool ContextとDocument Transactionを分離し、一時Eyedropper等のTool切替だけで不必要にArtwork Transactionを破壊しない。
 
-#### 3.10.6 Parameter / View / Multi-input
-同じParameterをSlider、Canvas Handle、Numeric Field、Shortcut等の複数Surfaceから操作しても、別々の状態を持たず同一Parameter Stateを共有する。
+Tool切替時のCommit / Cancel PolicyはTool semanticsごとに明示し、場当たり的な暗黙動作を避ける。
 
-Artwork InteractionとPan / Zoom / View Rotation等のView Interactionは原則分離し、Pen DrawingとTouch Navigation等の同時操作を成立可能とする。View操作をArtwork Undoへ混在させない。
+#### 3.10.9 Multi-input / View Interaction
 
-Interactionは必要なBase Revision / Dependency Generationを保持でき、共同編集等で外部Stateが変化しても進行中の直接操作を不必要に破壊せず、安全な境界で新Stateへ移行できるモデルとする。
+Artwork InteractionとPan / Zoom / View Rotation等のView Interactionを分離し、Pen DrawingとTouch Navigation等の同時操作を成立可能とする。
 
-#### 3.10.7 Backpressure / Reconciliation
-Interactive Updateは無制限な未処理Queueの蓄積を前提としない。入力処理が表示より遅れた場合に古いSample処理を延々と消化して現在位置へ追いつく構造を避ける。
+各Artwork Input Sampleは受信時View GenerationでDocument Spaceへ解決し、後からViewが変化しても過去Sample座標を再解釈しない。
 
-具体的なCoalescing、Stable Prefix、Bounded Mutable Tail、Frame-aligned Batching等はAlgorithm設計で決定する。
+View操作を原則Artwork Undoへ混在させない。
 
-Interactive Runtime表現とCanonical保存表現が異なる場合はCommit後にCanonical Reconciliationを追従可能とするが、Reconciliation完了まで同じ対象の次Interactionを原則Lockしない。
+#### 3.10.10 Backpressure / Pending Work
 
-#### 3.10.8 Failure / Metadata / Recent Stroke
-Background Persistence、Autosave等の失敗と、既に成立したArtwork Stateを分離する。保存失敗を理由にCommit済みArtworkを消さない。
+Realtime Input、Derived Work、Persistence補助等を無制限Queueとして蓄積することを前提としない。
 
-TransactionはID、Type、Affected Entity、Affected Bounds、Result Revision、Semantic Label等のMetadataを持てるが、Metadata構築・IndexingをPointer Sample Hot Pathへ入れない。
+Workには少なくとも次の意味的性質を持たせられる。
 
-直前ストローク再編集はRecent Editable Stroke Stateとして入力Sourceを一時保持し、Brush、Size、Color、Opacity、Dynamics等を変更して再評価可能とする。単純なUndo→再描画とは別機能として扱う。
+- **must preserve**: 失ってはいけないSemantic Operation / History等。
+- **latest wins**: Thumbnail、Project Preview、Offscreen derived result等。
+- **mergeable / coalescible**: Dependency invalidation、保存対象changed blocks等。
 
-#### 3.10.9 Section 3 Realtime不変条件
-Section 3で定義した高度なCanonical Modelは、直接操作Hot Pathを遅くする理由にしてはならない。
+具体Queue、Frame scheduler、Coalescing algorithmはSection 8 / 9で決定する。
 
-直接操作の基準経路は `Input → Resolved Interaction Context → Minimum Necessary Computation → Interactive State → Visible Result` とする。
+#### 3.10.11 Canonical vs Durable
 
-Canonical Logical Commit後のHistory、Dependency Propagation、Boundary / Region更新、Persistence、Autosave、Collaboration、Maintenance等は別経路として追従可能とし、前者を構造的にブロックしない。
+**Logical Canonical State**と**Durable Persistent State**を分離する。
 
-Commit後に次Interactionを直ちに開始できることを基本要件とする。
+例えばCurrent Logical RevisionがR150、Storageへ安全に反映済みのDurable RevisionがR147という状態はあり得る。この場合Artworkの正しい現在状態はR150であり、R148〜R150がFake Previewという意味ではない。
+
+Durability Watermark、Recovery Journal、Autosave cadence等の具体設計はSection 6 / 8で確定する。
+
+ただし直接操作を優先する結果、Recovery-critical workが永久に実行されないことも許容しない。後続SchedulerではRealtime foregroundを最優先しつつ、最低限のDurability処理へstarvation-freeなSafety Laneを確保することを要求する。
+
+#### 3.10.12 Background Resource Isolation
+
+History、Persistence、Boundary、Offscreen evaluation等を非同期化してもCPU / GPU / Memory bandwidthは共有Resourceである。
+
+したがって後続技術設計では、Direct InteractionとVisible PresentationがBackground WorkよりResource優先権を持つことを要求する。Speculative / Warm workはForeground Budgetを侵食した場合にYield可能でなければならない。
+
+具体的Resource Governor、GPU submission policy、Memory budget、Thermal / Battery制御はSection 7 / 8 / 9で決定する。
+
+#### 3.10.13 Failure Semantics
+
+Persistence、Autosave、External Source、Collaboration等のBackground failureと、既にLogical CommitしたArtwork Stateを分離する。保存失敗だけを理由にCommit済みArtworkをその場で消さない。
+
+一方、Durabilityが追いついていないことによるData-loss riskを「0ラグ」の名目で隠してはならない。Operational Status / Error FeedbackのUXはSection 4 / 6で決定する。
+
+#### 3.10.14 Realtime Semantic Consistency
+
+Realtime Fast Path、Undo表示、Background Renderer、Export Renderer等は実装が異なってもCanonical Semanticsを共有する。
+
+特にBrush、Blend、Selection Coverage、Mask、Clipping、Modifier、Color management等について「Realtimeだけ見た目が違う」「Exportすると変わる」を構造上の許容事項にしない。
+
+---
 
 ### 3.11 Section 3 完了条件
 
-Project / Document / Canvas / View、座標系、Layer Tree / Node、Identity、Source / Instance、Dependency、Selection / Mask / Region、Effect / Modifier、History / Snapshot / Branch、Transaction / Interactive Stateの基本概念をもって、Section 3「基本概念・データモデル」を完了とする。
+Project / Document / Canvas / View、Coordinate Systems、Layer Tree / Node、Identity / Revision、Source / Instance、Dependency / Relation、Selection / Mask / Region、Effect / Modifier、History / Snapshot / Branch、Transaction / Interactive Stateの基本概念をもってSection 3「基本概念・データモデル」を完了とする。
 
-Section 3の最上位判断基準は内部モデルの美しさではなく、ユーザー体験、一貫した意味、直接操作の体感0ラグである。後続のUX、保存、非機能、技術、アルゴリズム設計で矛盾または性能上の問題が判明した場合は、勝手に例外実装で回避せず、本章へ戻って正本を改訂する。
+本章では以下を最終不変条件として確認する。
+
+1. Interaction中だけTransient Mutable Stateを持ち、Commit時にはLogical Canonical Revisionが成立する。
+2. Document Logical RevisionとUser Transactionを分離し、Continuous Transactionと即時Logical Commitを両立する。
+3. Active / Saved SelectionはFrozen Value、Selection RecipeはDynamic Procedureとして区別する。
+4. ClippingのCanonical意味はLayer Stack / adjacencyとし、Runtime relationはDerivedとする。
+5. DependencyはGeneration / Demand-driven評価を利用可能とし、Recursive eager recomputationを直接操作へ強制しない。
+6. History、Branch、SnapshotはImmutable Revision semanticsと整合し、Document全体物理Copyを必須にしない。
+7. Logical Canonical StateとDurable Persistent Stateを分離しつつ、Recovery-critical処理の永久starvationを許容しない。
+8. Active / Visible結果を優先し、画面外・非表示・未使用Derived DataをLazyにできる。
+9. Canonical Modelの高度さを直接操作Hot Pathへそのまま持ち込まない。
+10. 後続のUX、保存、非機能、技術、Algorithm設計で本章と矛盾が判明した場合は例外実装で隠さず、本Source of Truthへ戻って改訂する。
