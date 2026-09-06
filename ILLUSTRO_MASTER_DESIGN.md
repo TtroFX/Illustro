@@ -2951,3 +2951,1520 @@ Section 4は次を満たした時点で完了とする。
 以上をもってSection 4「全体UX / UI設計」を確定・完了とする。
 
 次章では、Section 2で採用した各機能について、Toolごとの挙動、Parameter、状態遷移、Default、相互作用、詳細UIをSection 5「各機能の詳細仕様」として確定する。
+
+## 5. 各機能の詳細仕様 — 確定
+
+### 5.0 この章の位置づけと共通規約
+
+本章はSection 2で採用した全機能について、ユーザーから見える挙動、主要Parameter、状態遷移、Default、相互作用、導線、Commit / Cancel、Error / Empty / Disabled stateを確定する。内部Data Layout、GPU API、Tile Size、Scheduler、Cache Policy、具体AlgorithmはSection 8 / 9へ送る。
+
+#### 5.0.1 Direct / Quick / Detailの3段階
+
+全Tool / Object / Effectは可能な限り次の3段階へ整理する。
+
+- **Direct**: Canvas上の直接操作。Stroke、Handle、Node、Guide等。
+- **Quick**: Properties、Context Bar、PiP、Quick Hole等の高頻度Parameter / Command。
+- **Detail**: 詳細設定、Studio、Advanced Settings、Effect Detail等。
+
+同じParameterが複数Surfaceに現れる場合もCanonical Parameter Stateを共有し、Surfaceごとに別値を持たない。
+
+#### 5.0.2 Interaction Lifecycle
+
+Canvas直接操作、Slider drag、Numeric scrub等の連続編集は原則Section 3.10のLifecycleへ載せる。
+
+`Begin → Interactive Update → Atomic Logical Commit / Interaction Cancel`
+
+表示中のInteractive ResultはFake PreviewではなくCurrent Effective Stateの一部であり、低品質版へ切り替えて遅延を隠すことをDefault解決にしない。
+
+#### 5.0.3 Parameter Control共通仕様
+
+- SliderはDrag中連続更新、pointer upでInteractionを閉じる。
+- 数値Fieldは直接入力、Arrow key increment、scrub、Relative Input `+N / -N / ×N / ÷N` を共通対応する。
+- 単位がある値はUnit-awareとし、px / % / deg等を明示する。
+- Reset可能Parameterは個別ResetとGroup Resetを持つ。
+- Defaultから変更された値は必要に応じて視覚識別できる。
+- Fine AdjustmentはmodifierまたはPointer perpendicular controlで利用可能にする。
+- Parameter rangeを超える入力は安全な有効範囲へClampし、勝手な別単位解釈をしない。
+
+#### 5.0.4 Destructive / Non-destructive
+
+非破壊表現がSection 2で採用されている処理は、可能な場合**非破壊適用をPrimary Route**とする。破壊適用 / Bake / Rasterizeは明示Commandとし、性能都合だけで暗黙Bakeしない。
+
+破壊操作でもUndoで完全復元可能な通常操作には毎回Confirmationを出さない。Undoで戻せない、外部Dataを失う、History範囲を越えて不可逆になる操作だけ強い確認を要求する。
+
+#### 5.0.5 Tool Family / Subtool
+
+Tool Rail Familyは1 Tapで直近Subtoolを再選択し、Active Family再Tap、Long Press、Mouse secondary affordance等でSubtool Flyoutを開く。Long Pressだけを唯一の入口にしない。
+
+Tool切替時に進行中Interactionがある場合、各Toolの明示Policyに従いCommit / Cancelを決める。Tool切替自体だけで不要なArtwork Transactionを生成しない。
+
+#### 5.0.6 Default Shortcut Map
+
+主要Defaultを次とする。すべてRemap可能とする。
+
+- `B`: Brush
+- `E`: Eraser
+- `S`: Blend / Smudge family
+- `G`: Fill
+- `L`: Selection family
+- `V`: Transform
+- `I`: Eyedropper
+- `U`: Shape / Path
+- `T`: Text
+- `Space` hold: Temporary Pan
+- `R` hold: Temporary View Rotate
+- `[` / `]`: Brush Size down / up
+- `X`: Main / Sub Color swap
+- `D`: Main / Sub Color reset
+- `Ctrl/Cmd + Z`: Undo
+- `Ctrl/Cmd + Shift + Z`: Redo
+- `Ctrl/Cmd + K`: Global Command Search
+- `Tab`: Canvas Focus Mode toggle
+- `Enter`: Commit current cancellable interaction
+- `Esc`: Dismissal Stack最前面 / current interaction cancel
+
+OS予約Shortcutと競合する場合はPlatform profileで代替する。
+
+#### 5.0.7 Empty / Loading / Error
+
+- Empty stateは次に行えるPrimary Actionを1つ以上提示する。
+- LoadingでCanvas Direct Interactionを不必要にBlockingしない。
+- Background処理中も編集可能なら明示して継続を許可する。
+- Errorは発生箇所に近いSurfaceへ出し、Global fatal errorと局所Errorを分ける。
+- unsupported / unavailable featureはDisabled理由をTooltip / Detailで説明する。
+
+---
+
+### 5.1 ドキュメント / キャンバス
+
+#### 5.1.1 New Document
+
+Primary Routeは `File > New` / Project Library `New`。DialogはWidth、Height、DPI、Background、Transparency、Color Profile、Basic Expression Mode、Presetを持つ。
+
+Default:
+- Color mode: RGB Color
+- Profile: sRGB（端末 / OSがDisplay-P3制作を明示選択した場合のみP3）
+- Background: White
+- DPI: 300
+- Unit display: px
+
+最近使ったSizeをRecent Presetとして保持し、Named Presetを作成可能。Preset変更後も個別値を編集できる。
+
+#### 5.1.2 Canvas Size / Image Size
+
+**Canvas Size**はArtwork scaleを変えずCanvas Rectだけ変更する。Anchor positionを3×3 gridで選べ、数値Offsetも入力可能。Canvas外ArtworkはSection 3.1に従い保持する。
+
+**Image Size**はArtwork自体をResampleする。Width / Height link、Aspect lock、Interpolationを持ち、Apply前に結果寸法と推定Memory impactを表示する。変更は1 Transaction。
+
+#### 5.1.3 Crop / Trim / Extend
+
+CropはCanvas上の直接矩形＋Propertiesの数値入力。Defaultは非破壊CropとしてCanvas Rectを変更し、枠外Artworkを保持する。明示`Delete outside artwork`のみ破壊Crop。
+
+TrimはTransparent / Background-equivalent edgeを解析してCanvas Rectを縮める。実行前に対象基準を選択する。
+
+Canvas Extendは方向別数値、Anchor、Background treatmentを持つ。
+
+#### 5.1.4 Artwork Flip / Rotate
+
+Artwork Flip / RotateはDocument Menuから実Dataへ適用し、View Mirror / View Rotateと明確に区別する。Command名に`Artwork` / `View`の意味を反映する。
+
+#### 5.1.5 View Navigation
+
+Pan / Zoom / View Rotate / MirrorはArtworkを変更せずHistoryに混在させない。
+
+- Fit: Canvas / Active Frame全体をViewportへ収める。
+- 100%: Document pixelとdisplay pixelの1:1を基本とする。
+- Mirror View: Artwork未変更の左右反転表示。
+- Pixel View: 拡大時に補間を抑えPixel boundaryを確認しやすくする。
+- View Rotate Reset: 0°へ即復帰。
+
+Zoom levelはView Pageと必要時の小型readoutに表示し、常時大型Sliderを置かない。
+
+#### 5.1.6 Grid / Guide / Transparency
+
+GridはSpacing、Subdivision、Origin、Color、Opacity、SnapをAssist / Viewから編集する。GuideはCanvas drag生成と数値作成の両方を持つ。GuideのDeleteはCanvas外へdragまたはContext Command。
+
+透明領域はcheckerboardをDefaultとし、色 / sizeをSettingsから変更可能。Artworkの白とCanvas外領域を混同しない。
+
+#### 5.1.7 Overscan Canvas
+
+Canvas外Artworkは通常編集可能だが、標準ExportにはCanvas / Frame Rectだけを使用する。Canvas外内容はView設定で`Show outside canvas`を切替可能。非表示にしてもDataは保持する。
+
+#### 5.1.8 Frame Variant
+
+View PageのFrame blockから追加・複製・名前変更・削除・Active切替。Canvas上ではFrame boundary / handlesでMove / Resizeし、Aspect Ratio Presetまたは任意比率を選べる。
+
+Frame VariantはArtworkをCropせず出力矩形だけ定義する。Export RecipeはFrameを明示参照できる。Active Frame削除時はDefault Canvasへ戻る。
+
+#### 5.1.9 View Anchor
+
+View PageからCurrent Pan / Zoom / Rotationを名前付きAnchorとして保存する。Tapで瞬間移動。Anchor更新は明示`Update from current view`。Artwork Historyとは別。
+
+---
+
+### 5.2 描画 / ブラシ
+
+#### 5.2.1 Brush Family
+
+Brush / Eraser / Blendは同一Stroke interaction規約を共有しつつ、作用Semanticsを分ける。
+
+- Brush: Color / Alphaを付与。
+- Eraser: Alphaを減少。
+- Blend: Existing artworkをSmudge / Blur等で再配置・平滑化。
+
+Stroke開始時にActive targetがPaint不可ならCanvas近傍へ理由を表示し、無反応にしない。
+
+#### 5.2.2 Brush Properties
+
+Propertiesの高頻度項目をDefaultで次とする。
+
+1. Preset
+2. Size
+3. Opacity
+4. Flow
+5. Stabilization
+6. Main / Sub Color
+
+Brush Page / Advanced SettingsではTip、Spacing、Texture、Dynamics、Jitter、Scatter、Watercolor、Taper等を編集する。
+
+#### 5.2.3 Size / Opacity / Flow / Density
+
+- SizeはDocument-space基準をDefaultとし、Canvas-relative optionをSettingsで選べる。
+- OpacityはStroke全体の実効Alpha上限。
+- Brush DensityはDab自体の濃度。
+- Flowは移動距離に伴う継続堆積量。
+
+名前とTooltipで違いを明示し、OpacityとFlowを同義扱いしない。
+
+#### 5.2.4 Tip / Spacing / Angle
+
+TipはRound / Image / Custom / Multipleを許可。Aspect、Hardness、Initial Angle、Direction-follow、Flip、Antialiasを持つ。
+
+SpacingはBrush Diameter比率表示を基本とし、非常に低いSpacingで性能負荷が高くなる場合も勝手に値を上げず、必要なら警告する。
+
+#### 5.2.5 Dynamics
+
+Pressure / Speed / Tilt / Rotation / Direction / Randomを入力SourceとしてSize、Opacity、Density、Blur / texture等へMappingする。各MappingはEnable、Min/Max influence、Curveを持つ。
+
+入力DeviceがSourceを提供しない場合はそのMappingだけNeutral valueを使い、Preset自体を破壊的変更しない。
+
+#### 5.2.6 Stabilization / Taper
+
+StabilizationはRealtimeとPost-correctionを別Parameterとして見せる。強度0はRaw pathに最も近い挙動。Drawing中のCursor / path feedbackを遅延の隠蔽目的で別品質にしない。
+
+TaperはEntry / Exit Size、Opacity、Forced taperを持つ。Stroke finalize時に全Stroke replayを同期必須にしない。
+
+#### 5.2.7 Texture / Jitter / Scatter
+
+TextureはAsset、Scale、Rotation、Offset、Strength、Invert、Blendを持つ。JitterはPosition / Size / Opacity / Rotation / Color等を独立調整。ScatterはParticle size / density / width / bias / directionを持つ。
+
+乱数を使うPresetは同一Stroke再編集 / History再現で視覚結果を再現できるSemantic Seedを保持する。
+
+#### 5.2.8 Watercolor / Mixing
+
+Watercolor familyはMixing、Water amount、Color extension、Transparent mixing等をProperties quick group + Detailで扱う。高度な物理流体SimulationはSection 2除外どおり導入しない。
+
+#### 5.2.9 Anti-overflow / Lineart-limited Paint
+
+`Anti-overflow`はSelection / Reference / Boundary sourceをPropertiesから選ぶ。`Paint inside lineart`はLineart Boundary / Stable Region freshnessを確認し、古いTopologyを黙って使用しない。
+
+Boundary準備不足時はCanvas上で対象範囲だけResolveし、全Document処理をStroke開始の前提にしない。
+
+#### 5.2.10 Recent Stroke Re-edit
+
+直近再編集可能Strokeがある場合、Properties / History contextual commandから`Re-edit Last Stroke`を起動。Size、Color、Opacity、Dynamics、Stabilization、Taper、互換Brush変更をInteractiveに再評価する。
+
+別の意味的編集を挟んだ後は新Transaction。元Historyを破壊せず新Revisionを作る。
+
+#### 5.2.11 Brush Morph
+
+互換Preset A/Bを選択し0–100% Morph値で連続補間。非互換ParameterはCategoryごとに`A until midpoint / B after midpoint`等の明示PolicyをUIに示し、黙って欠落させない。Morph結果は新Presetとして保存可能。
+
+#### 5.2.12 Inherited Brush Family
+
+Child PresetはParentとの差分Overrideを表示する。Inherited valueはlink indicator、Overrideはaccent indicator。`Reset to inherited`で個別Override解除。Parent変更時はChildの非Override項目だけ追従。
+
+#### 5.2.13 Built-in Preset Baseline
+
+初期内蔵Presetは**40種**をBaselineとし、過剰な重複を避ける。
+
+- Sketch 6: HB Pencil / 2B Pencil / Mechanical Pencil / Rough Pencil / Colored Pencil / Soft Graphite
+- Ink 8: G Pen / Mapping Pen / Round Pen / Technical Pen / Brush Pen / Dry Ink / Felt Pen / Monoline
+- Paint 8: Opaque Round / Flat Paint / Gouache / Acrylic / Soft Paint / Chalk Paint / Oil-like / Poster Brush
+- Watercolor 6: Round Wash / Wet Wash / Edge Watercolor / Granulating Wash / Water Blend / Dry Watercolor
+- Air / Spray 4: Soft Airbrush / Hard Airbrush / Fine Spray / Grain Spray
+- Dry / Texture 5: Charcoal / Crayon / Pastel / Dry Media / Paper Grain
+- Utility 3: Pixel 1px / Fill Brush / Soft Mask Brush
+
+Preset名はLocalized表示可能だがStable internal IDを持つ。User presetを内蔵Preset更新で上書きしない。
+
+---
+
+### 5.3 ペン / タッチ / 入力
+
+#### 5.3.1 Pen
+
+PenはDefaultでArtwork Direct Manipulation owner。Pressure / Tilt / Azimuth / Rotation / Hover / Buttonsを利用可能な範囲で取得する。Hover時はBrush outline / target previewを表示可能。
+
+Pen button defaultはQuick Eyedropper候補とするがRemap可能。
+
+#### 5.3.2 Touch
+
+Penが利用中のDefault profileではFingerはNavigation。Finger DrawingはSettingsで有効化可能。Palm rejection中に無効化したTouchをGestureとして誤解釈しない。
+
+#### 5.3.3 Mouse / Trackpad
+
+Primary clickはTool action。Middle / Space+dragはPan。Wheel / trackpad pinchはZoom、trackpad rotate対応環境ではView Rotateを利用可能。Right clickはContext Menu。
+
+#### 5.3.4 Pressure Calibration
+
+Global pressure curveはDevice Profile単位。Calibration UIはlight / normal / hard stroke sampleを複数回取得し、結果CurveをPreviewする。Apply前にTest padで確認できる。
+
+Brush preset側CurveはGlobal補正後の入力へ追加Mappingする。
+
+#### 5.3.5 Gesture Defaults
+
+- Two-finger tap: Undo
+- Three-finger tap: Redo
+- Two-finger move: Pan / Pinch Zoom / Rotate
+- Configurable long press: Quick Eyedropper
+
+GestureとArtwork inputが競合する場合、Pointer ownershipとmovement thresholdで確定し、一度Artwork Strokeとして開始したPointerを途中でGestureへ奪わない。
+
+#### 5.3.6 Coalesced / Raw Input
+
+対応環境では高頻度Sampleを利用する。API差により取得不能でも同じTool semanticsを維持する。Sample量増大を無制限queue化しないことはSection 8 / 9で扱う。
+
+#### 5.3.7 Hand Occlusion
+
+利き手、Pointer位置、画面端を考慮し、Tooltip、Numeric readout、Context Bar等を手の反対側へ配置する。ユーザーが移動したFloating UIを毎回自動移動しない。
+
+#### 5.3.8 Input Role Profile / Conflict Diagnostics
+
+Preset profileは`Drawing / Navigation balanced`をDefaultとし、Lineart / Painting / User-definedを作成可能。Gesture / button / shortcutの同一割当を検出した場合、Conflict diagnosticsが両方を一覧化し、優先順位を明示する。
+
+---
+
+### 5.4 カラー
+
+#### 5.4.1 Color Page
+
+Color PageはCurrent / Previous、Main / Sub、Wheel、Components、History、Paletteを基本Blockとし、Block単位Collapse / PiP可能。
+
+WheelはHue ring + Saturation/Value areaをDefaultとし、HSV / RGB / HEX / Alphaの数値入力へ即切替できる。
+
+#### 5.4.2 Main / Sub / Previous
+
+Main ColorがPrimary drawing color、Sub ColorがSecondary。`X`でswap、`D`でDefaultへReset。Previous Colorは直前確定Colorを保持し、Current editing中の一時値と区別する。
+
+#### 5.4.3 Palette
+
+Paletteは複数作成、Rename、Reorder、Import / Export。Swatchはdrag reorder、Tap apply、ContextでRename / Delete / Duplicate。Current colorを空Slotへ追加可能。
+
+#### 5.4.4 Eyedropper
+
+Sampling sourceはCurrent Layer / Visible Composite / Reference。Sample radiusを1px / average regionで選択。Hover / drag中はLoupe、Current→Candidate comparisonを表示。
+
+Visible Composite samplingで寄与Layer候補が取得可能な場合、明示Commandから候補Layerへ移動できる。自動でActive Layerを変更しない。
+
+#### 5.4.5 Gradient Editing
+
+Linear / Radial / Free GradientはCanvas上Handleでstart / end / center / radius等を直接操作し、StopはColor / Alphaを別管理できる。Stop reorder、duplicate、delete、midpointをサポート。
+
+Gradient Layer / Mapは非破壊Modifier / Layerとして再編集可能。Raster bakeは明示Command。
+
+#### 5.4.6 Mixing / Intermediate / Similar
+
+Mixing Paletteは複数色をStroke / blendして一時混色を作り、ResultをMain Color / Paletteへ送れる。Intermediate / Similar Colorは現在色から関係色候補を生成し、候補Tapで適用する。
+
+#### 5.4.7 Color Match
+
+Reference sourceをCanvas / Layer / Selection / Reference Imageから選び、Targetへ色関係を合わせる。Strength / preserve luminance等の高頻度ParameterをPropertiesへ出し、非破壊Effectとして適用するのをDefaultとする。
+
+#### 5.4.8 Color Relation Lock / Component Lock
+
+Relation Lockは基準色とHue / Saturation / Lightness差を保持し、Palette全体を相対移動する。Component LockはHue / Saturation / Lightness(Value)単位で固定。Lock状態はColor Pageに常時識別可能に表示する。
+
+#### 5.4.9 Live Artwork Palette
+
+Canvas / Layer / Selectionから主要色を抽出するDynamic block。SourceとRefresh状態を表示し、抽出候補をPaletteへ保存した時点で通常Swatchになる。Live Palette自体はArtwork revisionを変更しない。
+
+---
+
+### 5.5 レイヤー / 合成
+
+#### 5.5.1 Layer Row / Selection
+
+Layer RowはVisibility、Thumbnail、Name、必要時Status badgeを基本とする。Single tapでActive、modifier / multi-select modeでMultiple Selection。
+
+Folder / Mask / AttachmentはIndentでOwnershipを表現。高度Relationを通常Rowへ過剰表示しない。
+
+#### 5.5.2 Layer Creation
+
+`+`からRaster / Vector / Text / Fill / Gradient / Adjustment / Image Material / Folder等を選択。最頻Rasterは1 Tap creationを許可。新Layerは現在位置の上へ追加をDefaultとする。
+
+#### 5.5.3 Reorder / Folder
+
+DragでBefore / After / Insideを明確にPreview。Folder Pass-through / IsolatedはPropertiesで切替。Cycleや不正OwnershipになるDropは拒否し理由表示。
+
+#### 5.5.4 Visibility / Lock / Alpha Lock
+
+EyeでVisibility。Lock badgeはLocked時のみ強く表示。Transparent Pixel LockはProperties / Row contextから切替。Locked targetへ描画しようとした場合、無反応ではなくlocal feedbackを出す。
+
+#### 5.5.5 Opacity / Blend Mode
+
+Selected layerのOpacity / Blend ModeはProperties上部へ常設。Blend ModeはSearchable list + category grouping。複数Layer選択で値が混在する場合Mixed stateを表示する。
+
+#### 5.5.6 Mask
+
+Layer Mask追加はBottom Strip `Mask`。Mask rowはOwner childとして表示し、Thumbnail選択でMask edit targetになる。Link / UnlinkはProperties。Featherは非破壊Parameter。
+
+Selection↔Mask conversionはSelection Menu / Mask context両方から到達可能。
+
+#### 5.5.7 Clipping
+
+ClippingはStack adjacency semanticsをUIでも維持する。Clipped rowをindent / connectorで表示し、Base変更はReorderで理解可能。不可視の永続Base tetherをPrimary UXにしない。
+
+#### 5.5.8 Object / External / Embedded Source
+
+Embedded / External objectはLink badgeを持ち、PropertiesにSource name / status / Edit Source / Update / Relink / Make Uniqueを表示。Missing external sourceでもLast-known表示を維持し、Relink actionを提示する。
+
+#### 5.5.9 Layer Role
+
+RoleはPropertiesからLineart / Base Color / Shadow / Highlight / Background / Reference / User-definedを割当。通常制作で必須入力にしない。Role Filter / semantic queryに使用できる。
+
+#### 5.5.10 Focus Set
+
+複数Layer visibility状態をFocus Setとして保存。Activateで一時Solo等を適用し、Deactivateで元Visibilityを完全復元する。Focus Set変更は通常Artwork pixel editではなくWorkspace / Document semantic stateとして扱う。
+
+#### 5.5.11 Influence View
+
+明示`Influence View`でMask / Clipping / Adjustment / Reference / Object Link等をOverlay / connector表示。通常Layers Pageへ常設Graphを出さない。
+
+#### 5.5.12 Layer Property Effects
+
+Border / Watercolor Edge / Layer Color / Texture EffectはPropertiesのEffect blockから非破壊設定。Stack ModifierとOwner-attached effectをUI上で区別できるlabel / nestingを用意する。
+
+---
+
+### 5.6 選択 / マスク
+
+#### 5.6.1 Selection Family
+
+Default SubtoolsはLasso、Rectangle、Ellipse、Polygon、Brush、Auto / Magic、Color Range、Magnetic、Enclose。Family Tapは直近Subtool、Flyoutから切替。
+
+#### 5.6.2 Selection Mode
+
+Properties先頭にNew / Add / Subtract / IntersectをSegmented Controlで表示。Mode変更はSelection Constructionの意味を変えるが、それ自体でSelection revisionを生成しない。
+
+#### 5.6.3 Lasso / Geometric Selection
+
+Pointer move中にPath / geometryを逐次表示。ReleaseでBounded tail close後すぐFrozen Logical Selection Valueを成立させる。Canvas全面Rasterization完了をSelection成立条件にしない。
+
+Rectangle / Ellipseはdrag中にBounds / size readout、modifierでcenter / aspect constraintを使える。
+
+PolygonはTapでvertex、double tap / Enterでclose、Backspaceで直前vertex削除、EscでInteraction cancel。
+
+#### 5.6.4 Auto / Magic / Color Range
+
+Auto SelectionはTap candidateからToleranceをLive調整可能。Drag gestureでToleranceを連続調整するOptionを持つ。Reference sourceはCurrent Layer / Reference Layer / Visible Composite / Lineart Boundary。
+
+Color RangeはSample color、Tolerance / Fuzziness、Selection previewを持つ。
+
+#### 5.6.5 Brush Selection / Quick Mask
+
+Brush SelectionはPaintしてCoverageを増減する。Quick MaskはActive SelectionをMask Overlayで直接編集するMode。Quick Mask exit時にFrozen Active SelectionをCommitし、普通のColor Layerを作らない。
+
+#### 5.6.6 Selection Display
+
+DefaultはContrast halo + Magenta/Violet accent outline。表示ModeとしてOutline / Mask Overlayを切替可能。Overlay opacity / colorはSettingsで変更可能。
+
+#### 5.6.7 Selection Launcher
+
+Selection成立時、対象近傍にTransform / Fill / Cut / Copy / Invert / Deselect / MoreをDefault表示。ユーザーCustomize可能。手 / pen occlusionを避けて配置し、描画中やTransform中は不要に重ねない。
+
+#### 5.6.8 Expand / Contract / Feather / Invert
+
+Expand / Contractはpx数値、FeatherはradiusをInteractive Previewできる。Applyで1 Selection Transaction。Preview中のCancelは元Selectionへ戻る。
+
+#### 5.6.9 Selection ↔ Layer / Mask
+
+Alpha→Selectionはその時点のSource RevisionからFrozen Selectionを作る。Selection→Mask、Mask→Selectionも明示Command。元Source後変更でFrozen Selectionが勝手に変わらない。
+
+#### 5.6.10 Selection History / Pinning
+
+Recent Selection RegistryをHistory Page / Selection contextから開く。Recent itemをTapでrestore、PinでSaved Selectionへ昇格。通常Document Historyとは別表示。
+
+#### 5.6.11 Saved Selection
+
+Named Saved SelectionはStable IDを持ち、Rename / Duplicate / Delete / Applyが可能。ApplyはFrozen Active Selectionを生成する。
+
+#### 5.6.12 Pre-confirm Lasso Edit
+
+Lasso Release後は通常即確定。必要時のみ`Refine Path`で直近Lasso geometryのHandle編集へ入り、修正結果を新Selection revisionとしてCommit。通常操作をHandle編集待ちにしない。
+
+#### 5.6.13 Selection Recipe / Live Binding
+
+RecipeはSource + Add/Subtract/Intersect + Expand/Contract + Feather等のProcedureとして保存。`Apply`はFrozen Selection生成。`Bind Live`を明示選択した場合だけToolのSelection InputへLive Selection Bindingを作る。
+
+Binding状態はPropertiesに明示し、`Freeze`でCurrent ResultをFrozen Selectionへ変換、`Unbind`でBinding解除。通常Selectionを暗黙Dynamic化しない。
+
+### 5.7 塗りつぶし / 領域処理
+
+#### 5.7.1 Fill Family
+
+Default SubtoolsはFlood Fill、Continuous Fill、Enclose Fill、Pattern Fill、Flatting Seed。GradientはColor / Fill系機能だが独立Family ButtonにはせずFill / Color routeから起動する。
+
+#### 5.7.2 Flood Fill
+
+Properties:
+- Tolerance
+- Strength
+- Boundary basis: Color / Opacity
+- Gap detection / Gap close
+- Expand / Contract
+- Under-line expansion
+- Reference source
+- Anti-alias
+- Transparent / erase mode
+
+Tapでseedを指定し、結果は即Canvasへ反映。必要Region resolveを優先し、Canvas全面解析をTap応答の前提にしない。
+
+#### 5.7.3 Reference Source
+
+Current Layer / Reference Layer / Visible Composite / Lineart Boundaryを明示選択。Reference Layerが複数ある場合はresolved setをPropertiesで確認可能。Missing referenceは無反応にせずreason表示。
+
+#### 5.7.4 Live Tolerance
+
+Fill直後または専用gesture中にToleranceを連続変更し、Current Effective Resultを即更新できる。確定まで同一Continuous Transaction。EscでInteraction Baseへ戻る。
+
+#### 5.7.5 Continuous Fill / Swipe Fill
+
+Drag中に通過したRegionを追加し、同一Regionへの重複Applyを避ける。Backtrack Cancelが有効なModeでは軌跡を戻ることで直近追加Regionを解除可能。
+
+#### 5.7.6 Enclose Fill / Enclose Erase
+
+Lasso状に囲った領域内のeligible regionを解析し一括Fill / Erase。囲みGeometryのRelease後に結果を即成立させ、offscreen全解析を同期必須にしない。
+
+#### 5.7.7 Gap Paint / Closed-area Fill / Contour Fill
+
+Gap PaintはBrush-like inputで小さな塗り残しを対象。Closed-area Fillは閉領域候補を連続検出。Contour Fillは複数色 / lineから囲まれた範囲を指定方式で補間する。各ModeはPropertiesで作用範囲を明示する。
+
+#### 5.7.8 Persistent Region Fill
+
+Lineart Stable Region IDへColor Assignmentを関連付ける。Lineart変更後のSplit / Mergeでは自動再対応付け結果を表示し、曖昧な場合はManual Overrideを要求する。誤ったRegionへ黙ってColorを移さない。
+
+#### 5.7.9 Leak Diagnostics
+
+Fillが意図せず外へ漏れた場合、`Diagnose Leak`でLeak Path / Gap CandidateをCanvas Overlay表示。候補選択でAssist > Lineart / Gap Closeへ移動できる。Diagnostics自体はArtworkを変更しない。
+
+#### 5.7.10 Region Sweep
+
+Pointer移動でRegionを連続Addし、Backtrackで直近追加を取消可能。Releaseで1 TransactionとしてCommit。Sweep中の対象Regionはhighlightし、既追加Regionを視覚識別する。
+
+---
+
+### 5.8 線画システム
+
+#### 5.8.1 Lineart Group作成
+
+Layers `+ > Lineart Group`または選択Layerから`Create Lineart Group`。1 Layer / Multiple LayersをSourceとして指定可能。GroupはVisible lineart childrenとBoundary topologyを関連付ける。
+
+#### 5.8.2 Boundary Preview
+
+Assist > LineartでShow / Hide、Color、Opacity、Widthを変更。DefaultはArtworkを邪魔しないCyan系細線。PreviewはArtwork exportへ含めない。
+
+#### 5.8.3 Auto Boundary Generation
+
+Lineart Group作成 / source変更後にincremental generationを開始。Active viewport / requested regionを優先。Generation中もDrawingをBlockingしない。
+
+Endpoint / Junction / normal boundary nodeをCanvas overlayでinspection可能。
+
+#### 5.8.4 Gap Bridge
+
+Auto bridge candidateはConfidenceを持ち、High confidenceは通常Boundaryとして利用可能。Low confidence / ambiguousはUnresolvedとして表示し、Fill利用時に必要Regionで明示resolveする。
+
+`Reject`したcandidateにはNo-Reconnect Constraintを保存し、同条件で自動復活しない。
+
+#### 5.8.5 Manual Boundary Editing
+
+Assist > Lineart `Edit Boundary`でAdd / Connect / Remove / Split / Disconnect / Reject Auto Bridge。Manual editはdistinct provenanceを持ち、incremental regenerationで勝手に上書きしない。
+
+Node / handle操作はCanvas上Direct、exact coordinate / relationはProperties。
+
+#### 5.8.6 Virtual Union Boundary
+
+複数Boundary sourceを1つのvirtual unionとしてFill / Selectionへ供給可能。Unionはsourceを物理mergeせずreference setとして扱う。
+
+#### 5.8.7 Incremental Regeneration
+
+Lineart変更後はAffected areaをstale表示可能。現在使おうとしているFill / Selection regionのfreshnessを優先し、古いTopologyを黙って使わない。全Document再生成完了をBrush strokeの条件にしない。
+
+#### 5.8.8 Transform / Liquify Sync
+
+Lineart GroupをTransform / Liquifyした場合、Boundary / Region relationも意味的に同期する。Derived topology更新が必要でもCurrent Effective visual resultを優先する。
+
+#### 5.8.9 Confidence Heatmap
+
+Assist > Lineart DiagnosticsでBoundary confidenceをheatmap表示。通常制作では非表示。Unresolved / rejected stateは色だけでなくpattern / iconでも識別可能。
+
+#### 5.8.10 Stable Region ID
+
+Region inspectionでStable ID、lineage、Current statusを確認可能。通常ユーザーへID文字列を露出せず、Named / visual regionとして扱う。
+
+Split / Merge発生時、Persistent Fill等のdependent featureへstatus badgeを出す。Manual rebind可能。
+
+#### 5.8.11 Topology Diff
+
+Lineart更新後のNew / Deleted / Split / Merge / Connection ChangeをDiagnosticsで一覧化。通常は問題があるdependent featureだけにbadgeを出し、毎回Modalを出さない。
+
+---
+
+### 5.9 変形 / 配置
+
+#### 5.9.1 Transform Entry / Target
+
+Tool Rail TransformまたはSelection Launcherから起動。TargetはCurrent Layer / Multiple Layers / Selection / Whole Canvas / eligible Object。
+
+起動時にBounding BoxとPropertiesを表示。Transform中も元Target identityを維持し、選択変更は明示操作とする。
+
+#### 5.9.2 Modes
+
+Default modes:
+- Move
+- Scale / Rotate
+- Free Transform
+- Distort
+- Skew
+- Perspective
+- Mesh
+- Puppet Warp
+
+Mode切替は同一Continuous Transaction内で可能。Mode変更だけではCommitしない。
+
+#### 5.9.3 Direct Handles
+
+Bounds interior drag=Move、Corner=Scale、Edge=axis adjustment、Rotate affordance=Rotate、Pivot drag=Pivot。Distort / Perspective / Meshではmode-specific handlesへ切替。
+
+Touch hit targetとvisual handle sizeを分離する。
+
+#### 5.9.4 Numeric Transform
+
+PropertiesにX / Y / Width / Height / Scale% / Angle。Aspect lock、relative input、unit-aware input対応。Canvas dragとNumeric inputが同じCanonical Parameterを更新する。
+
+#### 5.9.5 Snap / Smart Guides
+
+SnapはGrid / Guide / Object / Canvas center / Frame / Ruler等のsourceを個別toggle可能。Snap成立時はline / point indicator + small labelを表示。強制Snapを一時無効にするmodifierを持つ。
+
+#### 5.9.6 Resampling
+
+Raster transformのInterpolationはNearest / Bilinear / Bicubic / Area / Lanczos2 / Lanczos3。DefaultはBicubic。Pixel art modeではNearestをQuick choiceへ出す。
+
+#### 5.9.7 Align / Distribute
+
+Multiple targetsでCanvas / Selection / Key Object基準を選び、Left/Center/Right、Top/Middle/Bottom、Equal spacingを実行。Key Objectは明示選択。
+
+#### 5.9.8 Repeat / Mirror Repeat
+
+Repeat X/Y、Mirror Repeat、PhaseをPropertiesで設定し、Canvas上ghost instancesを表示。Defaultはnon-destructive repeat modifier。Bakeは明示。
+
+#### 5.9.9 Non-destructive Transform / Stack
+
+`Add to Transform Stack`をPrimary non-destructive routeとする。StackはLayers / PropertiesでAdd / Reorder / Edit / Disable / Remove。
+
+Transform ToolでStack entryを選択するとCanvas handlesへ戻れる。
+
+#### 5.9.10 Transform Variant
+
+Current transform parameter setをVariantとして保存。A/B compare、rename、apply。Variant switchingはInteractive comparison、Applyでcurrent modifier stateをCommit。
+
+#### 5.9.11 Persistent Layout Constraint
+
+Center / Equal Spacing / Axis Alignment / Linked Position等をConstraintとして追加。Constraint active時のManual dragはsolver resultをInteractive表示。Constraint解除で現在位置を保持するかoriginal relationへ戻すかを明示Commandで選ぶ。
+
+#### 5.9.12 Commit / Cancel
+
+`✓` / EnterでCommit、`×` / EscでCurrent Interaction Cancel。Continuous Transaction全体のRevertは別Command。Tool切替時Defaultはcurrent valid transformをCommitするが、destructive ambiguous modeでは確認ではなくContext BarにCommit / Cancelを明示する。
+
+---
+
+### 5.10 ベクター / 図形
+
+#### 5.10.1 Shape / Path Family
+
+SubtoolsはLine、Curve、Continuous Curve、Rectangle、Rounded Rectangle、Ellipse、Regular Polygon、Polyline、Bezier Shape、Path Select / Edit。
+
+CreationはCanvas direct drag / tap。PropertiesにFill、Stroke、Stroke Width、Geometry parameters。
+
+#### 5.10.2 Path / Node Editing
+
+Node選択、multi-select、Move、Corner / Smooth conversion、Bezier handle direct edit。Handleは必要Nodeだけ表示しCanvas clutterを抑える。
+
+Delete Node、Join、Split / Separate、Close / Open pathをContext Bar / Propertiesから実行。
+
+#### 5.10.3 Shape Post-edit
+
+作成後もRectangle size、Corner radius、Ellipse bounds、Polygon vertex count等をeditable geometryとして保持。Rasterizeするまで再編集可能。
+
+#### 5.10.4 Smart Shape
+
+Freehand strokeをHold等でrecognized shapeへ変換するOption。Recognition candidateをCanvas上に即表示し、release後短時間の`Keep Raw / Accept Shape` routeを提供。誤認識で元strokeを失わない。
+
+#### 5.10.5 Simplify
+
+Selected pathのnode数を減らす。StrengthをInteractive previewし、shape deviationをCanvas上比較可能。Applyでnew vector revision。
+
+#### 5.10.6 SVG Import / Export
+
+SVG Importはsupported vector geometryをeditable objectへ変換。Unsupported effect / featureはImport reportで明示し、可能ならraster fallbackをユーザー選択。
+
+SVG Exportはselected vector / document vectorを出力し、raster contentはembed / omit policyを明示する。
+
+#### 5.10.7 Geometric Constraints
+
+Parallel / Perpendicular / Tangent / Equal Length / Equal Radius / Symmetryをselected geometry間に追加。Constraint iconはCanvas上必要時だけ表示し、Propertiesでrelation listを編集。
+
+#### 5.10.8 Parametric Shape
+
+Vertex Count、Radius、Inner Radius、Corner Radius、Rotation等をPropertiesで編集。Canvas handlesは意味的parameterへ直接対応。
+
+#### 5.10.9 Linked Shape
+
+`Create Linked Instance`でGeometry sourceを共有。InstanceはColor / Transform overrideを持てる。Source edit時はShared Source scopeを明示。`Make Unique`でsource cloneして同Instanceへrebind。
+
+---
+
+### 5.11 定規 / 描画補助
+
+#### 5.11.1 Assist Page構成
+
+Assist PageはRuler、Guide、Perspective、Symmetry、Lineartの主要Block。Active assistantはCanvas overlayとPropertiesに状態表示。
+
+#### 5.11.2 Ruler Types
+
+Straight、Curve、Shape、Parallel Line / Curve、Multiple Curve、Circle/Ellipse、Radial Line / Curve、Concentric Circle、Symmetry、Kaleidoscope、Array、Perspective Array、1/2/3-point Perspectiveを提供。
+
+Ruler createはCanvas direct。種類選択後、必要なanchor / line / centerを配置する。
+
+#### 5.11.3 Ruler Editing
+
+Position、Angle、Center、Phase等はCanvas handles + Properties。Ruler Snapはper-rulerとglobal master toggleを分離する。
+
+#### 5.11.4 Guide
+
+Horizontal / Vertical Guideはruler edge / Assistから生成。Named guide setへ保存可能。Guide lockで誤移動を防ぐ。
+
+#### 5.11.5 Symmetry / Kaleidoscope
+
+Axis count、center、angle、mirror / rotational modeをPropertiesで編集。Brush preview / strokeは現在effective assistantに即従う。
+
+#### 5.11.6 Perspective
+
+1/2/3-point Perspectiveはvanishing points / horizonをCanvas上で編集。画面外VPもedge indicatorで追跡可能。Perspective snap on/offをQuick toggle。
+
+#### 5.11.7 Perspective from Lines
+
+既存Artwork上で複数Line segmentを指定しVanishing Point candidateを推定。candidate confidenceとresidual errorを視覚表示し、AcceptでRuler生成。元Artworkを変更しない。
+
+#### 5.11.8 Region-limited Assist
+
+Assistantの作用範囲をCanvas region / Selectionへ限定可能。BoundaryはOverlayで表示し、outsideではsnapしない。
+
+#### 5.11.9 Layer / Position-linked Assistant Set
+
+Assistant SetをNamed保存し、Active Layer / Canvas position条件へ任意関連付け。自動切替時はsmall status feedbackを出し、現在SetをAssist Pageで確認できる。
+
+---
+
+### 5.12 ゆがみ / 特殊描画 / 修正
+
+#### 5.12.1 Liquify Entry
+
+`Filter > Liquify`またはCommand SearchからCanvas direct Liquify Modeへ入る。Primary routeはnon-destructive Displacement Modifier。
+
+PropertiesはBrush Size、Strength、Mode、Guard、Reconstruct / Restoreを表示。
+
+#### 5.12.2 Liquify Modes
+
+Drag / Push / Pinch / Expand / Smooth / Reconstructを提供。Pointer drag中Current Effective Stateへ即反映。Mode switchは同一Continuous Transaction内で可能。
+
+#### 5.12.3 Non-destructive Displacement Field
+
+Liquify結果はDefaultでDisplacement Modifierとして保持し、後からEdit / Disable / Reorder可能。`Bake Liquify`のみrasterize。
+
+#### 5.12.4 Restore Brush
+
+Restore BrushはDisplacementを局所的に元へ戻す。Strength 100%でoriginal displacement stateへ近づける。元Raster contentを描き直すToolではない。
+
+#### 5.12.5 Warp Guard
+
+Free / Partial / ProtectedのMaskをBrushで編集。Guard overlayをtoggle可能。Protected areaをLiquifyしてもvisual no-opだけにせずcursor / overlayで保護状態を示す。
+
+#### 5.12.6 Lasso Paint / Lasso Erase
+
+Brush family / special routeから起動。囲ったGeometry内をPaint / Eraseし、releaseで1 Transaction。Selectionを別途作らず直接作用するModeとして識別する。
+
+#### 5.12.7 Clone / Copy Pen
+
+Source anchorをAlt/Option系temporary pickまたはPropertiesから指定。Source indicatorとoffset vectorをCanvas表示可能。Aligned / non-aligned samplingを切替。
+
+#### 5.12.8 Smudge / Local Blur
+
+Blend FamilyからSmudge / Blurを選択。Size、Strength、Sample source等をPropertiesへ。Brush stroke semanticsで作用し、direct feedbackを維持。
+
+#### 5.12.9 Dust Removal / Dust Selection / Fill Leftover
+
+Cleanup系はFilter / Repair routeから起動。Automatic candidate検出後、candidate overlayを表示し、Accept allではなくindividual review可能。Dust SelectionはcandidateをSelectionとして返せる。
+
+#### 5.12.10 Smart Smoothing
+
+Line / edgeを局所的にsmoothするInteractive Tool。Strength / preserve cornerをPropertiesで調整。Vectorではgeometry edit、Rasterではsupported non-destructive effectを優先する。
+
+### 5.13 フィルター / 色調補正
+
+#### 5.13.1 Apply Model
+
+Filter / AdjustmentのPrimary Routeは`Filter` Menu、Layers `Effect`、Command Search。対象がLayer / Selection / Modifier-compatible Objectの場合、**Non-destructive Effectとして適用**をDefaultとする。`Apply Destructively` / `Bake`は明示Command。
+
+Filter Dialogを巨大Modalにせず、Properties / Effect Detail + Canvas interactive anchorを基本にする。Effect適用中もCanvas contextを維持する。
+
+#### 5.13.2 Color Adjustments
+
+Brightness / Contrast、Levels、Tone Curve、Hue / Saturation / Lightness、Color Balance、Grayscale、Threshold、Posterize、Invert、Gradient Map、Color Replace、Drawing Color Changeを提供。
+
+- Levels: channel / input black / gamma / input white / output levels。
+- Tone Curve: composite + channel curve、node add/delete、numeric input。
+- HSL: master / hue range、Hue/Saturation/Lightness。
+- Color Balance: shadows/midtones/highlights等のrangeを明示。
+- Threshold / Posterize: live scalar adjustment。
+
+Current Effective StateへInteractive反映し、Confirmまでold resultだけを表示しない。
+
+#### 5.13.3 Line / Edge Filters
+
+Line Extraction、Edge Detection、Outline等はThreshold / Width / sensitivity等をPropertiesで調整。Lineart作成へ利用可能な結果では`Create Lineart Source`への明示routeを提供するが、自動でLineart Groupへ変換しない。
+
+#### 5.13.4 Blur / Sharpen
+
+Gaussian / Motion / Zoom / Radial-Rotation / Lens Blur、Sharpen / Unsharp Maskを提供。
+
+方向・中心・radiusを持つEffectはCanvas Effect Anchorで直接操作。Motion angle、Zoom center、Radial center等がPropertiesと同期する。
+
+#### 5.13.5 Stylize / Lighting / Noise
+
+Mosaic、Pixelate、Emboss、Bevel、Inner/Outer Glow、Drop Shadow、Satin、Wet Edge、Bloom、Cross Filter、Light Rays、Noise、Perlin Noise、JPEG Noise Reduction、Frosted Glass、Stained Glass、Pointillize等をEffect catalogへ分類。
+
+Effect catalogはSearch + categoryで選び、巨大なMenu階層だけに依存しない。
+
+#### 5.13.6 Style Filters
+
+Illustration / Pencil / Film / Retro Game / Glitch / Chromatic Aberration / Anime Background等はPreset starting point + editable parameters。ResultをAI生成機能として扱わず、deterministic image effectとして設計する。
+
+#### 5.13.7 Generators
+
+Cloud、Linear/Radial/Concentric Gradient、Radial Line、Speed Line GeneratorはGenerator Layer / Modifierとして非破壊生成をDefault。Canvas anchor / direction / center / spacing等を直接操作可能。
+
+#### 5.13.8 Geometric Distortion Filters
+
+Bloat / Sphere / Lens Distortion / Wave / Ripple / Twirl / Polar Coordinates / Shear / Distortion Correction / Panorama Transform / Extrude等は可能な限りEffect Modifierとして適用。中心 / axis / intensity等はCanvas Anchorを使う。
+
+#### 5.13.9 Effect Recipe
+
+複数Effect chainをNamed Recipeとして保存。Recipe適用はEffect instancesを作成し、後のRecipe preset変更で既適用作品を暗黙更新しない。明示`Relink to Shared Recipe`を将来導入する場合はShared semanticsを別扱いにする。
+
+#### 5.13.10 Parameter Sweep
+
+1〜2個の選択Parameterについて候補Gridを生成し、同一Viewport / cropで比較。Candidate Tapでcurrent working stateへ反映、Fine Tune後Apply。Sweep candidate generationをForeground direct manipulationより優先しない。
+
+---
+
+### 5.14 非破壊編集
+
+#### 5.14.1 Modifier UI
+
+Layers `Effect`からAdjustment / Filter / Transform / Displacement等を追加。Attached ModifierはOwner child、Stack ModifierはVisual Stack participantとして表示。
+
+PropertiesはEnabled、Opacity / Strength（該当時）、Mask、主要Parameter、Detailへの入口を持つ。
+
+#### 5.14.2 Enable / Reorder / Remove
+
+Enable toggleはState保持。ReorderはEffect result orderを変更し、CanvasへInteractive反映。RemoveはModifierだけ削除しSource artworkを保持。
+
+#### 5.14.3 Effect Mask
+
+各ModifierへMask追加可能。Mask selected時はBrush等でCoverage edit。Effect MaskとLayer MaskはOwnership / labelを区別する。
+
+#### 5.14.4 Multiple Layer Apply
+
+複数Layerへ同じEffect parameterを個別instanceとして適用するかShared Modifierを作るかを明示選択。Defaultは独立instanceで意図しない後続連動を作らない。
+
+#### 5.14.5 Shared Modifier
+
+Shared Modifier creation時にShared DefinitionとApplicationsを表示。`Edit Shared` scopeを明示し、local Application mask / enabled state等と混同しない。
+
+`Make Independent`でDefinition clone。Shared definition変更を全Applicationの同期再計算完了待ちにしない。
+
+#### 5.14.6 Parameter Link
+
+複数Effect parameterをShared Parameterへlink。Link indicatorをPropertiesへ表示し、Edit時にlinked consumers数を確認可能。Unlinkはcurrent valueをlocal copyとして保持する。
+
+#### 5.14.7 Effect Variant
+
+Modifier / chainのparameter setをVariantとして保存。Compare modeでA/B instant switch。Apply VariantはCurrent canonical parameterへCommitし、unused variantは候補として残せる。
+
+#### 5.14.8 Bake / Rasterize
+
+Bakeは対象Modifier chainのCurrent Effective ResultをRaster / supported targetへ固定し、元Modifierを保持する`Bake Copy`と置換する`Bake & Replace`を分ける。Historyで復元可能でも操作意味を明示する。
+
+---
+
+### 5.15 テキスト
+
+#### 5.15.1 Text Creation
+
+Text Tool TapでPoint Text、dragでBox Text。Creation直後からCanvas inline editingへ入る。Horizontal / VerticalをPropertiesで切替。
+
+#### 5.15.2 Inline Editing
+
+Canvas上Caret、selection、IME compositionをOS標準期待に合わせる。Text box corner / edge handlesでbox resize。Text content edit中とTransform modeを明確に区別する。
+
+#### 5.15.3 Text Properties
+
+Primary:
+- Font
+- Font Size
+- Style / Weight
+- Color
+- Alignment
+- Character Spacing
+- Line Spacing
+- Direction
+
+Detail:
+- Outline
+- Ruby
+- Text Style Preset
+- Glyph / Symbol
+- Auto Fit
+
+Font listはSearch、recent、favorite対応。Missing fontは代替状態を明示し、silent permanent substitutionしない。
+
+#### 5.15.4 Font Import
+
+User font fileをLocal ResourceとしてImport可能。License / embedding可否のmetadataが取得できる場合はExport compatibilityへ利用するが、利用可否を推測だけで禁止しない。
+
+#### 5.15.5 Point / Box Text
+
+Point Textはcontentに応じてbounds拡張。Box Textはbox内reflow。Point↔Box conversionを明示Commandで行い、current style / transformを維持する。
+
+#### 5.15.6 Vertical Writing / Ruby
+
+Vertical Writingではpunctuation / orientationを対応可能なfont / shaping engineに従う。Rubyはbase text rangeへannotationとして保持し、Font Size / offset等をPropertiesで調整。
+
+#### 5.15.7 Text Outline / Style Preset
+
+Outlineはnon-destructive text effectとして保持。Style Presetはfont / size / spacing / outline等を再利用可能。Applying presetでText contentは変更しない。
+
+#### 5.15.8 Linked Text Style
+
+複数Text ObjectがStyle Definitionを共有可能。Shared style edit時はscopeを明示。Object固有Overrideは差分表示。`Make Local Style`で独立化。
+
+#### 5.15.9 Live Text Boundary
+
+Text glyph outlineをSelection / Fill / Boundary sourceとして参照可能。Text変更時にdependent current regionが必要ならfreshnessを解決するが、全Document同期更新をTyping latencyへ載せない。
+
+#### 5.15.10 Auto Fit
+
+Box constraintに対しFont Size、Character Spacing、Line Spacing、Box Resizeの許可項目を選択し、Fit targetを満たす。Auto Fit stateは明示badgeを持ち、manual editがconstraintを解除するかoverrideするかをUIで示す。
+
+#### 5.15.11 PSD Text Compatibility
+
+PSD Import時、supported text semanticsはeditable Text Objectへ保持。unsupported typographyはWarningとし、可能ならappearance fallback + original metadataを保持。Export前にPreflightでlossを列挙する。
+
+---
+
+### 5.16 参考画像 / 制作補助
+
+#### 5.16.1 Reference Block
+
+View Page > ReferenceからReferenceをAdd。BlockはPiP化可能。ReferenceはArtwork Compositeへ含めない。
+
+#### 5.16.2 Multiple References
+
+複数Referenceをlist / tab / gridで管理。Add / Remove / Reorder / Replace。RemoveはProject reference entryを削除するが元Fileは削除しない。
+
+#### 5.16.3 Reference Navigation
+
+ReferenceごとにPan / Zoom / Rotate / Reset stateを保持。Canvas Viewとは独立。Reference stateはProject metadataへ保存可能。
+
+#### 5.16.4 Reference Eyedropper
+
+Reference上でEyedropperを使うとMain Color candidateを取得。Color managementがある場合はdisplay / document color space conversion ruleを一貫させる。
+
+#### 5.16.5 Reference Lens
+
+Grayscale、Blur、Horizontal Flip、Desaturate、Edge Emphasis、Value Onlyを非破壊View effectとして適用。複数Lensを同時stackする場合はactive statesをBlock headerに示す。
+
+#### 5.16.6 Canvas ↔ Reference Anchor
+
+Canvas pointとReference pointをAnchor pairとして登録し、Sync Pan / Sync Zoomを任意有効化。Anchor mismatch / missing reference時はSyncを停止しstatus表示。
+
+#### 5.16.7 Reference Set
+
+用途別Reference群をNamed Setとして保存。Set切替で表示Referenceとview stateを復元。Reference file missing時もSet定義は保持しRelink可能。
+
+#### 5.16.8 Navigator
+
+View Page Navigatorはcurrent viewport rect、zoom、rotation、mirror stateを表示。Thumbnail上dragでPan、wheel / pinchでZoom。Navigator更新がBrush inputを奪うBackground workにならない。
+
+---
+
+### 5.17 履歴 / 自動化
+
+#### 5.17.1 Undo / Redo
+
+Quick Hole左=Undo、右=Redoを固定。Keyboard / Menu / History Pageにもrouteを持つ。Target History Stateのvisible resultを最優先し、Storage / Thumbnail / Indexingを待たせない。
+
+Undo後のnew editはold redo pathをBranchとして保持する。
+
+#### 5.17.2 History Page
+
+History Pageはsubsections:
+- History
+- Branches
+- Checkpoints
+- Auto Actions
+- Timelapse
+
+History listはOperation name、time、affected target等のcompact metadataを表示。Tapでpreview、明示`Restore Here`でcurrent branchをそのstateへ移す。
+
+#### 5.17.3 Branches
+
+Branch listはName / origin checkpoint / last editを表示。Switchはcurrent branch stateを保存してtargetへ移動。CompareはA/Bまたはsplit view。Mergeはsafe automatic changesのみ自動適用し、ambiguous conflictはuser choice。
+
+#### 5.17.4 Named Checkpoint
+
+Current History StateをNamed Checkpointとして保存。Jump / Compare / Rename / Delete。Checkpoint deleteでreferenced artwork revisionを即物理削除する意味にはしない。
+
+#### 5.17.5 History Search
+
+Layer / Tool / Command / Effect / text queryでHistory metadataを絞る。Search indexingがForeground interactionの同期条件にならない。
+
+#### 5.17.6 Auto Action Record
+
+Record開始後、recordable semantic commandsをAction stepsへ保存。Pointer raw samplesそのものを無制限記録する方式をDefaultにしない。Record中は明確なstatus indicator。
+
+#### 5.17.7 Auto Action Edit / Play
+
+Step reorder、disable、parameter edit（safeなもの）を可能にする。Playはcurrent documentへ適用し、複数Step全体を1 TransactionとしてUndo可能にするOptionをDefault ON。
+
+Target missing / incompatible stepでは停止点とreasonを示し、silent skipをDefaultにしない。Userが`Skip incompatible`を選べる。
+
+#### 5.17.8 Auto Action Import / Export
+
+Illustro action formatでImport / Export。Unknown command versionはCompatibility reportを表示。External code executionを含むMacro形式にはしない。
+
+#### 5.17.9 Timelapse
+
+Meaningful Operation Stream / visual checkpointsからPlayback。Playback speed、Pause、Scrub。ExportはBackground Video Exportとして行いDrawing継続可能。
+
+TimelapseはArtwork Historyの保持Policyと連携するが、TimelapseのためにBrushごと全Canvas screenshotを必須にしない。
+
+---
+
+### 5.18 ファイル / プロジェクト管理
+
+#### 5.18.1 Project Library
+
+App entryはLocal Project Library。Grid / List切替、Search、Sort、Folder / Collection、Recent、Recently Deletedを提供。
+
+Project cardはThumbnail、Name、Modified time、status。Thumbnail generation失敗でProject自体を開けなくしない。
+
+#### 5.18.2 Native `.illustro`
+
+Native formatはSection 2/3の全編集構造、History / Branch / Checkpoint、Resources、Reference metadata等を保持可能。物理formatはSection 6 / 8で確定。
+
+#### 5.18.3 Autosave
+
+Default ON。Logical CommitとDurable saveを分離し、Autosave中もDrawingを止めない。Top BarにSaved / Saving / Save issueを表示。
+
+#### 5.18.4 Crash Recovery
+
+Abnormal close後、Library / open時にRecovery candidateがある場合、`Recovered` stateを提示。Recovered version / last durable versionを必要ならCompare可能。勝手にolder durable stateへrollbackしない。
+
+#### 5.18.5 Duplicate / Rename / Delete
+
+Duplicateはindependent Project VariantをDefault。Renameはinline / context。DeleteはRecently Deletedへ移動し、一定期間またはexplicit permanent deleteまで復元可能。
+
+#### 5.18.6 Import
+
+PNG / JPEG / TIFF / PSD / SVG / supported brush / project compatibility formatをImport。Import前後にCompatibility summaryを表示するのはlossがある場合のみ。
+
+画像ImportはNew Document / Layer / Materialの目的をrouteで分ける。
+
+#### 5.18.7 PSD
+
+PSD Import / Exportはsupported Layers / Masks / Blend / Text等をeditable保持。Unsupported featureはRasterized fallback / omit / warning policyをPreflightで明示。見た目優先fallbackとeditability優先fallbackを必要時選べる。
+
+#### 5.18.8 ibisPaint / CSP Brush Compatibility
+
+ibisPaint brush / QR、CSP `.sut`をImportし、Illustro Brush modelへmapping。unsupported parameterはImport reportに列挙。Original fileは必要ならresourceとして保持可能。
+
+#### 5.18.9 Project Variant
+
+`Create Variant`はShared BaseからCopy-on-Write意味で独立Project案を作る。Library上は別Card。Variant間で後から勝手にedit syncしない。
+
+#### 5.18.10 Project Health Check
+
+Missing Font / Linked File、PSD compatibility、Color profile、excess resource、export loss等を一覧化。Severity、affected entity、Fix routeを持つ。
+
+#### 5.18.11 Background Export While Drawing
+
+Export開始時にSnapshotを固定しBackground processing。以後のDrawingは次Revisionへ継続。Export resultは開始Snapshotに対応し、途中editが混入しない。
+
+#### 5.18.12 OS Share
+
+Export result / selected fileをOS Shareへ渡す。Share失敗でProject stateを変更しない。
+
+### 5.19 ワークスペース / 操作環境
+
+#### 5.19.1 Workspace Preset
+
+WorkspaceはTool Rail構成、Right Page状態、Panel / PiP placement、Collapse / Size、Quick Hole placement、UI density等のUI stateをNamed Presetとして保存可能。Artwork stateは含めない。
+
+Default Workspace、Custom Workspace、Resetを持つ。Device regime差は同名Workspace内にdevice-specific layout variantを保持可能。
+
+#### 5.19.2 Tool Rail Customization
+
+Default 9 Familyを基準にReorder / Hide / Add / Group / Reset。非表示ToolはGlobal Command Searchから必ず到達可能。
+
+Customization mode以外で誤drag reorderしない。Touchでは明示Edit modeをDefaultとする。
+
+#### 5.19.3 Quick Access / Command Bar
+
+Section 2のQuick Access / Command Barは、Global Command Searchと競合しない形で**ユーザー定義Favorite command surface**として提供する。
+
+登録可能:
+- Tool / Tool Family
+- Command
+- Page / Panel open
+- Auto Action
+- Drawing Color / Palette color
+- Workspace
+
+Desktopではoptional compact bar / PiP、Tablet / PhoneではQuick Access sheetとして表示可能。Default UIでは常設せず、ユーザーが有効化した場合のみ表示する。
+
+#### 5.19.4 Global Command Search
+
+`Ctrl/Cmd + K`、Main Menuから起動。Command name、synonym、Tool、Panel、Settingを検索。
+
+Resultには現在実行可能か、Shortcut、Menu pathを表示。Disabled resultも必要なら表示しreasonを説明する。Search履歴 / frequently usedをLocalに学習できるが、個人情報送信を前提にしない。
+
+#### 5.19.5 Selection Launcher Customization
+
+Default command setをReorder / Add / Remove / Reset。Selectionに不適合なCommandはruntimeでdisabled reasonを持つ。Launcherが大きくなりすぎる場合はPrimary + Moreへ自動整理。
+
+#### 5.19.6 Tool Properties / Detail Settings
+
+Propertiesはcurrent Tool / Objectの高頻度項目。Detail Settingsは全Parameter。UserはDetail項目を`Show in Properties`へ昇格、逆にlow-frequency項目をPropertiesから隠せる。
+
+#### 5.19.7 Tool Slider
+
+Brush Size / Opacity等の専用SliderをWorkspaceへ配置可能。Sliderは同じCanonical Parameterへbindingし、PiP / Propertiesと値を共有。
+
+#### 5.19.8 PiP
+
+Sidebar BlockをHeader drag-outでDetach。専用PiP buttonは常設しない。Context Menu / KeyboardからDetachでき、drag操作の代替を確保する。
+
+PiPはMove、Resize、Block Collapse、whole PiP Collapseを持つ。`×`はRedock。Sidebar collapseと独立して残る。Redock candidateへ近づけるとDock Preview、Dropで確定。
+
+#### 5.19.9 Quick Hole Controller
+
+Quick HoleはSection 4確定形状を維持する。
+
+- 6 independent hex tiles
+- tile centersは同一円周上、60°間隔
+- whole arrangementは30°回転
+- tile間に一定Gap
+- centerは空洞
+- leftmost=Undo
+- rightmost=Redo
+
+Defaultの残り4 tile:
+- upper-left: Brush ↔ Eraser toggle
+- upper-right: Quick Eyedropper
+- lower-left: Color Page focus
+- lower-right: Layers Page focus
+
+4 tileはFull Remap可能。Undo / RedoもSettingsからRemap可能にできるが`Restore Default`で左右Undo/Redoへ戻る。
+
+Quick HoleはDefault visible。Drawing pointer downでHide、stroke end後に元Anchorへ復帰。Quick Hole自身や他UI操作ではAnchorを移動しない。
+
+**Center hole drag**でcontroller全体を移動する。Center hole Tapは何もしないため誤Commandを防ぐ。Scale、Radius、Button Size、OpacityはWorkspace settingsで変更。
+
+Temporary DismissはContext Menu / Workspace commandから行い、Main Menu > Workspace > Quick Hole > Showで復帰できる。Gestureだけを復帰routeにしない。
+
+#### 5.19.10 Quick Hole Input
+
+Tile Tapでcommand実行。Pointer down→別tileへslide→releaseでrelease tile commandを実行するradial marking behaviorをoptional settingとして提供し、DefaultはOFF。誤操作防止を優先する。
+
+Undo / Redo disabled時はtileをdisabled visualにし、Tapしても新History operationを作らない。
+
+#### 5.19.11 Task-linked Workspace
+
+UserがTool / production taskとWorkspace Presetを関連付け可能。Defaultは自動切替OFF。ONの場合もTool切替のたびに強制layout変更せず、User-defined trigger条件に従う。
+
+#### 5.19.12 Spring-loaded Panel
+
+Shortcutを押している間だけColor / Layers / Properties等を一時表示。Releaseで閉じ、元focus / pointer contextを復元。Panel内をクリックしてPinするOptionを持つ。
+
+#### 5.19.13 Reachability Workspace
+
+Left-handed / Right-handed / Mirror Layoutを提供。Tool Rail / Page Rail / transient popup placementをMirror可能。Artwork coordinatesやexport結果は変えない。
+
+---
+
+### 5.20 共通インタラクションシステム
+
+#### 5.20.1 Direct / Quick / Detail
+
+すべての新機能は実装前に、Direct、Quick、Detailのどこへ主操作を置くか定義する。高頻度ParameterをDetailだけへ置くこと、低頻度全ParameterをCanvasへ露出することを避ける。
+
+#### 5.20.2 Adaptive Scalar
+
+広い値域を持つSliderはcurrent value / rangeに応じてdrag sensitivityを適応。Fine modifierまたはtrack perpendicular distanceでgainを下げる。Pointer jumpを起こさず連続値を保持。
+
+#### 5.20.3 Saved Parameter Marks
+
+Brush Size、Opacity、Angle等のscalarにNamed / unlabeled marksを保存可能。Mark Tapで値へ移動。Presetとは別で、parameter-specific shortcutとして扱う。
+
+#### 5.20.4 Exact / Relative Numeric Input
+
+Numeric fieldはabsolute valueに加え`+10`, `-5`, `×2`, `÷2`を解釈。Mixed multi-selection stateでもrelative inputは各current valueへ適用可能。
+
+#### 5.20.5 Semantic Picker
+
+Layer、Role、Reference、Source、Palette等を選ぶfieldはSearchable semantic pickerを共通利用。NameだけでなくType / Role / statusを表示し、曖昧なfirst-matchを禁止する。
+
+#### 5.20.6 Thumbnail Asset Picker
+
+Brush Tip、Texture、Pattern、Material等はThumbnail grid + Search / category / favorite。Keyboard navigation、Touch scroll、large previewを共通化。
+
+#### 5.20.7 Searchable Long List
+
+Font、Blend Mode、Command、Asset等の長いlistはSearch、recent、categoryを提供。Scroll positionをsurface reopenで保持する。
+
+#### 5.20.8 Canvas Direct Manipulation
+
+Canvas handleは対象へ近接配置し、Propertiesと同期。HandleがArtworkを隠す場合はvisibility / minimal modeを提供。Pointer hit areaは視覚sizeより大きくできる。
+
+#### 5.20.9 Color Drag → Fill
+
+Color chip / swatchをCanvasへdragし、eligible region / layerへdropするとFill candidateを表示。Drop target highlight後にApply。Ambiguous targetではcandidate selectorを出し、誤Layerへsilent fillしない。
+
+#### 5.20.10 Eyedropper Preview
+
+Sample中はLoupe、Current / Candidate、sampling sourceをlocal overlay表示。ReleaseでMain Color commit。Cancelで元Color維持。
+
+#### 5.20.11 Live Tolerance
+
+Fill / Auto Select等のthreshold系はresultを見ながらcontinuous adjustment可能。Parameter interaction全体を1 Undo / Selection transactionとして扱う。
+
+#### 5.20.12 Preview → Commit規約
+
+Section 2の`Preview → Commit`表現はSection 3に合わせ、Previewを**Current Effective Interactive State**として定義する。低品質fake previewを別意味状態として使わない。
+
+#### 5.20.13 Spring-loaded Tool
+
+Shortcut holdでEyedropper / Pan等へ一時切替。Releaseで元Toolへ戻る。Temporary tool使用だけで元ToolのPrepared Contextやcontinuous transactionを不必要に破壊しない。
+
+#### 5.20.14 Continuous Transaction
+
+Canvas handle→Properties slider→Numeric fieldのように同じ意味編集を跨ぐ場合、複数Atomic Logical Revisionを1 Undo unitへ束ねる。Explicit finish、Tool semantic boundary、timeout等のclosing ruleはfeatureごとに定義する。
+
+---
+
+### 5.21 オンライン / 共同制作
+
+#### 5.21.1 Positioning
+
+Collaborationは通常制作から分離した副次機能。Offline / accountなしの通常制作を阻害しない。AccountはRoom利用時だけ必要にできる。
+
+#### 5.21.2 Room Create / Join
+
+Main Menu > CollaborationからCreate Room / Join Room。Room create時にName、access policy、participant limit等を設定。JoinにはRoom link / code等の明示identifierを使う。
+
+#### 5.21.3 Session UI
+
+Room active時のみTop BarへRoom status / participant countを表示。Participants panelはpresence、name、current shared/private stateを表示し、通常Solo時は存在しない。
+
+#### 5.21.4 Shared / Private Layers
+
+LayerごとにPrivate / Shared stateを明示。New layer defaultはRoom policyで設定可能だが、安全側としてPrivateをDefaultとする。`Share Layer`で明示公開。
+
+Private→Shared時にcurrent contentをsessionへpublish。Shared→Privateで他participantが参照中の場合はimpactを示す。
+
+#### 5.21.5 Shared Production State
+
+Palette、Reference、Lineart Boundary、Ruler、Selection等はShared stateとして明示publish可能。Local stateを自動で全部共有しない。
+
+#### 5.21.6 Concurrent Editing
+
+Shared Layerへの同時editはoperation / region semanticsで統合可能なものをrealtime適用。意味的conflictがある場合、silent last-write-winsで他人の内容を破壊しない。
+
+Direct drawing latencyをnetwork roundtrip待ちにしない。Local committed operationを即表示し、remote synchronizationは別lane。
+
+#### 5.21.7 Presence / Remote Cursor
+
+Optional remote cursor / viewport indicatorを表示。Artworkへ焼き込まない。ParticipantごとShow / Hide可能。
+
+#### 5.21.8 Follow View
+
+Participantを選択してFollow View。Follow中はremote Pan / Zoomへ追従するが、local navigation inputで即解除可能。Follow ViewはArtwork stateを変更しない。
+
+#### 5.21.9 Connection Loss
+
+切断時も可能な限りLocal editing継続。Unsynced operation count / reconnect stateを表示。Reconnect時にconflictがあれば明示resolutionへ進み、local committed artworkを勝手に消さない。
+
+---
+
+### 5.22 素材 / リソース
+
+#### 5.22.1 Assets Page
+
+Asset types:
+- Image Material
+- Texture
+- Pattern
+- Brush Tip
+- Stamp
+- Gradient
+- User Material
+- Smart Material
+- Procedural Material
+
+Category、Tag、Search、Sort、Favorite、Recent historyを共通提供。
+
+#### 5.22.2 Register from Canvas / Selection
+
+Canvas / Selectionから`Register as Material`。Name、Type、tags、preview crop、repeat behavior等を指定。元Artworkとmaterial instanceは自動linkしない。
+
+#### 5.22.3 Material Placement
+
+Image MaterialをCanvasへdrag/dropでMaterial Layer / contentとして配置。Move / Scale / Rotate / TilingをCanvas direct + Propertiesで編集。
+
+#### 5.22.4 Import / Export
+
+Supported material formatをImport / Export。Unknown metadataは可能な範囲で保持し、unsupported parameterはreport。
+
+#### 5.22.5 Smart Material
+
+Color、Scale、Rotation、Density、Randomness等のeditable parametersを持つMaterial definition。Placementごとにoverride可能。Definition edit scopeをSharedとして明示。
+
+#### 5.22.6 Procedural Material
+
+Dot、Stripe、Grid、Noise、Cloud、Paperをgeneratorとして提供。Resolution-independent parameterを可能な範囲で保持し、Raster bakeは明示。
+
+#### 5.22.7 Seamless Material Builder
+
+Selected image / materialをWrap Previewし、Seam candidateを検出。Offset / clone / blend等のediting routeを提供し、final `Register`でseamless materialへ保存。
+
+---
+
+### 5.23 設定 / 環境設定 / アクセシビリティ
+
+#### 5.23.1 Settings Categories
+
+- General
+- Pen / Pressure
+- Touch / Gesture
+- Mouse
+- Keyboard / Shortcuts
+- Canvas / View
+- Workspace / Tool Layout
+- Appearance / Theme
+- Font Management
+- Accessibility
+- File / Recovery
+- Online / Collaboration
+
+Search Settingsを提供。
+
+#### 5.23.2 Device Profile
+
+Desktop / Tablet / Phone / User-defined profileを持ち、UI scale、density、input roles、gesture、button mapping等を保存。端末種別推定だけでuser-defined profileを上書きしない。
+
+#### 5.23.3 UI Scale / Density
+
+UI Scale preset: 80 / 90 / 100 / 110 / 125 / 150% + Auto。
+
+Density:
+- Compact
+- Comfortable (Default)
+- Touch
+
+Responsive Layoutと別概念。Touch densityでは主要hit targetを44級へ拡張。
+
+#### 5.23.4 Theme
+
+Light Default、Dark対応。Semantic Tool colorsを両Themeで維持しつつcontrastを調整。Reduced Transparency / High Contrast preferenceを反映。
+
+#### 5.23.5 Shortcut / Gesture Editor
+
+Command Searchと同じcommand registryを使い、Key / Pen button / Gesture bindingを編集。Conflict detection、Restore Default、Export / Import profileを提供。
+
+#### 5.23.6 State Persistence
+
+Workspace、last tool、panel state、view state等の保持可否をcategoryごと設定可能。Privacy / shared device用途で`Do not restore recent documents`等のOptionを持てる。
+
+#### 5.23.7 「この挙動の設定」
+
+Context Menu / Help affordanceから現在Controlに関連するSettingsへ直接navigate。該当Settingがない場合はGeneral settingsへ曖昧に飛ばさない。
+
+#### 5.23.8 Settings Trial Mode
+
+複数設定をTemporary Applyし、画面下 / Settings headerに`Trial active`を表示。`Commit`で保存、`Revert All`でTrial開始前へ戻す。Input mapping変更で操作不能になった場合のsafe revert shortcutを確保。
+
+#### 5.23.9 Backup / Restore / Reset
+
+Settings backupはLocal fileへExport可能。Restore前に差分categoryを選択。Reset to Defaultsはcategory単位とallを分ける。
+
+#### 5.23.10 Accessibility
+
+Color-only state禁止、Keyboard focus、Reduced Motion、High Contrast、Left/Right handed、Touch target、screen reader accessible namesを基本要件とする。
+
+Motion reduction時もDirect Manipulationの位置変化そのものは保持し、装飾transitionだけ削減。
+
+---
+
+### 5.24 出力 / カラーマネジメント
+
+#### 5.24.1 Color Profile
+
+Document ProfileはDocument Menu > Color Profile。Assign ProfileとConvert Profileを分離。
+
+- Assign: numeric values維持、interpretation変更。
+- Convert: appearance維持方向でvalues変換。
+
+操作結果 / warningを明確化し、両者を同じ`Change Profile`にしない。
+
+#### 5.24.2 ICC / Rendering Intent
+
+ICC profile選択とPerceptual / Relative Colorimetric / Absolute Colorimetric / Saturationを提供。Black point compensation等、採用する追加OptionはSection 6互換設計で最終化。
+
+#### 5.24.3 Soft Proof / Gamut Warning
+
+View Menu / View PageからSoft Proof toggle。Proof profile、Rendering Intentを選択。Gamut Warningはoverlayで表示しArtworkを変更しない。
+
+#### 5.24.4 CMYK Preview / Print-size Preview
+
+CMYK Previewはproof representationとして扱い、RGB制作stateを自動CMYKへ変換しない。Print-size PreviewはDPI / monitor informationからphysical size approximationを表示し、calibration limitationを説明可能にする。
+
+#### 5.24.5 Export Workspace
+
+Top Bar Exportから独立Workspace / Sheetを開き、Format、Dimensions、Frame、Profile、Bit Depth、Transparency、Metadata、Namingを設定。
+
+Export設定変更はArtwork revisionを作らない。
+
+#### 5.24.6 Format Defaults
+
+- Web / general default: PNG, sRGB, 8-bit
+- JPEG: quality 90% baseline、Alpha不可をwarning
+- TIFF: high-quality / print route
+- PSD: editable compatibility route
+- SVG: vector route
+
+Transparent artworkでPNGを選ぶ場合Alpha保持をDefault。JPEG選択時はBackground compositing colorを明示する。
+
+#### 5.24.7 Export Recipe
+
+Named RecipeはFormat、Dimensions、Frame Variant、Profile、Bit Depth、Metadata、Namingを保存。Recipe applyingでArtworkを変更しない。
+
+Built-in recipes:
+- Web PNG
+- Web JPEG
+- Transparent PNG
+- High Resolution Archive
+- Print RGB
+- PSD Exchange
+
+User recipe作成 / duplicate / rename / delete / export / import。
+
+#### 5.24.8 Multi-target Export
+
+複数Recipeを1 jobにまとめ、SNS / Thumbnail / High Resolution / Print / Backup等を一括生成。各targetは同一Snapshot revisionから生成し途中editを混ぜない。
+
+#### 5.24.9 Export Preflight
+
+Export前にResolution、Gamut、Profile、Transparency、Unsupported Layer Structure、Missing Font、File Size Estimate等を検査。
+
+Severity:
+- Info
+- Warning
+- Blocking
+
+BlockingはFormat上成立しない場合だけ。Warningを無視してExportするrouteを必要に応じて許可。
+
+#### 5.24.10 Proof Compare
+
+sRGB / Display-P3 / CMYK等をSynchronized Viewで比較。Split / side-by-side / toggleを提供。Comparison UI自体はArtworkへ影響しない。
+
+#### 5.24.11 Background Export
+
+ExportはSnapshot固定後Background processing。Progress、Cancel、Result location / Shareを表示。CancelでArtwork stateを変更しない。
+
+---
+
+### 5.25 Section 5 完了条件 / Default UX Baseline
+
+#### 5.25.1 24カテゴリCoverage
+
+Section 2の24カテゴリすべてについて、本章でPrimary behavior / entry / parameter grouping / state / interaction semanticsを定義した。Section 5で新たにSection 2の採用外機能を暗黙追加しない。
+
+#### 5.25.2 Default Quick Hole
+
+- left: Undo
+- right: Redo
+- upper-left: Brush/Eraser toggle
+- upper-right: Quick Eyedropper
+- lower-left: Color Page
+- lower-right: Layers Page
+
+6 Hex geometryはSection 4を唯一の形状仕様とする。
+
+#### 5.25.3 Default Shortcut Baseline
+
+5.0.6のKey MapをDefaultとし、全項目Remap可能。Gesture / ShortcutはGUI Primary Routeのacceleratorであり唯一の入口にしない。
+
+#### 5.25.4 Default Brush Baseline
+
+Built-in 40 Presetを5.2.13の初期Baselineとする。Preset count増加を機能完成の代替指標にしない。基本描画、線画、塗り、混色、水彩、Air、Texture、Pixel用途を初期状態でカバーする。
+
+#### 5.25.5 UI / State Consistency
+
+1. PropertiesはCurrent Tool / Objectの高頻度設定。
+2. Detailは全Parameter。
+3. Canvas direct operationとPropertiesは同じCanonical Parameter stateを共有。
+4. Interaction中表示はCurrent Effective Stateへ一致。
+5. Commit / Cancel / Undoの意味はSection 3と一致。
+6. Non-destructive capabilityがある処理はPrimary Routeで非破壊適用を優先。
+7. Background operationの都合でForeground direct interactionを不必要にBlockingしない。
+8. User inputが無効な場合は無反応ではなくreasonを伝える。
+9. Color / shortcut / gestureだけに意味を依存しない。
+10. Section 4 Feature-to-Route Matrixを維持する。
+
+#### 5.25.6 Section 5と後続章の境界
+
+本章で確定したのはユーザーが見る機能Semantics / UXである。
+
+後続章:
+- Section 6: 保存・File format・Compatibility・Durabilityの詳細
+- Section 7: 非機能要件・性能 / reliability / accessibility target
+- Section 8: 技術Architecture
+- Section 9: Algorithms / scheduling / rasterization / topology等
+- Section 10: 性能検証基準
+- Section 11: 実装順序
+
+後続技術都合で本章UXを暗黙に劣化させない。成立しない仕様が判明した場合は本Source of Truthへ戻して明示改訂する。
+
+以上をもってSection 5「各機能の詳細仕様」を確定・完了とする。
