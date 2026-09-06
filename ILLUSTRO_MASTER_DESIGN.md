@@ -3186,9 +3186,11 @@ TaperはEntry / Exit Size、Opacity、Forced taperを持つ。Stroke finalize時
 
 #### 5.2.7 Texture / Jitter / Scatter
 
-TextureはAsset、Scale、Rotation、Offset、Strength、Invert、Blendを持つ。JitterはPosition / Size / Opacity / Rotation / Color等を独立調整。ScatterはParticle size / density / width / bias / directionを持つ。
+TextureはAsset、Scale、Rotation、Offset、Strength、Invert、Blendに加え、Coverage (`Full` / `Edge-biased`)、Edge Width、Falloffを持つ。`Edge-biased`はTip中心部への影響を抑え、外縁側へTextureを作用させ、Solidな中心部を保ったまま微細な欠け / Density variation / Dry textureを付与する。Texture表現のためにAntialias品質を意図的に低下させない。Texture Strength / Edge influenceはDynamics SourceからMapping可能とする。
 
-乱数を使うPresetは同一Stroke再編集 / History再現で視覚結果を再現できるSemantic Seedを保持する。
+JitterはPosition / Size / Opacity / Rotation / Color等を独立調整。ScatterはParticle size / density / width / bias / directionを持つ。
+
+乱数またはNoiseを使うPresetは、同一Stroke再編集 / History再現で視覚結果を再現できるSemantic Seedまたは安定した座標基準を保持する。
 
 #### 5.2.8 Watercolor / Mixing
 
@@ -3216,10 +3218,10 @@ Child PresetはParentとの差分Overrideを表示する。Inherited valueはlin
 
 #### 5.2.13 Built-in Preset Baseline
 
-初期内蔵Presetは**40種**をBaselineとし、過剰な重複を避ける。
+初期内蔵Presetは**41種**をBaselineとし、過剰な重複を避ける。
 
 - Sketch 6: HB Pencil / 2B Pencil / Mechanical Pencil / Rough Pencil / Colored Pencil / Soft Graphite
-- Ink 8: G Pen / Mapping Pen / Round Pen / Technical Pen / Brush Pen / Dry Ink / Felt Pen / Monoline
+- Ink 9: G Pen / Mapping Pen / Round Pen / Technical Pen / Brush Pen / Dry Ink / Felt Pen / Monoline / ととろペン
 - Paint 8: Opaque Round / Flat Paint / Gouache / Acrylic / Soft Paint / Chalk Paint / Oil-like / Poster Brush
 - Watercolor 6: Round Wash / Wet Wash / Edge Watercolor / Granulating Wash / Water Blend / Dry Watercolor
 - Air / Spray 4: Soft Airbrush / Hard Airbrush / Fine Spray / Grain Spray
@@ -3227,6 +3229,56 @@ Child PresetはParentとの差分Overrideを表示する。Inherited valueはlin
 - Utility 3: Pixel 1px / Fill Brush / Soft Mask Brush
 
 Preset名はLocalized表示可能だがStable internal IDを持つ。User presetを内蔵Preset更新で上書きしない。
+
+##### 5.2.13.1 ととろペン
+
+「ととろペン」はIllustro標準の汎用Ink Brush Presetとする。線画専用の特殊Penではなく、線画、ラフ、小面積の塗り、影、細部描き込みまで1本で扱える主力Brushを目的とし、G Penの単純上位互換にはしない。
+
+基本Characterは **Solid Core + Character Edge** とする。中心部は高密度で安定した描画結果を維持し、外縁だけへ微細なInk / Dry textureを加える。
+
+主要な固有挙動は次の5点とする。
+
+1. 弱筆圧では細く軽快に描ける。
+2. 中筆圧で線幅が明確に増加する。
+3. 強筆圧では線幅変化を緩やかにし、太さが暴れにくい。
+4. 高速Strokeでは少し細くなり、外縁のDry textureがわずかに強くなる。
+5. Stroke終端は通常よりやや長く細く抜ける。
+
+Pressure → Sizeは単純Linearではなく、中筆圧域の変化を強くし、高筆圧域で緩やかにPlateauするCurveをDefaultとする。
+
+| Pressure | Size |
+| --- | --- |
+| 0% | 22% |
+| 15% | 28% |
+| 30% | 42% |
+| 45% | 68% |
+| 60% | 86% |
+| 75% | 96% |
+| 100% | 100% |
+
+Stroke途中では極端な低筆圧で意図せず針状に細くなりにくいMinimum responseを持たせる。Exit TaperはこのMinimum responseとは独立し、終端ではさらに細くできる。
+
+Speedは離散的Mode切替ではなく連続Dynamicsとして作用し、高速になるほどDefaultでSizeを最大約9%縮小、Densityを最大約4%低下、Edge Texture Strengthを最大約6%増加させる。高速StrokeのCharacterは主としてSizeとEdge Textureで表現し、Stroke全体を強く薄くしたり全面を激しくかすれさせたりしない。
+
+Texture Coverageは`Edge-biased`をDefaultとする。中心部は原則Solidに保ち、外縁へ微細な欠け、Density variation、Ink / Dry mediaらしい輪郭を与える。中心部へ強いPaper grainや穴を生成せず、Texture表現のためにAntialias品質を低下させない。
+
+TipはほぼRoundなCustom TipをDefaultとし、Aspect約98%、Hardness高め、Position Jitter 0、Rotation Jitter 0、Spacing約3–4% Diameterを基準とする。完全な幾何学円よりわずかに有機的な外周を許容するが、Stroke自体を揺らして個性を作らない。
+
+DefaultはOpacity 100%、Flow 100%、Core Densityほぼ100%とする。弱筆圧時のみDensityを緩やかに低下させ、最低値は約82%を基準とする。軽さや質感を低Flowそのものから作らず、Pressure responseとEdge Textureを主に利用する。
+
+Entry Taperは短く約0.5 Brush Diameter、Exit Taperは約1.5–1.7 Brush Diameterを基準とする。Taperは主にSizeへ作用し、Opacity fadeは弱くする。
+
+StabilizationはPreset固有Characterには含めず、Preset DefaultのみRealtime約8–10%、Post-correction 0%を初期基準とする。ユーザーがStabilizationを変更しても主要Characterを維持する。
+
+Tilt MappingはDefault OFFとする。ととろペンの基本CharacterをTilt対応Deviceへ依存させない。Pressure非対応InputではNeutral Pressure responseを用い、Speed response、Edge Texture、Tip Character、Exit Taperを維持する。
+
+Region ConstraintおよびAbsolute / Relative Shade / Relative Light / Custom Relative Color Applicationは通常Brush共通機能として利用可能とし、ととろペン専用処理にはしない。
+
+Default Brush Sizeは12 pxを初期基準とする。Preset Previewは弱筆圧 → 中筆圧 → 強筆圧 → 高速Stroke → Exit Taperを1 Stroke内で確認できる標準Previewを使い、Texture / Noiseは再現可能なSeedを使用する。
+
+Preset説明文は次をDefaultとする。
+
+> 中筆圧でぐっと太く、強筆圧では暴れにくい。速描きでは少し細く、縁だけ軽く乾き、長めの抜きが残る。線画、ラフ、塗りまで使えるIllustroの汎用ペン。
 
 ---
 
@@ -4588,7 +4640,7 @@ Section 2の24カテゴリすべてについて、本章でPrimary behavior / en
 
 #### 5.26.4 Default Brush Baseline
 
-Built-in 40 Presetを5.2.13の初期Baselineとする。Preset count増加を機能完成の代替指標にしない。基本描画、線画、塗り、混色、水彩、Air、Texture、Pixel用途を初期状態でカバーする。
+Built-in 41 Presetを5.2.13の初期Baselineとする。Preset count増加を機能完成の代替指標にしない。基本描画、線画、塗り、混色、水彩、Air、Texture、Pixel用途を初期状態でカバーする。
 
 #### 5.26.5 UI / State Consistency
 
