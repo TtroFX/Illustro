@@ -279,6 +279,14 @@ Raster Paintingに使用するStroke、Brush Tip、質感、混色、入力応�
   - 継承状態表示
   - 親変更伝播
 
+- **Region Constraint【Illustro拡張】**（Brush / Eraser / Blend等のStroke作用範囲をSelectionまたはLineart Stable Regionへ制約する共通能力）
+  - None
+  - Stroke-start Region
+  - Selected Regions
+  - Lineart Regions
+  - Selection
+  - Boundary Crossing Policy
+
 ### 2.3 ペン / タッチ / 入力
 
 Pen、Touch、Mouse、Keyboardを一貫した直接操作体系へ統合する。
@@ -372,6 +380,12 @@ Pen、Touch、Mouse、Keyboardを一貫した直接操作体系へ統合する�
   - Hue Lock
   - Saturation Lock
   - Lightness / Value Lock
+
+- **相対色適用【Illustro拡張】**（固定色ではなくReference Colorに対するHue / Chroma / Lightness等の相対変化として色を生成し、Brush / Fill等から共有利用する）
+  - Relative Shade
+  - Relative Light
+  - Custom Relative Relation
+  - Reference Color Source
 
 ### 2.5 レイヤー / 合成
 
@@ -568,9 +582,18 @@ Artworkを独立要素へ分割し、階層、Mask、Effect、Composite関係を
   - Canvas Overlay
 - **領域スイープ【Illustro拡張】**
   - Add
+  - Remove
+  - Toggle
   - Backtrack Cancel
   - Live Preview
   - Release Commit
+
+- **境界距離塗り【Illustro拡張】**（Resolved Region Boundaryからの距離に応じてColor / Opacity等を変化させるFill Style）
+  - Inner Edge
+  - Outer Edge
+  - Both
+  - Width / Falloff
+  - Absolute / Relative Color Application
 
 ### 2.8 線画システム【Illustro独自】
 
@@ -627,6 +650,13 @@ Visible Lineartと独立した理想化Region Topologyを管理し、塗り・�
   - Deleted Region
   - Split / Merge
   - Connection Change
+
+- **Boundary Pen / Boundary Eraser【Illustro拡張】**（Lineart Group編集時に、作品へVisible Pixelを描かず論理BoundaryをBrush-like inputで追加 / 除去する）
+- **Region Hint Pen【Illustro拡張】**（Lineart Group内で不可視のRegion membership hintを描き、曖昧なTopologyへRegion seed / extensionを与える）
+  - New Region Hint
+  - Add to Region
+  - Erase Hint
+  - Explicit Boundary Respect
 
 ### 2.9 変形 / 配置
 
@@ -3200,6 +3230,24 @@ Preset名はLocalized表示可能だがStable internal IDを持つ。User preset
 
 ---
 
+#### 5.2.14 Region Constraint
+
+`Region Wash`のような専用Brushを別Toolとして増やさず、Region-aware paintingをBrush / Eraser / Blendの共通Constraintとして提供する。
+
+Target:
+- None
+- Stroke-start Region: Pointer Down地点でResolveしたStable RegionへStroke全体を固定
+- Selected Regions: 明示選択したStable Region集合
+- Lineart Regions: Current Lineart GroupのResolved Region集合
+- Selection: Active Selection Value
+
+Boundary Crossing Policy:
+- Hard Stop: Boundary外へ作用しない
+- Soft Edge: Boundary内側で指定幅だけFalloff
+- Pressure Gate: PressureがThresholdを超えた場合のみ隣Regionへ越境可能
+
+Region ConstraintはPresetへ保存可能だが、特定DocumentのStable Region ID自体を通常Presetへ暗黙保存しない。Topologyがstaleな場合はStroke開始に必要な局所Regionだけを優先Resolveし、古いBoundaryへ黙ってFallbackして塗り漏らさない。
+
 ### 5.3 ペン / タッチ / 入力
 
 #### 5.3.1 Pen
@@ -3444,7 +3492,18 @@ Drag中に通過したRegionを追加し、同一Regionへの重複Applyを避�
 
 #### 5.7.6 Enclose Fill / Enclose Erase
 
-Lasso状に囲った領域内のeligible regionを解析し一括Fill / Erase。囲みGeometryのRelease後に結果を即成立させ、offscreen全解析を同期必須にしない。
+Lasso状に囲った範囲を一括Fill / Eraseする。従来型のPixel interior処理を維持した上で、Illustro独自のStable Region targetingを選択できる。
+
+Target Interpretation:
+- Interior Pixels: 囲み内部のPixel領域を通常のEnclose Fillとして処理
+- Stable Regions: 囲みGestureからStable Region集合をResolveしてRegion単位で処理
+
+Stable RegionsのMatch Mode:
+- Seed Inside: Region representative / seedが囲み内にあるRegion
+- Fully Inside: Region全体が囲み内にあるRegion
+- Touched: 囲み内部または囲みStrokeに触れたRegion
+
+DefaultはInterior Pixelsとし、Stable RegionsはPropertiesから明示選択する。囲みGeometryのRelease後に結果を即成立させ、offscreen全解析を同期必須にしない。
 
 #### 5.7.7 Gap Paint / Closed-area Fill / Contour Fill
 
@@ -3460,9 +3519,26 @@ Fillが意図せず外へ漏れた場合、`Diagnose Leak`でLeak Path / Gap Can
 
 #### 5.7.10 Region Sweep
 
-Pointer移動でRegionを連続Addし、Backtrackで直近追加を取消可能。Releaseで1 TransactionとしてCommit。Sweep中の対象Regionはhighlightし、既追加Regionを視覚識別する。
+Pointer pathが通過したStable Regionを連続Resolveし、Region集合へAdd / Remove / Toggleする。Fill Family内では、ざっくりStrokeで触れたRegion群をまとめてFill / Eraseする用途をPrimaryとする。
+
+Backtrackで直近追加Regionを取消可能。Releaseで1 TransactionとしてCommit。Sweep中の対象Regionはhighlightし、既追加Regionを視覚識別する。
+
+Region SweepのGesture→Region集合Resolve semanticsはSelection / Mask等からも再利用可能とし、Toolごとに別のRegion判定規則を作らない。
 
 ---
+
+#### 5.7.11 Boundary-distance Fill / Edge Bloom
+
+Resolved Region Boundaryからの距離を入力としてFill結果を生成する。独立BrushではなくFill Styleとして扱う。
+
+Properties:
+- Side: Inner / Outer / Both
+- Width
+- Falloff Curve
+- Opacity Curve
+- Color Application: Absolute / Relative
+
+用途例はEdge Shadow、Inner Glow、Cel-shading edge band、Watercolor-like edge darkening。Boundaryが未確定の場合は対象Region周辺だけResolveし、誤った旧Boundaryで確定しない。
 
 ### 5.8 線画システム
 
@@ -3489,6 +3565,8 @@ Auto bridge candidateはConfidenceを持ち、High confidenceは通常Boundary�
 #### 5.8.5 Manual Boundary Editing
 
 Assist > Lineart `Edit Boundary`でAdd / Connect / Remove / Split / Disconnect / Reject Auto Bridge。Manual editはdistinct provenanceを持ち、incremental regenerationで勝手に上書きしない。
+
+既存Commandに加えてBrush-like interactionとしてBoundary Pen / Boundary Eraserを提供する。Boundary PenはVisible artworkへPixelを描かず論理Boundary segmentを連続追加し、Boundary Eraserは通過したmanual / eligible auto boundaryを除去候補としてPreviewする。Endpoint付近ではConnect semanticsを利用できる。
 
 Node / handle操作はCanvas上Direct、exact coordinate / relationはProperties。
 
@@ -3519,6 +3597,19 @@ Split / Merge発生時、Persistent Fill等のdependent featureへstatus badge�
 Lineart更新後のNew / Deleted / Split / Merge / Connection ChangeをDiagnosticsで一覧化。通常は問題があるdependent featureだけにbadgeを出し、毎回Modalを出さない。
 
 ---
+
+#### 5.8.12 Region Hint Pen
+
+Lineart Group編集時だけ利用できる不可視のTopology auxiliary inputとする。Artwork LayerへColor / Alphaを描かない。
+
+Modes:
+- New Region Hint: painted areaを新しいRegion seed / membership hintとして登録
+- Add to Region: 選択中Regionのmembership hintを曖昧領域へ拡張
+- Erase Hint: manual hintを除去
+
+Region HintはAccepted explicit BoundaryをDefaultでは越えない。Boundaryを無視してHintを跨がせる場合は明示Override操作を要求する。Auto Boundary regenerationはmanual Region Hintを勝手に破棄しない。
+
+通常Layer一覧へRegion Hint Dataを独立Color Layerとして並べず、Lineart GroupのAssist / Diagnosticsから編集する。
 
 ### 5.9 変形 / 配置
 
@@ -4415,13 +4506,72 @@ ExportはSnapshot固定後Background processing。Progress、Cancel、Result loc
 
 ---
 
-### 5.25 Section 5 完了条件 / Default UX Baseline
+### 5.25 Illustro Cross-Tool Region / Relative Color System — 確定
 
-#### 5.25.1 24カテゴリCoverage
+#### 5.25.1 Classification / 重複防止
+
+次は既存機能として扱い、新Toolとして重複追加しない。
+- Enclose Fill / Enclose Erase
+- Region Sweep
+- Persistent Region Fill
+- Manual Boundary Editing
+- Anti-overflow / Lineart-limited Paint
+- Recent Stroke Re-edit
+- Brush Morph
+
+今回の独自拡張は、既存機能へ共通能力を接続する形で成立させる。
+
+#### 5.25.2 Shared Region Resolver
+
+Tap / Sweep / Enclose / Explicit Pick等のGestureからStable Region集合をResolveする意味規則を共通化する。
+
+Consumers:
+- Fill: Region単位Fill / Erase
+- Selection: Region単位Selection
+- Mask: Region集合からMask生成
+- Brush / Eraser / Blend: Region Constraint
+- Lineart: Region inspection / topology editing
+
+同じGestureなのにFillとSelectionで異なるRegion判定になる状態を避ける。具体Data structure / schedulingはSection 8 / 9で決定する。
+
+#### 5.25.3 Relative Color Application
+
+Smart Shade / Smart Lightを固定専用Brushとして閉じ込めず、Brush / Fill等が共有できるColor Application Modeとする。
+
+Modes:
+- Absolute: 通常の固定Color
+- Relative Shade: Reference Colorから暗部方向へ相対変化
+- Relative Light: Reference Colorから明部方向へ相対変化
+- Custom Relative: Hue shift / Chroma change / Lightness change等を明示設定
+
+Reference Color Source:
+- Destination / Under-paint: 現在作用地点の下地
+- Region Base Color: Persistent Fill等でStable Regionに基準色がある場合はそれを優先
+- Explicit Reference Color: ユーザー指定色
+
+BrushでRelative Colorを使う場合、赤・青・緑等の異なる下地へ同じShadow / Light relationを描ける。Fillで使う場合、選択した複数RegionそれぞれのReference Colorを基準として相対色を適用できる。
+
+UIはHue / Chroma / Lightness等の知覚的な意味で表示し、厳密なColor transform / gamut handlingはSection 9 / 24系Color Management仕様と整合させる。
+
+#### 5.25.4 Independent Toolsを増やさない原則
+
+Illustro独自性は`特殊Toolを増やすこと`ではなく、通常のBrush / Fill / Selection / Lineart / ColorがStable Region / Boundary / Relative Colorを共通理解することに置く。
+
+したがってDefault Tool RailへRegion Wash、Smart Shade、Smart Light、Boundary Pen、Region Sweep等を独立Familyとして追加しない。既存FamilyのSubtool / Property / Interaction Modeとして露出する。
+
+#### 5.25.5 Naming
+
+`Region Wash`、`Smart Shade`、`Smart Light`、`Edge Bloom`等はPreset / Style名として利用可能だが、Canonical feature名はそれぞれRegion Constraint、Relative Color Application、Boundary-distance Fill等のCapability名を使用する。
+
+---
+
+### 5.26 Section 5 完了条件 / Default UX Baseline
+
+#### 5.26.1 24カテゴリCoverage
 
 Section 2の24カテゴリすべてについて、本章でPrimary behavior / entry / parameter grouping / state / interaction semanticsを定義した。Section 5で新たにSection 2の採用外機能を暗黙追加しない。
 
-#### 5.25.2 Default Quick Hole
+#### 5.26.2 Default Quick Hole
 
 - left: Undo
 - right: Redo
@@ -4432,15 +4582,15 @@ Section 2の24カテゴリすべてについて、本章でPrimary behavior / en
 
 6 Hex geometryはSection 4を唯一の形状仕様とする。
 
-#### 5.25.3 Default Shortcut Baseline
+#### 5.26.3 Default Shortcut Baseline
 
 5.0.6のKey MapをDefaultとし、全項目Remap可能。Gesture / ShortcutはGUI Primary Routeのacceleratorであり唯一の入口にしない。
 
-#### 5.25.4 Default Brush Baseline
+#### 5.26.4 Default Brush Baseline
 
 Built-in 40 Presetを5.2.13の初期Baselineとする。Preset count増加を機能完成の代替指標にしない。基本描画、線画、塗り、混色、水彩、Air、Texture、Pixel用途を初期状態でカバーする。
 
-#### 5.25.5 UI / State Consistency
+#### 5.26.5 UI / State Consistency
 
 1. PropertiesはCurrent Tool / Objectの高頻度設定。
 2. Detailは全Parameter。
@@ -4453,7 +4603,7 @@ Built-in 40 Presetを5.2.13の初期Baselineとする。Preset count増加を機
 9. Color / shortcut / gestureだけに意味を依存しない。
 10. Section 4 Feature-to-Route Matrixを維持する。
 
-#### 5.25.6 Section 5と後続章の境界
+#### 5.26.6 Section 5と後続章の境界
 
 本章で確定したのはユーザーが見る機能Semantics / UXである。
 
