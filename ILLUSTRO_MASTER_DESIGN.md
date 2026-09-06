@@ -1731,4 +1731,156 @@ Procedural Material等、Randomnessを含むSource / InstanceではProject再Ope
 
 External SourceのMissing状態は、Internal Sourceの不正なDangling Referenceとは別概念として扱う。
 
-次項では、Source / Instance、Reference、Persistent Fill、Parameter Link、Constraint等の非親子関係を安全かつ高速に管理するDependency Graph Modelを定義する。
+### 3.6 Dependency Graph Model — 確定
+
+#### 3.6.1 基本原則
+Dependency GraphはCanonicalな依存関係を表現するが、すべての操作を通す単一の万能Graph実装を要求しない。Relation Typeごとに専用Index / Runtime表現を持てる。
+
+Containment、Ownership、Dependencyを分離する。Dependencyは少なくともHard / Soft / Derived / Semantic(Query)の性質を区別できる。
+
+ClippingのCanonical SemanticsはLayer Stack基準とし、内部Dependency Edgeは追跡・無効化用の派生Cacheとして利用できる。
+
+#### 3.6.2 Realtime解決
+Brush、Lasso、Transform等の直接操作ではGraph全探索を行わない。Interaction開始時にTarget、Transform、Selection、Mask、Clip、Ruler、必要なReference等をActive Interaction Contextへ解決し、その後のInput Sampleは解決済みRuntime状態を利用する。
+
+現在のVisible Resultに必要なMask / Clip等はRealtime Pathへ含め、正確性を犠牲にしない。一方、非表示Layer、画面外Instance、Export Cache、Storage、全体Topology解析等は直接操作の同期完了条件にしない。
+
+#### 3.6.3 ChangeSet / Invalidation
+変更は単なる「Document changed」ではなく、changed entity、change kind、affected bounds、generation / revision等を表現できるChangeSetとして伝播可能とする。
+
+InvalidationとRecomputationを分離する。依存元変更時はDependentを軽量にDirty化し、Active / Visible / Next-needed Dataを優先して需要駆動で再評価できる。
+
+Lineart → Boundary → Stable Region → Persistent Fillの依存Chainは局所Change propagationを前提とし、全Topology再解析をBrush Hot Pathへ置かない。
+
+Selection Recipeも現在利用中の場合だけInteractive更新を優先し、未使用Recipeの再評価で直接操作を待たせない。
+
+#### 3.6.4 Cycle Policy
+Evaluation系依存（Source→Instance、Modifier evaluation、Selection Recipe、Derived Data等）は無限再評価Cycleを許さない。
+
+Parameter LinkはA↔BのEvent連鎖ではなくShared Parameterを複数Consumerが参照するモデルを基本とする。
+
+Geometric Constraintは通常Evaluation Graphとは分離したConstraint Solver Networkとして扱い、Relation意味ごとにCycle Policyを定義する。
+
+#### 3.6.5 UX利用
+Dependency情報は影響関係ビュー等へ利用可能とする。ただし内部Graphの複雑さを日常UIへそのまま露出しない。
+
+### 3.7 Selection / Mask / Region Model — 確定
+
+#### 3.7.1 Selection体系
+Active Selection、Selection Construction、Quick Mask Edit State、Saved Selection、Selection Recipe、Stable Regionを別概念とする。
+
+Active SelectionはDocument単位の現在の編集Coverageで、原則Document Spaceに存在する。Selectionは1bitだけでなく0.0〜1.0相当の連続Coverageを表現可能とし、Feather、Anti-alias、Soft Brush Selection等を共通に扱える。
+
+Selection Geometry / Input ConstructionとRaster Coverageを分離できる。Lasso、Rectangle、Ellipse、Brush、Magic Wand等はSelection Construction Stateを持ち、New / Add / Subtract / Intersectを同じInteraction / Transaction原則へ載せる。
+
+#### 3.7.2 Lasso / Interactive Construction
+投げ縄のPointer Releaseを重いSelection生成処理の開始点にしない。Pointer Move中にGeometryと必要な派生状態を逐次構築し、Release時は残りのBounded Tailを閉じて即Commit可能であることをモデル要件とする。
+
+Selection Construction中の結果は単なる偽Previewではなく、そのInteractionで利用可能な第一級Interactive Stateとする。Release後にCanvas全面再Scan、全Polygon再Raster、History Serialization、Dependency全評価等を待ってからSelection表示する構造は禁止する。
+
+Magic Wand / Live Tolerance等もInteractive Construction → Commit規約へ統一する。
+
+#### 3.7.3 Quick Mask / Saved Selection / Recipe
+Quick MaskはActive SelectionをBrush等で直接編集するInteraction Modeであり、別の恒久Entityとはしない。巨大なFull Mask Copyを開始条件にしない。
+
+Saved SelectionはStable IDを持つ永続EntityとしてSaved Selection Registryへ保存し、Visual Composite Treeへ普通のArtwork Layerとして無理に混在させない。
+
+Selection Recipeは生成手順、Selection Coverageは結果として分離する。RecipeはInput / Operation / ParameterとCached Resultを持て、未使用RecipeはDirtyのまま遅延再評価可能とする。
+
+#### 3.7.4 Mask / Region
+Selection、Layer Mask、Effect Mask等は共通Coverage表現を利用可能だが、Semantic Entity、Ownership、Lifetimeは別とする。
+
+Layer MaskはOwner Local Spaceを基本とし、内部モデルとして複数Mask Stackを許容できる。
+
+Stable RegionはSelectionとは別Entityで、Lineart GroupのBoundary Topology / Region Tableに属する。Region IdentityとRaster Coverageを分離し、RegionごとにCanvas-size Maskを恒常保持することを要求しない。Regionは必要時にSelection / Fill用CoverageへResolveできる。
+
+#### 3.7.5 History / Latency
+Selection変更は原則Undo対象だが、Pointer Sampleごとではなく1 Selection Interactionを1論理Transactionとする。Selection HistoryはDocument Historyとは別のRecent Selection Registryとして保持可能とする。
+
+Selection機能の高機能化をLasso Release latency悪化の理由にしてはならない。
+
+### 3.8 Effect / Modifier Model — 確定
+
+#### 3.8.1 Modifier分類
+Modifierは元Dataを直接破壊せず、Parameterに従って派生結果を生成する処理Entityとする。
+
+- **Attached Modifier**: 特定Owner Nodeへ付く。Filter、Transform、Displacement等。
+- **Stack Modifier**: Visual Stack位置によって下位Compositeへ作用する。Adjustment等。
+- **Shared Modifier**: Shared Definitionを複数Applicationが参照する。
+
+Effect DefinitionとModifier Applicationを分離可能とし、Modifier Stackの順序、Enabled state、Parameter、Mask等をCanonical Stateとして保持する。
+
+#### 3.8.2 Interactive Parameter Editing
+Slider、Canvas Handle、Transform等の高頻度Parameter操作はActive Modifier Interactionとして即時反映し、1 Drag / 1論理操作を1TransactionとしてCommitする。
+
+Canonical History生成、全Modifier再評価、全Document CompositeをParameter Sampleごとの同期必須処理にしない。
+
+低品質Previewで本処理の遅さを隠すことを0ラグ達成とはみなさない。本来必要な処理自体をInteractiveに成立させることを目標とする。
+
+#### 3.8.3 Influence / Derived Cache
+EffectはLocal / Bounded Expansion / Global等のInfluence特性を表現可能とし、Input Bounds / Output Bounds / Influence Boundsを区別できる。
+
+中間Render結果はDerived CacheでありCanonical Artwork Dataではない。有効な中間結果、Resolved Input、Cached Bounds等を保持・再利用し、変更のたびに必ずChain先頭から再計算することを要求しない。
+
+Effect MaskはModifier ApplicationのAttachmentとし、Coverage Field系を利用可能とする。
+
+#### 3.8.4 Transform / Liquify / Shared Parameter
+TransformはModifier概念へ統合できるが、非常に高頻度な直接操作のため専用Realtime Fast Pathを許可する。Canonical Conceptの統一を理由に汎用Modifier EngineをHot Pathの関所にしない。
+
+Non-destructive LiquifyはDisplacement Modifierとして扱える。Restore BrushはDisplacement Stateを局所的に戻す操作として設計可能とする。
+
+Parameter LinkはShared Parameterを複数Modifierが参照するモデルを基本とする。
+
+#### 3.8.5 Recipe / Variant / Sweep / Bake
+Effect Recipeは再利用可能なModifier Chain Templateとし、適用後の過去作品をPreset変更で暗黙更新しない。共有が必要な場合はShared Modifierを使う。
+
+Effect Variantは保存されたParameter候補状態、Parameter Sweepは一時的なInteractive比較状態として区別する。
+
+DisableではModifier Stateを保持する。Bake / Rasterizeは明示的な破壊操作とし、性能都合で勝手に実行しない。
+
+Modifier Chainの長さや高コストEffectの存在をBrush / Penの直接操作Latency悪化の当然の理由にしない。
+
+### 3.9 History / Snapshot / Branch Model — 確定
+
+#### 3.9.1 Operation / Transaction / State
+Operation、Transaction、History State、Snapshot、Checkpoint、Branchを別概念とする。
+
+Undo単位は内部処理都合ではなく、ユーザーが「今の操作を戻したい」と認識する論理操作を基準とする。多数のPointer Sampleを含む1 Stroke / 1 Selection / 1 Parameter Drag等を原則1Transactionとして扱い、SampleごとのHistory State生成を要求しない。
+
+Continuous Transactionにより、Canvas Drag、Inspector微調整、数値入力等が同一論理操作である場合は1Undo単位へまとめられる。
+
+#### 3.9.2 HistoryとRealtimeの分離
+History生成のためのFull Document Copy、History Serialization、Autosave、Recovery書き込み等を直接操作の表示・次操作開始条件にしない。
+
+Undo / RedoはHistory State切替後のVisible Resultを最優先し、StorageやThumbnail、Index更新を待たせない。
+
+Transaction Commit後、History Indexing、Recovery、Autosave、Timelapse metadata、Storage compaction等は直接操作を阻害しない形で追従可能とする。
+
+#### 3.9.3 Branching History
+Undo後に新規編集した場合、旧Redo経路を捨てずBranchとして保持する。通常UIでは現在Branchを普通のUndo/Redo履歴として見せ、内部のBranch Graph複雑性を常時ユーザーへ押し付けない。
+
+Branch間では共通祖先の同一Entity IDを維持し、異なるRevisionを持てる。Branch MergeはCommon Ancestorを基準とし、安全に統合できる変更のみ自動統合し、意味が曖昧なConflictを勝手に破壊的解決しない。
+
+History PreviewとRestoreを分離する。過去Stateを見るだけで現在作業を破壊せず、Restore後も元の現在経路をBranchとして保持可能とする。
+
+#### 3.9.4 Snapshot / Checkpoint
+Snapshotは特定の論理Document Stateを不変の読み取り対象として固定する概念であり、Full Physical Copyを意味しない。Document / Node / Source Revision等を共有参照しつつ論理的不変性を保証できる。
+
+SnapshotをBackground Export、Compare、Variant Base等の共通基盤とする。描きながらExportではSnapshot作成後もCurrent Document編集を継続できる。
+
+Named CheckpointはStable ID、対象History State、Name等を持つ永続地点とし、Projectを閉じても保持する。
+
+Autosave / Recovery CheckpointはユーザーUndo Historyと分離し、Undo一覧をMaintenance項目で汚さない。
+
+#### 3.9.5 Variant / Search / Timelapse / Compaction
+Copy-on-Write Project VariantはProject Library上で独立して扱える作品案、History Branchは一つのProject内の編集履歴経路として区別する。Variantは共通Baseから開始し、未変更Dataを論理共有可能とする。
+
+History EntryはTool、affected Entity、Command、Timestamp、Affected Bounds等の検索用Metadataを持てるが、Index更新をInput Hot Pathへ入れない。
+
+TimelapseはMeaningful Operation Streamと必要なVisual Checkpointを利用でき、内部Maintenance操作を含めない。
+
+長時間制作でHistoryが巨大化しても現在のBrush / Lasso等を遅くしない。History Compaction、Cold Storage、Derived Cache eviction等を可能にするが、ユーザーが認識するUndo / Checkpoint / Branch semanticsを勝手に変更しない。
+
+View / Workspace操作は原則Artwork Undoへ混在させない。
+
+次項では、Section 3全体を統一するTransaction / Interactive State / Commit / Cancel Modelを定義する。
