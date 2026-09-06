@@ -1477,15 +1477,15 @@ Tool capabilityはNode Type + Stateから導出しRuntime Cache可能とする�
 
 UI上Layer Panelに表示する場合でも、内部Ownershipを曖昧にしない。
 
-#### 3.3.5 Modifier
+#### 3.3.5 Modifier / Visual Stack Participant
 
 非破壊処理では少なくとも次を区別する。
 
-- **Attached Modifier**: 特定Ownerへ付く。
-- **Stack Modifier**: Visual Stack位置によって下位Compositeへ作用する。
-- **Shared Modifier**: Shared Definitionを複数Applicationが参照する。
+- **Attached Modifier**: 特定Ownerへ付くAttachment。Ownerの内部処理順に参加する。
+- **Stack Modifier**: Visual Stack位置によって下位Compositeへ作用するAdjustment等。Visual Stackへ参加する第一級EntityとしてStable ID、Parent、Sibling Order、Visibility / Lock等のStack上必要な状態を持ち、Attached Modifierとは区別する。
+- **Shared Modifier**: Shared Definitionを複数Applicationが参照する。共有Definitionそのものと各Applicationの配置・Mask・Enabled state等を分離できる。
 
-詳細は3.8で定義する。
+したがってVisual Stack ParticipantにはContent Node / Container Nodeに加えてStack Modifier Node / Entryを含められる。詳細なEffect semanticsは3.8で定義する。
 
 #### 3.3.6 Auxiliary Registry
 
@@ -1555,7 +1555,9 @@ User History上はTを1 Undo単位として扱える。
 
 #### 3.4.2 Document Revision Root
 
-Document Logical Revision Rootは、その時点のNode Revision、Source Revision、Selection Revision、Relation State等を論理的に束ねる不変Rootとする。
+Document Logical Revision Rootは、その時点のNode Revision、Source Revision、Selection Revision、**Canonical Relation Semantics / References**等を論理的に束ねる不変Rootとする。
+
+Runtime Generation、Dirty flag、`lastSeenGeneration`、Resolved Dependency Cache等のFreshness / Derived StateはDocument Logical Revision Rootの意味を構成しない。これらが更新されてもCanonical Artworkの意味が変わらない限り、新しいDocument Logical Revisionを発行する必要はない。
 
 変更されていないEntity / Contentを次Revisionで共有できる概念を許可し、Revision生成のためのDocument全体物理Copyを要求しない。Copy-on-Write、Structural Sharing、Immutable Block等の具体方式はSection 8 / 9で決定する。
 
@@ -1745,7 +1747,7 @@ Geometric Constraintは通常Evaluation Graphとは分離したConstraint Solver
 
 ### 3.7 Selection / Mask / Region Model — 確定
 
-#### 3.7.1 Selection ValueとSelection Recipeを分離する
+#### 3.7.1 Selection Value / Recipe / Live Bindingを分離する
 
 Illustroでは以下を別概念とする。
 
@@ -1754,11 +1756,12 @@ Illustroでは以下を別概念とする。
 - Quick Mask Edit State
 - Saved Selection Value
 - Selection Recipe
+- Live Selection Binding
 - Stable Region
 
-**Active Selection / Saved Selectionは原則Frozen Valueであり、Selection RecipeはDynamic Procedureである。**
+**Active Selection Value / Saved Selection ValueはFrozen Value、Selection RecipeはDynamic Procedure、Live Selection BindingはRecipe等のDynamic SourceをToolの現在Selection入力へ明示的に接続する別状態である。** Active Selection Valueそのものを暗黙にDynamic化しない。
 
-例えばLayer AlphaからSelectionを作成した場合、その時点のLayer Revisionに基づくSelection Valueを成立させ、元Layerが後から変化しても通常Selectionが勝手に変形しない。一方Selection RecipeはSourceのCurrent Revisionを再評価してLive rebuildできる。
+例えばLayer Alphaから通常Selectionを作成した場合、その時点のLayer Revisionに基づくSelection Valueを成立させ、元Layerが後から変化しても通常Selectionが勝手に変形しない。一方Selection RecipeはSourceのCurrent Revisionを再評価できる。追従Selectionが必要な場合のみ、明示的なLive Selection Bindingを利用する。
 
 #### 3.7.2 Logical SelectionとMaterialized Coverage
 
@@ -1811,11 +1814,13 @@ Quick MaskはActive Selection ValueをBrush等で編集するInteraction Modeで
 
 Saved SelectionはStable IDを持つFrozen Selection ValueとしてRegistryへ保存する。Visual Composite Treeへ普通のColor Layerとして無理に混在させない。
 
-#### 3.7.7 Selection Recipe
+#### 3.7.7 Selection Recipe / Live Selection Binding
 
 Selection RecipeはInput、Operation、Parameter等からSelection Valueを生成する再評価可能Procedureとする。Cached Resultを持てるが、未使用Recipeの再評価を直接操作の同期条件にしない。
 
-RecipeをActive Selectionとして適用する場合は、適用時点でFrozen Valueを生成する方式と、明示的にLive-bound Selectionとして利用する方式をUX上区別できるようにし、普通のSelectionを意図せずDynamic化しない。具体UXはSection 5で確定する。
+通常の「Recipeを選択へ適用」は、その時点のRecipe評価結果からFrozen Active Selection Valueを生成する。
+
+明示的にSource追従を望む機能では、Active Selection Valueを書き換えてDynamic化するのではなく、**Live Selection Binding**を別状態として作り、RecipeのCurrent ResultをToolのSelection Inputへ供給する。Binding解除時のFrozen化、対象Tool、表示方法等の具体UXはSection 5で確定する。
 
 #### 3.7.8 Stable Region / Persistent Fill
 
@@ -1846,7 +1851,7 @@ Selection高機能化をLasso Release latencyや次Brush開始latency悪化の�
 Modifierは元Dataを直接破壊せずParameterに従って派生結果を生成する処理Entityとする。
 
 - **Attached Modifier**: 特定Ownerへ付く。Filter、Transform、Displacement等。
-- **Stack Modifier**: Visual Stack位置によって下位Compositeへ作用する。Adjustment等。
+- **Stack Modifier**: Visual Stack位置によって下位Compositeへ作用するAdjustment等。Visual Stack ParticipantとしてStable IdentityとStack Orderを持つ。
 - **Shared Modifier**: Shared Definitionを複数Applicationが参照する。
 
 Effect DefinitionとModifier Applicationを分離可能とし、順序、Enabled state、Parameter、Mask等をCanonical Stateとして保持する。
@@ -1869,11 +1874,13 @@ Modifierの中間Render結果、Resolved Input、Cached Bounds、Evaluation prep
 
 Modifier Stack / Structureが変わった際にResolved Evaluation Plan等を準備・Cache可能とするが、Parameter変更だけで毎回全Structureを再構築することを要求しない。具体的Compile / Cache方式はSection 8 / 9で決定する。
 
-#### 3.8.5 Visible Exactness
+#### 3.8.5 Visible Exactness / Current Effective State
 
-Current Viewport / Active TargetではCurrent Logical Revisionに対して意味的に正しい結果を最優先する。Document全域を常に事前計算済みにする必要はなく、画面外はDirty / Lazy状態を許可する。
+Current Viewport / Active Targetでは、**Current Effective State**に対して意味的に正しい結果を最優先する。
 
-これは品質を落とすApproximationではなく、計算対象を必要領域へ限定する考え方である。
+Current Effective Stateは通常時はCurrent Logical Revisionそのものであり、Interaction中は `Current Logical Revision + Active Interactive Working State` が表す現在の意味状態である。したがってSlider Drag、Transform、Brush等のInteraction中も、表示はCommit前の旧Logical Revisionだけではなく現在のInteractive Resultを正しく反映する。
+
+Document全域を常に事前計算済みにする必要はなく、画面外はDirty / Lazy状態を許可する。これは品質を落とすApproximationではなく、計算対象を必要領域へ限定する考え方である。
 
 #### 3.8.6 Mask / Transform / Liquify
 
@@ -1902,11 +1909,15 @@ Modifier Chainの長さや高度Effectの存在をBrush / Pen latency悪化の�
 
 ### 3.9 History / Snapshot / Branch Model — 確定
 
-#### 3.9.1 Operation / Revision / Transaction / History State
+#### 3.9.1 Operation / Revision / Transaction / History Node
 
-Operation、Document Logical Revision、Transaction、History State、Snapshot、Checkpoint、Branchを別概念とする。
+Operation、Document Logical Revision、Transaction、History Node / History State、Snapshot、Checkpoint、Branchを別概念とする。
 
-Pointer Sample単位でHistory Stateや永続Revisionを作らない。一方、Continuous Transaction中でも意味的に成立した直接操作結果はAtomic Logical Revisionへ採用できる。
+- **Document Logical Revision**: Artworkの正しい論理状態そのもの。
+- **Transaction**: ユーザーが1回のUndo / Redoで移動したいBase Revision → Final Revisionの論理操作単位。
+- **History Node / History State**: 特定Document Logical Revisionへの参照に、incoming Transaction、parent / branch relation、timestamp、history metadata等を付与してHistory Graph上へ配置する履歴上の節点。Artwork StateそのものをDocument Revisionとは別に二重保持する概念ではない。
+
+Pointer Sample単位でHistory Nodeや永続Revisionを作らない。一方、Continuous Transaction中でも意味的に成立した直接操作結果はAtomic Logical Revisionへ採用できる。
 
 1 Transactionは複数Logical Revisionを束ねられる。
 
@@ -1946,7 +1957,7 @@ Undo / RedoはTarget History StateのVisible Resultを最優先する。Storage�
 
 #### 3.9.5 Branching History
 
-Undo後に新規編集した場合、旧Redo経路をただちに破棄せずBranchとして保持できる。
+Undo後に新規編集した場合、旧Redo経路を破棄せずBranchとして保持する。
 
 ```text
       R100
@@ -2001,12 +2012,12 @@ Begin
   ↓
 Interactive Update
   ↓
-Atomic Logical Commit / Cancel
+Atomic Logical Commit / Interaction Cancel
   ↓
 Idle or next Interaction
 ```
 
-Toolごとに実装は異なってよいが、Begin / Interactive / Commit / Cancelの意味を可能な限り統一する。
+Toolごとに実装は異なってよいが、Begin / Interactive / Commit / Interaction Cancelの意味を可能な限り統一する。
 
 #### 3.10.2 Prepared Interaction Context
 
@@ -2029,9 +2040,9 @@ Interaction中だけTransient Mutable Stateを持てる。
 例:
 
 ```text
-Base Logical Revision R100
+Interaction Base Logical Revision R100
 +
-Active Transaction Working State
+Active Interaction Working State
 +
 Current Interactive Result
 ```
@@ -2062,21 +2073,40 @@ Pointer Up / Release / Commit時に、Canvas全面Rasterize、全Document Compos
 
 Commit必須処理は原則として今回変更したWorking Set / Bounded Tailに比例させる。Canvas Area、総Layer数、History長、Graph規模、総Instance数への比例を避ける。
 
-#### 3.10.7 Cancel
+#### 3.10.7 Interaction Cancel / Transaction Revert
 
-CancelはTransaction Begin直前の意味状態へ高速に戻す。CancelのためにBegin時Full Canvas Copyを要求しない。
+**Interaction Cancel**と、Continuous Transaction全体を取り消す**Transaction Revert**を別概念とする。
 
-Transient Working StateをdiscardしBase Logical Revisionを再びCurrentとして利用できる概念を基本とする。具体的COW / Reversible Delta等はSection 8 / 9で決定する。
+Interaction Cancelは、現在進行中のInteractionだけを開始直前の**Interaction Base Logical Revision**へ戻す。すでに同じContinuous Transaction内でAtomic Commit済みの以前のInteraction結果まで暗黙に消さない。
 
-Cancel可能ToolはTransaction確定前に不可逆な破壊Mutationを完了させない。
+例:
+
+```text
+Transaction Base R100
+  ↓ Interaction A Commit
+R101
+  ↓ Interaction B in progress
+
+Interaction B Cancel
+  ↓
+R101
+```
+
+一方、ユーザーがContinuous Transaction全体の取り消しを明示した場合だけ、**Transaction Revert**としてTransaction Base Revision R100へ戻せる。
+
+Cancel / RevertのためにBegin時Full Canvas Copyを要求しない。Transient Working StateのdiscardやRevision Root切替等を利用できる。具体的COW / Reversible Delta等はSection 8 / 9で決定する。
+
+Cancel可能Toolは現在Interactionの確定前に、そのInteraction Baseへ戻れない不可逆Mutationを完了させない。
 
 #### 3.10.8 Continuous Transaction
 
 多くの場合1 Interaction = 1 Transactionとするが、Canvas Handle、Inspector、Slider、Numeric Input等を跨いで同じ意味の編集を継続する場合はContinuous Transactionとして複数Atomic Logical Revisionを1 Undo単位へ束ねられる。
 
+Continuous TransactionはTransaction Base RevisionとCurrent / Final Revisionを保持し、各内部Interactionは独自のInteraction Base Revisionを持てる。これにより途中InteractionのCancelとTransaction全体のUndo / Revertを混同しない。
+
 Temporary / Spring-loaded Tool ContextとDocument Transactionを分離し、一時Eyedropper等のTool切替だけで不必要にArtwork Transactionを破壊しない。
 
-Tool切替時のCommit / Cancel PolicyはTool semanticsごとに明示し、場当たり的な暗黙動作を避ける。
+Tool切替時のCommit / Interaction Cancel PolicyはTool semanticsごとに明示し、場当たり的な暗黙動作を避ける。
 
 #### 3.10.9 Multi-input / View Interaction
 
@@ -2138,11 +2168,17 @@ Project / Document / Canvas / View、Coordinate Systems、Layer Tree / Node、Id
 
 1. Interaction中だけTransient Mutable Stateを持ち、Commit時にはLogical Canonical Revisionが成立する。
 2. Document Logical RevisionとUser Transactionを分離し、Continuous Transactionと即時Logical Commitを両立する。
-3. Active / Saved SelectionはFrozen Value、Selection RecipeはDynamic Procedureとして区別する。
+3. Active / Saved SelectionはFrozen Value、Selection RecipeはDynamic Procedure、Live Selection Bindingは明示的なDynamic Bindingとして別概念にする。
 4. ClippingのCanonical意味はLayer Stack / adjacencyとし、Runtime relationはDerivedとする。
 5. DependencyはGeneration / Demand-driven評価を利用可能とし、Recursive eager recomputationを直接操作へ強制しない。
 6. History、Branch、SnapshotはImmutable Revision semanticsと整合し、Document全体物理Copyを必須にしない。
 7. Logical Canonical StateとDurable Persistent Stateを分離しつつ、Recovery-critical処理の永久starvationを許容しない。
 8. Active / Visible結果を優先し、画面外・非表示・未使用Derived DataをLazyにできる。
 9. Canonical Modelの高度さを直接操作Hot Pathへそのまま持ち込まない。
-10. 後続のUX、保存、非機能、技術、Algorithm設計で本章と矛盾が判明した場合は例外実装で隠さず、本Source of Truthへ戻って改訂する。
+10. Interaction Cancelは現在Interaction Baseへ、Transaction Revert / UndoはTransaction Baseへ戻るものとして区別する。
+11. Current Effective Stateは通常時Logical Revision、Interaction中はLogical Revision + Active Interactive Working Stateとして扱い、Visible Resultはその現在意味状態に整合させる。
+12. Runtime Generation / Dirty / Cache更新だけでCanonical Artwork意味が変わらない限りDocument Logical Revisionを進めない。
+13. Stack ModifierはVisual Stack ParticipantとしてStable Identity / Stack Orderを持ち、Attached Modifierと区別する。
+14. History NodeはDocument Logical Revisionへの参照と履歴Graph metadataを持つ節点であり、Artwork Stateを二重保持しない。
+15. Undo後に新規編集しても旧Redo経路を破棄せずBranchとして保持する。
+16. 後続のUX、保存、非機能、技術、Algorithm設計で本章と矛盾が判明した場合は例外実装で隠さず、本Source of Truthへ戻って改訂する。
