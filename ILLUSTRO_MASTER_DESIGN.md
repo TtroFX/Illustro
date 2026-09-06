@@ -1275,3 +1275,238 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
 今後、各機能の具体的な挙動を詰める際に、実現不可能性や大手アプリとの仕様整合、性能要件との衝突が判明した場合は、勝手に削除せず設計判断として本章へ戻って改訂する。
 
 次章では、これらの機能を支える「基本概念・データモデル」を定義する。
+
+## 3. 基本概念・データモデル — 設計中
+
+### 3.0 この章の位置づけ
+
+本章は、Section 2で確定した機能群を共通の概念・データ構造で成立させるための基礎モデルを定義する。
+
+UIの最終配置、内部実装言語、GPU API、保存フォーマットの物理構造、具体的アルゴリズムは後続章で決定する。本章では、機能間で意味が食い違わないための概念境界、所有関係、座標、識別、依存関係、状態モデルを確定する。
+
+### 3.1 Project / Document / Canvas / View — 確定
+
+#### 3.1.1 基本分離
+
+Illustroでは、Project、Document、Document Space、Canvas Rect、Frame Variant、Viewを別概念とする。
+
+- **Project**: `.illustro`として保存される作品パッケージ全体。Document本体に加え、履歴、Branch、Checkpoint、埋め込みResource、Reference、Export設定、Recovery metadata等を収容できる。
+- **Document**: 一枚の作品の編集可能な正本。Layer構造、色空間、Canvas、非破壊情報等を所有する。
+- **Document Space**: Artworkが存在できる共通座標空間。Canvas境界より広く存在できる。
+- **Canvas Rect**: Document Space上にある有限矩形。通常の作品表示・標準Exportの基準領域。
+- **Frame Variant**: Canvasを破壊せず保存する追加の出力矩形。
+- **View**: Pan、Zoom、Rotation、Mirror等のArtworkを変更しない表示状態。
+
+1 Project : 1 Documentを基本とする。UI上はProjectとDocumentを強く意識させる必要はないが、データモデル上は分離する。
+
+#### 3.1.2 Canvas外Artwork
+
+Document SpaceはCanvas Rectに制限されない。Layer、Object、Pixel等はCanvas外にも存在でき、Canvas外へ移動しただけでは破棄しない。
+
+Canvas縮小、非破壊Crop、Frame変更ではCanvas外Artworkを保持する。Canvas外Dataを本当に削除する場合は、「キャンバス外データをトリミング」等の明示的な破壊操作として扱う。
+
+Canvas Size変更はArtwork DataのCropと同義にしない。
+
+#### 3.1.3 Viewの独立
+
+View TransformはDocument Dataから完全に分離する。Zoom、Pan、View Rotation、Mirrorを変更しても、Pixel座標、Layer位置、Selection、Mask、Export結果等のCanonical Artworkは変更しない。
+
+View StateはUndo / Redo対象とは原則分離するが、作業状態としてProject metadataへ保存可能とする。
+
+### 3.2 座標系 — 確定
+
+#### 3.2.1 Document Space
+
+Document Spaceを作品全体の唯一の安定した世界座標系とする。
+
+- 初期原点は新規Canvas左上 `(0, 0)` とする。
+- +Xは右、+Yは下とする。
+- 単位はDocument Pixel相当とする。
+- 整数だけでなく連続値・小数座標を正式に許可する。
+- Canvasを左・上へ拡張した場合、Canvas Rectを負座標へ伸ばし、既存ArtworkのDocument座標は書き換えない。
+
+例: 初期Canvas `(0, 0, 4000, 3000)` を左へ500px拡張する場合、Canvas Rectは `(-500, 0, 4500, 3000)` となる。Document原点と既存Artwork座標は動かさない。
+
+#### 3.2.2 Canvas座標
+
+CanvasをDocument Spaceと別の恒久座標系にはしない。CanvasはDocument Space上のRectである。
+
+UI等でCanvas相対座標が必要な場合は、`canvasX = documentX - canvasRect.x`、`canvasY = documentY - canvasRect.y` のような派生座標として求める。
+
+Frame VariantもDocument Space上のRectとしてCanvas Rectと同列に扱う。
+
+#### 3.2.3 Local Spaceと親子Transform
+
+Layer、Object、Text、Vector、Image Material、Embedded Object、Lineart Group等は必要に応じて自身のLocal Spaceを持つ。
+
+Source Dataの座標とDocument上の配置を分離し、Local → Parent → DocumentのTransform連鎖で位置を求める。子は所有者のLocal Spaceで表現できる。
+
+具体的なMatrix表現や数値型は技術設計で決める。
+
+#### 3.2.4 Raster Pixel規約
+
+Raster Pixel `(x, y)` は `[x, x+1) × [y, y+1)` の1×1セルとして扱い、Pixel中心は `(x+0.5, y+0.5)` とする。
+
+Stroke、Selection、Vector、Transform等の座標は早期に整数丸めしない。連続座標を保持し、Rasterize時にPixel Coverageへ変換する。
+
+これにより1px線、Vector→Raster、Selection Edge、Snap、Subpixel Transform等での0.5pxずれを避ける。
+
+#### 3.2.5 View / Workspace / Device Space
+
+- **View Transform**: Document SpaceからWorkspace上のCanvas表示へ変換する。Pan、Zoom、Rotation、Mirrorを含む。
+- **Workspace / UI Space**: Tool Rail、Inspector、Floating PiP、Quick Hole、Popup、Selection Launcher等のアプリUIを配置する座標系。
+- **Device Pixel Space**: Workspace logical pixelをdevicePixelRatio等で物理Display pixelへ変換した最終表示座標。
+
+PiPやQuick HoleのUI GeometryはWorkspace Spaceに置き、CanvasのZoom / Rotationと一緒に拡大・回転させない。Quick HoleはDocument / Canvas interactionをAnchor情報として利用できるが、UI本体はWorkspace Spaceに存在する。
+
+Device Pixel値は端末依存であるためCanonical Artwork Dataへ保存しない。
+
+#### 3.2.6 入力座標
+
+Pen / Touch / Mouse入力はWorkspace側のPointer positionと、timestamp、pressure、tilt、orientation、pointer type等の利用可能な情報を保持する。
+
+描画対象に応じて、Workspace → inverse View → Document → inverse Owner Transform → Local Spaceへ変換する。
+
+座標変換の都合でRaw / Coalesced Input Sampleを早期に捨てない。
+
+#### 3.2.7 Selection / Mask / Boundary / Ruler
+
+- Selection MaskのCanonical結果は原則Document Spaceに置く。
+- Selection RecipeのSourceはLayer Alpha等のOwner Local Spaceを参照できる。Source変更時は最終SelectionをDocument Spaceへ再評価する。
+- Layer MaskはOwner LayerのLocal Spaceを基本とし、Link / Unlink時は独自Transformを追加できる。
+- Lineart BoundaryとStable Region topologyはLineart Group Local Spaceを基本とする。Group TransformのみではRegion Identityを変更しない。
+- Global Ruler / GuideはDocument Spaceを基本とする。
+- Layer-linked RulerはOwner Local Spaceへ関連付けられる。
+
+#### 3.2.8 共同編集の座標
+
+共同編集でCanonical Dataとして同期する座標はDocument Spaceまたは明示されたOwner Local Spaceとする。Screen / Workspace / Device依存座標を作品データとして同期しない。
+
+異なる端末、Zoom、画面解像度でも同じStroke / Objectを再現できることを前提とする。
+
+### 3.3 Layer Tree / Node Model — 確定
+
+#### 3.3.1 Tree + Dependency Graph
+
+DocumentのArtwork構造はVisual Treeを基本とする。ただし、Visual TreeはContainmentとStack順のみを担当し、Reference、Sharing、Constraint、Source / Instance等の非親子関係はDependency Graphとして別管理する。
+
+つまり、Illustroの基本構造は「Visual Tree + Dependency Graph」とする。
+
+#### 3.3.2 共通Node基盤
+
+Visual Tree上の編集対象は共通Node基盤を持つ。
+
+Nodeは少なくとも以下の概念を持つ。
+
+- identity
+- type
+- name
+- parent
+- sibling order
+- visibility
+- lock state
+- local transform
+- metadata
+- optional capabilities
+
+Tool側はNode Typeの列挙だけに強く依存せず、`canPaint`、`canTransform`、`canMask`、`canClip`、`canHaveChildren`、`canRasterize`、`canProvideBoundary`、`canBeReference`、`canExportVector`等のCapabilityによって操作可否を判断できる構造を前提とする。
+
+#### 3.3.3 Content Node
+
+Artwork内容を生成・保持するNode系をContent Nodeとして扱う。
+
+主な種類:
+
+- RasterNode
+- VectorNode
+- TextNode
+- FillNode
+- GradientNode
+- ImageMaterialNode
+- FileObjectNode
+- EmbeddedObjectNode
+
+RasterNodeはPixel Dataを、VectorNodeはPath / Shape Geometryを、TextNodeは文字列とTypography状態を保持する。Fill / Gradient等は固定RasterではなくParameterから描画結果を生成できる。
+
+#### 3.3.4 Container Node
+
+複数Nodeを所有するNodeをContainer Nodeとして扱う。
+
+- FolderNode
+- LineartGroupNode
+
+Folderは子Nodeを階層化し、Visibility、Transform、Mask等をまとめて扱える。
+
+LineartGroupは単なるFolderではなく、Folder的Container能力に加えてLineart固有Semanticを持つ特殊Containerとする。Visible Lineart Childrenと、Boundary topology、Stable Region Table等を同じGroupへ所属させる。
+
+#### 3.3.5 Attachment
+
+MaskやLineart Boundary等、常に明確なOwnerへ付属するDataを普通のSibling Layerとして無理にVisual Stackへ置かず、Attachmentとして扱える構造にする。
+
+- Layer MaskはOwner NodeのMask Attachmentとする。
+- Maskは将来複数Stackを許可できる内部モデルとする。
+- Lineart Boundary / Stable Region TableはLineart Groupの非描画Attachmentとする。
+
+UI上で「Layer」「Boundary Layer」等として見せる場合でも、内部の所有関係を曖昧にしない。
+
+#### 3.3.6 Modifier
+
+非破壊処理にはStack ModifierとAttached Modifierを区別する。
+
+- **Stack Modifier**: Visual Stack上の位置によって下位Compositeへ作用する。Adjustment Layer等。
+- **Attached Modifier**: 特定Owner Nodeへ直接付く。Non-destructive Filter、Transform等。
+
+1 Nodeへ複数Modifierを順序付きModifier Stackとして保持でき、個別Edit、Disable、Reorder、Removeを可能にする。
+
+Shared Modifierは同じEffectをTreeへ複製するのではなく、一つのModifier Sourceを複数NodeがDependency Edgeで参照するモデルを前提とする。
+
+Adjustment LayerとShared Modifierは別概念とし、前者はStack位置、後者は明示Referenceで対象を決める。
+
+#### 3.3.7 Source / Instance対応
+
+Linked Shape、Image / Material Source、Embedded Object等のために、Source DataとInstance Nodeを分離できる構造を前提とする。
+
+InstanceはSource Referenceに加え、独自Transform、Override、Mask、Effect等を持てる。詳細はSource / Instance Modelで確定する。
+
+#### 3.3.8 Auxiliary Registry
+
+Compositeへ直接参加しないDocument DataはVisual Treeへ無理に混在させず、必要に応じRegistryとして管理する。
+
+- Saved Selection Registry
+- Global Ruler Registry
+- Guide Registry
+- Frame Variant Registry
+
+Layer-linked Ruler等はOwner NodeへのDependencyを持てる。
+
+#### 3.3.9 Composite参加
+
+「Layer Panelに見えること」と「画像Compositeへ参加すること」を同義にしない。
+
+Raster、Vector、Text等は描画内容としてCompositeへ参加する。AdjustmentはEffectとして参加する。Mask、Selection、Boundary、Ruler、Guide等は通常のColor Compositeには直接参加しない。
+
+FolderはIsolated CompositeとPass-through Compositeの両方式を正式サポートする。
+
+#### 3.3.10 Clipping / Reference / Metadata
+
+Clippingは単純な名前や現在順序の暗黙推測だけに依存せず、Source NodeとClip Base Nodeの関係を追跡可能なDependencyとして扱えるようにする。UX上は大手アプリと同様の「下のLayerへClip」という操作を維持する。
+
+Layer Role、Draft、Reference、Private / Shared等はNode Typeとは分離したMetadata / Stateとする。
+
+例:
+
+- RasterNode + role=lineart
+- VectorNode + role=lineart
+- RasterNode + visibilityScope=private
+- TextNode + role=reference
+
+描画方式、意味的役割、共同編集範囲を混同しない。
+
+#### 3.3.11 Tree不変条件
+
+- Visual Tree内の1 Nodeは同時に複数Parentを持たない。
+- Visual TreeのCycleは禁止する。
+- 同じSourceを複数箇所で利用したい場合はReference / Instanceを用いる。
+- Dependency GraphのCycle可否はDependency Typeごとに明示規則を持つ。無限再評価を起こすCycleを許可しない。
+
+次項では、名前変更、並べ替え、Undo / Redo、Branch、共同編集等を跨いでも同じEntityを追跡するIdentity / Stable ID Modelを定義する。
