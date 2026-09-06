@@ -1600,4 +1600,135 @@ Entity IDの生成にServerを必要としない。通常制作を完全Offline�
 
 IDはアクセス権限やSecretとして扱わない。共同編集のPermissionはIdentityの秘匿性に依存させない。
 
-次項では、一つのSource Dataを複数Instanceから安全に共有し、Instance固有のTransform / Override / Mask / EffectとSource更新伝播を両立するSource / Instance Modelを定義する。
+#### 3.4.11 Section 3横断: UX / 体感0ラグ優先規約
+
+本項は3.1以降のSection 3全体へ優先適用する。
+
+Illustroの目的は美しい内部モデルを作ることではなく、ユーザーが直感的に操作でき、直接操作が体感0ラグで反映される製品を作ることである。
+
+Canonical Data ModelとRealtime Runtime Modelは同一構造である必要はない。Brush、Pen、Lasso、Transform、Pan / Zoom等の直接操作では、必要ならResolved Runtime Handle、Active Interaction Context、Retained Interactive State、Runtime Cache等を用い、Canonical Modelの汎用性のためにHot Pathを遅くしてはならない。
+
+直接操作Hot Pathは原則として `Input → Active Interaction Context → Minimum Necessary Calculation → Interactive State更新 → Present` の最短経路とする。
+
+以下を直接操作の1 Sample / 1 Dabごとの同期必須処理にしない。
+
+- Project全体Load / Scan
+- Visual Tree / Dependency Graph全走査
+- History Serialization
+- Canonical Revision生成
+- Autosave / Persistence
+- Collaboration送信
+- Source全Instance再計算
+- Boundary / Stable Region全体再解析
+- 全Document Composite
+- Export / Health Check
+
+Interactive Stateは単なる偽Previewではなく、ユーザーが直ちに継続操作できる第一級の作業状態とする。後続のCanonical Reconciliation、History、Persistence、Dependency Propagation等は直接操作を阻害しない形で追従させる。
+
+3.1のProject所有関係は全Resourceの常時Loadを意味しない。Active Document / Active Layer / 現在必要なResourceをWorking Setとして優先し、Auxiliary Stateは必要時に評価可能とする。
+
+3.2ではInteraction開始時にTarget、Transform、Mask、Reference等を解決したActive Interaction Contextを構築できるようにし、Pointer SampleごとのTree探索やTransform再解決を避ける。
+
+3.3のDependency Graphは構造・無効化・伝播管理に利用するが、通常Brush Rasterizationの関所にはしない。Capabilityは必要に応じType / Stateから導出・Cache可能とし、冗長なCanonical Boolean群を必須としない。
+
+ClippingのCanonical UX SemanticsはLayer Stack基準とする。連続したClipped Layer群とBase Layerの関係をユーザーがLayer順から理解できることを優先し、内部Dependency Edgeは高速な追跡・無効化用の派生情報として利用できる。
+
+3.4のCanonical RevisionはPointer Sample単位ではなく論理Transaction単位を基本とする。1 Strokeに多数Sampleが存在しても、Sampleごとの永続Revision生成を要求しない。Realtime内部ではStable IDを毎回重く解決せずRuntime Handleを利用できる。
+
+Stable Region / Boundary更新はLineart操作の表示を待たせず、Dirty Region中心の局所更新とし、全Topology再計算を直接操作Hot Pathへ置かない。具体的Algorithmは後続章で確定する。
+
+### 3.5 Source / Instance Model — 確定
+
+#### 3.5.1 基本分離
+
+共有する意味を持つDataについて、SourceとInstanceを別Entityとする。
+
+- **Source**: 共有されるCanonical Content / DefinitionとそのRevisionを持つ。
+- **Instance**: SourceをDocument内で利用する個々のEntity。独自Transform、Override、Mask、Modifier等を持てる。
+
+SourceはVisual Tree上のLayerである必要はなく、Project内のSource / Resource Registry等で管理できる。Visual TreeにはInstanceが参加できる。
+
+通常Raster Layer等、共有する意味がないContentまで一律Source / Instance化しない。通常Painting Pathを単純に保つことを優先する。
+
+#### 3.5.2 Identity
+
+各Instanceは独立Entity IDを持ち、参照先Source IDのみ共有する。
+
+例:
+
+- Shape Source ID = S
+- Instance A: Entity ID = A, Source ID = S
+- Instance B: Entity ID = B, Source ID = S
+
+Instance Aの移動・回転等はBへ伝播しない。Source Geometry等の共有内容変更はSource Revision更新としてDependent Instanceへ伝播する。
+
+#### 3.5.3 Source State / Instance State / Override
+
+Source側には共有すべきContent / Parameterを置き、Instance側には配置・個別状態を置く。
+
+Instance OverrideはSource Dataの完全Copyではなく差分として保持できる。Sourceの非Override部分が更新された場合はInstanceへ追従する。
+
+Override可能項目はSource Typeごとに明示する。すべてを無制限にOverride可能にして共有の意味を失わせない。
+
+例:
+
+- Linked Shape: GeometryをSource共有、Transform / Color等をInstance側でOverride可能。
+- Image Material: 元画像をSource共有、Transform / Tiling等をInstance側へ保持。
+- Procedural Material: Generator DefinitionをSource共有、Scale / Rotation / Color / Random State等をInstance側へ保持。
+- Linked Text Style: Typography StyleをSource共有し、Text本文は各Text Entityが保持。
+- Shared Modifier: Effect DefinitionをSource共有し、Enabled / Mask / 許可されたLocal Override等を適用側へ保持。
+
+#### 3.5.4 Source編集とInstance編集
+
+通常操作ではInstance固有状態を直接編集できることを優先する。Move、Scale、Rotate、許可されたColor / Parameter Override等の高頻度操作でSource編集確認を毎回要求しない。
+
+共有内容そのものを変更するときだけSource編集として明示し、複数Instanceへ影響することがユーザーに理解可能なUIを後続UX設計で提供する。
+
+#### 3.5.5 Duplicate / Linked Instance / Make Unique
+
+通常DuplicateとLinked Instance生成を別操作とする。通常Duplicateしただけで意図せず共有関係を作らない。
+
+Make Uniqueでは現在Sourceを複製して新Source IDを作成し、対象InstanceのSource Referenceを新Sourceへ付け替える。Instance自身のEntity IDは原則維持できる。
+
+Source / Instance関係を通常Local Contentへ変換するDetach / Rasterize等も可能とする。ユーザーから見て同じNodeの表現方式変更として扱える場合は3.4のIdentity規則に従う。
+
+#### 3.5.6 Internal / External Source
+
+SourceはInternal SourceとExternal Sourceを区別する。
+
+- **Internal Source**: `.illustro` Project内部にCanonical Dataを保持し、Project単体で完全再現可能。
+- **External Source**: 外部File等をCanonical Originとして参照する。
+
+External Sourceはlocator、last-known content / cache、last-known revision、status等を保持できる。外部Fileがmissing / unavailableになっても、最後に正常取得した表示状態を保持し、作品全体を開けなくしない。
+
+External Sourceの欠落・更新状態はProject Health Check等から確認できるようにする。
+
+#### 3.5.7 Source Revision / Snapshot
+
+SourceはEntity IDとRevisionを分離する。
+
+通常編集ではInstanceはSourceの最新Revisionへ追従できる。一方、History、Checkpoint、Export Snapshot、Branch等で過去状態を正確に再現するため、特定Source Revisionを固定参照できるモデルを許可する。
+
+#### 3.5.8 Propagationと体感0ラグ
+
+Source → Instance関係はDependency Graph上の明示関係として追跡できる。ただしSource更新時に全Dependent Instanceの完全再計算完了をユーザー操作の返答条件にしない。
+
+基本原則は `Invalidationは即時、Recomputationは需要駆動・局所優先` とする。
+
+Source変更時はDependentをDirty化し、Visible / Active / Interaction上必要なInstanceを優先評価できる。多数の非表示Instanceや画面外Instanceの再評価のために直接操作を待たせない。
+
+#### 3.5.9 Procedural Random State
+
+Procedural Material等、Randomnessを含むSource / InstanceではProject再Openや再評価で見た目が意図せず変化しないよう、再現可能なRandom State / SeedをInstance Stateとして保持できる。
+
+具体的な乱数方式はAlgorithm設計で決定する。
+
+#### 3.5.10 Source削除とDangling Reference
+
+参照中のInternal Sourceを暗黙削除してDangling Referenceを発生させない。
+
+必要に応じてSource削除前に、Dependent Instance削除、Make Unique、Local Content化等の解決操作を提供する。具体的UXは後続章で決定する。
+
+External SourceのMissing状態は、Internal Sourceの不正なDangling Referenceとは別概念として扱う。
+
+次項では、Source / Instance、Reference、Persistent Fill、Parameter Link、Constraint等の非親子関係を安全かつ高速に管理するDependency Graph Modelを定義する。
