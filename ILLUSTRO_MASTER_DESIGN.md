@@ -1510,3 +1510,94 @@ Layer Role、Draft、Reference、Private / Shared等はNode Typeとは分離し�
 - Dependency GraphのCycle可否はDependency Typeごとに明示規則を持つ。無限再評価を起こすCycleを許可しない。
 
 次項では、名前変更、並べ替え、Undo / Redo、Branch、共同編集等を跨いでも同じEntityを追跡するIdentity / Stable ID Modelを定義する。
+
+### 3.4 Identity / Stable ID — 確定
+
+#### 3.4.1 IdentityとStateの分離
+
+Illustroでは、EntityそのもののIdentityと、その時点のState / Revisionを分離する。
+
+同一Entityの内容、名前、位置、順序、表示状態等が変化しても、論理的に同じEntityである限りEntity IDは維持する。State変更はRevision / Versionとして扱う。
+
+Identity体系では少なくとも次を区別する。
+
+- **Entity ID**: Layer、Object、Mask、Modifier、Source、Selection等の論理Entityを永続識別する。
+- **Revision ID / Version**: 同一Entityのある時点の内容・状態を識別する。
+- **Operation / Transaction ID**: Stroke、Transform、Fill等の1つの論理編集操作を識別する。
+- **Runtime Handle**: 起動中の高速参照等に利用できる一時識別子。Native保存のCanonical Identityとはしない。
+- **Stable Region ID**: Lineart topology内のRegionを追跡するための特殊Identity。
+
+IDの具体的なbit幅、UUID / ULID等の形式は技術設計で決める。
+
+#### 3.4.2 永続IDを持つ対象
+
+他Entityから後で参照される可能性があるEntityには永続IDを与える。
+
+対象には少なくともProject、Document、Visual Node、Object、Mask、Modifier、Source、Instance、Saved Selection、Selection Recipe、Ruler、Guide、Frame Variant、Material、Palette、Boundary、Stable Region、Constraint等を含む。
+
+名前、Layer index、座標、現在のStack位置等をIdentity代わりに使用しない。
+
+Dependency Graphは原則としてEntity IDで参照する。Layer Role等による参照はIdentityではなくSemantic Queryとして扱う。
+
+#### 3.4.3 名前変更・並べ替え・編集
+
+Nodeの名前変更、移動、並べ替え、Visibility変更、Parameter変更等ではEntity IDを変更しない。
+
+これによりClipping、Reference、Selection Recipe、Persistent Fill、Shared Modifier、Linked Shape等の関係がUI上の名前や順序変更によって破損しないようにする。
+
+#### 3.4.4 Duplicate / Source共有
+
+通常のDuplicateでは新しいEntity IDを付与する。同一IDを持つ独立Entityを複数作成しない。
+
+Source / Instance型の共有では、各Instanceは別Entity IDを持ち、参照先Source IDのみ共有する。
+
+例:
+
+- Shape Instance A: Node ID = A, Source ID = S
+- Shape Instance B: Node ID = B, Source ID = S
+
+#### 3.4.5 Undo / Redo / Delete
+
+Undo / RedoでEntityを復元する場合は、元のEntity IDを復元する。
+
+削除済みIDを後から別Entityへ再利用しない。履歴・Branch等から削除済みEntityを参照できる必要があるため、必要に応じTombstone / lineage情報を保持できるモデルとする。具体的保持方式はHistory Modelで確定する。
+
+#### 3.4.6 表現方式変更とMerge
+
+Text → Rasterize等、ユーザーから見て同じNodeが表現方式だけを変更する操作では、意味的連続性が保てる場合は同じNode Entity IDを維持し、Type / Content Revisionを更新できる。
+
+一方、複数Entityを統合して新しい論理Entityを生成するMergeでは新Entity IDを発行する。元Entityとの関係はprovenance / derived-from情報として保持できる。
+
+Undo時には元Entityを元のIDで復元する。
+
+#### 3.4.7 Stable Region ID
+
+Stable Region IDは一般Entity IDよりTopology変化を意識した追跡規則を持つ。
+
+- Regionが形状変化しても1対1で同一領域と追跡できる場合は同じRegion IDを維持する。
+- 1 Regionが複数RegionへSplitした場合、元Regionをretireし、新Regionへ新IDを付与し、`derivedFrom`で元Regionを記録する。
+- 複数RegionがMergeした場合、新Regionへ新IDを付与し、複数元Regionをlineageとして記録する。
+
+Persistent Fill、Topology Diff等はこのLineageを利用して色や関連状態の引継ぎ候補を判断できる。曖昧なMerge等で意味が一意に決まらない場合は、勝手にIdentityを流用しない。
+
+#### 3.4.8 Branch / Revision
+
+Branching Historyでは、共通祖先の同一Entity IDを維持しつつ、Branchごとに異なるRevisionを持てる。
+
+つまり「同じEntityだがStateが異なる」を表現可能にする。
+
+これをBranch Compare、Copy-on-Write、Checkpoint、Diff等の基礎とする。
+
+#### 3.4.9 Copy / PasteとProject Duplicate
+
+別DocumentへのCopy / Pasteでは、新Document側で新Entity IDへRemapすることを基本とする。ただし、同時にコピーされた複数Entity同士の内部Referenceは新ID同士へ一括Remapして関係を維持する。
+
+通常の完全Project Duplicateと、共通Lineageを意図するCopy-on-Write Project Variantは同じIdentity規則として扱わない。Variant側の共有範囲はHistory / Snapshot Modelで確定する。
+
+#### 3.4.10 Offline生成
+
+Entity IDの生成にServerを必要としない。通常制作を完全Offlineで成立させられるよう、Offlineで衝突確率を実用上無視できるIdentityを生成可能とする。
+
+IDはアクセス権限やSecretとして扱わない。共同編集のPermissionはIdentityの秘匿性に依存させない。
+
+次項では、一つのSource Dataを複数Instanceから安全に共有し、Instance固有のTransform / Override / Mask / EffectとSource更新伝播を両立するSource / Instance Modelを定義する。
