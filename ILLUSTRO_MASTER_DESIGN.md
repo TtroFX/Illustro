@@ -1276,7 +1276,7 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
 
 次章では、これらの機能を支える「基本概念・データモデル」を定義する。
 
-## 3. 基本概念・データモデル — 設計中
+## 3. 基本概念・データモデル — 確定
 
 ### 3.0 この章の位置づけ
 
@@ -1883,4 +1883,71 @@ TimelapseはMeaningful Operation Streamと必要なVisual Checkpointを利用で
 
 View / Workspace操作は原則Artwork Undoへ混在させない。
 
-次項では、Section 3全体を統一するTransaction / Interactive State / Commit / Cancel Modelを定義する。
+### 3.10 Transaction / Interactive State / Commit / Cancel Model — 確定
+
+#### 3.10.1 共通Lifecycle
+Brush、Lasso、Transform、Fill、Gradient、Effect Parameter、Liquify、Shape Editing等の直接操作を、原則 `Idle → Begin → Interactive Update → Commit / Cancel → Idle` の共通Lifecycleへ載せる。
+
+Interaction Begin時にTarget、Base Revision、Coordinate Transform、Selection、Mask、Clipping、Ruler / Constraint、必要Dependency、Parameter、Transaction Identity等を解決したActive Interaction Contextを構築できる。Pointer SampleごとにVisual Tree / Dependency Graph全探索を繰り返さない。
+
+#### 3.10.2 Interactive State
+Interactive Stateは単なる見た目だけのFake Previewではなく、その場で継続操作できる第一級の作業状態とする。
+
+Section 2のPreview → Commit規約は、内部モデル上はInteractive State → Canonical Commitとして解釈する。低品質仮表示で本処理の遅さを隠すことを0ラグ達成とはみなさない。
+
+Updateは `Input → Resolved Interaction Context → Minimum Necessary Update → Interactive State → Present` の最短経路を基本とする。
+
+#### 3.10.3 Commit / Release
+Commitは現在のInteractive Resultを正式なDocument Stateとして採用する論理境界であり、重い本処理を開始する瞬間とはしない。
+
+Pointer Up / Release時にCanvas全面Rasterize、全Document Composite、History Serialization、Autosave、Persistence、Dependency全評価等を開始して、その完了を表示や次操作開始の条件にする設計は禁止する。
+
+操作中から実際のInteractive Stateを形成し、Release時は残りのBounded WorkだけでLogical Commitできる構造を目標とする。Commit後のHistory、Persistence、Recovery、Dependency Propagation、Boundary / Region更新、Collaboration、Maintenance等は直接操作を阻害しない形で追従可能とする。
+
+#### 3.10.4 Cancel
+CancelはBegin直前のCanonical意味状態へ高速に復元する。CancelのためにInteraction Begin時のFull Canvas Copyを要求しない。
+
+Retained Base、Reversible Delta、Copy-on-Write、Transient Surface等の具体方式は技術・アルゴリズム設計で決定する。Cancel自体も待ち時間を伴う操作にしない。
+
+#### 3.10.5 Transaction / Continuous Transaction
+Transaction境界は内部処理単位ではなく、ユーザーが1回のUndoで戻したいと認識する論理操作を基準とする。
+
+多くの場合1 Interaction = 1 Transactionとするが、Canvas Handle、Inspector、Slider、Numeric Input等を跨いで同一意味の編集を継続する場合はContinuous Transactionとして1 Undo単位へまとめられる。
+
+Temporary / Spring-loaded Tool ContextとDocument Transactionを分離し、一時Eyedropper等のTool切替だけで不必要にArtwork Transactionを破壊しない。
+
+#### 3.10.6 Parameter / View / Multi-input
+同じParameterをSlider、Canvas Handle、Numeric Field、Shortcut等の複数Surfaceから操作しても、別々の状態を持たず同一Parameter Stateを共有する。
+
+Artwork InteractionとPan / Zoom / View Rotation等のView Interactionは原則分離し、Pen DrawingとTouch Navigation等の同時操作を成立可能とする。View操作をArtwork Undoへ混在させない。
+
+Interactionは必要なBase Revision / Dependency Generationを保持でき、共同編集等で外部Stateが変化しても進行中の直接操作を不必要に破壊せず、安全な境界で新Stateへ移行できるモデルとする。
+
+#### 3.10.7 Backpressure / Reconciliation
+Interactive Updateは無制限な未処理Queueの蓄積を前提としない。入力処理が表示より遅れた場合に古いSample処理を延々と消化して現在位置へ追いつく構造を避ける。
+
+具体的なCoalescing、Stable Prefix、Bounded Mutable Tail、Frame-aligned Batching等はAlgorithm設計で決定する。
+
+Interactive Runtime表現とCanonical保存表現が異なる場合はCommit後にCanonical Reconciliationを追従可能とするが、Reconciliation完了まで同じ対象の次Interactionを原則Lockしない。
+
+#### 3.10.8 Failure / Metadata / Recent Stroke
+Background Persistence、Autosave等の失敗と、既に成立したArtwork Stateを分離する。保存失敗を理由にCommit済みArtworkを消さない。
+
+TransactionはID、Type、Affected Entity、Affected Bounds、Result Revision、Semantic Label等のMetadataを持てるが、Metadata構築・IndexingをPointer Sample Hot Pathへ入れない。
+
+直前ストローク再編集はRecent Editable Stroke Stateとして入力Sourceを一時保持し、Brush、Size、Color、Opacity、Dynamics等を変更して再評価可能とする。単純なUndo→再描画とは別機能として扱う。
+
+#### 3.10.9 Section 3 Realtime不変条件
+Section 3で定義した高度なCanonical Modelは、直接操作Hot Pathを遅くする理由にしてはならない。
+
+直接操作の基準経路は `Input → Resolved Interaction Context → Minimum Necessary Computation → Interactive State → Visible Result` とする。
+
+Canonical Logical Commit後のHistory、Dependency Propagation、Boundary / Region更新、Persistence、Autosave、Collaboration、Maintenance等は別経路として追従可能とし、前者を構造的にブロックしない。
+
+Commit後に次Interactionを直ちに開始できることを基本要件とする。
+
+### 3.11 Section 3 完了条件
+
+Project / Document / Canvas / View、座標系、Layer Tree / Node、Identity、Source / Instance、Dependency、Selection / Mask / Region、Effect / Modifier、History / Snapshot / Branch、Transaction / Interactive Stateの基本概念をもって、Section 3「基本概念・データモデル」を完了とする。
+
+Section 3の最上位判断基準は内部モデルの美しさではなく、ユーザー体験、一貫した意味、直接操作の体感0ラグである。後続のUX、保存、非機能、技術、アルゴリズム設計で矛盾または性能上の問題が判明した場合は、勝手に例外実装で回避せず、本章へ戻って正本を改訂する。
