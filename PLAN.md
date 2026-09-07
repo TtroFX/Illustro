@@ -12,6 +12,11 @@
 - 問題を発見した場合、可能な範囲で報告だけで止めず、その場で修正し再検証する。
 - 完了扱いにする前に、依頼内容を満たした証拠を確認する。
 - 重要な設計判断が確定した場合は、必要に応じて `ILLUSTRO_MASTER_DESIGN.md` へ最小差分で反映する。
+- 実装中は**ユーザーが確認可能な機能の区切り1つ**を基本作業単位とし、`1機能区切りを実装 → AI最小検査 → ユーザー確認 → 必要なら修正 → ユーザー承認後に次の区切りへ進む`を基本サイクルとする。
+- ユーザー確認前に、AI側の判断だけで複数の機能区切りをまとめて先へ進めない。
+- 通常の1機能区切りに対するAI検査は、ユーザーが安全に確認できる状態であることを確かめるための最小限に留める。原則として、変更範囲に必要なbuild / typecheck等、起動不能・致命的runtime error・明白な破損の確認を中心とする。
+- 広範なregression、性能計測、長時間試験、fault injection、全端末確認、網羅的edge case検査は、当該機能で直ちに必要な場合を除き、節目またはRelease品質固めでまとめて実施する。
+- ユーザー確認は主に見た目、操作感、機能挙動、導線、期待との一致を確定するGateとする。Architecture / Data integrity / 保存安全性等、ユーザー確認だけでは判定できない最低限の技術的正しさはAI側で維持する。
 
 ## 1. ステータス定義
 
@@ -71,6 +76,8 @@
 
 ### Phase 6: 静的検証
 
+通常の1機能区切りでは、ユーザー確認へ渡せることを保証するために必要な項目だけを最小限実行する。以下の全項目を毎回一律実行する必要はなく、広範な検査は節目 / Release Gateでまとめて行う。
+
 - [ ] 構文エラーがないことを確認する。
 - [ ] typecheckを実行する。
 - [ ] lintを実行する。
@@ -80,6 +87,8 @@
 - [ ] 既存テストのregressionを確認する。
 
 ### Phase 7: 実動作検証
+
+通常の1機能区切りでは、その機能をユーザーが実際に確認できる主要経路と致命的破損の有無を中心に見る。網羅的な端末 / 性能 / 長時間 / 回帰確認は必要な節目へ送る。
 
 - [ ] 対象機能の主要フローを実際に確認する。
 - [ ] UI表示崩れがないことを確認する。
@@ -200,17 +209,17 @@ Section 2で確定している24系統のユーザー向け機能は、上記A�
 
 この順序は現時点の**暫定案**であり、ユーザー確認を多めに取りながら更新する。
 各Phaseを一度で完成させ切ってから次へ進むのではなく、必要な範囲で前後しながら進める。ただし、UIだけを完成させて後からArchitectureを無理に合わせることはしない。
-大きなUI判断・操作体系・見た目が変わる地点では、原則としてユーザー確認を挟んでから次へ進む。
+Task 2の番号はロードマップ上の大きな順序であり、その番号全体を1つのユーザー確認単位にはしない。各段階の中を**ユーザーが確認可能な機能の区切り1つずつ**へ分け、各区切りごとに確認を受けてから次へ進む。
 
 1. [ ] **UI骨格 / Visual Prototype** — Workspace Shell、Top Bar、Tool Rail、Canvas、Right Sidebar、主要Panel、Project Library等をまず実物に近い形で作る。処理本体はMock / 仮Stateでもよい。
 2. [ ] **UI操作Prototype / Responsive確認** — Tool切替、Panel切替、Popup / Sheet、Properties、Context UI、Desktop / Tablet / Phone再構成などを動かし、主要操作感を確認できる状態にする。
-3. [ ] **UI第1確認Gate** — 画面構成、導線、操作感、情報密度、端末別Layoutをユーザーと確認し、必要な修正を行う。ここでUI骨格を大きく固める。
+3. [ ] **UI第1節目確認Gate** — 各機能区切りでの逐次確認に加え、画面構成、導線、操作感、情報密度、端末別Layoutを節目としてまとめて確認し、必要な修正を行う。
 4. [ ] **Application / Platform基盤** — Application Shell、Capability Discovery、Platform Adapter、Runtime Domain / Worker境界など、UIとCoreを支える実行土台を整える。
 5. [ ] **Canonical Core基盤** — Project / Document Model、Stable ID、Revision、Coordinate、Command / Transaction、Interaction Lifecycle、History基盤を構築する。
 6. [ ] **UI ↔ Core接続契約** — Active Document / Tool / Layer / Selection / Brush / View等のState、Command、Loading / Disabled / Error semanticsを固定し、UIをMockから実Stateへ段階的に接続する。
 7. [ ] **Realtime / Rendering基盤** — Input Routing、Realtime Core、Scheduler、GPU Renderer / Compositor、Working Set、Memory / Cache管理を構築し、体感0ラグのHot Pathを成立させる。
 8. [ ] **最小制作Vertical Slice** — Canvas、基本Brush / Eraser、Layer、Color、Undo / Redo、基本Navigationなどを一本につなぎ、実際に描ける最小の制作経路を成立させる。
-9. [ ] **UI第2確認Gate** — 実Core上での描画、操作感、Latency、Tool / Properties連携をユーザーと確認し、UIと基盤の不整合をここで修正する。
+9. [ ] **UI第2節目確認Gate** — 各機能区切りでの逐次確認に加え、実Core上での描画、操作感、Latency、Tool / Properties連携を節目としてまとめて確認し、UIと基盤の不整合を修正する。
 10. [ ] **Native保存 / Recovery基盤** — `.illustro`、Project Store、Autosave、Recovery、Durability、Project Library実Data接続を実装し、作品を安全に閉じて再開できる状態にする。
 11. [ ] **主要編集Engine拡張** — Selection / Mask / Fill / Region、Transform、Layer Composite / Non-destructive、Brush高度化など、一枚絵制作の中心機能を順次実装する。
 12. [ ] **高度制作機能** — Vector / Shape、Text、Ruler / Assist、Filter / Effect、Reference、Lineart system、Advanced Color等を追加する。
@@ -228,6 +237,7 @@ Section 2で確定している24系統のユーザー向け機能は、上記A�
 - `[x]` 最新 `ILLUSTRO_MASTER_DESIGN.md` Section 2を基準に、当初は作るものを24の機能大項目として追加。
 - `[x]` Section 3 / 4 / 6 / 7 / 8を再確認し、「機能一覧」ではなくApplication / Core / Realtime / Editing Engine / UI / Persistence / Online / Quality基盤を含む実装物の大分類へ再構成。
 - `[x]` ユーザー確認を多めに取る前提で、UI先行の暫定実装順序をTask 2として追加。
+- `[x]` 運用を「ユーザー確認可能な機能区切り1つごとに停止・確認」へ変更し、通常のAI側検査は確認可能性と致命的破損の有無を中心とする最小検査へ変更。
 - `[?]` 各大分類の現行実装状況は未監査。今後、repo実装を確認して状態を更新する。
 - `[~]` Algorithm LayerはSection 8からSection 9へ送られているが、現行 `ILLUSTRO_MASTER_DESIGN.md` にはSection 9がまだ統合されていないため詳細確定待ち。
 
