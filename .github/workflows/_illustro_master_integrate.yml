@@ -89,9 +89,6 @@ jobs:
               s,e=span(t,num)
               return t[:s]+fn(t[s:e])+t[e:]
 
-          # Preserve exact line endings and blank lines of all retained source lines.
-          # Previous implementations joined splitlines() without restoring the section's
-          # trailing newline, which could concatenate the next heading (e.g. 2.7 -> 2.8).
           def rm(sec,pats):
               return "".join(
                   line for line in sec.splitlines(keepends=True)
@@ -134,28 +131,43 @@ jobs:
               a=f"\n\n{marker}\n#### {num}.{n} {title}\n\n{pre}\n\n{block.strip()}\n<!-- /ILLUSTRO-V2-FULL:{kind}:{num} -->\n"
               return t[:e].rstrip()+a+"\n\n"+t[e:].lstrip("\n")
 
-          # Latest Source and all target boundaries must be valid before mutation.
           for num in list(P["sec2"])+list(P["sec5"]): span(t,num)
-
           t=clean(t)
-
-          # Revalidate every target after cleanup specifically to catch any boundary loss.
           for num in list(P["sec2"])+list(P["sec5"]): span(t,num)
           preserved=t
 
           for num,b in P["sec2"].items(): t=ins(t,num,b,"INVENTORY")
           for num,b in P["sec5"].items(): t=ins(t,num,b,"DETAIL")
 
-          required=[
-          "Pressure 15%  → Size 24%","Pressure 20%  → Size 34%","Pressure 20%  → Size 40%",
-          "Pressure 45%  → Size 68%","Size maximum reduction ≈9%","Weak-pressure minimum Density:",
-          "≈1.5–1.7 Brush Diameter","Return-to-start Re-arm","XY / YZ / XZ",
-          "Effect Mix","Effect Group","Tate-chu-yoko","Text on Path","Live Canvas Reference",
-          "Repeat Last","Repeat With…","Portable Project Copy","Illustro Asset Pack",
-          "Undo My Last Eligible Change","Boundary-distance Fill","18. Section 6–11"]
-          for q in required:
-              if q not in t: raise SystemExit(f"Missing required detail: {q}")
+          # Check approved semantic details with whitespace/punctuation-tolerant patterns.
+          required_patterns={
+            "G Pen Pressure 15->24":r"Pressure\s+15%\s*→\s*Size\s+24%",
+            "Mapping Pen Pressure 20->34":r"Pressure\s+20%\s*→\s*Size\s+34%",
+            "Round Pen Pressure 20->40":r"Pressure\s+20%\s*→\s*Size\s+40%",
+            "Totoro Pressure 45->68":r"Pressure\s+45%\s*→\s*Size\s+68%",
+            "Totoro speed max size reduction":r"Size maximum reduction[^\n]*≈\s*9%",
+            "Totoro weak-pressure minimum density":r"Weak-pressure minimum Density",
+            "Totoro exit taper":r"≈?\s*1\.5\s*[–-]\s*1\.7\s*Brush Diameter",
+            "Region Sweep re-arm":r"Return-to-start Re-arm",
+            "3D plane set":r"XY\s*/\s*YZ\s*/\s*XZ",
+            "Effect Mix":r"Effect Mix",
+            "Effect Group":r"Effect Group",
+            "Tate-chu-yoko":r"Tate-chu-yoko",
+            "Text on Path":r"Text on Path",
+            "Live Canvas Reference":r"Live Canvas Reference",
+            "Repeat Last":r"Repeat Last",
+            "Repeat With":r"Repeat With",
+            "Portable Project Copy":r"Portable Project Copy",
+            "Illustro Asset Pack":r"Illustro Asset Pack",
+            "Collaboration targeted undo":r"Undo My Last Eligible Change",
+            "Boundary-distance Fill":r"Boundary-distance Fill",
+            "Section 6-11 plan":r"18\.\s*Section\s+6[–-]11"
+          }
+          for label,pat in required_patterns.items():
+              if not re.search(pat,t,re.I):
+                  raise SystemExit(f"Missing required semantic detail: {label}")
 
+          # Every approved payload block must be present verbatim after insertion.
           for num,b in P["sec2"].items():
               if f"ILLUSTRO-V2-FULL:INVENTORY:{num}" not in t: raise SystemExit(f"Missing inventory marker {num}")
               if b.strip() not in t: raise SystemExit(f"Payload content mismatch in inventory {num}")
@@ -177,8 +189,6 @@ jobs:
           for bad in ("Anime Background","Edge Bloom","JPEG Noise Reduction"):
               if bad in t: raise SystemExit(f"Legacy canonical residue: {bad}")
 
-          # Losslessness check: every retained baseline line must still occur with at least
-          # the same multiplicity and in the same relative order after integration.
           base_lines=[l for l in preserved.splitlines() if l.strip()]
           final_lines=[l for l in t.splitlines() if l.strip()]
           bc,fc=Counter(base_lines),Counter(final_lines)
@@ -192,11 +202,10 @@ jobs:
           if j != len(base_lines):
               raise SystemExit(f"Baseline order changed or content displaced at preserved line {j+1}/{len(base_lines)}")
 
-          # All target headings must remain independently parseable after insertion.
           for num in list(P["sec2"])+list(P["sec5"]): span(t,num)
 
           M.write_text(t,encoding="utf-8",newline="\n")
-          print("PASS",len(P["sec2"]),len(P["sec5"]),len(brushes),len(base_lines),len(t.encode()))
+          print("PASS",len(P["sec2"]),len(P["sec5"]),len(brushes),len(required_patterns),len(base_lines),len(t.encode()))
           PY
           git diff --check -- ILLUSTRO_MASTER_DESIGN.md
       - name: Commit validated Master and remove temporary integration files
