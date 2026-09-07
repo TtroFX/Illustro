@@ -196,6 +196,29 @@ Section 2で確定している24系統のユーザー向け機能は、上記A�
 ここでは重複して24項目を最上位Taskとして並べず、後続で各Engine / UI / Persistence等へ紐付けて細分化する。
 対象には、Document / Canvas、Brush、Input、Color、Layer、Selection、Fill、Lineart、Transform、Vector、Assist、Retouch、Filter、Non-destructive editing、Text、Reference、History、Project management、Workspace、Common interaction、Collaboration、Assets、Settings、Output / Color managementが含まれる。
 
+### Task 2: 暫定実装順序 — UI先行 / ユーザー確認重視
+
+この順序は現時点の**暫定案**であり、ユーザー確認を多めに取りながら更新する。
+各Phaseを一度で完成させ切ってから次へ進むのではなく、必要な範囲で前後しながら進める。ただし、UIだけを完成させて後からArchitectureを無理に合わせることはしない。
+大きなUI判断・操作体系・見た目が変わる地点では、原則としてユーザー確認を挟んでから次へ進む。
+
+1. [ ] **UI骨格 / Visual Prototype** — Workspace Shell、Top Bar、Tool Rail、Canvas、Right Sidebar、主要Panel、Project Library等をまず実物に近い形で作る。処理本体はMock / 仮Stateでもよい。
+2. [ ] **UI操作Prototype / Responsive確認** — Tool切替、Panel切替、Popup / Sheet、Properties、Context UI、Desktop / Tablet / Phone再構成などを動かし、主要操作感を確認できる状態にする。
+3. [ ] **UI第1確認Gate** — 画面構成、導線、操作感、情報密度、端末別Layoutをユーザーと確認し、必要な修正を行う。ここでUI骨格を大きく固める。
+4. [ ] **Application / Platform基盤** — Application Shell、Capability Discovery、Platform Adapter、Runtime Domain / Worker境界など、UIとCoreを支える実行土台を整える。
+5. [ ] **Canonical Core基盤** — Project / Document Model、Stable ID、Revision、Coordinate、Command / Transaction、Interaction Lifecycle、History基盤を構築する。
+6. [ ] **UI ↔ Core接続契約** — Active Document / Tool / Layer / Selection / Brush / View等のState、Command、Loading / Disabled / Error semanticsを固定し、UIをMockから実Stateへ段階的に接続する。
+7. [ ] **Realtime / Rendering基盤** — Input Routing、Realtime Core、Scheduler、GPU Renderer / Compositor、Working Set、Memory / Cache管理を構築し、体感0ラグのHot Pathを成立させる。
+8. [ ] **最小制作Vertical Slice** — Canvas、基本Brush / Eraser、Layer、Color、Undo / Redo、基本Navigationなどを一本につなぎ、実際に描ける最小の制作経路を成立させる。
+9. [ ] **UI第2確認Gate** — 実Core上での描画、操作感、Latency、Tool / Properties連携をユーザーと確認し、UIと基盤の不整合をここで修正する。
+10. [ ] **Native保存 / Recovery基盤** — `.illustro`、Project Store、Autosave、Recovery、Durability、Project Library実Data接続を実装し、作品を安全に閉じて再開できる状態にする。
+11. [ ] **主要編集Engine拡張** — Selection / Mask / Fill / Region、Transform、Layer Composite / Non-destructive、Brush高度化など、一枚絵制作の中心機能を順次実装する。
+12. [ ] **高度制作機能** — Vector / Shape、Text、Ruler / Assist、Filter / Effect、Reference、Lineart system、Advanced Color等を追加する。
+13. [ ] **Asset / Import / Export / Color Management** — Resource管理、外部Format互換、Export、Preflight、ICC / Soft Proof等を完成させる。
+14. [ ] **Online / Collaboration** — Solo制作を完成させた土台の上に、絵チャット / Collaboration、Identity / Permission、Offline / Reconnectを追加する。
+15. [ ] **全体品質固め / Release Gate** — Accessibility、Performance、long session、10,000 transaction、GPU loss、storage fault、corruption、security、compatibility、CI / packaging / deploymentを総合検証し、問題を修正する。
+16. [ ] **最終ユーザー確認 / 完成判定** — 実機で主要制作フローを通し、残るUX問題・不足機能・品質問題を確認して、Release可能か判定する。
+
 ## 4. 作業ログ
 
 ### 2026-09-07
@@ -204,6 +227,7 @@ Section 2で確定している24系統のユーザー向け機能は、上記A�
 - `[x]` 今後の作業について、手順・進捗・検証結果を逐次記録するための基本構造を追加。
 - `[x]` 最新 `ILLUSTRO_MASTER_DESIGN.md` Section 2を基準に、当初は作るものを24の機能大項目として追加。
 - `[x]` Section 3 / 4 / 6 / 7 / 8を再確認し、「機能一覧」ではなくApplication / Core / Realtime / Editing Engine / UI / Persistence / Online / Quality基盤を含む実装物の大分類へ再構成。
+- `[x]` ユーザー確認を多めに取る前提で、UI先行の暫定実装順序をTask 2として追加。
 - `[?]` 各大分類の現行実装状況は未監査。今後、repo実装を確認して状態を更新する。
 - `[~]` Algorithm LayerはSection 8からSection 9へ送られているが、現行 `ILLUSTRO_MASTER_DESIGN.md` にはSection 9がまだ統合されていないため詳細確定待ち。
 
