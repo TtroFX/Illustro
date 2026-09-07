@@ -38,14 +38,22 @@ jobs:
           actual=blobsha(data)
           if actual!=expected:
               raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
-          t=data.decode()
+          t=data.decode("utf-8")
 
           def span(t,num):
-              m=re.search(rf"^###\s+{re.escape(num)}(?:\s|$)",t,re.M)
-              if not m: raise SystemExit(f"Missing section {num}")
-              n=re.search(r"^(?:###\s+\d+\.\d+(?:\s|$)|##\s+\d+(?:\.|\s))",t[m.end():],re.M)
-              e=m.end()+(n.start() if n else len(t[m.end():]))
-              return m.start(),e
+              # Use exact heading text search rather than relying on regex word/space behavior.
+              candidates=[f"### {num} ", f"### {num}\n", f"### {num}\r\n"]
+              positions=[t.find(c) for c in candidates]
+              positions=[p for p in positions if p>=0 and (p==0 or t[p-1]=='\n')]
+              if not positions:
+                  raise SystemExit(f"Missing section {num}")
+              s=min(positions)
+              after=t.find("\n",s)
+              if after<0: return s,len(t)
+              # Next ### N.N section, or next ## N top-level section.
+              m=re.search(r"\n(?:###\s+\d+\.\d+(?=\s|$)|##\s+\d+(?=[\.\s]|$))", t[after:], re.M)
+              e=after+(m.start()+1 if m else len(t[after:]))
+              return s,e
 
           def xsec(t,num,fn):
               s,e=span(t,num); return t[:s]+fn(t[s:e])+t[e:]
