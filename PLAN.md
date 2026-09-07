@@ -125,36 +125,76 @@
 - [x] 未完了 / 完了を逐次記録する形式を用意する。
 - [-] 今後の具体的な作業内容をこのファイルへ追加して運用する。
 
-### Task 1: Illustroで作るもの — 大項目
+### Task 1: Illustroで実装・構築するもの — 大分類
 
-`ILLUSTRO_MASTER_DESIGN.md` Section 2で確定している24系統を、実装計画上の大項目として扱う。
-この段階では細かな機能単位へ分解せず、各大項目の実装状況もまだ監査していないため `[?]` とする。
-実装順序・依存関係・細分化は後続の計画更新で決定する。
+この一覧は「ユーザー向け機能一覧」ではなく、Illustroを製品として成立させるために実際に構築する**実装物 / Subsystem / 基盤**の大分類である。
+`ILLUSTRO_MASTER_DESIGN.md` Section 3 / 4 / 6 / 7 / 8を中心に、Section 2 / 5の機能群がどの土台へ載るかを整理する。
+この段階では細かなClass / Module / Tool単位へ分解しない。現行repoの実装監査もまだ行っていないため、原則 `[?]` とする。
 
-- [?] **ドキュメント / キャンバス** — 作品作成、キャンバス領域、表示・ナビゲーションの基盤。
-- [?] **描画 / ブラシ** — ラスター描画、消去、混色等を含む描画エンジンとブラシ体系。
-- [?] **ペン / タッチ / 入力** — Pen / Touch / Mouse / Keyboardを統合する入力基盤。
-- [?] **カラー** — 色選択、取得、保存、比較等のカラー操作体系。
-- [?] **レイヤー / 合成** — レイヤー構造、Mask、Blend、Composite等の作品構成基盤。
-- [?] **選択 / マスク** — 選択範囲と永続Maskによる編集対象管理。
-- [?] **塗りつぶし / 領域処理** — バケツ、領域解析、類似色処理等。
-- [?] **線画システム【Illustro独自】** — Ideal Boundary / Region Topologyを中心とする線画・塗り支援基盤。
-- [?] **変形 / 配置** — Move / Scale / Rotate / Distort / Perspective等の配置・変形体系。
-- [?] **ベクター / 図形** — 編集可能なPath / Shape / Vector Object体系。
-- [?] **定規 / 描画補助** — Ruler / Guide / Perspective / Symmetry等の描画アシスト。
-- [?] **ゆがみ / 特殊描画 / 修正** — Liquify、Clone、Cleanup等の局所修正体系。
-- [?] **フィルター / 色調補正** — 色、周波数、形状、質感等を処理する画像処理体系。
-- [?] **非破壊編集** — Adjustment / Filter / Modifier等を後から変更可能にする編集基盤。
-- [?] **テキスト** — 編集可能なText Objectと文字組み。
-- [?] **参考画像 / 制作補助** — Reference、Sub View、比較・観察支援。
-- [?] **履歴 / 自動化** — Undo / Redo、History、Checkpoint、繰り返し操作等。
-- [?] **ファイル / プロジェクト管理** — Local保存、Project Library、Recovery、Import / Export元データ管理。
-- [?] **ワークスペース / 操作環境** — Panel、Tool配置、Shortcut、端末別Workspace等。
-- [?] **共通インタラクションシステム【Illustro独自】** — Tool間で共通化する直接操作・Quick操作・Transaction等のUX基盤。
-- [?] **オンライン / 共同制作** — 絵チャット、Real-time Collaboration等の副次オンライン機能。
-- [?] **素材 / リソース** — Brush Tip、Texture、Pattern、Gradient、Material等のLocal Asset管理。
-- [?] **設定 / 環境設定 / アクセシビリティ** — User / Device / Workspace単位の設定と操作支援。
-- [?] **出力 / カラーマネジメント** — Export、Color Profile、Soft Proof、出力前検証等。
+#### A. Application / Platform基盤
+
+- [?] **Application Shell / 起動基盤** — アプリ起動、Project Libraryへの導線、PWA / Browser runtime、Lifecycle、Background / Resume等を成立させる外殻。
+- [?] **Platform Adapter / Capability Discovery** — WebGPU、Worker、OffscreenCanvas、Storage、Input等のPlatform差を吸収し、利用可能Capabilityを実行時に判定する層。
+- [?] **Runtime Domain / Worker構成** — UI Main Thread、Realtime Core / Render Owner、Persistence Worker、Utility Worker Pool、Collaboration Domainの責務と通信基盤。
+
+#### B. Canonical Core / データモデル基盤
+
+- [?] **Project / Document Canonical Model** — Project、Document、Canvas、View、Layer / Object、Selection、Resource等の正本状態を保持するCore。
+- [?] **Identity / Revision / Dependency基盤** — Stable ID、Revision、Source / Instance、Relation、Dependency、Dirty / Freshness等を一貫して扱う基盤。
+- [?] **Coordinate / Transform基盤** — Document / Local / Workspace / Device SpaceとTransformを統一管理する基盤。
+- [?] **Command / Transaction / Interaction Lifecycle** — Begin → Interactive Update → Commit / Cancel、Atomic Transaction、Continuous Transaction、Command実行を統一する基盤。
+- [?] **History / Undo / Redo / Branch / Checkpoint基盤** — Revisionを履歴Graphとして扱い、Undo後の分岐やCheckpointを保持する基盤。
+
+#### C. Realtime / Rendering / Performance基盤
+
+- [?] **Input Routing / Gesture Ownership** — Pen / Touch / Mouse / Keyboard入力の正規化、Pointer ownership、Gesture競合解決、Prepared Interaction Contextを扱う入力Hot Path。
+- [?] **Realtime Core / Work Scheduler** — Direct Interactionを最優先し、Foreground / Background work、bounded queue、coalescing、priority、cancellationを管理する実行基盤。
+- [?] **GPU Rendering / Retained Renderer / Compositor** — WebGPUを中心とするCanvas描画、Layer Composite、Viewport表示、dirty region / retained state、presentationを担う描画基盤。
+- [?] **Memory / Cache / Resource Governor** — Working Set、GPU / CPU cache、eviction、memory pressure、thermal / power pressureを管理する基盤。
+- [~] **Algorithm Layer** — Brush sampling、Stable Prefix、Dab生成、Raster coverage、Blend、Selection / Region topology、Effect、Color transform、Delta / Compression / Integrity等。Section 8からSection 9へ送られている領域であり、現行正本にはまだSection 9が統合されていないため詳細確定待ち。
+
+#### D. Artwork Editing Engine群
+
+- [?] **Raster Paint / Brush Engine** — Brush、Eraser、Blend、Watercolor、Texture、Dynamics等のRaster描画体系。
+- [?] **Layer / Composite / Non-destructive Engine** — Layer tree、Mask、Clipping、Blend、Modifier、Adjustment、Effect Stack等。
+- [?] **Selection / Mask / Fill / Region Engine** — Selection coverage、Mask、Flood / Enclose Fill、Lineart Boundary、Stable Region等の領域処理体系。
+- [?] **Transform / Vector / Text / Assist Engine** — Transform、Vector / Shape、Text、Ruler / Guide / Perspective等のGeometry系編集体系。
+- [?] **Filter / Effect / Color Processing Engine** — Filter、色調補正、Generator、Liquify / Retouch、Color processing等の画像処理体系。
+
+#### E. UI / UX基盤
+
+- [?] **Workspace Shell / Access Architecture** — Top Bar、Left Tool Rail、Right Sidebar / Page Rail、Canvas Overlay、Main Menu、Command Search等の全体UI骨格。
+- [?] **Design System / UI Component基盤** — Typography、spacing、icon、control、state、focus、feedback、popup / dialog / sheet等の共通Visual / Component体系。
+- [?] **Tool / Properties / Context UI** — Direct / Quick / Detail、Properties、Context Bar、Quick Hole、PiP、Selection Launcher等、編集機能を操作する共通UI。
+- [?] **Responsive / Device Layout** — Desktop / Tablet / Phoneを単純縮小ではなく再構成するResponsive Workspaceと入力方式別Layout。
+- [?] **Accessibility / Feedback / Settings UI** — Keyboard access、screen reader semantics、hit target、focus、Disabled reason、error / loading / status feedback、User / Device / Workspace設定。
+
+#### F. Persistence / File / Resource基盤
+
+- [?] **Native Project Store / `.illustro` Format** — Manifest、Document Model、Content、History、Resource、Checkpoint等をNative Projectとして保持する保存基盤。
+- [?] **Autosave / Recovery / Durability基盤** — Durability Watermark、Recovery protection、Last Good / Previous Good、atomic save、fault recoveryを扱う基盤。
+- [?] **Asset / Resource Management** — Brush Tip、Texture、Pattern、Gradient、Material、Font、Reference等のLocal resource管理とProject Resource Capture。
+- [?] **Import / Export / Compatibility基盤** — PSD / PNG / JPEG / TIFF / SVG等との変換、Compatibility Report、Preflight、Migrationを扱う基盤。
+- [?] **Color Management / Output基盤** — ICC、Document profile、Soft Proof、Color conversion、Export Recipe等の出力品質基盤。
+
+#### G. Online / Collaboration基盤
+
+- [?] **Collaboration / Network Domain** — 絵チャット、Realtime Collaboration、Presence、Shared / Private state、Conflict、Offline / ReconnectをLocal-first semanticsの上で成立させる基盤。
+- [?] **Online Identity / Permission** — オンライン機能で必要な範囲のAccount / Owner / Editor / Viewer等を扱う認証・権限層。通常制作はAccount必須にしない。
+
+#### H. Reliability / Quality / Release基盤
+
+- [?] **Diagnostics / Instrumentation** — Input-to-Present、frame pacing、queue、memory、save / recovery lag、open等をDevelopment buildで観測する計測基盤。
+- [?] **Automated Test / Reference Fixture基盤** — Unit / Integration / Rendering correctness / round-trip / accessibility / compatibility等を継続検証するTest基盤。
+- [?] **Performance / Soak / Fault Injection Gate** — 60 / High-refresh端末、long session、10,000 transaction、GPU loss、storage full、process kill、corruption等を検証するRelease Gate。
+- [?] **Security / Untrusted Input / Failure Isolation** — malformed file、resource exhaustion、path traversal、unexpected remote fetch等を防ぎ、Subsystem failureをArtwork corruptionへ波及させない保護基盤。
+- [?] **Build / CI / Packaging / Deployment基盤** — typecheck、lint、test、build、PWA packaging、deployment、versioning、migration、release validationを安定運用する基盤。
+
+#### I. Product Feature群
+
+Section 2で確定している24系統のユーザー向け機能は、上記A〜Hの基盤上へ実装する。
+ここでは重複して24項目を最上位Taskとして並べず、後続で各Engine / UI / Persistence等へ紐付けて細分化する。
+対象には、Document / Canvas、Brush、Input、Color、Layer、Selection、Fill、Lineart、Transform、Vector、Assist、Retouch、Filter、Non-destructive editing、Text、Reference、History、Project management、Workspace、Common interaction、Collaboration、Assets、Settings、Output / Color managementが含まれる。
 
 ## 4. 作業ログ
 
@@ -162,8 +202,10 @@
 
 - `[x]` repoルートに `PLAN.md` を新規作成。
 - `[x]` 今後の作業について、手順・進捗・検証結果を逐次記録するための基本構造を追加。
-- `[x]` 最新 `ILLUSTRO_MASTER_DESIGN.md` Section 2を基準に、作るものを24の大項目として追加。
-- `[?]` 各大項目の現行実装状況は未監査。今後、repo実装を確認して状態を更新する。
+- `[x]` 最新 `ILLUSTRO_MASTER_DESIGN.md` Section 2を基準に、当初は作るものを24の機能大項目として追加。
+- `[x]` Section 3 / 4 / 6 / 7 / 8を再確認し、「機能一覧」ではなくApplication / Core / Realtime / Editing Engine / UI / Persistence / Online / Quality基盤を含む実装物の大分類へ再構成。
+- `[?]` 各大分類の現行実装状況は未監査。今後、repo実装を確認して状態を更新する。
+- `[~]` Algorithm LayerはSection 8からSection 9へ送られているが、現行 `ILLUSTRO_MASTER_DESIGN.md` にはSection 9がまだ統合されていないため詳細確定待ち。
 
 ## 5. 完了判定ルール
 
