@@ -125,13 +125,45 @@
 - [x] 未完了 / 完了を逐次記録する形式を用意する。
 - [-] 今後の具体的な作業内容をこのファイルへ追加して運用する。
 
+### Task 1: Illustroで作るもの — 大項目
+
+`ILLUSTRO_MASTER_DESIGN.md` Section 2で確定している24系統を、実装計画上の大項目として扱う。
+この段階では細かな機能単位へ分解せず、各大項目の実装状況もまだ監査していないため `[?]` とする。
+実装順序・依存関係・細分化は後続の計画更新で決定する。
+
+- [?] **ドキュメント / キャンバス** — 作品作成、キャンバス領域、表示・ナビゲーションの基盤。
+- [?] **描画 / ブラシ** — ラスター描画、消去、混色等を含む描画エンジンとブラシ体系。
+- [?] **ペン / タッチ / 入力** — Pen / Touch / Mouse / Keyboardを統合する入力基盤。
+- [?] **カラー** — 色選択、取得、保存、比較等のカラー操作体系。
+- [?] **レイヤー / 合成** — レイヤー構造、Mask、Blend、Composite等の作品構成基盤。
+- [?] **選択 / マスク** — 選択範囲と永続Maskによる編集対象管理。
+- [?] **塗りつぶし / 領域処理** — バケツ、領域解析、類似色処理等。
+- [?] **線画システム【Illustro独自】** — Ideal Boundary / Region Topologyを中心とする線画・塗り支援基盤。
+- [?] **変形 / 配置** — Move / Scale / Rotate / Distort / Perspective等の配置・変形体系。
+- [?] **ベクター / 図形** — 編集可能なPath / Shape / Vector Object体系。
+- [?] **定規 / 描画補助** — Ruler / Guide / Perspective / Symmetry等の描画アシスト。
+- [?] **ゆがみ / 特殊描画 / 修正** — Liquify、Clone、Cleanup等の局所修正体系。
+- [?] **フィルター / 色調補正** — 色、周波数、形状、質感等を処理する画像処理体系。
+- [?] **非破壊編集** — Adjustment / Filter / Modifier等を後から変更可能にする編集基盤。
+- [?] **テキスト** — 編集可能なText Objectと文字組み。
+- [?] **参考画像 / 制作補助** — Reference、Sub View、比較・観察支援。
+- [?] **履歴 / 自動化** — Undo / Redo、History、Checkpoint、繰り返し操作等。
+- [?] **ファイル / プロジェクト管理** — Local保存、Project Library、Recovery、Import / Export元データ管理。
+- [?] **ワークスペース / 操作環境** — Panel、Tool配置、Shortcut、端末別Workspace等。
+- [?] **共通インタラクションシステム【Illustro独自】** — Tool間で共通化する直接操作・Quick操作・Transaction等のUX基盤。
+- [?] **オンライン / 共同制作** — 絵チャット、Real-time Collaboration等の副次オンライン機能。
+- [?] **素材 / リソース** — Brush Tip、Texture、Pattern、Gradient、Material等のLocal Asset管理。
+- [?] **設定 / 環境設定 / アクセシビリティ** — User / Device / Workspace単位の設定と操作支援。
+- [?] **出力 / カラーマネジメント** — Export、Color Profile、Soft Proof、出力前検証等。
+
 ## 4. 作業ログ
 
 ### 2026-09-07
 
 - `[x]` repoルートに `PLAN.md` を新規作成。
 - `[x]` 今後の作業について、手順・進捗・検証結果を逐次記録するための基本構造を追加。
-- `[-]` 次の具体的タスクの計画記入待ち。
+- `[x]` 最新 `ILLUSTRO_MASTER_DESIGN.md` Section 2を基準に、作るものを24の大項目として追加。
+- `[?]` 各大項目の現行実装状況は未監査。今後、repo実装を確認して状態を更新する。
 
 ## 5. 完了判定ルール
 
