@@ -66,8 +66,7 @@ jobs:
                       token=stripped[3:].split(maxsplit=1)[0] if stripped[3:] else ""
                       if token and token[0].isdigit(): end=offset; break
                   offset+=len(line)
-              if start is None:
-                  raise SystemExit(f"Missing section {num!r}")
+              if start is None: raise SystemExit(f"Missing section {num!r}")
               return start, (len(t) if end is None else end)
           def xsec(t,num,fn):
               s,e=span(t,num); return t[:s]+fn(t[s:e])+t[e:]
@@ -111,7 +110,6 @@ jobs:
           for num,b in P["sec2"].items(): t=ins(t,num,b,"INVENTORY")
           for num,b in P["sec5"].items(): t=ins(t,num,b,"DETAIL")
 
-          # Exact payload validation: no approved payload block may be omitted or rewritten.
           for num,b in P["sec2"].items():
               if f"ILLUSTRO-V2-FULL:INVENTORY:{num}" not in t: raise SystemExit(f"Missing inventory marker {num}")
               if b.strip() not in t: raise SystemExit(f"Payload content mismatch in inventory {num}")
@@ -136,7 +134,6 @@ jobs:
           for bad in ("Anime Background","Edge Bloom","JPEG Noise Reduction"):
               if bad in t: raise SystemExit(f"Legacy canonical residue: {bad}")
 
-          # Baseline preservation: every retained baseline line remains with multiplicity and order.
           base_lines=[l for l in preserved.splitlines() if l.strip()]
           final_lines=[l for l in t.splitlines() if l.strip()]
           bc,fc=Counter(base_lines),Counter(final_lines)
@@ -148,6 +145,8 @@ jobs:
           if j!=len(base_lines): raise SystemExit(f"Baseline order changed at preserved line {j+1}/{len(base_lines)}")
 
           for num in targets: span(t,num)
+          # Canonical text file ending: exactly one final newline, never an extra blank line.
+          t=t.rstrip("\r\n")+"\n"
           M.write_text(t,encoding="utf-8",newline="\n")
           print("PASS",len(P["sec2"]),len(P["sec5"]),len(brushes),len(base_lines),len(t.encode()))
           PY
