@@ -24,6 +24,7 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          from collections import Counter
           import re,json,zlib,base64,hashlib,glob
 
           M=Path("ILLUSTRO_MASTER_DESIGN.md")
@@ -52,15 +53,14 @@ jobs:
               raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
           t=data.decode("utf-8")
 
-          # Repair one pre-existing malformed Markdown boundary by locating the unique
-          # Section 2.8 heading token even if it is concatenated to the preceding text.
+          # Repair only the malformed Markdown boundary immediately before the Section 2.8 heading.
+          # Every occurrence of the exact heading token that is not already at a line boundary is separated;
+          # no source text is deleted or rewritten by this repair.
           heading="### 2.8 線画システム【Illustro独自】"
-          idx=t.find(heading)
-          if idx < 0:
+          if heading not in t:
               raise SystemExit("Cannot locate Section 2.8 heading token")
-          if idx > 0 and t[idx-1] != "\n":
-              t=t[:idx]+"\n\n"+t[idx:]
-          if "\n### 2.8 線画システム【Illustro独自】" not in t:
+          t=re.sub(rf"(?<!\n)(?={re.escape(heading)})","\n\n",t)
+          if not re.search(rf"(?m)^{re.escape(heading)}$",t):
               raise SystemExit("Section 2.8 heading boundary repair failed")
 
           INVISIBLE=" \t\ufeff\u200b\u2060\u00a0"
@@ -135,8 +135,14 @@ jobs:
               a=f"\n\n{marker}\n#### {num}.{n} {title}\n\n{pre}\n\n{block.strip()}\n<!-- /ILLUSTRO-V2-FULL:{kind}:{num} -->\n"
               return t[:e].rstrip()+a+"\n\n"+t[e:].lstrip("\n")
 
+          # Confirm every target section exists before any semantic cleanup/insertion.
           for num in list(P["sec2"])+list(P["sec5"]): span(t,num)
+
+          # `preserved` is the approved baseline after only the explicitly intended canonical cleanup.
+          # The final document must retain every nonblank line from this state, in multiplicity and order.
           t=clean(t)
+          preserved=t
+
           for num,b in P["sec2"].items(): t=ins(t,num,b,"INVENTORY")
           for num,b in P["sec5"].items(): t=ins(t,num,b,"DETAIL")
 
@@ -149,10 +155,13 @@ jobs:
           "Undo My Last Eligible Change","Boundary-distance Fill","18. Section 6–11"]
           for q in required:
               if q not in t: raise SystemExit(f"Missing required detail: {q}")
-          for num in P["sec2"]:
+
+          for num,b in P["sec2"].items():
               if f"ILLUSTRO-V2-FULL:INVENTORY:{num}" not in t: raise SystemExit(f"Missing inventory marker {num}")
-          for num in P["sec5"]:
+              if b.strip() not in t: raise SystemExit(f"Payload content mismatch in inventory {num}")
+          for num,b in P["sec5"].items():
               if f"ILLUSTRO-V2-FULL:DETAIL:{num}" not in t: raise SystemExit(f"Missing detail marker {num}")
+              if b.strip() not in t: raise SystemExit(f"Payload content mismatch in detail {num}")
 
           brushes=["HB Pencil","2B Pencil","Mechanical Pencil","Rough Pencil","Colored Pencil","Soft Graphite",
           "G Pen","Mapping Pen","Round Pen","Technical Pen","Brush Pen","Dry Ink","Felt Pen","Monoline","ととろペン",
@@ -162,11 +171,28 @@ jobs:
           "Paper Grain","Pixel 1px","Fill Brush","Soft Mask Brush"]
           miss=[b for b in brushes if b not in t]
           if miss: raise SystemExit(f"Missing brushes: {miss}")
+          if len(brushes)!=41 or len(set(brushes))!=41:
+              raise SystemExit("Built-in brush validation inventory is not exactly 41 unique presets")
+
           for bad in ("Anime Background","Edge Bloom","JPEG Noise Reduction"):
               if bad in t: raise SystemExit(f"Legacy canonical residue: {bad}")
 
+          base_lines=[l for l in preserved.splitlines() if l.strip()]
+          final_lines=[l for l in t.splitlines() if l.strip()]
+          bc,fc=Counter(base_lines),Counter(final_lines)
+          lost=[(line,n-fc[line]) for line,n in bc.items() if fc[line]<n]
+          if lost:
+              raise SystemExit(f"Baseline information loss detected: {lost[:20]}")
+
+          j=0
+          for line in final_lines:
+              if j < len(base_lines) and line==base_lines[j]:
+                  j+=1
+          if j != len(base_lines):
+              raise SystemExit(f"Baseline order changed or content displaced at preserved line {j+1}/{len(base_lines)}")
+
           M.write_text(t,encoding="utf-8",newline="\n")
-          print("PASS",len(P["sec2"]),len(P["sec5"]),len(t.encode()))
+          print("PASS",len(P["sec2"]),len(P["sec5"]),len(brushes),len(base_lines),len(t.encode()))
           PY
       - name: Commit validated Master and remove temporary integration files
         shell: bash
