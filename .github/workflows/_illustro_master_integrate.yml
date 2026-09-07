@@ -19,6 +19,38 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Repair known Section 2.8 Markdown boundary
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p=Path("ILLUSTRO_MASTER_DESIGN.md")
+          t=p.read_text(encoding="utf-8")
+          rows=t.splitlines(keepends=True)
+          out=[]
+          repaired=0
+          for row in rows:
+              marker="### 2.8"
+              pos=row.find(marker)
+              if pos>0:
+                  # Preserve every original character; insert only the missing line boundary.
+                  out.append(row[:pos])
+                  out.append("\n\n")
+                  out.append(row[pos:])
+                  repaired+=1
+              else:
+                  out.append(row)
+          if repaired!=1:
+              raise SystemExit(f"Expected exactly one malformed Section 2.8 boundary, found {repaired}")
+          fixed="".join(out)
+          if not any(line.startswith("### 2.8") for line in fixed.splitlines()):
+              raise SystemExit("Section 2.8 heading is still not on its own line")
+          p.write_text(fixed,encoding="utf-8",newline="\n")
+          print("BOUNDARY_REPAIR_PASS",repaired)
+          PY
+          grep -n '^### 2\.8' ILLUSTRO_MASTER_DESIGN.md
+          git diff --check -- ILLUSTRO_MASTER_DESIGN.md
       - name: Integrate and validate Master
         shell: bash
         run: |
@@ -50,30 +82,25 @@ jobs:
           data=M.read_bytes()
           actual=blobsha(data)
           if actual!=expected:
-              raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
+              # The only allowed pre-integration delta is the one missing newline fixed in the prior step.
+              repaired=data.decode("utf-8")
+              candidates=[]
+              lines=repaired.splitlines(keepends=True)
+              for i,line in enumerate(lines):
+                  if line.startswith("### 2.8") and i>0:
+                      prev=lines[i-1]
+                      prefix="".join(lines[:i-1])
+                      suffix="".join(lines[i+1:])
+                      # Undo exactly the inserted blank line plus heading line boundary.
+                      if prev in ("\n","\r\n") and i>=2:
+                          reconstructed="".join(lines[:i-2])+lines[i-2].rstrip("\r\n")+line+suffix
+                          candidates.append(reconstructed.encode("utf-8"))
+                      reconstructed="".join(lines[:i-1])+prev.rstrip("\r\n")+line+suffix
+                      candidates.append(reconstructed.encode("utf-8"))
+              if not any(blobsha(c)==expected for c in candidates):
+                  raise SystemExit(f"Latest Source changed beyond approved boundary repair: expected={expected} actual={actual}")
+
           t=data.decode("utf-8")
-
-          # Repair the known malformed Section 2.8 boundary by the position of the heading
-          # within the one source line that contains both its number and title. This preserves
-          # every source character and inserts only the missing line boundary.
-          lines=t.splitlines(keepends=True)
-          offset=0
-          repaired=False
-          for line in lines:
-              if "2.8" in line and "線画システム" in line:
-                  p=line.find("###")
-                  if p >= 0:
-                      if p > 0:
-                          at=offset+p
-                          t=t[:at]+"\n\n"+t[at:]
-                      repaired=True
-                      break
-              offset+=len(line)
-          if not repaired:
-              raise SystemExit("Cannot locate Section 2.8 heading inside the source line")
-          if not any(line.startswith("###") and "2.8" in line and "線画システム" in line for line in t.splitlines()):
-              raise SystemExit("Section 2.8 heading boundary repair failed")
-
           INVISIBLE=" \t\ufeff\u200b\u2060\u00a0"
           def canon_line(line):
               return line.rstrip("\r\n").lstrip(INVISIBLE)
@@ -146,14 +173,9 @@ jobs:
               a=f"\n\n{marker}\n#### {num}.{n} {title}\n\n{pre}\n\n{block.strip()}\n<!-- /ILLUSTRO-V2-FULL:{kind}:{num} -->\n"
               return t[:e].rstrip()+a+"\n\n"+t[e:].lstrip("\n")
 
-          # Confirm every target section exists before any semantic cleanup/insertion.
           for num in list(P["sec2"])+list(P["sec5"]): span(t,num)
-
-          # `preserved` is the approved baseline after only the explicitly intended canonical cleanup.
-          # The final document must retain every nonblank line from this state, in multiplicity and order.
           t=clean(t)
           preserved=t
-
           for num,b in P["sec2"].items(): t=ins(t,num,b,"INVENTORY")
           for num,b in P["sec5"].items(): t=ins(t,num,b,"DETAIL")
 
@@ -166,7 +188,6 @@ jobs:
           "Undo My Last Eligible Change","Boundary-distance Fill","18. Section 6–11"]
           for q in required:
               if q not in t: raise SystemExit(f"Missing required detail: {q}")
-
           for num,b in P["sec2"].items():
               if f"ILLUSTRO-V2-FULL:INVENTORY:{num}" not in t: raise SystemExit(f"Missing inventory marker {num}")
               if b.strip() not in t: raise SystemExit(f"Payload content mismatch in inventory {num}")
@@ -184,7 +205,6 @@ jobs:
           if miss: raise SystemExit(f"Missing brushes: {miss}")
           if len(brushes)!=41 or len(set(brushes))!=41:
               raise SystemExit("Built-in brush validation inventory is not exactly 41 unique presets")
-
           for bad in ("Anime Background","Edge Bloom","JPEG Noise Reduction"):
               if bad in t: raise SystemExit(f"Legacy canonical residue: {bad}")
 
@@ -194,7 +214,6 @@ jobs:
           lost=[(line,n-fc[line]) for line,n in bc.items() if fc[line]<n]
           if lost:
               raise SystemExit(f"Baseline information loss detected: {lost[:20]}")
-
           j=0
           for line in final_lines:
               if j < len(base_lines) and line==base_lines[j]:
@@ -203,8 +222,9 @@ jobs:
               raise SystemExit(f"Baseline order changed or content displaced at preserved line {j+1}/{len(base_lines)}")
 
           M.write_text(t,encoding="utf-8",newline="\n")
-          print("PASS",len(P["sec2"]),len(P["sec5"]),len(brushes),len(base_lines),len(t.encode()))
+          print("INTEGRATION_PASS",len(P["sec2"]),len(P["sec5"]),len(brushes),len(base_lines),len(t.encode()))
           PY
+          git diff --check -- ILLUSTRO_MASTER_DESIGN.md
       - name: Commit validated Master and remove temporary integration files
         shell: bash
         run: |
