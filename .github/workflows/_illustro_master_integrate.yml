@@ -33,8 +33,6 @@ jobs:
           P=json.loads(zlib.decompress(base64.b64decode(b64)).decode())
           expected=P["baseline_sha"]
 
-          # Normalize section keys to their numeric heading token. This also protects
-          # against invisible suffix/whitespace in serialized planning metadata.
           def normkeys(d):
               out={}
               for k,v in d.items():
@@ -54,6 +52,10 @@ jobs:
               raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
           t=data.decode("utf-8")
 
+          INVISIBLE=" \t\ufeff\u200b\u2060\u00a0"
+          def canon_line(line):
+              return line.rstrip("\r\n").lstrip(INVISIBLE)
+
           def span(t,num):
               num=str(num).strip()
               lines=t.splitlines(keepends=True)
@@ -61,7 +63,7 @@ jobs:
               start=None
               end=None
               for line in lines:
-                  stripped=line.rstrip("\r\n")
+                  stripped=canon_line(line)
                   if stripped.startswith("### "):
                       rest=stripped[4:]
                       token=rest.split(maxsplit=1)[0] if rest else ""
@@ -78,8 +80,8 @@ jobs:
                           break
                   offset+=len(line)
               if start is None:
-                  nearby=[x for x in t.splitlines() if x.startswith("### ") and num.split('.')[0]+'.' in x][:80]
-                  raise SystemExit(f"Missing section {num!r}; headings={nearby!r}")
+                  raw=[repr(x) for x in t.splitlines() if num in x][:40]
+                  raise SystemExit(f"Missing section {num!r}; raw-matches={raw!r}")
               return start, (len(t) if end is None else end)
 
           def xsec(t,num,fn):
