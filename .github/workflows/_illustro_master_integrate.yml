@@ -52,6 +52,15 @@ jobs:
               raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
           t=data.decode("utf-8")
 
+          # Repair one pre-existing malformed Markdown boundary in the current Source of Truth.
+          # This inserts only the missing newline; no text is deleted or rewritten.
+          broken="  - Absolute / Relative Color Application### 2.8 線画システム【Illustro独自】"
+          fixed="  - Absolute / Relative Color Application\n\n### 2.8 線画システム【Illustro独自】"
+          if broken in t:
+              t=t.replace(broken,fixed,1)
+          elif "### 2.8 線画システム【Illustro独自】" not in t:
+              raise SystemExit("Cannot safely locate/repair Section 2.8 heading boundary")
+
           INVISIBLE=" \t\ufeff\u200b\u2060\u00a0"
           def canon_line(line):
               return line.rstrip("\r\n").lstrip(INVISIBLE)
