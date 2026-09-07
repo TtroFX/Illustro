@@ -1,0 +1,134 @@
+name: Temporary Illustro Master Integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/_illustro_integrate_ready"
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Integrate and validate Master
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re,json,zlib,base64,hashlib,glob
+
+          M=Path("ILLUSTRO_MASTER_DESIGN.md")
+          parts=sorted(glob.glob("tools/_illustro_payload_*.part"))
+          if not parts: raise SystemExit("No payload parts")
+          b64="".join(Path(p).read_text().strip() for p in parts)
+          P=json.loads(zlib.decompress(base64.b64decode(b64)).decode())
+          expected=P["baseline_sha"]
+
+          def blobsha(b): return hashlib.sha1(b"blob "+str(len(b)).encode()+b"\0"+b).hexdigest()
+          data=M.read_bytes()
+          actual=blobsha(data)
+          if actual!=expected:
+              raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
+          t=data.decode()
+
+          def span(t,num):
+              m=re.search(rf"^###\s+{re.escape(num)}(?:\s|$)",t,re.M)
+              if not m: raise SystemExit(f"Missing section {num}")
+              n=re.search(r"^(?:###\s+\d+\.\d+(?:\s|$)|##\s+\d+(?:\.|\s))",t[m.end():],re.M)
+              e=m.end()+(n.start() if n else len(t[m.end():]))
+              return m.start(),e
+
+          def xsec(t,num,fn):
+              s,e=span(t,num); return t[:s]+fn(t[s:e])+t[e:]
+
+          def rm(sec,pats):
+              return "\n".join(l for l in sec.splitlines() if not any(re.search(p,l,re.I) for p in pats))
+
+          def clean(t):
+              t=t.replace("JPEG Noise Reduction","JPEG Artifact Reduction")
+              t=t.replace("Cloud Generator","Procedural Noise Generator（Cloud preset）")
+              t=t.replace("Opacity / Strength","Effect Mix")
+              t=t.replace("Restore Brush","Reconstruct")
+              for num in ("2.13","5.13"):
+                  t=xsec(t,num,lambda s:rm(s,[r"Anime Background"]))
+              for num in ("2.7","5.7","5.25"):
+                  t=xsec(t,num,lambda s:rm(s,[r"Edge Bloom"]))
+              for num in ("2.12","5.12"):
+                  t=xsec(t,num,lambda s:rm(s,[r"^\s*[-*]\s*(?:\*\*)?(?:Liquify\s+)?Drag(?:\*\*)?(?:\s|[（(:]|$)"]))
+              for num in ("2.2","5.2"):
+                  t=xsec(t,num,lambda s:rm(s,[r"不透明度飽和",r"不透明度を弱める",r"不透明度加算",r"不透明度一定"]))
+              for num in ("2.7","5.7"):
+                  t=xsec(t,num,lambda s:rm(s,[r"^\s*[-*]\s*(?:\*\*)?(?:Strength|強さ)(?:\*\*)?(?:\s|[（(:]|$)"]))
+              for num in ("2.13","5.13","5.22"):
+                  s,e=span(t,num); t=t[:s]+t[s:e].replace("Perlin Noise","Procedural Noise")+t[e:]
+              return t
+
+          def ins(t,num,block,kind):
+              marker=f"<!-- ILLUSTRO-V2-FULL:{kind}:{num} -->"
+              if marker in t: raise SystemExit(f"Duplicate marker {marker}")
+              s,e=span(t,num); sec=t[s:e]
+              vals=[int(v) for v in re.findall(rf"^####\s+{re.escape(num)}\.(\d+)(?:\s|$)",sec,re.M)]
+              n=max(vals)+1 if vals else 1
+              title="Section 5詳細設計統合" if kind=="DETAIL" else "Section 5統合による機能Inventory同期"
+              pre=("本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。"
+                   "同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。"
+                   if kind=="DETAIL" else
+                   "本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。"
+                   "同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。")
+              a=f"\n\n{marker}\n#### {num}.{n} {title}\n\n{pre}\n\n{block.strip()}\n<!-- /ILLUSTRO-V2-FULL:{kind}:{num} -->\n"
+              return t[:e].rstrip()+a+"\n\n"+t[e:].lstrip("\n")
+
+          for num in list(P["sec2"])+list(P["sec5"]): span(t,num)
+          t=clean(t)
+          for num,b in P["sec2"].items(): t=ins(t,num,b,"INVENTORY")
+          for num,b in P["sec5"].items(): t=ins(t,num,b,"DETAIL")
+
+          required=[
+          "Pressure 15%  → Size 24%","Pressure 20%  → Size 34%","Pressure 20%  → Size 40%",
+          "Pressure 45%  → Size 68%","Size maximum reduction ≈9%","Weak-pressure minimum Density:",
+          "≈1.5–1.7 Brush Diameter","Return-to-start Re-arm","XY / YZ / XZ",
+          "Effect Mix","Effect Group","Tate-chu-yoko","Text on Path","Live Canvas Reference",
+          "Repeat Last","Repeat With…","Portable Project Copy","Illustro Asset Pack",
+          "Undo My Last Eligible Change","Boundary-distance Fill","18. Section 6–11"]
+          for q in required:
+              if q not in t: raise SystemExit(f"Missing required detail: {q}")
+          for num in P["sec2"]:
+              if f"ILLUSTRO-V2-FULL:INVENTORY:{num}" not in t: raise SystemExit(f"Missing inventory marker {num}")
+          for num in P["sec5"]:
+              if f"ILLUSTRO-V2-FULL:DETAIL:{num}" not in t: raise SystemExit(f"Missing detail marker {num}")
+
+          brushes=["HB Pencil","2B Pencil","Mechanical Pencil","Rough Pencil","Colored Pencil","Soft Graphite",
+          "G Pen","Mapping Pen","Round Pen","Technical Pen","Brush Pen","Dry Ink","Felt Pen","Monoline","ととろペン",
+          "Opaque Round","Flat Paint","Gouache","Acrylic","Soft Paint","Chalk Paint","Oil-like","Poster Brush",
+          "Round Wash","Wet Wash","Edge Watercolor","Granulating Wash","Water Blend","Dry Watercolor",
+          "Soft Airbrush","Hard Airbrush","Fine Spray","Grain Spray","Charcoal","Crayon","Pastel","Dry Media",
+          "Paper Grain","Pixel 1px","Fill Brush","Soft Mask Brush"]
+          miss=[b for b in brushes if b not in t]
+          if miss: raise SystemExit(f"Missing brushes: {miss}")
+          for bad in ("Anime Background","Edge Bloom","JPEG Noise Reduction"):
+              if bad in t: raise SystemExit(f"Legacy canonical residue: {bad}")
+
+          M.write_text(t,encoding="utf-8",newline="\n")
+          print("PASS",len(P["sec2"]),len(P["sec5"]),len(t.encode()))
+          PY
+      - name: Commit validated Master and remove temporary integration files
+        shell: bash
+        run: |
+          git config user.name "illustro-design-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ILLUSTRO_MASTER_DESIGN.md
+          git rm tools/_illustro_payload_*.part
+          git rm tools/_illustro_integrate_ready
+          git rm .github/workflows/_illustro_master_integrate.yml
+          git diff --cached --check
+          git commit -m "docs: integrate complete Section 5 design"
+          git push origin main
