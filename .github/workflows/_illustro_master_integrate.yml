@@ -33,6 +33,20 @@ jobs:
           P=json.loads(zlib.decompress(base64.b64decode(b64)).decode())
           expected=P["baseline_sha"]
 
+          # Normalize section keys to their numeric heading token. This also protects
+          # against invisible suffix/whitespace in serialized planning metadata.
+          def normkeys(d):
+              out={}
+              for k,v in d.items():
+                  m=re.match(r"\s*(\d+\.\d+)",str(k))
+                  if not m: raise SystemExit(f"Invalid section key: {k!r}")
+                  nk=m.group(1)
+                  if nk in out: raise SystemExit(f"Duplicate normalized section key: {nk}")
+                  out[nk]=v
+              return out
+          P["sec2"]=normkeys(P["sec2"])
+          P["sec5"]=normkeys(P["sec5"])
+
           def blobsha(b): return hashlib.sha1(b"blob "+str(len(b)).encode()+b"\0"+b).hexdigest()
           data=M.read_bytes()
           actual=blobsha(data)
@@ -41,6 +55,7 @@ jobs:
           t=data.decode("utf-8")
 
           def span(t,num):
+              num=str(num).strip()
               lines=t.splitlines(keepends=True)
               offset=0
               start=None
@@ -63,7 +78,8 @@ jobs:
                           break
                   offset+=len(line)
               if start is None:
-                  raise SystemExit(f"Missing section {num}")
+                  nearby=[x for x in t.splitlines() if x.startswith("### ") and num.split('.')[0]+'.' in x][:80]
+                  raise SystemExit(f"Missing section {num!r}; headings={nearby!r}")
               return start, (len(t) if end is None else end)
 
           def xsec(t,num,fn):
