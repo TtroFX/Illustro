@@ -41,19 +41,30 @@ jobs:
           t=data.decode("utf-8")
 
           def span(t,num):
-              # Use exact heading text search rather than relying on regex word/space behavior.
-              candidates=[f"### {num} ", f"### {num}\n", f"### {num}\r\n"]
-              positions=[t.find(c) for c in candidates]
-              positions=[p for p in positions if p>=0 and (p==0 or t[p-1]=='\n')]
-              if not positions:
+              lines=t.splitlines(keepends=True)
+              offset=0
+              start=None
+              end=None
+              for line in lines:
+                  stripped=line.rstrip("\r\n")
+                  if stripped.startswith("### "):
+                      rest=stripped[4:]
+                      token=rest.split(maxsplit=1)[0] if rest else ""
+                      if start is None and token==num:
+                          start=offset
+                      elif start is not None:
+                          end=offset
+                          break
+                  elif start is not None and stripped.startswith("## "):
+                      rest=stripped[3:]
+                      token=rest.split(maxsplit=1)[0] if rest else ""
+                      if token and token[0].isdigit():
+                          end=offset
+                          break
+                  offset+=len(line)
+              if start is None:
                   raise SystemExit(f"Missing section {num}")
-              s=min(positions)
-              after=t.find("\n",s)
-              if after<0: return s,len(t)
-              # Next ### N.N section, or next ## N top-level section.
-              m=re.search(r"\n(?:###\s+\d+\.\d+(?=\s|$)|##\s+\d+(?=[\.\s]|$))", t[after:], re.M)
-              e=after+(m.start()+1 if m else len(t[after:]))
-              return s,e
+              return start, (len(t) if end is None else end)
 
           def xsec(t,num,fn):
               s,e=span(t,num); return t[:s]+fn(t[s:e])+t[e:]
