@@ -170,10 +170,6 @@ Raster Paintingに使用するStroke、Brush Tip、質感、混色、入力応�
 - ブラシ濃度（各Brush Tip自体のOpacity。Stroke全体の不透明度とは区別する）
 - Flow / 塗布量（Stroke中にColorが継続的に堆積する量）
 - パターン不透明度（Brush Pattern Alphaの作用量）
-- 不透明度飽和（同一Stroke中の重ね描きがOpacity上限を超えるかを制御する）
-- 不透明度を弱める（設定Opacityより弱い実効濃度へ補正する）
-- 不透明度加算（Dab Alphaを加算的に蓄積する）
-- 不透明度一定（Spacing等によらず実効濃度を一定化する）
 - ストローク単位の連続性（Pen Upを跨いでEffect状態を継続するかStrokeごとに区切るかを指定する）
 - ブラシ合成モード（各Dabと既存CanvasをどのBlend演算で合成するか指定する）
 - **ブラシ先端**（Strokeを構成するStamp Shape）
@@ -286,6 +282,28 @@ Raster Paintingに使用するStroke、Brush Tip、質感、混色、入力応�
   - Lineart Regions
   - Selection
   - Boundary Crossing Policy
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.2 -->
+#### 2.2.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- legacy opacity accumulation termsをAccumulation Mode(Capped/Build-up) + Spacing Compensation(On/Off)へ整理。
+- Opacity=Stroke-wide cap、Density=Dab local coverage、Flow=distance-normalized depositionを明記。
+- Paint Load。
+- Pigment Edge / Watercolor Edge。
+- Airbrush Accumulation。
+- Particle Size Mode Relative/Absolute。
+- Texture Anchor Canvas/Stroke。
+- Raster Coverage Mode Normal/Pixel-aligned。
+- Preset Target Scope。
+- Brush Studio。
+- Test Pad / input simulator。
+- Runtime Quick Override。
+- Save Current Values as Preset Defaults。
+- Curve Presets: Linear / Ease In / Ease Out / S / Reverse / Custom。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.2 -->
+
 
 ### 2.3 ペン / タッチ / 入力
 
@@ -540,13 +558,31 @@ Artworkを独立要素へ分割し、階層、Mask、Effect、Composite関係を
   - Feather
   - Live Rebuild
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.6 -->
+#### 2.6.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- continuous 0-100% Coverage canonical。
+- Magnetic Selection。
+- Enclose Selection。
+- Selection Display: Outline / Mask Overlay / Hidden。
+- Move Selection。
+- Smooth Selection。
+- Refine Path。
+- Recent Selection Registry。
+- Saved Selection stable ID。
+- Layer Alpha <-> Selection/Mask continuous conversion。
+- Selection Recipe Apply Frozen / Bind Live / Freeze / Rebind / Unbind。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.6 -->
+
+
 ### 2.7 塗りつぶし / 領域処理
 
 閉領域や類似色領域を解析してColor、Selection、Transparencyを一括適用する。
 
 - バケツ塗り
 - 許容値
-- 強さ
 - 塗り残し認識
 - **境界判定方式**
   - Color
@@ -594,6 +630,24 @@ Artworkを独立要素へ分割し、階層、Mask、Effect、Composite関係を
   - Both
   - Width / Falloff
   - Absolute / Relative Color Application
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.7 -->
+#### 2.7.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- generic Strength削除、Application Opacity追加。
+- Reference / Region Detection / Boundary Correction / Applicationの4段階。
+- Sample Radius。
+- Under-line Completion。
+- Area Scaling Corner。
+- Continuous Mode Any Touched / Match First。
+- Backtrack Undo。
+- Enclose interpretation Lasso Area / Closed Regions / Stable Regions。
+- Enclose Region Match Any Inside / Fully Inside / Touched。
+- Shared Region Resolver。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.7 -->
+
 
 ### 2.8 線画システム【Illustro独自】
 
@@ -658,6 +712,27 @@ Visible Lineartと独立した理想化Region Topologyを管理し、塗り・�
   - Erase Hint
   - Explicit Boundary Respect
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.8 -->
+#### 2.8.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Ideal Boundary。
+- Boundary Source toggle。
+- Analysis Auto/Alpha/Luminance。
+- Solid-area Handling Auto/Edge。
+- Role Normal/Ignore。
+- Auto Boundary Accepted/Candidate/Unresolved/Rejected。
+- Accepted Gap Bridge / Manual Suppression / No-Reconnect。
+- Boundary Pen endpoint snap / Boundary Eraser suppression。
+- Region Hint。
+- Leak Diagnostics integration。
+- Region state Current/Updating/Ambiguous/Retired。
+- Persistent Fill conflict/rebind。
+- Pipeline: Visible Lineart Source -> Source Evidence -> Auto Boundary + Accepted Gap Bridge + Manual Boundary - Manual Suppression -> Ideal Boundary -> Region Topology -> Fill/Selection/Brush Constraint。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.8 -->
+
+
 ### 2.9 変形 / 配置
 
 Layer、Selection、Objectの位置、Scale、Shape、Perspective等を変更する。
@@ -715,6 +790,23 @@ Layer、Selection、Objectの位置、Scale、Shape、Perspective等を変更す
   - Axis Alignment
   - Linked Position
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.9 -->
+#### 2.9.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Target vocabulary: Current Target / Multiple Targets / Selected Content / Selection Shape / Whole Artwork。
+- Pivot 3x3 locator。
+- Positional / Angular / Pixel snapping。
+- As Group / Individually。
+- linked/unlinked Layer Mask transform behavior。
+- Align/Distribute reference Canvas/Selection/Parent Group/Key Object。
+- Transform Session local Undo/Redo。
+- Transform Variant parameters-only。
+- Transform Stack typed entry。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.9 -->
+
+
 ### 2.10 ベクター / 図形
 
 Pixelではなく編集可能なPath / Geometryとして線・Shapeを扱う。
@@ -762,6 +854,24 @@ Pixelではなく編集可能なPath / Geometryとして線・Shapeを扱う。
   - Color Override
   - Transform Override
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.10 -->
+#### 2.10.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Parametric Shape / Path Shape / Compound Shape。
+- Object Edit / Node Edit。
+- Corner / Smooth / Symmetric nodes。
+- Open/Closed explicit。
+- Fill Rule Non-zero/Even-odd。
+- Stroke Alignment/Cap/Join/Miter/Dash/Dash Offset。
+- Boolean Union/Subtract/Intersect/Exclude + Boolean Compound + Operand Edit。
+- Convert to Path / Direct Segment Drag / Smart Shape hold candidate / Linked Shape Make Unique。
+- SVG unsupported appearance report。
+- vector brush / vector eraser / variable-width vector brushは除外維持。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.10 -->
+
+
 ### 2.11 定規 / 描画補助
 
 Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
@@ -794,11 +904,35 @@ Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
 - 領域限定アシスト（指定Canvas領域内だけAssistant/Rulerを有効にする）
 - 位置 / LayerによるAssistant Set切替【Illustro拡張】（Canvas位置やActive Layerに応じて指定Ruler Setを切り替える）
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.11 -->
+#### 2.11.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Guide / Stroke Constraint / Replicationの3能力分離。
+- per-assistant Visible/Stroke Assist/Object Snap/Locked。
+- multiple assistants coexist。
+- per-stroke Assistant Lock。
+- Capture Range。
+- Named Assistant Set。
+- Temporary Assist Bypass。
+- Solo Assistant candidate。
+- Perspective Grid XY/YZ/XZ。
+- Offscreen VP indicator。
+- Perspective from Lines。
+- Return-to-start Re-arm。
+- Symmetry replication semantics。
+- Array Assist / Perspective Array。
+- Layer-linked / Position-linked set + priority。
+- Region-limited scope。
+- fish-eye/curvilinear perspective除外維持。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.11 -->
+
+
 ### 2.12 ゆがみ / 特殊描画 / 修正
 
 通常Brush・Transform外の局所修正、複製、Cleanup操作を提供する。
 
-- Liquify Drag
 - Liquify Push
 - Liquify Pinch
 - Liquify Expand
@@ -815,11 +949,28 @@ Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
 - Fill Leftover
 - Smart Smoothing
 - Non-destructive Displacement Field【Illustro拡張】（Liquify結果をPixelへ焼き付けず変位場として保持する）
-- Restore Brush【Illustro拡張】（非破壊変位をBrush範囲だけ元へ戻す）
+- Reconstruct【Illustro拡張】（非破壊変位をBrush範囲だけ元へ戻す）
 - **Warp Guard【Illustro拡張】**（Maskで変形許容量を制御する）
   - Free
   - Partial
   - Protected
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.12 -->
+#### 2.12.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Core: Push / Side Push / Pinch / Expand / Twirl / Smooth / Reconstruct。
+- Invert Liquify Effect。
+- Reconstruct reference Session Start / Modifier Base。
+- Reset Modifier。
+- Guard Protect/Unprotect。
+- Selection+Guard eligibility。
+- linked mask modes。
+- Clone Aligned/Non-aligned。
+- Dust Candidate Review。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.12 -->
+
 
 ### 2.13 フィルター / 色調補正
 
@@ -860,8 +1011,8 @@ Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
 - Cross Filter
 - Light Rays
 - Noise
-- Perlin Noise
-- JPEG Noise Reduction
+- Procedural Noise
+- JPEG Artifact Reduction
 - Frosted Glass
 - Stained Glass
 - Pointillize / Dot
@@ -871,8 +1022,7 @@ Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
 - Retro Game
 - Glitch
 - Chromatic Aberration
-- Anime Background
-- Cloud Generator
+- Procedural Noise Generator（Cloud preset）
 - Linear Gradient Generator
 - Radial Gradient Generator
 - Concentric Gradient Generator
@@ -895,6 +1045,23 @@ Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
   - Select
   - Fine Tune
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.13 -->
+#### 2.13.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+RENAME: JPEG Artifact Reduction / Procedural Noise Generator / Cloud preset。
+RECLASSIFY: Extrude -> Stylize。
+ADD classes: Adjustment / Spatial Filter / Geometric Effect / Generator。
+ADD common: Effect Mix / Effect Mask / Effect Group / Owner-attached Effect / Stack Effect / Before-After Compare / Canvas Effect Anchor / Effect Preset / Effect Recipe / stable seed / Spatial Edge Behavior。
+Stylize: Mosaic / Pixelate / Emboss / Bevel / Inner Glow / Outer Glow / Drop Shadow / Satin / Wet Edge / Frosted Glass / Stained Glass / Pointillize / Extrude。
+Lighting: Bloom / Cross Filter / Light Rays。
+Noise/Repair: Add Noise / JPEG Artifact Reduction。
+Generators: Procedural Noise + Cloud preset / Linear / Radial / Concentric Gradient / Radial Line / Speed Line。
+Geometric: Bloat / Sphere / Lens Distortion / Wave / Ripple / Twirl / Polar / nonlinear Shear / Distortion Correction / Panorama Transform。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.13 -->
+
+
 ### 2.14 非破壊編集
 
 元Dataを直接破壊せず、後から変更、無効化、比較できる編集方式を統合する。
@@ -910,6 +1077,22 @@ Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
 - Shared Modifier Node【Illustro拡張】（1つのEffect Definitionを複数Layerから参照する）
 - Parameter Link【Illustro拡張】（離れたEffect Parameterを同期する）
 - Effect Variant【Illustro拡張】（複数Effect案を保持しA/B比較する）
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.14 -->
+#### 2.14.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Modifier Definition/Application separation。
+- Effect Mix / Effect Group。
+- Make Independent / Share Definition / typed Parameter Link。
+- Replace Source / Replace Content。
+- Rebind / Freeze Last Valid Result / Remove Modifier。
+- Bake This / Group / Chain / Bake Copy / Bake & Replace。
+- same-document sharing semantics / cross-document clone semantics。
+- Adjustment/Filter/Layer StyleをEffect Modifier体系へ統合。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.14 -->
+
 
 ### 2.15 テキスト
 
@@ -946,6 +1129,20 @@ Brush / Geometryを特定の幾何条件へSnapさせ、正確な線を描く。
   - Line Spacing
   - Box Resize
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.15 -->
+#### 2.15.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Auto Width / Auto Height / Fixed Frame / Text Overflow。
+- Mixed Style / Variable Font / OpenType / Missing Glyph fallback。
+- Tate-chu-yoko。
+- Text on Path / Circular Text / Text inside Shape。
+- Convert Text to Path / Rasterize Text Copy/Replace。
+- Requested Font vs Resolved Fallback。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.15 -->
+
+
 ### 2.16 参考画像 / 制作補助
 
 Artworkを変更せず観察、比較、Navigationを補助する。
@@ -975,6 +1172,18 @@ Artworkを変更せず観察、比較、Navigationを補助する。
   - Sync Pan
   - Sync Zoom
 - Reference Set【Illustro拡張】（用途別Reference群を保存する）
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.16 -->
+#### 2.16.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Embedded / Linked / Live Canvas Reference。
+- Clipboard Reference / Missing cached preview / multiple PiP。
+- Value Lens / Saturation / Named Anchor / Reference Set view state / Live Canvas Reference。
+- Reference Lens listをValue/Blur/Edge Emphasis/Saturationへ整理しFlipをView Transformへ移す。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.16 -->
+
 
 ### 2.17 履歴 / 自動化
 
@@ -1009,6 +1218,19 @@ Artworkを変更せず観察、比較、Navigationを補助する。
   - Name
   - Jump
   - Compare
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.17 -->
+#### 2.17.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- History Preview read-only / Continue From Here / Apply Changes From Branch。
+- persistent Checkpoint。
+- Auto Action typed inputs / Target Current-Named-Step Output。
+- Repeat Last / Repeat With。
+- Timelapse Pause / branch-aware Timelapse / atomic Action default。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.17 -->
+
 
 ### 2.18 ファイル / プロジェクト管理
 
@@ -1052,6 +1274,21 @@ Artworkを変更せず観察、比較、Navigationを補助する。
   - Snapshot
   - Background Processing
   - Continue Editing
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.18 -->
+#### 2.18.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- New Document即Local Project。
+- Save Now / Save Project Copy / Portable Project Copy。
+- Open Read-only / single writable session。
+- Import route New Project / Place as Layer / Add Reference / Register Material。
+- Project HealthとExport Preflight分離。
+- Variant Compare。
+- DuplicateとVariantの意味分離。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.18 -->
+
 
 ### 2.19 ワークスペース / 操作環境
 
@@ -1103,6 +1340,16 @@ Artworkを変更せず観察、比較、Navigationを補助する。
   - Right-handed
   - Mirror Layout
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.19 -->
+#### 2.19.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Workspace DefinitionにTool Rail/Quick Access/Quick Hole mapping/Properties/Panels/PiP/Device Layout Variants Desktop-Tablet-Phone。
+- Density defaultはDevice Profile、Workspace OverrideはInherit/Compact/Comfortable/Touch。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.19 -->
+
+
 ### 2.20 共通インタラクションシステム【Illustro独自】
 
 Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱うIllustro全体規約。
@@ -1141,6 +1388,15 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
 - Spring-loaded Tool（押している間だけToolを一時切替する）
 - Continuous Transaction（Canvas / Inspector / 数値入力を跨いでも同一論理操作を1 Undo単位にする）
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.20 -->
+#### 2.20.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Disabled+Reason / Mixed Values / Pointer Capture / screen-space hit target / document-space geometry / one Canonical Parameter / destructive confirmation policy。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.20 -->
+
+
 ### 2.21 オンライン / 共同制作
 
 通常制作とは分離された副次機能として複数人Drawingを提供する。
@@ -1161,6 +1417,19 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
 - Shared Layer（参加者が共有するLayer）
 - Private → Shared
 - Follow View（他参加者のViewportへ一時追従する）
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.21 -->
+#### 2.21.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Owner / Editor / Viewer。
+- Share Live / Send Copy。
+- Collaboration Undo = Undo My Last Eligible Change。
+- Synced / Syncing / Offline / Conflict。
+- local-first visibility / explicit structural conflict。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.21 -->
+
 
 ### 2.22 素材 / リソース
 
@@ -1209,6 +1478,20 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
   - Seam Editing
   - Register
 
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.22 -->
+#### 2.22.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- Resource: Brush Tip / Texture / Pattern / Gradient / Stamp。
+- Material: Image / User / Smart / Procedural。
+- Scope Built-in/User Library/Project Resource/Imported Pack。
+- Project Resource Capture。
+- Place as Material Object / Place as Pixels。
+- Illustro Asset Pack。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.22 -->
+
+
 ### 2.23 設定 / 環境設定 / アクセシビリティ
 
 ユーザー、端末ごとのアプリ挙動を永続設定する。
@@ -1245,6 +1528,17 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
   - Temporary Apply
   - Commit
   - Revert All
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.23 -->
+#### 2.23.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- ownership Global User / Device Profile / Workspace / Document。
+- Device Pressure Calibration pipeline。
+- Safe Revert / Settings Search current value+path / configurable hold+gesture timing / cursor+handle visibility。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.23 -->
+
 
 ### 2.24 出力 / カラーマネジメント
 
@@ -1295,6 +1589,23 @@ Toolごとの操作差を減らし、同じ意味の操作を同じ方法で扱�
   - Display-P3
   - CMYK
   - Synchronized View
+
+<!-- ILLUSTRO-V2-FULL:INVENTORY:2.24 -->
+#### 2.24.1 Section 5統合による機能Inventory同期
+
+本項はこの節の既存記述を保持したまま、Section 5で確定した機能Inventoryを同期する。同節内の旧表記と直接矛盾する場合は、本項のCanonical名称・分類・意味を優先する。
+
+- per-view Soft Proof。
+- Black Point Compensation where applicable。
+- Simulate Paper White/Black where supported。
+- accessible Gamut Warning pattern。
+- Export Profile Conversion does not mutate Document Profile。
+- Embed Profile default where supported。
+- privacy-safe metadata default。
+- Naming Tokens。
+- Preflight Fix routes。
+<!-- /ILLUSTRO-V2-FULL:INVENTORY:2.24 -->
+
 
 ### 2.25 Section 2 完了条件
 
@@ -1918,7 +2229,7 @@ Effect MaskはModifier ApplicationのAttachmentとし、3.7のCoverage semantics
 
 TransformはModifier概念へ統合可能だが、高頻度直接操作であるためRuntime専用Fast Pathを許可する。Canonical Conceptの統一を理由に汎用Modifier engineをHot Pathの関所にしない。
 
-Non-destructive LiquifyはDisplacement Modifierとして扱える。Restore BrushはDisplacement Stateを局所的に戻す操作として設計可能とする。
+Non-destructive LiquifyはDisplacement Modifierとして扱える。ReconstructはDisplacement Stateを局所的に戻す操作として設計可能とする。
 
 #### 3.8.7 Recipe / Variant / Sweep / Bake
 
@@ -3300,6 +3611,720 @@ Boundary Crossing Policy:
 
 Region ConstraintはPresetへ保存可能だが、特定DocumentのStable Region ID自体を通常Presetへ暗黙保存しない。Topologyがstaleな場合はStroke開始に必要な局所Regionだけを優先Resolveし、古いBoundaryへ黙ってFallbackして塗り漏らさない。
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.2 -->
+#### 5.2.15 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+##### Brush共通 / Shared semantics
+
+Brush / Eraser / Blend share stroke interaction but differ semantics:
+- Brush adds Color / Alpha。
+- Eraser reduces Alpha。
+- Blend redistributes / smooths existing artwork。
+
+Properties Quick:
+1. Preset
+2. Size
+3. Opacity
+4. Flow
+5. Stabilization
+6. Main / Sub Color
+
+Advanced:
+Tip / Spacing / Texture / Dynamics / Jitter / Scatter / Watercolor / Taper / Paint & Mixing / Behavior / Preview。
+
+Size:
+- Document-space default。
+- Canvas-relative option in Settings。
+
+Opacity:
+- Stroke-wide effective alpha cap。
+Density:
+- Dab itself's local coverage / density。
+Flow:
+- Continued deposition normalized by travel distance。
+- raw dab countではない。
+
+Tip:
+Round / Image / Custom / Multiple。
+Parameters:
+Aspect / Hardness / Initial Angle / Direction Follow / Horizontal Flip / Vertical Flip / Antialias。
+
+Spacing:
+- % Brush Diameter。
+- very low spacingを性能都合でsilent raiseしない。
+
+Dynamics Sources:
+Pressure / Speed / Tilt / Rotation / Direction / Random。
+Targets:
+Size / Opacity / Density / Blur or Texture / Flow where supported / Relative Amount where supported。
+Each mapping:
+Enable / Min Influence / Max Influence / Curve。
+Device missing source:
+- mappingだけNeutral value。
+- presetを破壊変更しない。
+
+Stabilization:
+- RealtimeとPost-correctionを分離。
+- 0 = raw pathに最も近い。
+- cursor/pathをfake qualityで遅延隠蔽しない。
+
+Taper:
+Entry Size / Exit Size / Entry Opacity / Exit Opacity / Forced Taper。
+- finalizeで同期full-stroke replayを要求しない。
+
+Texture:
+Asset / Scale / Rotation / Offset / Strength / Invert / Blend / Coverage(Full, Edge-biased) / Edge Width / Falloff。
+Edge-biased:
+- solid centerを保護。
+- outer edge中心。
+- AA品質を意図的に落とさない。
+Texture Strength / Edge InfluenceはDynamics mapping可能。
+
+Jitter:
+Position / Size / Opacity / Rotation / Color。
+Scatter:
+Particle Size / Density / Width / Bias / Direction。
+
+Determinism:
+- random/noise presetはsemantic seedまたはstable coordinate basis。
+- same semantic state + same seed = same result。
+
+Watercolor / Mixing:
+Mixing / Water Amount / Color Extension / Transparent Mixing。
+- Quick group + Detail。
+- advanced physical fluid simulationは採用しない。
+
+Anti-overflow / Paint Inside Lineart:
+- Selection / Reference / Boundary source。
+- lineart boundary freshnessを確認。
+- required local areaをresolve。
+- stale silent fallback禁止。
+
+Recent Stroke Re-edit:
+- Properties / History context。
+- Size / Color / Opacity / Dynamics / Stabilization / Taper / compatible Brush。
+- 後のsemantic editならnew transaction/revision。
+
+Brush Morph:
+- compatible A/B。
+- 0-100%。
+- incompatible parameter policyを明示。
+- resultをnew preset保存可能。
+
+Inherited Brush Family:
+- child stores overrides。
+- inherited link indicator。
+- override accent。
+- Reset to Inherited。
+- parent changes propagate only to non-overridden fields。
+
+Shared rules:
+- Position Jitterでhand-drawnらしさを偽装しない。
+- material characterはTexture/Dynamics中心。
+- physical tiltだけを使う。
+- speed mappingは有用な場合だけ。
+- textureはcategory identityを壊さない範囲。
+- no-pressure deviceでもpreset identity維持。
+- previewはpreset personalityを伝える。
+
+##### Sketch 6
+
+1. HB Pencil
+Default Size: 6 px
+Tip/texture: fine graphite grain, Round/slightly irregular
+Hardness: medium-high
+Spacing: 3-4%
+Opacity: 100%
+Flow: ~90%
+Pressure:
+- Pressure->Size weak
+- Pressure primarily controls Density
+- minimum Size ~55%
+Tilt:
+- meaningful response begins around ~45°
+- increases Size
+- decreases Density
+- broadens texture width
+Texture: medium Canvas-fixed
+Taper: short
+Stabilization: low
+Character: 「線幅より濃淡で筆圧が伝わる、素直な鉛筆」
+
+2. 2B Pencil
+Default Size: 8 px
+Tip: softer / irregular
+Hardness: medium
+Flow: ~92%
+Pressure:
+- light-pressure Density higher than HB
+- Pressure->Density medium
+- Pressure->Size slightly stronger than HB
+- minimum Size ~50%
+Tilt: strong broad-area behavior
+Texture: coarser than HB
+Taper: short
+
+3. Mechanical Pencil
+Default Size: 2.5 px
+Tip: hard round
+Spacing: 2-3%
+Opacity: 100%
+Flow: 100%
+Pressure:
+- Pressure->Size very weak
+- minimum Size ~75%
+- Pressure->Density medium
+Tilt: OFF
+Speed: OFF
+Texture: ultra-fine
+Taper: minimal
+Stabilization: low-medium
+Position Jitter: 0
+
+4. Rough Pencil
+Default Size: 7 px
+Tip: irregular graphite
+Hardness: medium
+Spacing: 4-5%
+Flow: ~85%
+Pressure:
+- Pressure->Size medium
+- Pressure->Density strong
+Tilt: medium
+Texture: strong
+Edge: rough
+Position Jitter: 0
+Size Jitter: tiny
+Speed: high speed slightly decreases Density
+Taper: short
+Stabilization: 0
+Rule: roughness comes from texture, not artificial stroke-path jitter。
+
+5. Colored Pencil
+Default Size: 9 px
+Tip/texture: wax / pigment fine grain
+Hardness: medium
+Flow: 85-90%
+Pressure:
+- Pressure->Size weak-medium
+- Pressure->Density strong
+Tilt: medium-strong
+Texture: medium-strong, more uniform than graphite
+Build: repeated strokes build pigment
+Color Jitter: 0
+Taper: short
+
+6. Soft Graphite
+Default Size: 24 px
+Tip: broad soft graphite
+Hardness: low-medium
+Flow: 75-80%
+Pressure:
+- Pressure->Size medium
+- Pressure->Density strong
+Tilt:
+- very strong
+- increases Size
+- softens edge
+- decreases Density
+- broadens grain
+Texture: medium
+Spacing: 3-4%
+Taper: none
+Stabilization: 0
+
+##### Ink 9
+
+1. G Pen
+Default Size: 8 px
+Tip: hard round
+Pressure->Size: strong, minimum 18%
+Exact Curve:
+Pressure 0%   -> Size 18%
+Pressure 15%  -> Size 24%
+Pressure 30%  -> Size 36%
+Pressure 50%  -> Size 55%
+Pressure 70%  -> Size 75%
+Pressure 85%  -> Size 90%
+Pressure 100% -> Size 100%
+Pressure->Opacity: OFF
+Speed: OFF
+Tilt: OFF
+Texture: none
+Taper: medium
+
+2. Mapping Pen
+Default Size: 4 px
+Pressure->Size: medium-strong, minimum 28%
+Exact Curve:
+Pressure 0%   -> Size 28%
+Pressure 20%  -> Size 34%
+Pressure 40%  -> Size 47%
+Pressure 60%  -> Size 64%
+Pressure 80%  -> Size 82%
+Pressure 100% -> Size 100%
+Texture: none
+Tilt: OFF
+Speed: OFF
+Pressure->Opacity: OFF
+
+3. Round Pen
+Default Size: 6 px
+Pressure->Size: medium, minimum 35%, mild high-pressure plateau
+Exact Curve:
+Pressure 0%   -> Size 35%
+Pressure 20%  -> Size 40%
+Pressure 40%  -> Size 52%
+Pressure 60%  -> Size 68%
+Pressure 80%  -> Size 86%
+Pressure 100% -> Size 100%
+Texture: none
+Tilt: OFF
+Speed: OFF
+
+4. Technical Pen
+Default Size: 3 px
+Tip: perfect round
+Hardness: 100%
+Spacing: 1.5-2%
+Dynamics: all OFF
+Texture: OFF
+Taper: OFF
+
+5. Brush Pen
+Default Size: 14 px
+Tip: slight oval
+Aspect: 80-90%
+Pressure->Size: very strong, minimum ~12%
+Speed: high-speed Size reduction maximum ~5%
+Tilt: weak
+Taper: medium Entry, long Exit
+
+6. Dry Ink
+Default Size: 10 px
+Tip: irregular
+Texture: Full coverage, visible interior grain
+Speed: higher speed increases texture/dryness
+Distinction: unlike Totoro Pen, dryness is not restricted to edge-only texture。
+
+7. Felt Pen
+Default Size: 9 px
+Hardness: 85-90%
+Pressure->Size: weak, minimum ~70%
+Texture: tiny
+Taper: short
+
+8. Monoline
+Default Size: 7 px
+Tip: perfect round
+Dynamics: OFF
+Texture: OFF
+Taper: OFF
+Stabilization: medium-high
+Ends: rounded
+
+9. ととろペン
+Full specification: 5.2-I。
+
+Curve PresetsはInk専用ではなくBrush Studio共通能力。
+
+##### Paint 8
+
+Paint Load 0-100%:
+- stroke start時にloadするdrawing color quantity。
+- supporting presetはtravel distanceでdeplete。
+- Pen Up reload。
+- redundant Attack parameterは追加しない。
+- Water Amount = dilution。
+- Color Extension = pull/stretch。
+- Mixing = existing artworkとのmix。
+
+1. Opaque Round
+Default Size: 20 px
+Hardness: 95-100%
+Pressure->Size: medium
+
+2. Flat Paint
+Default Size: 28 px
+Tip: flat
+Aspect: 35-45%
+Direction Follow: ON
+Tilt/rotation: optional weak response / neutral fallback
+
+3. Gouache
+Default Size: 24 px
+Tip: irregular / flat-round
+Mixing: very weak
+Paint Load: high
+Texture: fine
+
+4. Acrylic
+Default Size: 30 px
+Tip: flat-round bristle
+Paint Load: high
+Mixing: low
+Texture: medium
+Speed: slight texture increase
+
+5. Soft Paint
+Default Size: 36 px
+Hardness: 25-35%
+Flow: 60-70%
+Pressure->Flow: strong
+Mixing: weak-medium
+Distinction: remains Paint, not Airbrush。
+
+6. Chalk Paint
+Default Size: 26 px
+Texture: strong coarse
+Texture Anchor: Canvas
+
+7. Oil-like
+Default Size: 32 px
+Tip: flat-round bristle
+Mixing: medium-strong
+Paint Load: medium
+Color Extension: medium
+Water Amount: 0
+Behavior: long stroke loses loaded drawing color; Pen Up reload。
+
+8. Poster Brush
+Default Size: 24 px
+Hardness: 100%
+Behavior: constant graphic / flat paint character。
+
+##### Watercolor 6
+
+Pigment Edge / Watercolor Edge:
+- pigment density accumulation near watercolor stroke outer boundary。
+- Edge-biased Textureとは別。
+Fields: Strength / Width / Falloff。
+- current pigment color/densityを利用。
+
+1. Round Wash
+Default Size: 28 px
+Hardness: soft
+Mixing: 30-35
+Water Amount: 50-55
+Color Extension: 20-25
+Paint Load: 65
+Pigment Edge: weak
+
+2. Wet Wash
+Default Size: 48 px
+Mixing: 60-70
+Water Amount: 80
+Color Extension: 60
+Paint Load: 45-50
+
+3. Edge Watercolor
+Default Size: 32 px
+Pigment Edge: medium-strong
+Width: 6-10%
+
+4. Granulating Wash
+Default Size: 36 px
+Texture: deterministic Canvas-fixed Full texture
+Strength: medium-strong
+
+5. Water Blend
+Category: Watercolor
+Action Family: Blend
+Drawing Color Contribution: none
+Mixing/Pickup: very strong
+Water Amount: 80
+Color Extension: 75-85
+
+6. Dry Watercolor
+Default Size: 20 px
+Tip: irregular
+Water Amount: 10-15
+Texture: Full strong + edge texture
+
+##### Air / Spray 4
+
+Airbrush Accumulation:
+- Enabled / Rate。
+- pointerが同じ位置付近でactiveな時間に基づく。
+- distance-based Flowとは別。
+
+Particle Size Mode: Relative / Absolute。
+
+1. Soft Airbrush
+Default Size: 80 px
+Hardness: 5-10%
+Flow: 20-25%
+Pressure->Flow: strong
+Airbrush Accumulation: medium
+
+2. Hard Airbrush
+Default Size: 50 px
+Hardness: 70-80%
+Flow: 30-35%
+Airbrush Accumulation: enabled
+
+3. Fine Spray
+Brush Diameter: 60 px
+Particle Size: 1-1.5 px
+Particle Size Mode: Absolute
+Density: medium-high
+Distribution: mostly uniform
+Pressure->Density
+
+4. Grain Spray
+Brush Diameter: 90 px
+Particle Size: 2.5-5 px
+Particle Size Mode: Absolute
+Distribution: irregular
+Density: low-medium
+Scatter: wide
+Seed: deterministic
+
+##### Dry / Texture 5
+
+Texture Anchor: Canvas / Stroke。
+- Canvas: paper/granulation fixed to document surface。
+- Stroke: bristle/dragged texture moves with stroke。
+- Per-Dab anchor UIは初期仕様に入れない。
+
+1. Charcoal
+Default Size: 18 px
+Tip: irregular elongated
+Texture: strong paper
+Tilt: very strong
+
+2. Crayon
+Default Size: 14 px
+Tip: irregular stick
+Texture: medium-strong
+
+3. Pastel
+Default Size: 24 px
+Tip: broad soft irregular
+Texture: strong grain
+
+4. Dry Media
+Default Size: 22 px
+Tip: flat-round irregular
+Texture: neutral medium surface
+Speed: slight speed->texture
+
+5. Paper Grain
+Default Size: 120 px
+Tip: soft
+Purpose: texture-application brush
+Color/Alpha: current Color / Alpha through Canvas-fixed grain
+Accumulation: Build-up
+
+##### Utility 3
+
+Raster Coverage Mode: Normal / Pixel-aligned。
+Preset Target Scope: eligible target family metadata。
+
+1. Pixel 1px
+Size: exactly 1 Document Pixel
+Tip: 1x1
+Antialias: OFF
+Coverage: binary
+Dynamics: OFF
+Canvas-relative Brush Size: ignored
+Alignment: document pixel grid
+
+2. Fill Brush
+Display name candidate: Solid Fill Brush
+Internal ID may remain: fill_brush
+Default Size: 48 px
+Hardness: hard / solid
+Interior: consistent solid coverage
+
+3. Soft Mask Brush
+Preset Target Scope: Mask / Selection / Quick Mask / compatible coverage targets
+Incompatible normal color target: disabled with reason
+Default Size: 80 px
+Hardness: soft
+Flow: 25-30%
+Pressure->Flow/Coverage: strong
+Brush/Add increases coverage
+Eraser/Subtract decreases coverage
+
+##### ととろペン / Totoro Pen
+
+Purpose:
+- Illustro universal main Ink preset。
+- lineart / rough / small fills / shadow / detail。
+- G Penの単純上位互換ではない。
+
+Character: Solid Core + Character Edge。
+
+Core behavior:
+1. weak pressure = fine/light。
+2. medium pressure = clearly widens。
+3. strong pressure = plateauしてwidth instabilityを抑える。
+4. high speed = slightly narrows + edge dry texture rises。
+5. exit = longer/thinner taper。
+
+Pressure->Size exact curve:
+Pressure 0%   -> Size 22%
+Pressure 15%  -> Size 28%
+Pressure 30%  -> Size 42%
+Pressure 45%  -> Size 68%
+Pressure 60%  -> Size 86%
+Pressure 75%  -> Size 96%
+Pressure 100% -> Size 100%
+
+Minimum response:
+- stroke途中のneedle-thin accidental responseを防ぐ。
+- Exit Taperは独立しminimum以下へ行ける。
+
+Speed dynamics:
+- Size maximum reduction ≈9%
+- Density maximum reduction ≈4%
+- Edge Texture Strength maximum increase ≈6%
+- continuous response。
+
+Texture Coverage: Edge-biased。
+Center: solid。
+Edge: subtle chip / density variation / dry ink character。
+AA: textureのために意図的に劣化させない。
+
+Tip: nearly round Custom Tip
+Aspect: ≈98%
+Hardness: high
+Position Jitter: 0
+Rotation Jitter: 0
+Spacing: ≈3-4% Diameter
+
+Opacity: 100%
+Flow: 100%
+Core Density: near 100%
+Weak-pressure minimum Density: ≈82%
+
+Taper:
+Entry: ≈0.5 Brush Diameter
+Exit: ≈1.5-1.7 Brush Diameter
+Primary target: Size
+Opacity fade: weak
+
+Stabilization:
+- brush characterそのものではない。
+Preset default Realtime: ≈8-10%
+Post-correction: 0%
+
+Tilt: default OFF。
+
+No-pressure fallback:
+- neutral pressure response。
+- Speed / Edge Texture / Tip Character / Exit Taperは維持。
+
+Region Constraint / Relative Color:
+- shared common features。
+- Totoro-specificではない。
+
+Default Size: 12 px。
+
+Standard Preview:
+weak pressure -> medium -> strong -> fast -> exit taperを1 stroke内。
+Stable seed。
+
+Default description:
+「中筆圧でぐっと太く、強筆圧では暴れにくい。速描きでは少し細く、縁だけ軽く乾き、長めの抜きが残る。線画、ラフ、塗りまで使えるIllustroの汎用ペン。」
+
+##### Brush Studio / Common Settings
+
+Wide layout: Category | Parameter Editor | Test Pad。
+Tablet/Phone: same IAをsheet/collapseで再構成。Desktop縮小コピー禁止。
+
+Top categories:
+Basics / Tip / Stroke / Dynamics / Taper & Stabilization / Texture / Scatter & Airbrush / Paint & Mixing / Color / Behavior / Preview。
+
+Quick Override model:
+Preset Definition -> Active Runtime Brush State -> Quick Override。
+
+Quick changes that do not dirty preset:
+- Size
+- Opacity
+- Flow
+- Stabilization
+
+Last-used quick values: local user/runtime state。
+Explicit: Save Current Values as Preset Defaults。
+
+Built-in: Factory Definition + Local Override。
+Reset: Parameter / Category / Brush。
+Built-in update never overwrites user preset。
+
+Dynamics mapping row:
+- one row per target。
+- Enable / Source / Min/Max Influence / Curve。
+
+Curve Presets:
+Linear / Ease In / Ease Out / S / Reverse / Custom。
+Composition: deterministic / order-independent semantics。Exact formula Section 9。
+
+Test Pad Input Simulator:
+Pressure / Speed / Tilt / Rotation。
+Modes: Actual / Simulated。
+Standard Preview: fixed stroke + capability samples + stable seed。
+
+Consolidated parameters:
+Paint Load / Pigment Edge / Airbrush Accumulation / Particle Size Mode / Texture Anchor / Raster Coverage Mode / Preset Target Scope。
+
+Do not adopt:
+- global parameter locks
+- Dual Brush
+- engine-name clutter
+- device-dependent setting disappearance
+- visibly low-quality preview
+- all parameters in Properties
+
+##### Brush Deposit / Alpha Accumulation
+
+Canonical conceptual pipeline:
+Tip Shape -> Hardness/AA -> Texture -> Density -> Dynamics -> Distance/Time Deposit -> Accumulation -> Stroke Opacity/Composition。
+
+Opacity:
+- stroke-wide effective alpha ceiling。
+- Capped modeでは同じPen Down self-overlapがceilingを超えない。
+
+Density conceptual local contribution:
+Tip Coverage x Density x Texture x Dynamics。
+
+Flow:
+- distance-normalized deposition rate。
+- raw dab countではない。
+
+Accumulation Mode:
+1. Capped
+2. Build-up
+
+Capped:
+- normal Brushes / Washes / Masks。
+- same-stroke overlap respects stroke ceiling。
+
+Build-up:
+- same stroke keeps depositing toward full。
+- Air / Spray / Paper Grain / selected texture presets。
+
+Airbrush Accumulation:
+- separate time-based deposition。
+
+Spacing Compensation:
+- default ON。
+- spacing変更時のdistanceあたりdepositを概ねstableにする。
+- stamp/scatter semanticsではOFF可能。
+
+Legacy rationalization:
+- Opacity Saturation -> Accumulation Mode。
+- Constant Opacity -> Spacing Compensation。
+- Decrease Opacity -> canonical control削除。
+- Add Opacity -> import/compatibility-only if required。
+
+Mixing: coverage/depositとは別。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.2 -->
+
+
 ### 5.3 ペン / タッチ / 入力
 
 #### 5.3.1 Pen
@@ -3509,6 +4534,234 @@ RecipeはSource + Add/Subtract/Intersect + Expand/Contract + Feather等のProced
 
 Binding状態はPropertiesに明示し、`Freeze`でCurrent ResultをFrozen Selectionへ変換、`Unbind`でBinding解除。通常Selectionを暗黙Dynamic化しない。
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.6 -->
+#### 5.6.14 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Selection value:
+- continuous 0-100% Coverage。
+- binary only where target format explicitly requires it。
+
+Creation lifecycle:
+Gesture / Parameter Edit -> Live Candidate Selection -> Selection Mode composition -> Frozen Active Selection。
+Candidate: no Document History。
+Commit: 1 Selection Transaction。
+Logical selection existence does not wait full-canvas rasterization。
+
+Modes:
+- New
+- Add
+- Subtract
+- Intersect
+
+Desktop temporary modifiers:
+- Shift = Add
+- Alt / Option = Subtract
+- Shift + Alt = Intersect
+
+Empty selection:
+- Add ≈ New
+- Subtract disabled
+- Intersect disabled
+
+Common:
+Antialias: ON default
+Feather: 0 default
+Creation Feather: candidateへmode composition前に適用。
+
+Lasso:
+- drag path
+- release closes
+- closing segment preview
+- minimal smoothing
+- Refine Pathはeligible sourceでoptional後編集。
+
+Rectangle / Ellipse:
+- Free
+- 1:1
+- Fixed Ratio
+- Fixed Size
+- From Center
+- live W x H readout
+- release commit
+
+Polygon:
+- Tap = vertex
+- Double Tap = close
+- Enter = close
+- Tap start point = close
+- Backspace = delete last vertex
+- Esc = cancel
+- next segment live preview
+
+Brush Selection dedicated coverage editor:
+- Size 40
+- Hardness 100
+- Strength 100
+- Flow 100
+- Stabilization 0
+Optional:
+- Pressure->Size weak-medium
+- Pressure->Strength
+Default: Strength fixed。
+No Texture / Scatter / Watercolor。
+Advanced painting: Quick Mask。
+
+Auto / Magic:
+- contiguous only。
+Properties:
+- Tolerance
+- Reference
+- Sample Radius: Point / 3x3 / 5x5
+- Antialias
+- Close Gap
+- Area Scale
+Interaction:
+- simple Tap = immediate candidate/result
+- Tap+Hold+horizontal drag = live Tolerance HUD
+Shared Region Resolver where topology semantics apply。
+
+Color Range:
+- non-contiguous across reference。
+Live session:
+- Sample
+- Add Sample
+- Remove Sample
+- Fuzziness
+- Locality Global / Localized
+- Radius
+- Preview
+- Apply
+- Cancel
+Preview: overlay。
+Apply: 1 Selection Transaction。
+
+Magnetic:
+Properties:
+- Detection Width
+- Edge Sensitivity
+- Anchor Spacing
+- Reference Source
+Interaction:
+- Drag = continuous trace
+- Tap = anchor construction
+- manual anchors
+- Backspace = last anchor
+- close
+- Esc cancel
+Semantic: corridor edge tracing, not object segmentation。
+
+Enclose Selection:
+- gesture is search scope。
+- result is resolved region set。
+Properties:
+- Reference Source
+- Target Rule
+- Tolerance
+- Close Gap
+- Area Scale
+- Antialias
+- Shared Region Resolver
+
+Selection Display:
+- Outline
+- Mask Overlay
+- Hidden
+
+Default Outline:
+- Contrast Halo
+- Magenta/Violet accent
+- screen-space visual thickness
+- 50% Coverage isoline
+
+Mask Overlay:
+- tints unselected side。
+Hidden:
+- selection remains active。
+- Properties shows `Selection Active`。
+Soft selection editing may temporarily combine overlay。
+
+Selection Launcher default:
+Transform / Fill / Cut / Copy / Invert / Deselect / More。
+Placement:
+- avoid UI
+- avoid hand/pen occlusion
+- stable during interaction
+- manual drag persists until new selection
+
+Expand / Contract:
+- live preview
+- px
+- Corner Round / Sharp
+- Apply = 1 transaction
+
+Feather:
+- one primary radius
+- symmetric boundary softening
+
+Smooth:
+- distinct from Feather
+- More only
+
+Invert:
+S' = 1 - S。
+
+Move Selection:
+- moves Coverage only。
+- artwork unchanged。
+Transform:
+- moves artwork。
+Nudge:
+- Arrow 1 Document px
+- Shift+Arrow 10 Document px
+
+Quick Mask:
+- transient internal Undo/Redo
+- Done = 1 Selection Transaction
+- Cancel = pre-Quick-Mask restore
+- explicit `Editing Selection Mask`
+- never silently retarget artwork paint
+
+Refine Path:
+Eligible: Lasso / Polygon / Magnetic。
+Invalid after modifiers that destroy source correspondence。
+
+Recent Selection Registry:
+- 20
+- Pin
+- thumbnail
+- type
+- time
+- bounds
+- no duplicates
+- display/mode changes do not add entries
+
+Saved Selection:
+- stable ID
+- name
+- thumbnail
+- frozen coverage
+- explicit update
+
+Layer Alpha <-> Selection / Mask:
+- continuous coverage。
+
+Selection Recipe:
+- deterministic。
+- Apply gives Frozen。
+- Bind Live explicit。
+
+Live source missing:
+- Rebind
+- Freeze Last Valid
+- Unbind
+- no silent stale use。
+
+No dedicated Select and Mask workspace。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.6 -->
+
+
 ### 5.7 塗りつぶし / 領域処理
 
 #### 5.7.1 Fill Family
@@ -3519,7 +4772,6 @@ Default SubtoolsはFlood Fill、Continuous Fill、Enclose Fill、Pattern Fill、
 
 Properties:
 - Tolerance
-- Strength
 - Boundary basis: Color / Opacity
 - Gap detection / Gap close
 - Expand / Contract
@@ -3579,7 +4831,6 @@ Region SweepのGesture→Region集合Resolve semanticsはSelection / Mask等か�
 
 ---
 
-#### 5.7.11 Boundary-distance Fill / Edge Bloom
 
 Resolved Region Boundaryからの距離を入力としてFill結果を生成する。独立BrushではなくFill Styleとして扱う。
 
@@ -3591,6 +4842,247 @@ Properties:
 - Color Application: Absolute / Relative
 
 用途例はEdge Shadow、Inner Glow、Cel-shading edge band、Watercolor-like edge darkening。Boundaryが未確定の場合は対象Region周辺だけResolveし、誤った旧Boundaryで確定しない。
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.7 -->
+#### 5.7.11 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Canonical stages:
+1. Reference
+2. Region Detection
+3. Boundary Correction
+4. Application
+
+Reference:
+- Current Layer
+- Reference Layer
+- Visible Composite
+- Lineart Boundary
+
+Reference Revision:
+- fixed during one Continuous Transaction。
+- prevents self-feedback。
+
+Detection:
+- Tolerance
+- Sample Radius where applicable
+
+Application:
+- Application Opacity default100%
+- color / erase / relative application
+
+Boundary Basis:
+- Color
+- Opacity
+Lineart: topology-based when selected。
+
+Flood Fill:
+Tap seed -> Candidate Region -> Boundary Correction -> Visible Result -> Commit。
+Tap+Hold: horizontal drag live Tolerance HUD。
+
+Close Gap:
+- independent of Tolerance。
+- virtual bridge only。
+- optional Show Gap Bridges。
+- leak diagnostics。
+
+Area Scaling:
+- +/- px
+- Corner Round / Sharp
+
+Under-line Completion:
+- Off
+- Adaptive
+- distinct from Area Scaling。
+- extends under AA / line band。
+
+Antialias:
+- affects output boundary Coverage, not detection semantics。
+- default ON。
+- Pixel / 1bit may default OFF。
+
+Selection:
+- clips final fill。
+- no Ignore Selection toggle。
+
+Erase:
+- same resolver。
+- alpha clear/reduction semantics。
+
+Continuous Fill:
+- Any Touched default
+- Match First
+- deduplicate regions
+- highlight resolved set
+Backtrack Undo:
+- optional
+- default OFF for Continuous Fill
+
+Region Sweep:
+- default Backtrack Undo ON
+- generic set builder
+- Add / Remove / Toggle
+- dedup
+- release 1 transaction
+
+Enclose interpretations:
+- Lasso Area
+- Closed Regions
+- Stable Regions
+Region Match:
+- Any Inside default
+- Fully Inside
+- Touched
+
+Release:
+- logical result immediate。
+- no full-global synchronization requirement。
+
+Quick Properties:
+Color/Application / Tolerance / Reference / Boundary Basis / Close Gap / Under-line Completion / Area Scaling。
+Advanced:
+Antialias / Application Opacity / Scaling Corner / Sample Radius / Gap Preview / Continuous Mode。
+
+##### SHARED REGION RESOLVER / STABLE REGION / PERSISTENT FILL
+
+Strict separation:
+- Region Detection
+- Stable Region Identity
+- Region Application
+
+Resolver Input:
+- Source
+- Source Revision
+- Gesture: Tap / Sweep / Enclose / Explicit Pick
+- Match Rule
+- Boundary Policy
+- Existing Set
+- Selection Constraint
+
+Resolver Output:
+- Resolved Region Set
+- Stable Region refs
+- geometry
+- status
+- diagnostics
+
+Consumers:
+- Fill
+- Selection
+- Mask
+- Brush / Eraser / Blend Region Constraint
+- Lineart inspection
+Rule: consumer tools cannot reinterpret boundaries independently。
+
+Gesture semantics:
+Tap = containing region。
+Sweep = crossed regions。
+Enclose = regions satisfying selected match rule。
+Explicit Pick = exact chosen region。
+
+Region Set operations:
+- Replace
+- Add
+- Remove
+- Toggle
+
+Hover preview where hover exists。
+Touch requires no mandatory delay before region result。
+
+Stable ID:
+- retain only with clear 1:1 logical continuity。
+
+Topology outcomes:
+- Continued
+- Split
+- Merge
+- Removed
+- New
+
+User-facing status:
+- Current
+- Updating
+- Ambiguous
+- Retired
+
+Matcher may use:
+- geometry
+- spatial relation
+- neighbor relation
+- owner/group
+- lineage
+Exact scoring: Section 9。
+
+Optional Region Name separate from ID。
+
+Incremental topology:
+- affected = Updating
+- unaffected = Current
+- needed local region priority
+- never silently use stale topology
+
+Persistent Fill:
+Stable Region Ref + Fill Assignment -> topology-derived output。
+
+Assignment fields:
+- Region Ref
+- Application
+- Target
+- Status
+- User Override
+
+Split: children inherit assignment。
+Merge:
+- all equivalent assignments -> inherit
+- conflicting assignments -> Conflict
+- Assigned + Unassigned -> Conflict
+New with no lineage -> Unassigned。
+Removed -> orphaned/retired assignment。
+
+Ambiguous:
+- no nearest silent remap。
+- show ghost old region + candidates。
+- manual rebind。
+
+Manual Rebind:
+- Rebind
+- Bind to Multiple
+- Clear
+- Keep Unresolved
+
+Unresolved visual:
+- Last Valid Visual diagnostic only。
+- warning required。
+- Export / Flatten / Bake requires Resolve OR explicit Last-valid output choice。
+
+Preflight surfaces unresolved/conflicts。
+
+Topology inheritance/remap follows lineart transaction。
+Explicit recolor = separate transaction。
+
+Stable Region -> Selection:
+- Frozen default
+- Live explicit
+
+Brush Stroke-start Region:
+- resolve at pointer down
+- fixed set for stroke
+Selected Regions:
+- fixed set for stroke
+
+Named Region Set distinct Saved Selection。
+Region Inspector optional。
+
+Confidence simplified normal UI:
+- Current / Problem
+Heatmap diagnostics only。
+
+Architecture:
+Tap/Sweep/Enclose/Pick -> Resolver -> Stable Region Set -> Fill/Selection/Brush Constraint。
+Persistent Fill and live/frozen bindings sit above。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.7 -->
+
 
 ### 5.8 線画システム
 
@@ -3663,6 +5155,111 @@ Region HintはAccepted explicit BoundaryをDefaultでは越えない。Boundary�
 
 通常Layer一覧へRegion Hint Dataを独立Color Layerとして並べず、Lineart GroupのAssist / Diagnosticsから編集する。
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.8 -->
+#### 5.8.13 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Canonical pipeline:
+Visible Lineart Source -> Source Evidence -> Auto Boundary + Accepted Gap Bridge + Manual Boundary - Manual Suppression -> Ideal Boundary -> Region Topology -> Fill / Selection / Brush Constraint。
+
+Lineart Group = Source + Logical Boundary + Region Topology container。
+
+Per-source:
+Boundary Source: ON/OFF
+Analysis: Auto / Alpha / Luminance
+Solid-area Handling: Auto / Edge
+Role: Normal / Ignore
+
+Visibility != boundary participation。
+Hidden source may remain boundary-active with indicator。
+
+Vector source:
+- path geometry = high-precision evidence。
+- open path can be boundary。
+Raster:
+- alpha/luminance/edge evidence。
+Raster Line Interpretation: Auto default / Alpha / Luminance。
+Solid Area Edge Detection advanced Auto。
+
+Auto Boundary states:
+Accepted / Candidate / Unresolved / Rejected。
+Confidence internal; no normal-UI percentage。
+
+Gap Bridge:
+- logical
+- non-rendering
+Auto Bridge Max Gap: small default。
+Factors:
+- endpoint proximity
+- direction continuity
+- edge evidence
+- competing endpoints
+- existing geometry
+Exact score Section 9。
+
+Fill encountering local unresolved gap:
+`Possible boundary gap`
+Actions: Connect / Keep Open / Edit。
+No global modal。
+
+Reject:
+- creates No-Reconnect Constraint until reset or invalidating geometry change。
+
+Manual internal types:
+Segment / Connection / Suppression / Rejected Bridge。
+
+Boundary Pen:
+- logical only
+- endpoint snap default ON
+- Snap Radius
+- endpoint preview
+
+Boundary Eraser:
+- deletes manual boundary
+- erasing auto creates Suppression Constraint
+- bridge erase can reject
+- red/dashed preview
+- release one transaction
+
+Connect = manual connection。
+Disconnect = cut junction / suppression where relevant。
+Split = logical node。
+Remove = delete manual / suppress eligible auto。
+Manual > auto regeneration。
+
+Region Hint:
+- topology/identity membership hint
+- not boundary
+- not color
+Modes: New / Add / Erase。
+Default does not cross accepted boundary。
+Uses: stable tracking / ambiguity / weak boundary / persistent remap。
+
+Virtual Union retains source provenance。
+
+Incremental regeneration:
+- local priority
+- no full topology per sample
+
+Transform:
+- group transform moves boundary/regions immediately。
+Source-layer-only transform:
+- update affected relation。
+Liquify:
+- deform lineart + Ideal Boundary + stable region geometry together, then local reconcile。
+
+Topology Diff:
+New / Deleted / Split / Merge / Connection Change。
+No modal unless dependencies impacted。
+
+Boundary Confidence != Region Status。
+Accessibility: line style/icon + color。
+Leak Diagnostics: probable leak -> Bridge / Boundary Pen / Ignore。
+Lineart Group not required for basic Fill。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.8 -->
+
+
 ### 5.9 変形 / 配置
 
 #### 5.9.1 Transform Entry / Target
@@ -3731,6 +5328,166 @@ Center / Equal Spacing / Axis Alignment / Linked Position等をConstraintとし�
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.9 -->
+#### 5.9.13 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Transform Session fixes at Begin:
+- Target
+- Source Revision
+- Initial Transform
+- Selection/Mask state
+
+Raster preview/final:
+- always Session Source + accumulated transform。
+- never repeated destructive resampling。
+
+Target vocabulary:
+Current Target / Multiple Targets / Selected Content / Selection Shape / Whole Artwork。
+
+Selection Launcher Transform default: Transform Selected Content。
+Separate: Transform Selection。
+Properties shows current target。
+
+Selected raster content:
+- internal Transient Transform Payload。
+- no visible floating layer。
+Commit atomically: source clear/update + transformed result + transformed selection state。
+Soft Selection continuous coverage preserved。
+
+Active Selection follows transformed selected content default。
+Advanced: Keep Selection in Place。
+
+Multi-layer selected content preserves ownership; no flatten。
+
+Bounds: transformable content / selection / union。
+Advanced candidate Bounds Source: Layer / Selection / Canvas。
+
+Pivot:
+- center default
+- 3x3 locator
+- direct drag anywhere
+- used by rotate / pivot-scale / repeat
+
+Scale:
+- corner anchored opposite handle
+- temporary/touch Scale from Pivot
+- aspect lock ON default
+- corner uniform
+- interior move
+- rotate affordance
+- edge axis scale
+- unlock nonuniform
+
+Free Transform: Move / Nonuniform Scale / Rotate / Skew。
+Distort: independent corners。
+Skew: parallel edge。
+Perspective: coupled projective。
+
+Mode switch:
+- preserves accumulated composition
+- no commit
+- evaluate from original Session Source
+
+Rotation:
+- continuous
+- temporary 15° constraint
+- 90 CW / 90 CCW / 180
+- Flip H / Flip V
+
+Numeric:
+Position X/Y / Size W/H / Scale X/Y% / Rotation° / Pivot locator。
+Coordinates use selected Reference Locator in Document coordinates。
+Relative input supported。
+
+Nudge: arrow 1 Document px; Shift 10 Document px。
+
+Snapping categories:
+Positional: Grid / Guide / Object / Canvas Edge / Canvas Center / Frame / Selection。
+Angular: angle increments / Ruler / Assistant。
+Pixel: Document Pixel Grid。
+
+Activation threshold screen-space。
+Geometry document-space。
+Feedback: guide line / snap point / semantic label。
+Temporary bypass available。
+Hysteresis required。
+
+Pixel Snap:
+- OFF default normal workflow
+- Quick ON candidate Pixel Art
+- integer translation / bounds / pivot
+- recommend Nearest
+- do not silently switch
+
+Resampling:
+Default Bicubic。
+Pixel Nearest。
+Strong downscale Area/Lanczos。
+Final high-quality Lanczos where appropriate。
+No cumulative preview resampling。
+No silent per-operation switch。
+
+Transform Stack entry minimum:
+Enabled / Mode / Parameters / Pivot / Interpolation / Mask-Scope / Name。
+
+Everyday Selection Transform:
+- do not force Stack
+- Direct default
+Whole Layer/Object:
+- Direct / Add to Stack
+- last-used per target candidate
+- smart/linked object nondestructive recommended
+
+Multi-target: As Group default / Individually。
+Parent+child normalization avoids double transform and shows target count。
+
+Layer Mask:
+- linked follows owner
+- unlinked stays
+
+Outside Canvas content preserved; Trim/Crop explicit。
+
+Align/Distribute:
+Reference Canvas / Selection / Parent Group / Key Object。
+Equal Centers vs Equal Gaps。
+Ghost preview。
+1 transaction。
+
+Mesh:
+Rows/Columns / multi-point selection / reset selected / reset mesh / changing density preserves deformation as much as possible。
+
+Puppet:
+Add/Move/Delete/Rotate Pin / Rigidity / Influence。
+
+Transform Variant: parameters only, no source copy。
+
+Persistent Layout Constraints:
+- stable object targets only
+- Axis / Center / Equal Gap / Linked Position / Equal Size
+- solver live
+- bypass explicit
+- Break explicit
+
+Commit semantics:
+- Enter/✓ whole Session Commit
+- Esc/× whole Session Cancel to baseline
+- Local Undo/Redo suboperations
+- final Apply one Document Transaction
+Tool switch:
+- valid -> commit
+- invalid/unresolved -> Finish or Cancel Transform
+
+Zero-lag:
+- no per-move full Layer Tree traversal
+- no per-move full-document recompose
+- no destructive resample per move
+- no storage wait
+- preview semantics same as final
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.9 -->
+
+
 ### 5.10 ベクター / 図形
 
 #### 5.10.1 Shape / Path Family
@@ -3777,6 +5534,119 @@ Vertex Count、Radius、Inner Radius、Corner Radius、Rotation等をProperties�
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.10 -->
+#### 5.10.10 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Formal object types:
+1. Parametric Shape
+2. Path Shape
+3. Compound Shape
+Do not immediately convert all shapes to Bezier。Convert to Path explicit。
+
+Object Edit: Move/Scale/Rotate/Fill/Stroke。
+Node Edit: geometry; only needed nodes/handles。
+
+Bezier creation:
+Tap=Corner。Drag=Smooth+handles。
+Touch has Corner/Smooth context toggle; no keyboard-only design。
+
+Node types:
+Corner: handles independent。
+Smooth: collinear, lengths independent。
+Symmetric: collinear + equal length。
+
+Add Node: split curve preserving shape as possible。
+Delete Node: reconnect minimizing jump。
+Endpoints: Split / Join。
+
+Open/Closed explicit。
+Open Path + Fill:
+- Fill implicitly closes endpoints straight。
+- Stroke remains open。
+- dashed implicit closing edge during node edit。
+
+Fill Rule: Non-zero default / Even-odd advanced。
+Fill: None / Solid / Gradient / Pattern。
+Stroke: None / Solid / Gradient / Pattern。
+Stroke props:
+- Width Document px
+- Alignment Inside/Center/Outside
+- Cap Butt/Round/Square
+- Join Miter/Round/Bevel
+- Miter Limit
+- Solid/Dash/Dot/Custom Dash
+- Dash Offset
+Open/ambiguous path: Center alignment only where needed。
+
+Do not add variable-width Vector Brush / Vector Eraser。
+
+Rectangle:
+X/Y/W/H/Rotation + corner radius TL/TR/BR/BL; linked/independent; canvas handles; continuous clamp。
+
+Ellipse candidate:
+Full Ellipse / Arc / Pie / Chord + Start/End Angles + handles。
+
+Regular Polygon:
+Vertex Count / Outer Radius / Inner Radius / Rotation / Corner Radius。
+Inner Radius enables star; no separate Star Tool。
+
+Generic Path Corner Radius advanced candidate; nondestructive; Expand Corner explicit。
+
+Compound Path: multiple subpaths and holes。
+
+Boolean:
+Union / Subtract / Intersect / Exclude。
+Default nondestructive Boolean Compound preserving operands。
+Expand Boolean explicit。
+Operand Edit allows transform/parameter edits live。
+
+Selection: Object Selection vs Node Selection。
+Node multi-select: Shift / marquee / lasso。Touch Add Selection toggle。
+Direct Segment Drag adjusts adjacent handles。
+
+Snap reuse shared system:
+Grid / Guide / Node / Endpoint / Midpoint / Intersection / Shape Center / Ruler。
+Semantic feedback labels。
+
+Persistent Geometric Constraints:
+Parallel / Perpendicular / Tangent / Equal Length / Equal Radius / Symmetry。
+Solver live。
+Conflict: no silent disabling; show Disable A / Disable B / Remove。
+
+Simplify:
+live preview / Strength / node-count reduction / optional max deviation。
+Preserve endpoints / sharp corners / locked nodes / constraint anchors。
+Apply one Vector Revision。
+
+Smart Shape first-recognized:
+Line / Rectangle / Square / Ellipse / Circle / Polygon。
+Hold candidate; Accept Shape / Keep Raw。
+Accepted result parametric when possible。
+Low confidence no auto-convert。
+Deterministic, not AI。
+
+Unsupported raster-only tool:
+Rasterize / Rasterize Copy / Cancel。Rasterize Copy recommended default。No silent rasterize。
+Convert to Path != Rasterize。
+
+SVG supported core editable: path / compound / fill / stroke / transform / basic shapes。
+Unsupported report。Fallback: Rasterize Unsupported Appearance / Skip / Cancel。No silent broken appearance。
+Exact mapping Section 6。
+
+Linked Shape:
+shared geometry source; instance overrides Transform/Fill/Stroke。
+Editing geometry: Edit Shared Source / Make Unique。
+Shared-source edit badge。
+Make Unique clones source and rebinds only instance; preserve instance placement/identity where possible。
+Source defaults flow to non-overridden values; overrides preserved。
+
+Node drag transient; release one Vector Transaction; local session Undo possible。
+Zero-lag: local node/segment/bounds/boolean region/constraint neighborhood; no full doc/vector/SVG/constraint graph per sample。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.10 -->
+
+
 ### 5.11 定規 / 描画補助
 
 #### 5.11.1 Assist Page構成
@@ -3819,6 +5689,94 @@ Assistant SetをNamed保存し、Active Layer / Canvas position条件へ任意�
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.11 -->
+#### 5.11.10 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Capability split:
+Guide = visual helper。
+Stroke Constraint = constrains drawing path。
+Replication = creates multiple strokes。
+One assistant can combine: Perspective=Guide+Constraint; Symmetry=Guide+Replication。
+
+Per assistant: Visible / Stroke Assist / Object Snap / Locked。
+Hide != Disable。Hidden but active shows small Assist Active state。
+Stroke Assist and Placement Snap separate; geometry may be shared; no master toggle conflation。
+Multiple assistants coexist and may be active。
+
+Per-stroke Assistant Lock:
+Pointer Down -> eligible assistants -> initial movement/position -> score -> lock best for stroke。
+Factors: distance / initial direction / primary designation / scope。Exact scoring Section 9。
+No partial Assist Strength。Use exact snap + Capture Range。Capture Range screen-space。
+
+Ruler types:
+Straight / Curve / Shape / Parallel Line / Parallel Curve / Multiple Curve / Radial Line / Radial Curve / Concentric。
+Straight Advanced Extent: Segment / Infinite。
+Curve Ruler reuses Vector node editor: Corner/Smooth/Symmetric/Add/Delete/Segment Drag。
+
+Perspective unified 1/2/3-point Assistant:
+VP1/VP2/VP3 / Horizon-Eye Level / Plane Grids。
+Each direction independently ON/OFF。
+2-point semantic directions: VP Left / VP Right / Vertical。
+3-point: X/Y/Z。
+Initial stroke vector chooses direction then locks。
+Return-to-start Re-arm optional: if stroke returns to start region while pen remains down, direction can be reselected。
+
+Offscreen VP:
+edge indicator / direction / distance / edge-mediated manipulation; no zoom-out requirement。
+
+Perspective Grid:
+XY / YZ / XZ planes。
+Grid Spacing / Origin / Density / Show / Snap。
+Reusable by Transform Placement Snap。
+
+Perspective from Lines:
+select existing line pairs -> candidate VP/horizon + residual/deviation overlay -> Accept creates Assistant。Artwork unchanged。
+
+Symmetry = Replication, not path snap。
+Modes Mirror / Rotational。
+Geometry Center / Axis Angle / Division Count。
+Replica transforms position/direction/tip angle/tilt/azimuth/rotation-dependent dynamics; pressure/time preserved。
+Replicated stroke = 1 Transaction。
+Brush/Eraser/Blend compatible。Selection/Region Constraint clips each replica individually。
+
+Kaleidoscope:
+wedge reflection+rotation; separate user-facing type, may share engine。Quick: Segments/Center/Rotation/Mirror。
+
+Array Assist distinct Transform Repeat。
+Transform Repeat duplicates existing objects; Array Assist live stroke replication。
+2D: Rows/Columns/Step X/Step Y/Origin。All replicas one transaction。
+
+Perspective Array:
+Perspective Plane / Grid Step / Repeat Count -> projected replicas。No 3D object system。
+
+Region-limited Assist Scope:
+Everywhere / Active Selection / Saved Selection / Stable Region Set / Custom Area。
+Scope crossing: assist only inside; outside freehand; screen-space hysteresis。Scope does not clip paint; separate Region Constraint。
+
+Named Assistant Set stores assistants/visibility/stroke assist/object snap/scope/appearance。
+Layer-linked Set auto switches with active layer/group and shows small status e.g. Assist: Background Perspective。No silent switch。
+Position-linked Set uses viewport-center entering binding area with hysteresis。
+Priority:
+Explicit Manual Override > Layer/Group Binding > Position Binding > Document Default Set。
+Manual override persists until Resume Auto Assist Set。
+
+Guide creation:
+Desktop ruler-bar drag。Tablet/Phone + Guide then canvas drag。
+Guide props Position/Orientation/Color/Lock/Snap/Name。
+Guide/Set Lock prevents move while snap works。
+
+Overlay line width screen-space。Appearance Color/Opacity/Display Width/Handle Visibility。Handles edit mode only。
+
+Temporary Assist Bypass: common one-stroke command assignable keyboard/pen button/touch; no setting mutation。
+Solo Assistant candidate: temporary hide/disable others, restore prior state。
+
+Assistant geometry edits Create/Move/Rotate/Perspective/Delete/Scope are undoable。UI visibility/collapse not Artwork History。
+Fish-eye / Curvilinear Perspective excluded。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.11 -->
+
+
 ### 5.12 ゆがみ / 特殊描画 / 修正
 
 #### 5.12.1 Liquify Entry
@@ -3835,9 +5793,9 @@ Drag / Push / Pinch / Expand / Smooth / Reconstructを提供。Pointer drag中Cu
 
 Liquify結果はDefaultでDisplacement Modifierとして保持し、後からEdit / Disable / Reorder可能。`Bake Liquify`のみrasterize。
 
-#### 5.12.4 Restore Brush
+#### 5.12.4 Reconstruct
 
-Restore BrushはDisplacementを局所的に元へ戻す。Strength 100%でoriginal displacement stateへ近づける。元Raster contentを描き直すToolではない。
+ReconstructはDisplacementを局所的に元へ戻す。Strength 100%でoriginal displacement stateへ近づける。元Raster contentを描き直すToolではない。
 
 #### 5.12.5 Warp Guard
 
@@ -3862,6 +5820,73 @@ Cleanup系はFilter / Repair routeから起動。Automatic candidate検出後、
 #### 5.12.10 Smart Smoothing
 
 Line / edgeを局所的にsmoothするInteractive Tool。Strength / preserve cornerをPropertiesで調整。Vectorではgeometry edit、Rasterではsupported non-destructive effectを優先する。
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.12 -->
+#### 5.12.11 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Core modes: Push / Side Push / Pinch / Expand / Twirl / Smooth / Reconstruct。
+Drag standalone removed。
+Twirl brush-local displacement, distinct Twirl Effect。Direction CW/CCW。
+Side Push Left/Right。
+
+Temporary `Invert Liquify Effect`:
+Expand<->Pinch / Twirl CW<->CCW / Side Push Left<->Right / Push reverse displacement direction。
+
+Do not add core: Crystals / Edge / Momentum / random distortion stylization。
+
+Common params:
+Size / Strength / Hardness / Rate / Pressure Response / Mode / Guard。
+Strength = maximum deformation influence。
+Rate = accumulation over movement/time。
+
+Pressure default:
+Pressure->Strength ON。Pressure->Size OFF。Configurable。
+Mouse/finger no-pressure fallback uses fixed Strength, preserves identity。
+
+Hold accumulation: Pinch/Expand/Twirl continue on hold。Push mainly movement-vector based。
+
+Reconstruct:
+- canonical name。
+- moves displacement toward reference, not pixels。
+Reference: Session Start default / Modifier Base optional。
+Reset Modifier resets entire modifier。
+Smooth smooths displacement field, not image blur。
+
+Primary: Non-destructive Displacement Modifier。Bake Liquify explicit。
+Liquify Session: fixed Session Base; mode switches same session; Local Undo/Redo; final one Document Transaction。Editing existing modifier updates same modifier revision。
+Apply/Done exits retaining modifier。
+
+Guard continuous 0-100% Coverage: 0 Free / 100 Protected / partial attenuation。
+Edit modes Protect / Unprotect; reuse coverage editor。
+Active Selection limits target; Guard attenuates within eligible area。Selection != Guard。
+Selection boundary default Clamp; advanced sampling across boundary candidate。
+Guard overlay Color/Opacity configurable; partial visible; full protected may use pattern。
+
+Lineart Group Liquify deforms visible lineart + Ideal Boundary + Stable Region geometry together, then local reconcile。
+Stable Region simple deformation keeps ID; true Split/Merge uses lineage/conflict。Persistent Fill follows geometry。
+
+Linked mask default Content + Linked Masks。Explicit Content Only / Mask Only。
+Vector/Text/Parametric Shape: no silent rasterize; preferred post-render nondestructive displacement; alternatives Rasterize Copy / Cancel。Geometry editing belongs Vector/Mesh。
+Mesh vs Liquify: Mesh structural handles; Liquify local brush deformation。Guard != Puppet Pin。
+
+Cursor: circle + direction/side/twirl/pinch/expand/reconstruct glyph + size/hardness rings。
+
+Lasso Paint/Erase direct apply without active Selection。Reuse lasso AA/Feather。Release one transaction。Lasso Paint may reuse Fill Application。
+
+Clone/Copy Pen: Aligned/Non-aligned; source marker/target/offset; Stroke-start Source Revision fixed。Reference Current Layer / Chosen Layer / Visible Composite。
+
+Smudge=color transport/mixing, Blend Family。Liquify Push=coordinate displacement。Local Blur=pixel smoothing。Liquify Smooth=displacement smoothing。
+
+Dust Removal: Candidate Detection -> Overlay -> Accept/Reject -> Repair。Detection no artwork edit。Target small isolated specks, not semantic AI object removal。
+Dust Selection returns candidates as Selection。
+Fill Leftover detects underfilled/halo/tiny unfilled; reuses Fill/Lineart Resolver。Actions Fill/Ignore/Diagnose Boundary。
+Smart Smoothing: Vector geometry simplify/smooth; Raster nondestructive edge/line repair。Primary Strength + Preserve Corners。
+
+Zero-lag: local displacement working set; no full-layer composite/full-canvas bake/global Guard scan/topology rebuild/storage wait per sample/up。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.12 -->
+
 
 ### 5.13 フィルター / 色調補正
 
@@ -3895,13 +5920,12 @@ Gaussian / Motion / Zoom / Radial-Rotation / Lens Blur、Sharpen / Unsharp Mask�
 
 #### 5.13.5 Stylize / Lighting / Noise
 
-Mosaic、Pixelate、Emboss、Bevel、Inner/Outer Glow、Drop Shadow、Satin、Wet Edge、Bloom、Cross Filter、Light Rays、Noise、Perlin Noise、JPEG Noise Reduction、Frosted Glass、Stained Glass、Pointillize等をEffect catalogへ分類。
+Mosaic、Pixelate、Emboss、Bevel、Inner/Outer Glow、Drop Shadow、Satin、Wet Edge、Bloom、Cross Filter、Light Rays、Noise、Procedural Noise、JPEG Artifact Reduction、Frosted Glass、Stained Glass、Pointillize等をEffect catalogへ分類。
 
 Effect catalogはSearch + categoryで選び、巨大なMenu階層だけに依存しない。
 
 #### 5.13.6 Style Filters
 
-Illustration / Pencil / Film / Retro Game / Glitch / Chromatic Aberration / Anime Background等はPreset starting point + editable parameters。ResultをAI生成機能として扱わず、deterministic image effectとして設計する。
 
 #### 5.13.7 Generators
 
@@ -3921,13 +5945,433 @@ Bloat / Sphere / Lens Distortion / Wave / Ripple / Twirl / Polar Coordinates / S
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.13 -->
+#### 5.13.11 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+##### Common Effect Model
+
+Effect classes:
+1. Adjustment
+2. Spatial Filter
+3. Geometric Effect
+4. Generator
+
+Canonical user concept: Effect Modifier。
+Do not proliferate separate Adjustment Layer engine / Smart Filter engine / Layer Style engine。
+
+Scope:
+Owner-attached = target-specific。
+Stack Effect = acts on lower composite at stack position。
+Single-layer default = Attach to Current Target。Stack Effect explicit。
+
+Active Selection at effect creation -> Frozen Effect Mask。No implicit live Selection binding。
+Each Effect has independent Effect Mask by default。Common/shared mask via Effect Group。No global Shared Mask subsystem initial。
+
+Effect Mask = continuous Coverage。0=no effect, 100=full effect。Editor labels Add Effect / Remove Effect; black/white metaphor not mandatory。
+Effect Mix = common Original/Effect Result mix。Distinct from effect-specific parameters。Conceptual effective presence = Effect Mix x Mask Coverage。
+
+Live Preview mandatory。No wait-for-preview modal。Preview/final same semantics。Internal LOD/scheduling only if no visibly different algorithm。
+Viewport/needed tiles priority。No full-document recompute required per slider sample。
+
+Compare:
+- Hold Original
+- Toggle Effect
+- Split Compare
+Split same canvas with synchronized view。
+
+Reset:
+- Reset Parameter
+- Reset Effect
+- Revert Session
+
+Numeric common: Slider / input / scrub / reset。
+
+Canvas Effect Anchor:
+- direct manipulation for canonical Center/Direction/Offset/Radius/Bounds parameters。
+- Properties and Anchor edit same state。
+- Anchor is UI, not export content。
+
+Color-space-dependent effects respect Document Profile。Exact transforms Section 9。
+Alpha separate by default; color adjustments do not alter alpha unless explicitly alpha-targeting。
+Premultiplied/straight correctness internal, not routine UI setting。
+
+Spatial Advanced Edge Behavior where relevant:
+Clamp / Transparent / Mirror / Wrap。
+
+Effect Scope:
+- Whole Target
+- Effect Mask
+- explicit Live Selection Recipe binding
+- Stable Region Set
+Stable Region binding tracks ID and Split/Merge conflict rules。
+
+Effect Stack UI/evaluation:
+Source -> Effect1 -> Effect2 -> Result。Displayed direction = processing direction。Live reorder。
+
+Effect Group:
+- Enable
+- Effect Mix
+- Mask
+Group Mask multiplies Child Effect Mask。
+
+Disable preserves params/mask/anchor/name。Effect instance renamable separately from type。
+Missing source shows unavailable; no silent reassignment。
+
+Unsupported target:
+- prefer post-render Effect for Vector when possible。
+- otherwise Rasterize Copy / Cancel。
+- no silent rasterize。
+
+Destructive application explicit。
+Bake This Effect / Bake Group / Bake Stack explicit; appearance preserved。
+
+Effect edit session:
+- Enter/✓ commit
+- Esc/× restore pre-session
+- newly-created uncommitted effect: Esc removes it
+- Local Undo/Redo
+- final one Document Transaction
+
+Effect Preset = single-effect snapshot。
+Effect Recipe = ordered multi-effect snapshot。Applying creates normal editable instances。No linked/shared Recipe in initial spec。
+
+Parameter Sweep:
+- max 2 axes
+- same Source Revision
+- no document copies
+- candidate generation lower priority than direct interaction
+
+Catalog:
+Search / Category / Favorite / Recent / Preset。
+Disabled incompatible effect remains visible with reason。
+Grayscale/1bit compatibility explicit; no silent mode conversion。
+Random effects use stable seed; Randomize explicit。
+
+Scheduling priority:
+Direct manipulation > visible effect > offscreen refresh > thumbnails/sweep/cache。
+
+##### Color Adjustments
+
+Common pipeline:
+Input -> Adjustment -> Effect Mix -> Effect Mask -> Result。
+Alpha preserved by default。
+
+Histogram:
+- Current Effect Input, not post-effect feedback。
+- recompute if upstream changes。
+- masked area default if Effect Mask exists。
+- Whole Target toggle。
+
+Brightness / Contrast:
+Brightness -100..+100。
+Contrast -100..+100。
+0 neutral。
+Perceptual tone behavior; no naive RGB add。No legacy algorithm toggle。
+
+Levels:
+Channels Composite / R / G / B or document-model equivalent。
+Input Black / Midtone / White。
+Output Black / White。
+Canonical UI 0-100% independent of bit depth; optional detail underlying values。
+Clipping Preview temporary; highlight/shadow distinct by color + pattern where needed。
+
+Tone Curve:
+Point Curve only initial。
+X=input, Y=output。
+Add/move/delete nodes; numeric Input/Output。
+Composite/document channels。
+Input histogram behind curve。
+Default endpoints 0->0, 100->100。
+Preserve monotonic input-node ordering; no foldback in normal tone curve。
+Freehand draw curve excluded initial。
+
+HSL:
+Ranges Master / Reds / Yellows / Greens / Cyans / Blues / Magentas。
+Hue -180..+180。
+Saturation -100..+100。
+Lightness -100..+100。
+Range editor Center/Core/Falloff + eyedropper sampling。
+No HSL Colorize; overlaps Drawing Color Change / Color Replace。
+
+Color Balance:
+Shadows / Midtones / Highlights。
+Cyan<->Red / Magenta<->Green / Yellow<->Blue。
+Smooth overlapping tone weights, not hard thirds。
+Preserve Lightness ON default。
+
+Grayscale:
+- nondestructive effect, not Document mode conversion。
+- profile-aware perceptual grayscale。
+- no RGB mixer initial。
+- Effect Mix can blend。
+
+Threshold:
+- one threshold。
+- hard black/white output。
+- alpha preserved。
+- no AA inside result。
+- not Document 1bit conversion。
+
+Posterize:
+Levels 2-256。
+Default candidate ~8。
+Color only; alpha not quantized。
+Dither optional OFF default; stable seed if ON。
+
+Invert:
+- parameterless color invert。
+- alpha unchanged。
+- distinct Selection/Mask invert。
+
+Gradient Map:
+perceptual lightness -> shared Gradient Editor。
+Reverse / Interpolation / Dither。
+Dither OFF default, stable seed。
+No gradient alpha stops in canonical Gradient Map; transparency via Effect Mask/Mix。
+
+Color Replace:
+reuse Color Range matcher。
+Sample/Add/Remove / Fuzziness / Global-Localized / overlay preview。
+Primary replacement = Hue/Saturation/Lightness shifts preserving shading。
+Advanced candidate Replace Toward Color + Preserve Lightness。
+No auto-active-selection。Explicit Create Selection from Match。
+
+Drawing Color Change:
+all nontransparent artwork RGB -> chosen color while alpha coverage preserved。
+Fully transparent pixels unchanged。AA partial alpha preserved。No lightness preservation。Works beyond Lineart Group。
+
+Common Hold Original。Presets are snapshots。
+Do not add now: Exposure / Vibrance / Selective Color / Channel Mixer / Photo Filter。
+
+##### Blur / Sharpen / Line & Edge
+
+Spatial Effect Mask primarily result-mix mask, not sampling boundary。Default may sample Source outside mask to avoid seams。
+Advanced Sampling Boundary: Source / Effect Scope。
+Radius in Document px。
+
+Gaussian Blur:
+Primary Radius only。Radius0 identity。No quality/kernel/iterations UI。Correct alpha handling; no halos。
+
+Motion Blur:
+Distance + Angle。Canvas direction vector。Anchor position itself does not affect result。No Path Blur initial。
+
+Zoom Blur:
+Center + Amount。Center Document-space, canvas anchor。
+
+Radial-Rotation Blur:
+Center + signed Rotation Amount。Separate from Zoom。
+
+Lens Blur:
+Primary Radius / Focus / Depth Source。
+Depth Source: None / Layer Mask / Alpha / Saved Selection / Chosen Coverage Source。
+Effect Mask distinct Depth Map。
+Focus Depth 0-100 + Pick Focus canvas tap。
+Advanced Aperture: Blade Count / Curvature / Rotation。
+Highlight Threshold / Boost。
+Noise Match optional default0 stable seed。
+
+Sharpen:
+quick conservative edge-aware Amount-only。Do not inflate into Smart Sharpen。
+
+Unsharp Mask:
+Amount / Radius / Threshold。Threshold=edge difference eligibility, not brightness threshold。
+Diagnostic candidate Show Sharpen Difference。Quick candidate 100% View。
+
+Edge Detection:
+Primary Radius / Sensitivity。
+Output Grayscale default / Alpha。
+Do not expose Sobel/Prewitt/Scharr as primary choices。
+Polarity Dark lines / Light lines。
+
+Line Extraction:
+illustration-oriented。Primary Line Width / Sensitivity / Cleanup。
+Width distinct detector radius。
+Advanced direction toggles candidate。Pre-simplify Off/Levels candidate。
+Black fill threshold not primary。
+
+Outline:
+silhouette boundary only; ignores internal color changes。
+Primary Width / Position Inside-Center-Outside / Color。
+Canonical same engine as Layer Border / Text Outline。
+
+Selection/Mask continuous result mix。
+Create Lineart Source from suitable Edge/Line Extraction:
+- Use Live Effect Result default candidate
+- Bake as Raster Source
+- Cancel
+Never auto-convert。
+
+Live Lineart Effect parameter change triggers topology update using Stable Region rules。
+Create Selection from Result explicit; no auto selection mutation。
+Lineart source uses Current Effective Result; no stale topology fallback。
+Canvas-outside artwork valid source。
+Large radius not artificially capped for performance hiding。
+Dependency radius informs Section 8/9 incremental scheduling。
+
+##### Geometric Distortion
+
+Classify Creative Coordinate Distortion / Optical-Geometric Correction / brush-local Liquify separately。
+Common pipeline: Source -> Coordinate Mapping -> Sampling/Edge -> Effect Mix -> Effect Mask -> Result。
+Canvas Effect Anchor may control Center/Radius/Direction/Rotation/Bounds。
+
+Outside Sampling: Transparent / Clamp / Mirror / Wrap with effect-specific default。
+Selection Mask = result-mix mask; mapping may sample around it unless advanced scope restriction。
+Interpolation shared Transform family; no silent Nearest switching。
+Effect Mask not warped by its own distortion by default。
+Owner-attached anchors use Owner Local Space; Stack Effect anchors Document Space。
+Non-destructive source reevaluation avoids accumulated resampling。Multiple warps stack, order matters。
+No AI/content-aware fill for new transparent areas; Outside Sampling explicit。Canvas-outside artwork valid source。
+
+Bloat:
+Center / signed Amount / Radius。Positive outward, negative inward/pinch。Smooth falloff default。
+
+Sphere:
+Center / Amount / Aspect。Positive convex, negative concave。2D spherical warp only, no 3D scene。
+
+Twirl Effect:
+Center / Radius / signed Angle / Radius Falloff。Separate Liquify Twirl。
+
+Ripple:
+Center / Amplitude / Wavelength / Phase。Radial periodic。
+
+Wave:
+Direction / Amplitude / Wavelength / Phase。Advanced Waveform Sine default / Triangle / Square。No generator-count parameter; stack Wave effects。
+Ripple and Wave remain separate。
+
+Polar Coordinates:
+Rectangular->Polar / Polar->Rectangular。Candidate Seam Position / Rotation。
+Tentative: center fixed Target Bounds center for predictable mapping。Keep Tentative label until later technical review。
+
+Shear Effect:
+nonlinear curve-based displacement along X/Y。Distinct Transform Skew。Curve UI reuses node interaction concept。
+
+Lens Distortion:
+manual radial barrel/pincushion warp。Distortion / Center / Scale。
+
+Distortion Correction:
+Primary Distortion / Vertical / Horizontal / Rotation / Scale。
+Advanced Chromatic Fringe / Vignette candidate。
+No camera/lens profile DB or EXIF auto correction initial。Correction Grid display-only candidate。
+Distinct Perspective Transform by correction intent / neutral-zero / grid。
+
+Panorama Transform:
+Tentative scope: projection transform, not stitching/3D。
+Candidate projection Rectilinear / Cylindrical / Equirectangular。Center/FOV/Yaw/Pitch/Roll as applicable。
+Initial limited scope: cylindrical<->rectilinear and equirectangular viewport reorientation。
+
+Extrude removed from Geometric; see Stylize。
+
+Direct manipulation viewport/affected-area priority; no full-doc completion requirement for anchor drag。
+
+##### Stylize / Lighting / Noise / Generator
+
+User-facing groups:
+1. Surface / Edge Style
+2. Pixel Stylize
+3. Lighting
+4. Noise / Repair
+5. Generator
+
+No separate Layer Style engine。Layer Shadow/Glow/Bevel quick entries instantiate canonical Effect Modifiers。
+
+Drop Shadow:
+Source Coverage/silhouette。Primary Offset / Blur / Spread / Color / Shadow Opacity。Canvas offset vector。Shadow Opacity distinct Effect Mix。
+No hidden Global Light initial。If later needed, explicit Linked Light Direction only。
+
+Inner/Outer Glow:
+silhouette boundary。Primary Size / Spread / Color / Opacity。Advanced Falloff Curve。
+Glow=alpha-boundary; Bloom=brightness。
+
+Bevel:
+silhouette-edge relief。Primary Size / Depth / Light Angle / Light Elevation。Advanced Inner/Outer / Softness / highlight/shadow colors+opacity。
+
+Emboss:
+image internal luminance/detail gradient relief。Primary Amount / Depth / Light Angle。No forced grayscale-only legacy UI。
+
+Satin:
+deterministic interior shading。Primary Color / Distance / Size / Angle。Advanced Contour / Invert。
+
+Wet Edge Effect:
+post-effect on completed coverage boundary。Primary Width / Strength / Falloff。Distinct Brush Pigment Edge deposition-time behavior。
+
+Bloom:
+Threshold / Radius / Intensity。bright extraction -> blur -> light contribution。Not alpha-boundary。
+
+Cross Filter:
+bright highlight starburst。Threshold / Ray Length / Ray Count / Rotation。No camera/lens simulation complexity。
+
+Light Rays:
+Source Point + source luminance -> directional rays。Source / Length / Intensity / Threshold。Distinct Cross Filter local stars。
+Lighting effects add light contribution and do not silently alter source tone。
+
+Pixelate:
+coarse low-resolution/nearest-like pixel aesthetic。Pixel Size + Grid Origin。Hard cell boundaries/no AA; Effect Mask edge remains continuous separately。
+
+Mosaic:
+block average/representative aggregation。Cell Size + Grid Origin。Distinct Pixelate。
+
+Frosted Glass:
+deterministic noise-based local displacement + softening。Distortion / Scale / Softness / stable Seed。
+
+Stained Glass:
+irregular cells + borders。Cell Size / Border Width / Border Color / Regularity / stable Seed。Distinct Mosaic square grid。
+
+Pointillize:
+dots from source colors。Dot Size / Density / Spacing Jitter / stable Seed。No implicit Main/Sub/background dependency。
+Gap Fill: Original / Transparent / Color。Default candidate Original。
+
+Add Noise:
+Amount / Color Mode Luminance-Color。Advanced Distribution Uniform/Gaussian + Seed。Seed fixed until Randomize; document-coordinate deterministic。
+
+Procedural Noise Generator:
+Scale/Frequency / Detail / Contrast / Aspect / Tileable / Seed。Exact algorithm Section 9。Tileable official candidate; generator bounds loop seamlessly。
+Cloud = Procedural Noise preset with large-scale smooth fractal noise / 2-color mapping。
+
+JPEG Artifact Reduction:
+Repair。Strength / Preserve Detail。Targets blocking/ringing/mosquito artifacts。Deterministic; AI not required。
+
+Generator = source class, Parameters -> Result, no source required。Primary representation Generator Layer。
+Generator Layer supports Transform / Mask / Blend / Opacity / Effect / Group / Visibility。
+Painting onto generator: Rasterize Copy / Rasterize / Cancel, no silent rasterize。
+
+Gradient Generator reuses common Gradient Definition/Editor。
+Linear: start/end。
+Radial: center/radius。
+Concentric: repeating same gradient; Center / Spacing / Phase。
+
+Speed Line Generator editable parametric:
+Direction / Density / Line Length / Line Width / Area-Bounds。Advanced length/spacing/position jitter + stable Seed。No immediate raster bake。
+
+Radial Line Generator:
+Center / Inner Radius / Outer Radius / Density / Line Width。
+
+Ruler vs Generator:
+Ruler constrains user stroke; Generator automatically creates line family。
+Generator line style Primary Line Width / Color。Advanced limited Line Style Preset possible; do not import full Brush engine。
+
+Random stylize/generator same definition+seed -> same result; Randomize explicit。
+
+Style Filters use Effect Recipe whenever fully representable:
+Illustration / Pencil / Film / Retro Game / Glitch / Chromatic Aberration。
+Applied Recipe expands to normal editable Effect instances。Dedicated effect allowed only when recipe cannot represent semantics。
+Retro Game may reveal Palette Reduction need later; do not add now without separate audit。
+
+Extrude Stylize:
+Direction / Length / Step or Density。Advanced Perspective/Fade。2D appearance only; no 3D material/light/camera。
+
+Zero-lag: direct parameter/anchor manipulation viewport-first; offscreen/thumbnails lower priority。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.13 -->
+
+
 ### 5.14 非破壊編集
 
 #### 5.14.1 Modifier UI
 
 Layers `Effect`からAdjustment / Filter / Transform / Displacement等を追加。Attached ModifierはOwner child、Stack ModifierはVisual Stack participantとして表示。
 
-PropertiesはEnabled、Opacity / Strength（該当時）、Mask、主要Parameter、Detailへの入口を持つ。
+PropertiesはEnabled、Effect Mix（該当時）、Mask、主要Parameter、Detailへの入口を持つ。
 
 #### 5.14.2 Enable / Reorder / Remove
 
@@ -3960,6 +6404,93 @@ Modifier / chainのparameter setをVariantとして保存。Compare modeでA/B i
 Bakeは対象Modifier chainのCurrent Effective ResultをRaster / supported targetへ固定し、元Modifierを保持する`Bake Copy`と置換する`Bake & Replace`を分ける。Historyで復元可能でも操作意味を明示する。
 
 ---
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.14 -->
+#### 5.14.9 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Canonical split:
+Modifier Definition -> Modifier Application -> Target。
+
+Definition = effect intrinsic semantic parameters。
+Application = Target / Enabled / Effect Mix / Effect Mask / Scope / application coordinate-anchor / ownership。
+
+Examples Definition:
+Gaussian Radius / Motion Blur Angle / Tone Curve / Bloom Threshold / Drop Shadow Color。
+Examples Application:
+Enabled / Effect Mix / Effect Mask / Target / Zoom Blur Center / Ripple Center / Owner-local Anchor / Stable Region binding。
+
+Shared Modifier shares Definition。Applications keep local Mask/Enabled/Mix/Target/Anchor-Scope。
+
+Multiple Layer Apply default: independent instances/definitions。
+Explicit Apply as Shared Modifier。
+
+Independent->Shared: Share Definition。
+If same values, share directly。If different: Use A / Use B / Use C / Cancel。Never average。
+
+Shared->Independent: Make Independent clones current resolved values, preserves visual, future edits independent。
+
+Parameter Link distinct Shared Modifier。Only semantic-compatible types:
+Angle<->Angle / Length<->compatible Length / Color<->Color / Normalized Amount<->compatible Amount。
+Do not link arbitrary numerics such as Blur Radius<->Hue Angle。
+Unlink retains current resolved local value。Cycles prohibited; reject before commit with reason such as Cannot link: dependency cycle。
+
+Effect Group: Enabled / Effect Mix / Mask + ordered child Effects。Group Mask x Child Mask。Use this for common mask; no separate Shared Mask subsystem initial。
+
+Modifier Stack UI/evaluation displays Source -> Effect1 -> Effect2 -> Result。Display direction equals evaluation direction。
+Reorder live Canvas; release one transaction; no bake。
+
+Source edit preserves Modifier Definition/Stack and reevaluates current source revision。
+
+Replace Source / Replace Content only source-bearing objects。Preserve compatible chain。
+If new size/aspect differs: Keep Current Transform / Fit New Source / Cancel。
+Preserve Effect Definitions/masks where semantically valid。If source-local geometry/anchor invalid, warning; no silent reset。
+
+Dependency state: Current / Updating / Unresolved / Source Missing。Specific states may include Missing Asset / Missing Region / Unsupported Target / Cycle / Conflict。
+Missing Source recovery: Rebind / Freeze Last Valid Result / Remove Modifier。
+Freeze Last Valid explicit supported frozen result; no silent stale truth。
+
+Duplicate:
+Local Modifier -> independent clone。
+Existing Shared Modifier -> new Application to same Shared Definition, preserving explicit sharing semantics。
+
+Same-document Copy/Paste:
+Local -> independent copy。
+Shared -> same-document Shared Definition preserved。
+Effect Mask copied with Application。
+
+Cross-document Paste:
+- no hidden live dependency to source document。
+- clone required Definition/local dependency into destination。
+- destination Shared Definition independent from source document。
+- preserve relative appearance as possible。
+- do not silently recenter Document-space anchor。
+
+Mask ownership labels:
+Layer Mask / Effect Mask / Effect Group Mask / Transform Scope Mask / Liquify Guard。
+Mask drag actions Move Mask / Copy Mask。No initial Link Mask; use Effect Group。
+
+Effect Variant stores Parameter State only。Does not store Target / Source / Effect Mask / Stable Region binding / ownership / Shared relationship。
+Chain Variant does not change graph topology; structural edits belong Recipe/Stack。
+
+Bake:
+Bake This Modifier / Bake Modifier Group / Bake Chain。
+Bake Copy creates independent raster/supported frozen result while source+modifier remains。
+Bake & Replace replaces target with current result and removes baked modifier; one transaction; Undo restores graph。
+
+Rasterize=source type conversion。Flatten=structure merge。Export=no bake。
+
+Remove Modifier preserves source artwork; owned mask removed。Shared Definition remains while consumers exist。Unnamed zero-consumer internal definition cleanup; explicitly saved reusable Definition may remain Asset。
+
+History units:
+Parameter Edit Session / Reorder / Make Independent / Share Definition / Bake / Rebind each semantic transaction。No slider-sample history spam。
+
+Evaluation semantics:
+Source -> Modifier DAG -> Current Effective Result。Dirty downstream only where dependency permits。Cache derived/discardable, not canonical。
+Priority: Direct input > visible affected modifier result > visible downstream composition > offscreen refresh > thumbnails/variants/caches。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.14 -->
+
 
 ### 5.15 テキスト
 
@@ -4026,6 +6557,91 @@ PSD Import時、supported text semanticsはeditable Text Objectへ保持。unsup
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.15 -->
+#### 5.15.12 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Canonical Text Object:
+Text Content + Character Runs + Paragraph Runs + Font References + Layout Mode/Frame + Writing Direction + Transform + optional Path Binding + Text Style/Overrides。
+Glyph raster is derived output, not canonical text。
+
+Resize Modes:
+Auto Width / Auto Height / Fixed Frame。
+Point Text default Auto Width。Area/Box uses Auto Height or Fixed Frame。
+Resize Mode != Auto Fit。
+
+Overflow:
+explicit Text Overflow indicator。Actions Expand Frame / Enable Auto Height / Auto Fit / Keep Overflow。Preflight candidate if unresolved。
+
+Text Edit Mode: caret/range/IME/Ruby/frame resize。
+Object Transform Mode: move/scale/rotate, no caret。
+Mode clarity Editing Text / Transforming Text。
+
+Text input session:
+no Document History per key or IME candidate; semantic text-edit transaction。
+
+Character props:
+Font / Style-Weight / Size / Color / Character Spacing / Horizontal Scale / Vertical Scale / Baseline Shift / Underline / Strikethrough / OpenType Features / Variable Font Axes。
+Paragraph:
+Alignment / Justification / Line Spacing / Paragraph Before-After / Indent / Writing Direction / Frame Vertical Alignment。
+Primary: Font/Weight/Size/Color/Alignment/Character Spacing/Line Spacing。Rest Detail。
+
+Mixed Style:
+range-level formatting。Property shows Mixed when multiple values。No selection uses Insertion Style; selected range receives change。
+
+Font Reference: Family + Face/Style + metadata。
+Variable Font: show only axes provided by font: Weight/Width/Slant/Optical Size/custom axes。No fake unsupported axis transform。
+
+OpenType Features only if font supplies them。Examples Ligatures / Contextual Alternates / Fractions / Stylistic Alternates。Typography Details, not primary clutter。
+
+Glyph/Symbol: grid+search。Use Unicode when representable。Font-specific alternate/private glyph keeps substitution metadata。Clipboard does not silently map to unrelated Unicode。
+
+Font fallback separates Requested Font and Resolved Glyph Fallback。Fallback is display resolution only, does not rewrite requested font; later availability can restore。
+
+Missing Font badge `Missing Font: <name>`。Actions Replace Font / Import Font / Keep Temporary Substitute。
+Missing Glyph is character-run fallback, not whole font missing。Inspector may show count such as 3 glyphs using fallback。
+
+Font Import local resource。Use licensing/embedding metadata if available for Export compatibility; lack of metadata is not automatic block。
+
+Vertical Writing uses true vertical shaping/metrics and punctuation orientation; no whole-string 90° hack。
+
+Tate-chu-yoko Auto: Off / 1 / 2 / 3 / 4 characters。Manual selected range support。
+
+Ruby binds annotation to base text range。Reading Text / Size / Position / Spacing。If base edit breaks relation -> Needs Review, no silent reattach。
+
+Text on Path relation:
+Text Object + Path Reference + Start/End + Offset + Side/Direction。Path Node Edit live reflow。
+
+Circular Text = Circle Path + Text on Path preset。Radius / Start/End / Direction / Inside-Outside / Offset。Circle stays Parametric until explicit conversion。
+
+Text inside Shape: Text references Shape/Path frame geometry; Shape Fill/Stroke separate。Shape edit reflows。Missing source -> Rebind / Freeze Current Frame。
+
+Auto Fit managed fields:
+Font Size / Character Spacing / Line Spacing / Frame Resize。Deterministic。AUTO FIT badge。Manual change -> Update Auto Fit constraint / Disable fitting for that field; no silent snap-back。
+
+Text Style Preset = snapshot, no sharing。
+Linked Text Style = shared Definition。Shares Font/Weight/Size/Color/Character spacing/Line spacing/Paragraph alignment/Outline style。Does not share Content/Position/Frame Size/Path Binding。Override diff, Reset to Style, Make Local Style clones resolved style。
+
+Text Outline reuses Outline Effect Modifier。Shadow/Glow/Bevel same common Effect Modifiers。
+
+Text Transform keeps editable Text。Transform Scale != Font Size。
+Perspective/Mesh/Liquify preserve editable source via post-render nondestructive modifier default。Alternatives Rasterize Copy / Cancel。No silent rasterize。
+
+Convert Text to Path explicit; Convert to Path Copy recommended option to retain original。
+Rasterize Text: Rasterize Copy / Rasterize & Replace / Cancel。Raster result not text-editable。
+
+Live Text Boundary feeds Selection/Fill/Lineart Boundary/Region Constraint。Typing does not force full-document topology sync。Missing source -> Rebind / Freeze Last Valid / Unbind。
+
+Copy/Paste same doc preserves editable text/font refs/mixed style/Ruby/path binding。
+Path Text without path -> Paste with Path Copy / Convert to standalone text / Cancel。
+External Plain Text uses insertion style。Rich text preserves supported formatting only。
+Cross-document font missing -> keep Requested identity + Missing Font; no hidden source-document font link。
+
+PSD supported semantics editable。Unsupported -> appearance fallback + original metadata where possible + warning。Preflight Missing Font / unsupported OpenType / Path Text incompatibility / Ruby unsupported / Effect raster fallback。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.15 -->
+
+
 ### 5.16 参考画像 / 制作補助
 
 #### 5.16.1 Reference Block
@@ -4061,6 +6677,90 @@ Canvas pointとReference pointをAnchor pairとして登録し、Sync Pan / Sync
 View Page Navigatorはcurrent viewport rect、zoom、rotation、mirror stateを表示。Thumbnail上dragでPan、wheel / pinchでZoom。Navigator更新がBrush inputを奪うBackground workにならない。
 
 ---
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.16 -->
+#### 5.16.9 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Reference = Assist Resource。Not Artwork Layer / Composite / standard artwork Export。
+Source types:
+1. Embedded Reference
+2. Linked Reference
+3. Live Canvas Reference
+
+File import default: Embed。Link optional。
+Clipboard: Embedded Reference。
+
+Linked external update:
+Status `Reference updated externally`。Actions Reload / Keep Current。
+Auto Reload Linked References: candidate Setting, default OFF candidate。Do not silently replace during work。
+
+Missing Linked Reference:
+Status Reference Missing。Actions Relink / Locate / Remove。
+Cached preview allowed with explicit `Missing - showing cached preview` badge。
+
+Reference Block: View Page, PiP detachable。Multiple PiP References simultaneously。
+Library views: List / Tabs / Grid / Pin as PiP。
+Metadata: Name / Source Status / Source Type / Thumbnail / optional Tags。No requirement for deep folder hierarchy inside Reference system。
+
+Per-reference navigation:
+Pan / Zoom / Rotation / Horizontal Flip / Fit。
+Persist Pan/Zoom/Rotation/Horizontal Flip/Lens state。
+Horizontal Flip primary。Vertical Flip More/lower-frequency。View transform only, never source rewrite。
+
+Reference Eyedropper:
+Touch normal=Pan; Pick mode or Temporary Eyedropper=sample。Pen button may map。
+Color management: Reference Pixel -> Reference Color Profile -> Document Working Color Space -> Main Color candidate。
+Untagged reference likely sRGB candidate, final in Section 6; no separate incompatible Reference color rule。
+Pick Preview shows Reference candidate vs Current; release/tap commit。
+
+Lens cleanup:
+View Transform: Flip / Rotate / Pan / Zoom。
+View Lens: Value / Saturation / Blur / Edge Emphasis。
+Value = perceptual lightness/value view。
+Saturation 0-100%; 100 original, 0 saturation removed。
+Blur Radius removes detail for large masses。
+Edge Emphasis Strength, viewing aid only, no generated artwork。
+Lens Stack multiple allowed; header e.g. `2 Lens Active`。
+Reset View resets Pan/Zoom/Rotation/Flip/Lens。Individual Reset Position / Clear Lenses may exist。
+
+Canvas <-> Reference Anchor:
+view-navigation relation only, not overlay transform。
+Anchor Pair = Canvas Point + Reference Point。
+Sync Pan aligns corresponding points。
+Sync Zoom captures current Canvas<->Reference scale ratio at anchor setup and maintains it。
+Sync Rotation not initial because one anchor insufficient。
+Multiple named anchors per reference allowed。
+
+Reference Set stores membership / order / active item / grid-tab state / view states / lens states / PiP arrangement refs / anchor-sync states。Grouping/view definition only; no duplicate image data。
+Global reusable Reference library not required initial; Project Set canonical。
+
+Live Canvas Reference:
+Source = Current Effective Artwork Composite。
+Use: main Canvas detail while reference shows full art, or normal color vs Value/Blur alternate view。
+Exclude Guides / Selection outline / Reference PiP / Cursor / Assist overlay / temporary UI。
+Update priority: Main Canvas visible first; Live Reference frame-aligned after; only visible-block resolution; no full-res per brush sample。
+
+Navigator distinct small navigation tool。Shows current viewport footprint / zoom / rotation / mirror。Tap to pan; drag footprint to pan; wheel/pinch zoom。
+Rotated Canvas shows actual rotated footprint, not misleading axis-aligned only。Mirror state explicit。
+Navigator Eyedropper if offered samples canonical/current composite, never low-res thumbnail as truth。
+
+Reference PiP positioning does not use Artwork Transform Tool。Reference view pan/zoom/rotate separate。
+Drag&Drop into Reference Block -> Add Reference。Ambiguous Canvas drop shows Import as Artwork / Add as Reference。
+Place Reference as Artwork explicit, creates imported content; reference entry remains by default。
+Add Current Layer as Reference Snapshot candidate; snapshot, not live link。Live current art uses Live Canvas Reference。
+
+Privacy/export:
+- Reference not artwork export。
+- Reference not timelapse artwork frames。
+- Linked original not silently embedded in export package。
+- Embedded reference remains native Project Resource according format policy。
+
+Performance priority:
+Direct Brush/Transform > Current Canvas visible result > Visible Live Reference > visible static reference decode > Navigator thumbnail > Reference grid thumbnails > offscreen preload。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.16 -->
+
 
 ### 5.17 履歴 / 自動化
 
@@ -4115,6 +6815,75 @@ TimelapseはArtwork Historyの保持Policyと連携するが、Timelapseのた�
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.17 -->
+#### 5.17.10 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Internal History Graph; normal UX linear Undo/Redo。
+Undo = one semantic transaction back current branch。Redo = one forward current branch; never cycles branches。
+Undo then edit preserves old redo path as branch。
+
+History Preview read-only:
+- no current pointer move
+- no save-state change
+- no Undo/Redo-position change
+- badge Previewing
+Editing while Preview blocked until Continue From Here。
+Continue From Here restores state; first edit creates branch。
+Restore Here moves current state without deleting future; no edit means easy return possible。
+
+Transaction granularity: Brush 1 Stroke / Fill 1 operation / Transform whole Session / Liquify whole Session / Effect edit Session / Text semantic edit Session / Auto Action whole Action default。No pointer-move/slider-sample history。
+
+History entry naming: Command + affected target + optional summary。Examples Brush Stroke-Hair / Transform-Character / Gaussian Blur-Background / Edit Text-Title / Fill 4 Regions-Flats。No internal ID normal UI。
+
+History Page primary current-branch linear list; branch point indicator; advanced Show Branch Graph。
+Branch creation automatic, no naming modal。Auto name Branch from time or origin Checkpoint; rename later。
+
+Branch Compare A/B Toggle / Split View, synchronized Pan/Zoom/Rotation; compare does not move pointer。
+
+Branch Merge only safe independent/commutative changes: different independent layers, independent modifier params, non-conflicting metadata。Conflicts same raster layer edits / same effect parameter / delete-vs-edit / topology conflict。No pixel averaging or Last Writer Wins。
+
+Apply Changes From Branch:
+select transaction(s) -> preview -> apply if dependencies valid。Incompatible target reason, no silent retarget。Preferred selective reuse route。
+
+Checkpoint persistent named pointer to History State。Fields Stable ID / Name / Time / optional Note / Thumbnail。Persists Project reopen。Acts retention anchor; physical GC Section 6/8。Save != Checkpoint。Optional Saved marker not Undo step。
+
+History persistence direction: Current Branch / recent History / Named Checkpoints / retained Branch metadata。Exact budget Section 6。
+Recovery separate; no Recovery entries in normal History。
+
+History Search: Layer/Object/Tool/Tool Family/Command/Effect/Text metadata/Checkpoint/Branch。Index background lower priority。
+
+Auto Action = Semantic Command Recorder, not pointer recorder。Example Add Layer / Set Opacity60 / Add Gaussian Blur Radius12 / Duplicate Layer / Transform Scale80。
+Freehand Brush Stroke excluded from normal Action recording by default; future Stroke Macro separate spec。
+
+Action Target: Current Target / Named Target / Step Output。Step Output lets later steps refer to object created earlier, avoiding same-name ambiguity。
+Typed Action Inputs: Number / Length / Angle / Color / Choice / Boolean。No arbitrary script expression。
+Action editor: Reorder / Enable-Disable / Edit safe params / Duplicate Step。
+
+Playback atomic default; whole Action one Undo。Failure at later step rolls back earlier steps by default, avoiding half-applied document。
+Failure actions: Fix/Rebind / Retry / Skip This Step / Cancel Action。Skip incompatible configurable default OFF; no silent skip。
+Recording REC indicator。Playback status `Action: Name - 3/7` + Cancel。
+
+Action Import/Export contains semantic command ID / version / parameters / target rules / optional inputs / metadata。No JavaScript/shell/plugin code。Unknown version -> Compatibility Report。
+
+Repeat Last = last repeatable semantic command on current target。Examples effect add / transform amount / duplicate+move / fill / adjustment preset。Freehand stroke default excluded。
+Repeat With... edits parameters then re-executes。
+Transform Repeat Modifier = nondestructive spatial repetition; Repeat Last = command re-execution。
+
+Timelapse independent meaningful visual stream, not identical History Graph。History may prune while Timelapse retains required visual evolution stream。
+Default Current Branch。Other Branch selectable。Undo/Redo UI operations are not frames。Abandoned transactions not current-branch timelapse。
+Pause Recording stops timelapse capture while artwork editing continues; Resume from current result。
+Clear Timelapse != Clear History。History prune does not automatically clear Timelapse。
+Replay Speed / Pause / Scrub / Pan / Zoom; replay view nav does not modify record。
+Timelapse Export fixes Source Branch Revision at export start; later strokes excluded from in-progress export。
+Exclude Cursor / Sidebar / Reference PiP / Guides / Selection Halo / Transform Handles / Quick Hole。
+
+Performance priority:
+Direct manipulation > Current visible revision > Undo/Redo target visible result > current branch structural history > recovery persistence > thumbnails/search index > Timelapse encoding。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.17 -->
+
+
 ### 5.18 ファイル / プロジェクト管理
 
 #### 5.18.1 Project Library
@@ -4168,6 +6937,86 @@ Export開始時にSnapshotを固定しBackground processing。以後のDrawing�
 #### 5.18.12 OS Share
 
 Export result / selected fileをOS Shareへ渡す。Share失敗でProject stateを変更しない。
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.18 -->
+#### 5.18.13 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+New Document -> immediate local Untitled Project -> Autosave begins。No first manual save requirement。Initial naming Untitled 1/increment candidate。
+
+Project Library is real Project index, not only Recent Files。Card Thumbnail/Project Name/Modified/Status。Status Saved/Saving/Save Issue/Recovery Available/Missing Resource/Compatibility Issue; normal quiet。Thumbnail failure must not block open。
+
+Folder vs Collection:
+Folder = primary hierarchy, one primary folder。
+Collection = virtual grouping, multi-membership。
+
+State distinction:
+1 Logical Current State
+2 Durable Saved State
+3 Exported State
+Top Bar Saved = current logical revision durable。
+
+Autosave ON default, no full-canvas periodic blocking semantics。Drawing continues during save。
+Save Now prioritizes current revision durability; not Checkpoint。
+
+Last Good Save must not be destroyed before new durable state succeeds。If N+1 save fails, N remains valid。
+Save Issue actions Retry / Save Project Copy / Details; current logical artwork preserved。
+
+Close safety only if latest changes nowhere safely durable。Options Retry Save / Save Project Copy / Keep Editing / Discard Latest Changes。Discard never default。If recovery-safe latest exists, avoid unnecessary modal。
+
+`.illustro` canonical editable format preserving Layer/Object/Brush semantics/Modifier/Generator/Text/Stable Region/Persistent Fill/History Graph/Branch/Checkpoint/Reference metadata/Resources/Timelapse metadata。Physical package Section 6。
+
+PSD is exchange format。Open PSD -> Import -> Illustro Project。Do not use PSD as native ongoing file for Illustro-only semantics。Export PSD explicit。
+
+Import routes:
+Open Project(.illustro) / Import as New Project / Place into Current Project / Add as Reference / Register as Material。
+Drag&Drop shows eligible targets; does not silently replace project。
+
+PSD Import Policy:
+Preserve Appearance default。
+Preserve Editability maps semantics and reports appearance differences。
+Review Issues only when ambiguity/loss exists。Clean import no giant modal。
+Unsupported fallback provenance visible e.g. Rasterized from unsupported PSD effect。Preserve original metadata where possible。
+PSD Export Preflight gives issue-specific rasterize appearance/omit/cancel route; warning alone need not block valid export。
+
+Brush Import report Exact / Approximate / Unsupported。Imported Brush becomes independent Illustro Definition snapshot, no live link to .sut/ibis source。Original file may remain Resource。
+
+Recovery:
+Recovered vs Last Saved compare via A/B or Split。Opening Recovered does not immediately overwrite last-known good durable state; only successful later save makes it current durable。Recovery not History entry。
+
+Duplicate = independent project。
+Variant = Origin Project / Origin Revision / Created time, related Library display, no later synchronization。Copy-on-Write storage optimization only。Variant Compare A/B/Split。No Variant Merge initial。
+
+Delete -> Recently Deleted -> Restore/Delete Permanently。Never delete external Linked Reference/original PSD/external Font/original Brush file。Restore Folder/Collections/Variant relation/Project title when possible。
+
+Single Writable Session: one local Project one writable session by default。Duplicate open options Focus Existing / Open Read-only / Create Variant。Crash stale lock detected/recovered, no permanent lock。
+Read-only can inspect Canvas/History; edit attempt -> Create Editable Copy / Create Variant。No silent lock stealing。
+
+Project Health split:
+Structural Health: Missing Font / Missing Linked Reference / broken live binding / unresolved Stable Region dependency / Save-Recovery problem / damaged Resource / Color Profile problem。
+Format Readiness belongs Export Preflight。Do not constantly show PSD compatibility if not exporting PSD。
+Severity Info/Warning/Blocking; Blocking only if current operation cannot proceed。Every issue has Fix route。
+Examples Missing Font Replace/Import/Locate; Missing Reference Relink/Remove; Unresolved Region Rebind/Freeze。
+
+Resource Cleanup reviews unused imported source / unused embedded reference / orphan thumbnail-cache / unreferenced generated resource。Never remove referenced resource。
+
+Portable Project Copy creates .illustro copy embedding eligible linked resources; original link semantics unchanged。Font/resource embedding restrictions -> Preflight。
+
+Distinct commands:
+Save Now=current project durable。
+Save Project Copy=native snapshot/copy separate target。
+Duplicate=Library independent copy。
+Export=derived output。
+
+Background Export fixed snapshot at start, drawing continues, export does not alter Saved state。
+OS Share: Share Export Result / Share Project。Failure no project mutation。
+Library metadata/thumbnail index first; no full decode all projects; missing thumbnail background lower priority。
+
+Persistence priority:
+Direct manipulation > Current visible result > Logical commit > Critical recovery state > Durable autosave > Export > Thumbnail/indexing/cleanup。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.18 -->
+
 
 ### 5.19 ワークスペース / 操作環境
 
@@ -4267,6 +7116,35 @@ Left-handed / Right-handed / Mirror Layoutを提供。Tool Rail / Page Rail / tr
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.19 -->
+#### 5.19.14 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Workspace Definition:
+Tool Rail configuration / Quick Access / Quick Hole mapping / Properties visible fields / Panels-PiP / Device Layout Variants Desktop-Tablet-Phone。
+Same workspace meaning, device-specific physical layout。
+
+UI Density ownership:
+Device Profile owns UI Scale / Default Density / Touch target regime / Input roles。
+Workspace Density Override: Inherit / Compact / Comfortable / Touch。Default Inherit。
+
+Tool Rail keeps existing 9 Family baseline。Reorder/Hide/Group/Favorite/Reset。Explicit Edit Layout Mode; normal use no accidental reorder。Hidden tools reachable Command Search。
+
+Quick Access = user-selected frequent surface, distinct Global Command Search。Can register Tool / Command / Panel-Page / Auto Action / Color / Workspace。Owned by Workspace Definition。
+
+Global Command Search desktop default Ctrl/Cmd+K。Search Commands/Tools/Pages/Panels/Settings/Auto Actions/Workspaces。Result Name/Shortcut/Menu Path/Availability。Unavailable remains visible when useful with reason。Ranking Exact > localized alias > current context > recent/frequent。No cloud AI dependency。
+
+Properties customization: Detail field can Show in Properties; low-frequency hide。Cannot hide Apply/Cancel/Target/Error-Conflict semantic-essential controls。
+
+PiP position saved per Device Layout Variant。If viewport changes, clamp to Safe Workspace Bounds。×=Redock。Preserve intent/state where possible。
+
+Quick Hole exact Section4 geometry unchanged。Marking Mode optional default OFF。Marking press->slide->release; safer tap mode default。
+
+Task-linked Workspace auto switch default OFF。Temporary Tool changes do not switch。Continuous Transaction中はauto switchを延期しinteraction後に評価。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.19 -->
+
+
 ### 5.20 共通インタラクションシステム
 
 #### 5.20.1 Direct / Quick / Detail
@@ -4327,6 +7205,36 @@ Canvas handle→Properties slider→Numeric fieldのように同じ意味編集�
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.20 -->
+#### 5.20.15 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+One Parameter, One Canonical Value。Canvas Handle / Properties Slider / Numeric Field / PiP Slider all same state。
+Every feature defines Direct / Quick / Detail。
+
+Scalar Control: Drag / Fine Drag / Numeric / Relative Numeric / Saved Marks。
+Numeric +10 / -5 / x2 / ÷2。Unit-aware px/%/°。Unit mismatch rejected with reason, no silent reinterpretation。
+
+Semantic Picker displays Name/Type/Role/Status; no ambiguous first match。
+Hidden vs Disabled: exists but unavailable -> Disabled+Reason; no semantic relevance -> may Hide。
+
+Mixed Values: e.g. 20/40/80 -> Mixed; +10 -> 30/50/90。Do not copy first value to all。
+
+Canvas Handle geometry Document Space, hit target Screen Space; Touch hit area can exceed visual size。Minimal/hide mode if obscures artwork。
+Touch occlusion: HUD/readout offset away from finger。
+
+Pointer Capture: initial control owns until Release/Cancel; crossing does not transfer。Exception optional Quick Hole marking mode。
+
+Eyedropper overlay Current/Candidate/Source; Loupe only sampling; Release Commit; Cancel restores original。
+Preview = Current Effective Interactive State, not fake semantic preview。Internal LOD allowed only same meaning/result。
+
+Continuous Transaction may span Canvas drag/Slider/Numeric if same semantic edit。Tool/target semantic boundary closes。
+
+Destructive confirmation primarily permanent delete / destructive bake-flatten losing editable structure / unresolved compatibility loss / overwrite risk。No modal spam for normal Undoable operations。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.20 -->
+
+
 ### 5.21 オンライン / 共同制作
 
 #### 5.21.1 Positioning
@@ -4371,6 +7279,31 @@ Participantを選択してFollow View。Follow中はremote Pan / Zoomへ追従�
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.21 -->
+#### 5.21.10 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Optional Session overlay on local-first Illustro; Solo project remains base; normal production no cloud requirement。
+Room Roles Owner / Editor / Viewer。Viewer sees permitted canvas/state/cursors, cannot edit。Room link/code has access policy。
+
+New Layer Private default。Share Layer explicit。References/Selection/production state local unless Published。
+Shared state modes Share Live vs Send Copy。Share Live future sync; Send Copy snapshot only。
+
+Raster concurrent drawing preserves both participants' committed operations; no last-write-wins deletion。Same-pixel deterministic canonical order Section8/9。
+Structural semantic conflicts include Delete Layer vs remote Stroke / whole-Layer Transform vs remote Stroke / Clear Layer vs remote Stroke / same semantic property conflict; explicit conflict handling。
+
+Collaboration Undo = Undo My Last Eligible Change。Do not rewind whole document and erase others' later work。If simple inverse impossible, use inverse operation/conflict resolution。
+
+Local-first: pointer -> local visible result -> local logical commit -> network sync。Network RTT never in stroke visible feedback。
+Status Synced / Syncing / Offline / Conflict, quiet when normal。
+Remote Cursor/Viewport optional。Follow View selected participant; any local Pan/Zoom breaks follow immediately。
+
+Connection loss: local editing continues; unsynced operation count。Reconnect safe merge where possible, explicit conflict otherwise; never silently discard local committed work。
+Room end leaves Local Project。If unsynced, show Unsynced changes remain。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.21 -->
+
+
 ### 5.22 素材 / リソース
 
 #### 5.22.1 Assets Page
@@ -4413,6 +7346,38 @@ Dot、Stripe、Grid、Noise、Cloud、Paperをgeneratorとして提供。Resolut
 Selected image / materialをWrap Previewし、Seam candidateを検出。Offset / clone / blend等のediting routeを提供し、final `Register`でseamless materialへ保存。
 
 ---
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.22 -->
+#### 5.22.8 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Resource: Brush Tip / Texture / Pattern / Gradient / Stamp。
+Material: Image Material / User Material / Smart Material / Procedural Material。
+Unified Assets Page。
+
+Storage Scope Built-in / User Library / Project Resource / Imported Pack。
+
+Project Resource Capture: when User Library resource used, project captures sufficient Definition/dependency so deleting Library original does not break existing Project。No silent Library updates flowing into old project。
+
+Register as Material = Snapshot default, no live source artwork link。
+Placement:
+1 Place as Material Object retains transform/tiling/parameters。
+2 Place as Pixels raster content。
+Do not bake Image Material immediately by default。
+
+Smart Material Definition: Color / Scale / Rotation / Density / Randomness / semantic params。
+Application: Transform / Mask / Local Overrides。Shared edit indicator。
+User Library Smart Material placement creates Project-local Definition snapshot; same Project may share instances; Library update does not silently affect project。
+
+Procedural Material Dot / Stripe / Grid / Noise / Cloud / Paper。Noise/Cloud share 5.13 Procedural Noise semantics。
+
+Illustro Asset Pack local import/export。Contains selected assets/dependencies/Tags/thumbnails/compatibility metadata。Preview before import。Stable identity, not name-only collision。No online marketplace。
+
+Seamless Material Builder: Source -> Wrap Preview -> Offset/Clone/Blend -> Register。Original not destructively changed; Replace Existing explicit。
+Assets performance metadata/thumbnail index first; full Resource decode on demand; background lower priority。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.22 -->
+
 
 ### 5.23 設定 / 環境設定 / アクセシビリティ
 
@@ -4479,6 +7444,54 @@ Color-only state禁止、Keyboard focus、Reduced Motion、High Contrast、Left/
 Motion reduction時もDirect Manipulationの位置変化そのものは保持し、装飾transitionだけ削減。
 
 ---
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.23 -->
+#### 5.23.11 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Setting scopes:
+1 Global User
+2 Device Profile
+3 Workspace
+4 Document
+One canonical owner per setting。
+
+Device Profile Desktop / Tablet / Phone / Custom。Stores UI Scale / Density / Pen Pressure Profile / Touch Roles / Mouse behavior / Gesture bindings / Pen Button bindings / Handedness-Reachability default。Auto-detection initial suggestion only, never overwrite Custom。
+
+Pen Pressure Calibration pipeline Raw Device Pressure -> Device Calibration -> Brush Dynamics。Controls Minimum Pressure / Maximum Pressure / Response Curve / Test Pad。Device calibration separate preset curve。
+
+UI Scale Auto / 80 / 90 / 100 / 110 / 125 / 150。Density Compact / Comfortable / Touch。Extreme impractical combination warns, not silently changes。
+
+Shortcut/Gesture Editor shared Command Registry。Inputs Key / Modifier / Pen Button / Touch Gesture。Conflict shows existing binding+reason。
+
+Trial Mode Trial active with Commit/Revert All。Relevant Theme/Gesture/Shortcut/UI Scale/Handedness。Safe Revert always available for risky mapping。Crash during Trial must not persist uncommitted dangerous config。
+
+Settings for this behavior navigates exact relevant setting; if none, do not dump into unrelated General。
+Settings Search shows Setting Name / Current Value / Path; simple toggle may edit inline, complex navigate。
+
+Accessibility:
+- color-only state prohibited
+- keyboard focus indicator
+- keyboard-only reachable commands
+- screen reader accessible names
+- Reduced Motion
+- Reduced Transparency
+- High Contrast
+- adjustable UI Scale
+- Touch target sizing
+- Left/Right handed layout
+- configurable hold timing
+- configurable gesture timing
+- cursor visibility enhancement
+- handle visibility enhancement
+- pattern/icon in addition to color for critical states
+
+Reduced Motion removes decorative fade/spring/unnecessary transitions but retains actual direct-manipulation movement。
+Settings Backup Local file; Restore category-selective Workspace/Input/Shortcuts/Appearance/Accessibility and defined groups。Incompatible device mapping -> Compatibility Report。
+Cloud Settings Sync not required initial; account-free complete settings management。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.23 -->
+
 
 ### 5.24 出力 / カラーマネジメント
 
@@ -4558,6 +7571,71 @@ ExportはSnapshot固定後Background processing。Progress、Cancel、Result loc
 
 ---
 
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.24 -->
+#### 5.24.12 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Display pipeline: Document Color -> Document Profile Interpretation -> Display Conversion -> Monitor。
+Export: Document -> Output Profile Conversion -> Encoded File。
+Soft Proof: Document -> Simulated Output Profile -> Display。Do not conflate。
+
+Assign Profile: numeric pixel values unchanged, interpretation changes, appearance may change。Warning Numeric values unchanged - appearance may change。
+Convert Profile: numeric values transform, appearance preserved as much as possible。Both Before/After preview。
+
+Rendering Intent: Perceptual / Relative Colorimetric / Absolute Colorimetric / Saturation。
+Black Point Compensation where supported。Default candidate ON for normal conversions; exact default Section6。
+
+Soft Proof per-view: View A Normal / View B CMYK Proof possible。Artwork pixels unchanged; config may be view/document metadata。
+Primary Proof controls Profile / Intent / Gamut Warning。Advanced BPC / Simulate Paper White / Simulate Black-Ink。
+Gamut Warning overlay only, configurable warning color, optional hatch accessibility。
+
+CMYK Preview proof only, does not convert RGB Document or Brush state。
+Print-size Preview from DPI+display scale; if physical display data unreliable show Approximate。Future physical calibration possible。
+
+Export Workspace order:
+1 Target
+2 Format
+3 Dimensions
+4 Color
+5 Transparency
+6 Metadata
+7 Naming/Destination
+8 Preflight
+
+Dimensions Original / Percentage / Pixel W-H / Frame Variant / Physical Size+DPI where supported / Aspect Lock。Resampling shared Transform family, no separate confusing names。
+
+Format defaults:
+General/Web PNG sRGB 8-bit。
+JPEG Quality90 baseline, no alpha。
+TIFF high-quality/print。
+PSD editable exchange。
+SVG vector exchange。
+JPEG with alpha source requires explicit Background Color; no silent white。
+
+Output Profile conversion does not mutate Document Profile。Embed Profile default where supported。
+Alpha separate from color conversion; RGB profile conversion must not change alpha。Transparent-edge exact handling Section6/9。
+
+Metadata privacy-safe default。
+May include Project Title / explicitly configured Author / Copyright / Color Profile。
+Default exclude local file paths / hidden Reference paths / device identifiers / inherited GPS-location metadata。All Metadata explicit opt-in。
+
+Export Recipe stores Format/Dimensions/Frame/Profile/Bit Depth/Transparency/Metadata/Naming; no artwork。Built-in Web PNG / Web JPEG / Transparent PNG / High Resolution Archive / Print RGB / PSD Exchange。
+Naming Tokens {project} / {frame} / {recipe} / {width} / {height}。No arbitrary scripts。
+
+Multi-target Export uses one frozen Document Snapshot for all targets; drawing after start never appears only in later outputs。
+
+Export Preflight target-specific checks Missing Font / Unsupported Effect / SVG Raster Fallback / PSD unsupported structure / JPEG Transparency / Profile incompatibility / Bit-depth loss / Resolution / Gamut / File Size Estimate。
+Severity Info/Warning/Blocking; Blocking only when target cannot be represented without choice。Every issue has Fix route。
+Examples JPEG transparency -> Set Background Color / Choose PNG。PSD unsupported modifier -> Rasterize Appearance Copy / Skip Effect / Cancel。
+Project Health separate。
+
+Proof Compare Toggle / Split / Side-by-side; synchronized nav; Original/sRGB/Display-P3/selected print proof; one canonical document, no copies。
+
+Background Export freezes Revision at start; continue drawing; Cancel no artwork mutation; finish Open Location / Share / Export Again。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.24 -->
+
+
 ### 5.25 Illustro Cross-Tool Region / Relative Color System — 確定
 
 #### 5.25.1 Classification / 重複防止
@@ -4613,9 +7691,68 @@ Illustro独自性は`特殊Toolを増やすこと`ではなく、通常のBrush 
 
 #### 5.25.5 Naming
 
-`Region Wash`、`Smart Shade`、`Smart Light`、`Edge Bloom`等はPreset / Style名として利用可能だが、Canonical feature名はそれぞれRegion Constraint、Relative Color Application、Boundary-distance Fill等のCapability名を使用する。
 
 ---
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.25 -->
+#### 5.25.6 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+##### Shared Region Resolver final integration:
+No redundant Tool families for Enclose Fill/Erase / Region Sweep / Persistent Region Fill / Manual Boundary Editing / Anti-overflow / Lineart-limited Paint / Recent Stroke Re-edit / Brush Morph。
+Illustro novelty = common semantics across tools。
+Shared Resolver Input Source / Source Revision / Gesture / Match Rule / Boundary Policy / Existing Set / Selection Constraint。
+Output Resolved Region Set / Stable refs / geometry / status / diagnostics。
+All consumers use same boundary meaning; no independent reinterpretation; no stale silent use。
+Stable Region -> Selection Frozen default; Live explicit。Live missing -> Rebind / Freeze Last Valid / Unbind。
+
+##### Relative Color final integration:
+Canonical pipeline Reference Color -> Color Application -> Generated Paint Color -> Brush/Fill Deposit -> Blend Mode -> Result。
+Relative Color != Blend Mode。
+
+Modes:
+Absolute = fixed Main Color independent reference。
+Relative Shade = Hue change0 default / Chroma change0 default / Lightness decrease / quick Shade Amount。
+Relative Light = Lightness increase。
+Custom Relative = explicit Hue/Chroma/Lightness changes。
+No naive RGB add/subtract; perceptual semantics; exact gamut Section9/5.24。
+
+Reference Source:
+1 Destination/Under-paint
+2 Region Base Color
+3 Explicit Reference
+Destination/Under-paint uses current underlying color。Same Brush Stroke fixes Under-paint Source Revision at Stroke Start, no recursive self-feedback。
+
+Relative Amount distinct Opacity/Flow/Density。Generate Target Color first, then deposit。Dynamics candidate Relative Amount default OFF unless preset。
+
+Region Base stable semantic base; repeated shade strokes do not use newly shaded result as new base。Never auto-average current region。
+Priority:
+1 Explicit Region Base
+2 Absolute Persistent Fill Assignment
+3 Undefined
+Undefined -> No Base Color status + Set from Current / Pick / Use Destination。No silent Destination fallback。
+Stable continuation keeps base; Split children inherit; Merge differing base -> Conflict。
+Explicit Reference fixed snapshot。
+Relative modes do not overwrite Main/Sub。
+Color Page has Color Application block。Preview multi-reference swatches。Canvas/Fill hover preview where supported。
+
+Multi-region Fill applies same relative relation independently to each Region Base, not one absolute output color。
+Transparent Destination Policy: Skip default / Use Explicit / Use Region Base。No silent black/white。
+Relative changes color not alpha。Mixing separate。Blend Mode separate, default Normal; do not auto Multiply for Shade。
+Shade/Light presets use same engine。Small Color Application Presets candidate。
+Advanced dynamics Hue/Chroma/Relative Amount with restrained mostly-OFF defaults。
+Persistent Fill may use Relative; Base change reevaluates。
+Dependency cycles forbidden; chain must have absolute anchor。
+Boundary-distance Fill reuses same Color Application。
+Grayscale Lightness works, Hue/Chroma disabled。1bit Relative unavailable default。
+Gamut deterministic/profile-aware/hue-stable strategy; exact Section9。Not AI。
+
+Naming:
+Optional preset/style names Region Wash / Smart Shade / Smart Light。
+Canonical names Region Constraint / Relative Color Application / Boundary-distance Fill。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.25 -->
+
 
 ### 5.26 Section 5 完了条件 / Default UX Baseline
 
@@ -4670,3 +7807,51 @@ Built-in 41 Presetを5.2.13の初期Baselineとする。Preset count増加を機
 後続技術都合で本章UXを暗黙に劣化させない。成立しない仕様が判明した場合は本Source of Truthへ戻して明示改訂する。
 
 以上をもってSection 5「各機能の詳細仕様」を確定・完了とする。
+
+<!-- ILLUSTRO-V2-FULL:DETAIL:5.26 -->
+#### 5.26.7 Section 5詳細設計統合
+
+本項はこの節の既存仕様を失わず、詳細検討で確定した追加仕様・Default・例外・Failure semanticsを統合する。同節内の旧記述と直接矛盾する場合は、本項の後発確定仕様を優先する。
+
+Keep 24-category coverage / Quick Hole baseline / Shortcut baseline / 41 Brush baseline / UI-State consistency / Section6-11 boundary。
+
+18 Final Invariants:
+1. 24カテゴリすべてにEntry / Primary behavior / state / parameter grouping / commit semantics。
+2. Section 2採用/除外Scopeと一致。
+3. Cross-tool capabilityの重複Engineを作らない。
+4. Direct / Quick / Detailを定義。
+5. Canonical Parameter一意。
+6. PreviewとFinalの意味一致。
+7. Undo粒度Semantic Transaction。
+8. Non-destructive primary route優先。
+9. Silent fallback / silent rasterize / silent stale state禁止。
+10. Dependency failureにRecovery route。
+11. Selection / Mask / Effect Mask / Guard等のCoverage semantics統一。
+12. Source/Revision固定が必要な操作でself-feedback禁止。
+13. Color Management共通化。
+14. Random operation deterministic。
+15. 特定Device/Inputだけが唯一入口になる設計禁止。
+16. Accessibility baseline。
+17. Background workでForeground direct interactionをBlockingしない。
+18. Section6-11へ送る技術事項とSection5 user-facing semanticsを混同しない。
+
+Foreground priority:
+Direct Input -> Current Visible Working Set -> Current Logical Result -> Required Local Dependencies -> Offscreen Update -> Persistence/Thumbnail/Search/Export/Cache。
+
+Resolved Conflicts:
+3 Generic Modifier Opacity/Strength -> Effect Mix。
+4 Duplicate vs Project Variant ->分離。
+5 Procedural Noise vs Procedural Noise Generator（Cloud preset） -> Procedural Noise + Cloud preset。
+6 Extrude -> Stylize。
+8 Reconstruct vs Reconstruct -> Reconstruct統合。
+9 Fill Strength ambiguity -> Tolerance + Application Opacity。
+10 Reference Grayscale/Desaturate/Value Only -> Value + Saturation。
+11 Layer Border/Text Outline/Outline Filter -> common Outline Effect Modifier。
+12 Layer Style subsystem -> Effect Modifier。
+13 Adjustment Layer/Smart Filter subsystem -> Attached/Stack Effect Modifier。
+14 Transform Esc/× current-interaction conflict -> whole Transform Session Cancel。
+15 Rasterize/Bake/Flatten/Export -> separate semantics。
+
+Section2 major capability additions that must be reflected:
+Text on Path / Text inside Shape / Tate-chu-yoko / Live Canvas Reference / Repeat Last / Repeat With / Effect Group / Portable Project Copy / Illustro Asset Pack / Collaboration Undo / per-view Soft Proof / Project Resource Capture。
+<!-- /ILLUSTRO-V2-FULL:DETAIL:5.26 -->
