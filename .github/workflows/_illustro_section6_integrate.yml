@@ -1,0 +1,63 @@
+name: Temporary Illustro Section 6 Integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/_illustro_section6_ready"
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Integrate Section 6 with minimum diff
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          MASTER = Path("ILLUSTRO_MASTER_DESIGN.md")
+          PAYLOAD = Path("tools/_illustro_section6.md")
+          EXPECTED_BLOB = "7a3c1b1a02bea335e9c88351994b2b4431061a11"
+
+          def blob_sha(data: bytes) -> str:
+              return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+          original = MASTER.read_bytes()
+          actual = blob_sha(original)
+          if actual != EXPECTED_BLOB:
+              raise SystemExit(f"Latest Source changed: expected={EXPECTED_BLOB} actual={actual}; abort/rebase required")
+
+          text = original.decode("utf-8")
+          if "\n## 6. 保存・File format・Compatibility・Durability" in text:
+              raise SystemExit("Section 6 already exists; refusing duplicate integration")
+
+          payload = PAYLOAD.read_text(encoding="utf-8").strip()
+          if not payload.startswith("## 6. 保存・File format・Compatibility・Durabilityの詳細 — 確定"):
+              raise SystemExit("Invalid Section 6 payload header")
+          if "### 6.17 Section 6 完了条件 / Invariants" not in payload:
+              raise SystemExit("Section 6 completion invariants missing")
+
+          updated = text.rstrip() + "\n\n" + payload + "\n"
+          if not updated.startswith(text.rstrip()):
+              raise SystemExit("Existing Master prefix changed unexpectedly")
+          if updated.count("## 6. 保存・File format・Compatibility・Durabilityの詳細 — 確定") != 1:
+              raise SystemExit("Section 6 header count invalid")
+
+          MASTER.write_text(updated, encoding="utf-8", newline="\n")
+          PY
+
+          git config user.name "illustro-design-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ILLUSTRO_MASTER_DESIGN.md
+          git rm .github/workflows/_illustro_section6_integrate.yml tools/_illustro_section6.md tools/_illustro_section6_ready
+          git diff --cached --check
+          git commit -m "docs: define Section 6 durability and compatibility"
+          git push
