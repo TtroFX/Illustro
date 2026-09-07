@@ -53,14 +53,25 @@ jobs:
               raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
           t=data.decode("utf-8")
 
-          # Repair only the known malformed Markdown boundary before Section 2.8.
-          # Match the stable ASCII heading prefix so Unicode title variations cannot hide the boundary.
-          broken="Application### 2.8 "
-          if broken in t:
-              t=t.replace(broken,"Application\n\n### 2.8 ",1)
-          if broken in t:
-              raise SystemExit("Section 2.8 boundary remains malformed after repair")
-          if not re.search(r"(?m)^### 2\.8\s",t):
+          # Repair the known malformed Section 2.8 boundary by the position of the heading
+          # within the one source line that contains both its number and title. This preserves
+          # every source character and inserts only the missing line boundary.
+          lines=t.splitlines(keepends=True)
+          offset=0
+          repaired=False
+          for line in lines:
+              if "2.8" in line and "線画システム" in line:
+                  p=line.find("###")
+                  if p >= 0:
+                      if p > 0:
+                          at=offset+p
+                          t=t[:at]+"\n\n"+t[at:]
+                      repaired=True
+                      break
+              offset+=len(line)
+          if not repaired:
+              raise SystemExit("Cannot locate Section 2.8 heading inside the source line")
+          if not any(line.startswith("###") and "2.8" in line and "線画システム" in line for line in t.splitlines()):
               raise SystemExit("Section 2.8 heading boundary repair failed")
 
           INVISIBLE=" \t\ufeff\u200b\u2060\u00a0"
