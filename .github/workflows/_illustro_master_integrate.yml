@@ -52,14 +52,16 @@ jobs:
               raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
           t=data.decode("utf-8")
 
-          # Repair one pre-existing malformed Markdown boundary in the current Source of Truth.
-          # Replace only the unique concatenation token, inserting the missing newline and deleting no text.
-          malformed="Application### 2.8 線画システム【Illustro独自】"
-          repaired="Application\n\n### 2.8 線画システム【Illustro独自】"
-          if malformed in t:
-              t=t.replace(malformed,repaired,1)
-          elif "\n### 2.8 線画システム【Illustro独自】" not in t:
-              raise SystemExit("Cannot safely locate/repair Section 2.8 heading boundary")
+          # Repair one pre-existing malformed Markdown boundary by locating the unique
+          # Section 2.8 heading token even if it is concatenated to the preceding text.
+          heading="### 2.8 線画システム【Illustro独自】"
+          idx=t.find(heading)
+          if idx < 0:
+              raise SystemExit("Cannot locate Section 2.8 heading token")
+          if idx > 0 and t[idx-1] != "\n":
+              t=t[:idx]+"\n\n"+t[idx:]
+          if "\n### 2.8 線画システム【Illustro独自】" not in t:
+              raise SystemExit("Section 2.8 heading boundary repair failed")
 
           INVISIBLE=" \t\ufeff\u200b\u2060\u00a0"
           def canon_line(line):
