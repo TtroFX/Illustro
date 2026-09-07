@@ -1,0 +1,63 @@
+name: Temporary Illustro Section 8 Integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/_illustro_section8_ready"
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Integrate Section 8 with minimum diff
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib
+
+          MASTER = Path("ILLUSTRO_MASTER_DESIGN.md")
+          PAYLOAD = Path("tools/_illustro_section8.md")
+          EXPECTED_BLOB = "e596733ce2e5f537f1b437a8f291b506b62f3b1a"
+
+          def blob_sha(data: bytes) -> str:
+              return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+          original = MASTER.read_bytes()
+          actual = blob_sha(original)
+          if actual != EXPECTED_BLOB:
+              raise SystemExit(f"Latest Source changed: expected={EXPECTED_BLOB} actual={actual}; abort/rebase required")
+
+          text = original.decode("utf-8")
+          if "\n## 8. 技術Architecture" in text:
+              raise SystemExit("Section 8 already exists; refusing duplicate integration")
+
+          payload = PAYLOAD.read_text(encoding="utf-8").strip()
+          if not payload.startswith("## 8. 技術Architecture — 確定"):
+              raise SystemExit("Invalid Section 8 payload header")
+          if "### 8.21 Section 8 完了条件 / Architecture Invariants" not in payload:
+              raise SystemExit("Section 8 completion invariants missing")
+
+          updated = text.rstrip() + "\n\n" + payload + "\n"
+          if not updated.startswith(text.rstrip()):
+              raise SystemExit("Existing Master prefix changed unexpectedly")
+          if updated.count("## 8. 技術Architecture — 確定") != 1:
+              raise SystemExit("Section 8 header count invalid")
+
+          MASTER.write_text(updated, encoding="utf-8", newline="\n")
+          PY
+
+          git config user.name "illustro-design-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add ILLUSTRO_MASTER_DESIGN.md
+          git rm .github/workflows/_illustro_section8_integrate.yml tools/_illustro_section8.md tools/_illustro_section8_ready
+          git diff --cached --check
+          git commit -m "docs: define Section 8 technical architecture"
+          git push
