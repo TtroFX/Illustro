@@ -53,14 +53,14 @@ jobs:
               raise SystemExit(f"Latest Source changed: expected={expected} actual={actual}; abort/rebase required")
           t=data.decode("utf-8")
 
-          # Repair only the malformed Markdown boundary immediately before the Section 2.8 heading.
-          # Every occurrence of the exact heading token that is not already at a line boundary is separated;
-          # no source text is deleted or rewritten by this repair.
-          heading="### 2.8 線画システム【Illustro独自】"
-          if heading not in t:
-              raise SystemExit("Cannot locate Section 2.8 heading token")
-          t=re.sub(rf"(?<!\n)(?={re.escape(heading)})","\n\n",t)
-          if not re.search(rf"(?m)^{re.escape(heading)}$",t):
+          # Repair only the known malformed Markdown boundary before Section 2.8.
+          # Match the stable ASCII heading prefix so Unicode title variations cannot hide the boundary.
+          broken="Application### 2.8 "
+          if broken in t:
+              t=t.replace(broken,"Application\n\n### 2.8 ",1)
+          if broken in t:
+              raise SystemExit("Section 2.8 boundary remains malformed after repair")
+          if not re.search(r"(?m)^### 2\.8\s",t):
               raise SystemExit("Section 2.8 heading boundary repair failed")
 
           INVISIBLE=" \t\ufeff\u200b\u2060\u00a0"
